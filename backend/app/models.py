@@ -18,6 +18,10 @@ class Food(Base):
     # per-amino-acid true ileal digestibility coefficients (0-1), for DIAAS
     digestibility_diaas: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # provenance of digestibility_diaas: "measured" (published coefficient for this
+    # specific food) or "estimated" (broad food-category fallback), null if unset
+    digestibility_diaas_source: Mapped[str | None] = mapped_column(String, nullable=True)
+
     # single overall crude protein digestibility coefficient (0-1), for PDCAAS
     digestibility_pdcaas: Mapped[float | None] = mapped_column(Float, nullable=True)
 

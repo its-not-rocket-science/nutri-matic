@@ -18,6 +18,7 @@ class FoodCreate(BaseModel):
     protein_g_per_100g: float
     amino_acids: AminoAcidProfile
     digestibility_diaas: AminoAcidProfile | None = None
+    digestibility_diaas_source: str | None = None
     digestibility_pdcaas: float | None = None
     fdc_id: int | None = None
     data_type: str | None = None
@@ -34,3 +35,4 @@ class ScoreOut(BaseModel):
     score: float
     limiting_amino_acid: str
     per_aa_ratios: dict[str, float]
+    digestibility_source: str | None = None
