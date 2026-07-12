@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..reference_patterns import DEFAULT_PATTERN
-from ..scoring import UnknownReferencePattern, compute_diaas, compute_pdcaas
+from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
 
 router = APIRouter(prefix="/api/foods", tags=["foods"])
 
@@ -17,6 +17,8 @@ def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db)):
         amino_acids=food.amino_acids.model_dump(),
         digestibility_diaas=food.digestibility_diaas.model_dump() if food.digestibility_diaas else None,
         digestibility_pdcaas=food.digestibility_pdcaas,
+        fdc_id=food.fdc_id,
+        data_type=food.data_type,
     )
     db.add(db_food)
     db.commit()
@@ -63,7 +65,7 @@ def score_food(
             result = compute_pdcaas(food.amino_acids, food.digestibility_pdcaas, pattern)
         else:
             raise HTTPException(status_code=422, detail="method must be 'diaas' or 'pdcaas'")
-    except UnknownReferencePattern as e:
+    except (UnknownReferencePattern, IncompleteAminoAcidProfile) as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     return schemas.ScoreOut(

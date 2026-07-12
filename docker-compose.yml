@@ -6,7 +6,10 @@ services:
       POSTGRES_PASSWORD: nutrimatic
       POSTGRES_DB: nutrimatic
     ports:
-      - "5432:5432"
+      # host port 5433, not 5432 — avoids clashing with a locally-installed Postgres.
+      # Only matters for host-side tools (e.g. ingest_fdc.py); the backend container
+      # talks to this over the docker network on the default 5432.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

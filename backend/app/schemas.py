@@ -2,15 +2,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AminoAcidProfile(BaseModel):
-    histidine: float
-    isoleucine: float
-    leucine: float
-    lysine: float
-    met_cys: float = Field(description="methionine + cysteine")
-    phe_tyr: float = Field(description="phenylalanine + tyrosine")
-    threonine: float
-    tryptophan: float
-    valine: float
+    histidine: float | None = None
+    isoleucine: float | None = None
+    leucine: float | None = None
+    lysine: float | None = None
+    met_cys: float | None = Field(default=None, description="methionine + cysteine")
+    phe_tyr: float | None = Field(default=None, description="phenylalanine + tyrosine")
+    threonine: float | None = None
+    tryptophan: float | None = None
+    valine: float | None = None
 
 
 class FoodCreate(BaseModel):
@@ -19,6 +19,8 @@ class FoodCreate(BaseModel):
     amino_acids: AminoAcidProfile
     digestibility_diaas: AminoAcidProfile | None = None
     digestibility_pdcaas: float | None = None
+    fdc_id: int | None = None
+    data_type: str | None = None
 
 
 class FoodOut(FoodCreate):
