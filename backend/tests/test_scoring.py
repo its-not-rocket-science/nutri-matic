@@ -1,7 +1,12 @@
 import pytest
 
 from app.reference_patterns import REFERENCE_PATTERNS
-from app.scoring import UnknownReferencePattern, compute_diaas, compute_pdcaas
+from app.scoring import (
+    IncompleteAminoAcidProfile,
+    UnknownReferencePattern,
+    compute_diaas,
+    compute_pdcaas,
+)
 
 PATTERN = REFERENCE_PATTERNS["child_3y_adult"]
 
@@ -52,3 +57,24 @@ def test_pdcaas_capped_at_100():
 def test_unknown_pattern_raises():
     with pytest.raises(UnknownReferencePattern):
         compute_diaas(PATTERN, digestibility=1.0, pattern_name="nonexistent")
+
+
+def test_diaas_raises_on_missing_amino_acid():
+    aa = dict(PATTERN)
+    aa["tryptophan"] = None
+    with pytest.raises(IncompleteAminoAcidProfile):
+        compute_diaas(aa, digestibility=1.0)
+
+
+def test_diaas_raises_on_missing_digestibility_coefficient():
+    digestibility = {k: 0.9 for k in PATTERN}
+    digestibility["lysine"] = None
+    with pytest.raises(IncompleteAminoAcidProfile):
+        compute_diaas(PATTERN, digestibility=digestibility)
+
+
+def test_pdcaas_raises_on_missing_amino_acid():
+    aa = dict(PATTERN)
+    aa["valine"] = None
+    with pytest.raises(IncompleteAminoAcidProfile):
+        compute_pdcaas(aa, overall_digestibility=0.9)

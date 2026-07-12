@@ -25,6 +25,10 @@ class UnknownReferencePattern(ValueError):
     pass
 
 
+class IncompleteAminoAcidProfile(ValueError):
+    pass
+
+
 def _get_pattern(pattern_name: str) -> AminoAcidPattern:
     try:
         return REFERENCE_PATTERNS[pattern_name]
@@ -35,18 +39,27 @@ def _get_pattern(pattern_name: str) -> AminoAcidPattern:
         ) from None
 
 
+def _require_complete(values: dict[str, float | None], what: str) -> None:
+    missing = [aa for aa in AMINO_ACIDS if values.get(aa) is None]
+    if missing:
+        raise IncompleteAminoAcidProfile(f"Missing {what} for: {', '.join(missing)}")
+
+
 def _limiting(ratios: dict[str, float]) -> str:
     return min(ratios, key=ratios.get)
 
 
 def compute_diaas(
-    amino_acids_mg_per_g_protein: AminoAcidPattern,
-    digestibility: dict[str, float] | float,
+    amino_acids_mg_per_g_protein: dict[str, float | None],
+    digestibility: dict[str, float | None] | float,
     pattern_name: str = DEFAULT_PATTERN,
 ) -> ScoreResult:
     """digestibility: per-amino-acid SID coefficients (0-1), or a single
     coefficient applied uniformly to all amino acids."""
     pattern = _get_pattern(pattern_name)
+    _require_complete(amino_acids_mg_per_g_protein, "amino acid content")
+    if isinstance(digestibility, dict):
+        _require_complete(digestibility, "digestibility coefficients")
 
     ratios: dict[str, float] = {}
     for aa in AMINO_ACIDS:
@@ -64,13 +77,14 @@ def compute_diaas(
 
 
 def compute_pdcaas(
-    amino_acids_mg_per_g_protein: AminoAcidPattern,
+    amino_acids_mg_per_g_protein: dict[str, float | None],
     overall_digestibility: float,
     pattern_name: str = DEFAULT_PATTERN,
 ) -> ScoreResult:
     """overall_digestibility: single crude protein digestibility coefficient
     (0-1), typically faecal. Score is capped at 100%."""
     pattern = _get_pattern(pattern_name)
+    _require_complete(amino_acids_mg_per_g_protein, "amino acid content")
 
     raw_ratios = {aa: (amino_acids_mg_per_g_protein[aa] / pattern[aa]) * 100 for aa in AMINO_ACIDS}
     limiting = _limiting(raw_ratios)
