@@ -20,6 +20,7 @@ class FoodCreate(BaseModel):
     digestibility_diaas: AminoAcidProfile | None = None
     digestibility_diaas_source: str | None = None
     digestibility_pdcaas: float | None = None
+    digestibility_pdcaas_source: str | None = None
     fdc_id: int | None = None
     data_type: str | None = None
 
