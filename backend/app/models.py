@@ -25,6 +25,10 @@ class Food(Base):
     # single overall crude protein digestibility coefficient (0-1), for PDCAAS
     digestibility_pdcaas: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # provenance of digestibility_pdcaas: "measured" (published coefficient for this
+    # specific food) or "estimated" (broad food-category fallback), null if unset
+    digestibility_pdcaas_source: Mapped[str | None] = mapped_column(String, nullable=True)
+
     # USDA FoodData Central provenance, null for manually-entered foods
     fdc_id: Mapped[int | None] = mapped_column(Integer, unique=True, nullable=True, index=True)
     data_type: Mapped[str | None] = mapped_column(String, nullable=True)

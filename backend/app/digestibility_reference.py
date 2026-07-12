@@ -1,24 +1,40 @@
-"""Reference DIAAS digestibility coefficients.
+"""Reference digestibility coefficients for DIAAS and PDCAAS.
 
-Two tiers, matched against a food's name in order (first match wins):
+Each score method has two tiers, matched against a food's name in order
+(first match wins):
 
-MEASURED: real per-amino-acid digestibility from a published study of that
-specific food. Where the study didn't report all nine amino acids, the
-missing ones are left null — scoring correctly refuses to compute a DIAAS
+MEASURED_*: real digestibility from a published study of that specific
+food (or, for PDCAAS, the standard literature reference table — see note
+below). Deliberately small — most published digestibility studies are
+either paywalled, report only 2-3 amino acids, or are pig/feed studies on
+processed ingredients (soybean meal, corn gluten meal) that don't represent
+the whole foods FDC lists under similar names. Those were found during
+research but excluded here rather than mismatched onto foods they weren't
+measured on. Where a source didn't report every amino acid, the missing
+ones are left null — DIAAS scoring correctly refuses to compute a score
 for a food if its limiting amino acid's digestibility is unknown, rather
-than silently guessing. Deliberately small: most published digestibility
-studies are either paywalled, report only 2-3 amino acids, or are pig/feed
-studies on processed ingredients (soybean meal, corn gluten meal) that
-don't represent the whole foods FDC lists under similar names — those were
-found during research but excluded here rather than mismatched onto foods
-they weren't measured on.
+than silently guessing.
 
 CATEGORY_FALLBACK: broad food-group coefficients from typical literature
-ranges, applied uniformly across all nine amino acids (the same
-simplification FAO permits when per-amino-acid data isn't available). Not
-citable to a specific study — a coarse approximation so most ingested foods
-get *some* usable DIAAS estimate, flagged digestibility_diaas_source="estimated"
-so the UI can warn users it isn't food-specific data.
+ranges, applied uniformly (as a single overall coefficient for PDCAAS, or
+broadcast across all 9 amino acids for DIAAS — the same simplification FAO
+permits when per-amino-acid data isn't available). Not citable to a
+specific study — a coarse approximation so most ingested foods get *some*
+usable score, flagged digestibility_*_source="estimated" so the UI can
+warn users it isn't food-specific data. Shared between DIAAS and PDCAAS
+since both represent the same underlying idea (how digestible is this
+food's protein) at the same coarse grain.
+
+MEASURED_PDCAAS provenance note: except for rice (cross-checked directly
+against an FAO document citing WHO 1985 / Hopkins 1981 human data), these
+values come from the "true digestibility" table commonly reproduced across
+nutrition literature and traced to FAO (1991) *Protein Quality Evaluation*,
+Rome. Every attempt to fetch that report or a reproduction of its exact
+table directly (ScienceDirect, the original Journal of Nutrition paper,
+Genesis R&D, an ADPI PDF) was blocked or unreadable; the values here are
+corroborated by the numbers being consistently reproduced across multiple
+independent secondary sources, not independently verified against the
+primary document page-by-page.
 """
 
 # (requires, excludes, coefficients, citation): matches a food name if it
@@ -26,7 +42,7 @@ so the UI can warn users it isn't food-specific data.
 # coefficients is either a single float (applied to all 9 amino acids) or a
 # partial dict keyed by reference_patterns.AMINO_ACIDS names — missing keys
 # are left null. Checked in order, first match wins.
-MEASURED: list[tuple[tuple[str, ...], tuple[str, ...], float | dict[str, float], str]] = [
+MEASURED_DIAAS: list[tuple[tuple[str, ...], tuple[str, ...], float | dict[str, float], str]] = [
     (
         ("egg, whole", "cooked"),
         ("substitute", "white", "yolk", "powder", "dried"),
@@ -62,8 +78,79 @@ MEASURED: list[tuple[tuple[str, ...], tuple[str, ...], float | dict[str, float],
     ),
 ]
 
+# (prefixes, excludes, coefficient, citation): matches a food name if it
+# STARTS WITH any of `prefixes` and contains NONE of the `excludes`. Prefix
+# anchoring (rather than a bare substring) is what keeps "Rice," (the plain
+# commodity) from also matching "Babyfood, cereal, rice, ..." or "Beverages,
+# rice milk, ...", which a plain "rice" substring would. Checked in order,
+# first match wins. Single overall crude-protein digestibility coefficient
+# per food — see the module docstring for sourcing/provenance.
+MEASURED_PDCAAS: list[tuple[tuple[str, ...], tuple[str, ...], float, str]] = [
+    (
+        ("egg, whole",),
+        ("substitute", "white", "yolk", "powder", "dried", "raw"),
+        0.97,
+        "Classic FAO (1991) true digestibility table, as widely reproduced "
+        "in nutrition literature.",
+    ),
+    (
+        ("rice,",),
+        (),
+        0.88,
+        "FAO doc fdc_id t0567e (Rice in Human Nutrition), Table 28, citing "
+        "Hopkins 1981 / WHO 1985 — human/mixed data, mean digestibility of "
+        "milled rice.",
+    ),
+    (
+        ("corn, sweet", "corn, dried", "corn, white", "corn, yellow"),
+        (),
+        0.85,
+        "Classic FAO (1991) true digestibility table (maize), as widely "
+        "reproduced in nutrition literature.",
+    ),
+    (
+        ("oats,",),
+        (),
+        0.86,
+        "Classic FAO (1991) true digestibility table (oatmeal), as widely "
+        "reproduced in nutrition literature.",
+    ),
+    (
+        ("peanuts,", "peanut,"),
+        (),
+        0.95,
+        "Classic FAO (1991) true digestibility table (peanut butter), as "
+        "widely reproduced in nutrition literature.",
+    ),
+    (
+        ("soybeans,",),
+        (),
+        0.90,
+        "Classic FAO (1991) true digestibility table (soybean flour "
+        "86% / soy protein isolate 95%, midpoint used since whole soybeans "
+        "aren't distinguished in that source), as widely reproduced in "
+        "nutrition literature.",
+    ),
+    (
+        ("beans,",),
+        ("snap", "wax", "yellow bean"),
+        0.78,
+        "Classic FAO (1991) true digestibility table (kidney beans), as "
+        "widely reproduced in nutrition literature.",
+    ),
+    (
+        ("lentils,", "chickpeas,"),
+        (),
+        0.78,
+        "Classic FAO (1991) true digestibility table (beans, as a legume "
+        "proxy — lentils/chickpeas not separately listed in that source), "
+        "as widely reproduced in nutrition literature.",
+    ),
+]
+
 # (keyword, coefficient) — broad category fallback, "estimated" tier.
-# Checked only after MEASURED finds no match, in order, first match wins.
+# Checked only after the MEASURED_* tier finds no match, in order, first
+# match wins.
 CATEGORY_FALLBACK: list[tuple[str, float]] = [
     ("whey", 0.95),
     ("casein", 0.95),
@@ -147,16 +234,29 @@ CATEGORY_FALLBACK: list[tuple[str, float]] = [
 ]
 
 
-def lookup(food_name: str) -> tuple[float | dict[str, float], str] | None:
+def _category_fallback(name: str) -> tuple[float, str] | None:
+    for keyword, coefficient in CATEGORY_FALLBACK:
+        if keyword in name:
+            return coefficient, "estimated"
+    return None
+
+
+def lookup_diaas(food_name: str) -> tuple[float | dict[str, float], str] | None:
     """Return (coefficients, source) for a food name, or None if no rule matches.
 
     coefficients is a single float (apply to all amino acids) or a partial
     dict (missing amino acids should be left null downstream)."""
     name = food_name.lower()
-    for requires, excludes, coefficients, _citation in MEASURED:
+    for requires, excludes, coefficients, _citation in MEASURED_DIAAS:
         if all(kw in name for kw in requires) and not any(kw in name for kw in excludes):
             return coefficients, "measured"
-    for keyword, coefficient in CATEGORY_FALLBACK:
-        if keyword in name:
-            return coefficient, "estimated"
-    return None
+    return _category_fallback(name)
+
+
+def lookup_pdcaas(food_name: str) -> tuple[float, str] | None:
+    """Return (coefficient, source) for a food name, or None if no rule matches."""
+    name = food_name.lower()
+    for prefixes, excludes, coefficient, _citation in MEASURED_PDCAAS:
+        if any(name.startswith(p) for p in prefixes) and not any(kw in name for kw in excludes):
+            return coefficient, "measured"
+    return _category_fallback(name)
