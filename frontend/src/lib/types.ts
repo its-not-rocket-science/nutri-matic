@@ -33,6 +33,7 @@ export interface Score {
 	score: number;
 	limiting_amino_acid: string;
 	per_aa_ratios: Record<string, number>;
+	digestibility_source: 'measured' | 'estimated' | null;
 }
 
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {

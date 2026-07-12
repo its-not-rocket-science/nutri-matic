@@ -16,6 +16,7 @@ def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db)):
         protein_g_per_100g=food.protein_g_per_100g,
         amino_acids=food.amino_acids.model_dump(),
         digestibility_diaas=food.digestibility_diaas.model_dump() if food.digestibility_diaas else None,
+        digestibility_diaas_source=food.digestibility_diaas_source,
         digestibility_pdcaas=food.digestibility_pdcaas,
         fdc_id=food.fdc_id,
         data_type=food.data_type,
@@ -74,4 +75,5 @@ def score_food(
         score=result.score,
         limiting_amino_acid=result.limiting_amino_acid,
         per_aa_ratios=result.per_aa_ratios,
+        digestibility_source=food.digestibility_diaas_source if method == "diaas" else None,
     )

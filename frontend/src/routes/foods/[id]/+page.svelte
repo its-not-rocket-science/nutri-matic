@@ -42,7 +42,18 @@
 	{#each [{ label: 'DIAAS', score: diaasScore }, { label: 'PDCAAS', score: pdcaasScore }] as { label, score } (label)}
 		{#if score}
 			<section>
-				<h2>{label}: {score.score.toFixed(1)}%</h2>
+				<h2>
+						{label}: {score.score.toFixed(1)}%
+						{#if score.digestibility_source}
+							<span
+								class="badge badge-{score.digestibility_source}"
+								title={score.digestibility_source === 'estimated'
+									? 'Digestibility is a broad food-category estimate, not measured for this specific food'
+									: 'Digestibility is a published value for this specific food or a close equivalent'}
+								>{score.digestibility_source}</span
+							>
+						{/if}
+					</h2>
 				<p class="muted">
 					Reference pattern: {score.pattern_used} · Limiting amino acid: <strong
 						>{AMINO_ACID_LABELS[score.limiting_amino_acid as keyof typeof AMINO_ACID_LABELS]}</strong
@@ -75,6 +86,25 @@
 	.muted {
 		color: #666;
 		font-size: 0.9em;
+	}
+	.badge {
+		display: inline-block;
+		font-size: 0.6em;
+		font-weight: normal;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		padding: 0.15em 0.5em;
+		border-radius: 999px;
+		vertical-align: middle;
+		margin-left: 0.4em;
+	}
+	.badge-measured {
+		background: #dff0d8;
+		color: #2d6a2d;
+	}
+	.badge-estimated {
+		background: #fdf3d0;
+		color: #8a6d00;
 	}
 	.bars {
 		list-style: none;
