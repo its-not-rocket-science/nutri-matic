@@ -17,6 +17,10 @@ time.
 
 FDC does not publish digestibility coefficients, so digestibility_diaas and
 digestibility_pdcaas are always left null by this script.
+
+Vitamin/mineral amounts (per 100g) are pulled for every nutrient listed in
+micronutrients.NUTRIENTS and stored as FoodNutrient rows — a food simply
+has no row for a nutrient FDC didn't report, rather than a null placeholder.
 """
 
 import argparse
@@ -25,12 +29,15 @@ import sys
 from pathlib import Path
 
 from .database import Base, SessionLocal, engine
-from .models import Food
+from .micronutrients import NUTRIENTS
+from .models import Food, FoodNutrient
 
 WANTED_DATA_TYPES = {"foundation_food", "sr_legacy_food"}
 
 # USDA nutrient numbers (stable across FDC releases, unlike the internal
-# nutrient `id`), mapped to our field names.
+# nutrient `id`), mapped to our field names. Amino acid / protein fields
+# below feed build_amino_acid_profile(); micronutrient fields (from
+# micronutrients.NUTRIENTS) map straight through to FoodNutrient rows.
 NUTRIENT_NBR_TO_FIELD = {
     "203": "protein",
     "501": "tryptophan",
@@ -44,6 +51,7 @@ NUTRIENT_NBR_TO_FIELD = {
     "509": "tyrosine",
     "510": "valine",
     "512": "histidine",
+    **{d.fdc_nutrient_nbr: key for key, d in NUTRIENTS.items()},
 }
 
 
@@ -107,7 +115,10 @@ def build_amino_acid_profile(nutrients: dict[str, float]) -> dict[str, float | N
 
 
 def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
-    stats = {"considered": 0, "skipped_no_protein": 0, "inserted": 0, "updated": 0, "complete": 0}
+    stats = {
+        "considered": 0, "skipped_no_protein": 0, "inserted": 0, "updated": 0, "complete": 0,
+        "nutrient_rows": 0,
+    }
 
     foods = load_foods(dir_path / "food.csv")
     nutrient_id_to_nbr = load_nutrient_id_to_nbr(dir_path / "nutrient.csv")
@@ -131,22 +142,30 @@ def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
 
             existing = db.query(Food).filter(Food.fdc_id == int(fdc_id)).one_or_none()
             if existing is None:
-                db.add(
-                    Food(
-                        name=food_info["name"],
-                        protein_g_per_100g=protein,
-                        amino_acids=profile,
-                        fdc_id=int(fdc_id),
-                        data_type=food_info["data_type"],
-                    )
+                food = Food(
+                    name=food_info["name"],
+                    protein_g_per_100g=protein,
+                    amino_acids=profile,
+                    fdc_id=int(fdc_id),
+                    data_type=food_info["data_type"],
                 )
+                db.add(food)
+                db.flush()
                 stats["inserted"] += 1
             else:
-                existing.name = food_info["name"]
-                existing.protein_g_per_100g = protein
-                existing.amino_acids = profile
-                existing.data_type = food_info["data_type"]
+                food = existing
+                food.name = food_info["name"]
+                food.protein_g_per_100g = protein
+                food.amino_acids = profile
+                food.data_type = food_info["data_type"]
+                db.query(FoodNutrient).filter(FoodNutrient.food_id == food.id).delete()
                 stats["updated"] += 1
+
+            for key in NUTRIENTS:
+                amount = nutrients.get(key)
+                if amount is not None:
+                    db.add(FoodNutrient(food_id=food.id, nutrient_key=key, amount_per_100g=amount))
+                    stats["nutrient_rows"] += 1
 
             if i % 500 == 0:
                 db.commit()
@@ -171,7 +190,10 @@ def main() -> None:
     if not args.dry_run:
         Base.metadata.create_all(bind=engine)
 
-    totals = {"considered": 0, "skipped_no_protein": 0, "inserted": 0, "updated": 0, "complete": 0}
+    totals = {
+        "considered": 0, "skipped_no_protein": 0, "inserted": 0, "updated": 0, "complete": 0,
+        "nutrient_rows": 0,
+    }
     for dir_arg in args.dirs:
         dir_path = Path(dir_arg)
         if not dir_path.is_dir():
@@ -182,10 +204,12 @@ def main() -> None:
         for k, v in stats.items():
             totals[k] += v
         print(f"  considered={stats['considered']} skipped_no_protein={stats['skipped_no_protein']} "
-              f"inserted={stats['inserted']} updated={stats['updated']} complete_profile={stats['complete']}")
+              f"inserted={stats['inserted']} updated={stats['updated']} complete_profile={stats['complete']} "
+              f"nutrient_rows={stats['nutrient_rows']}")
 
     print(f"Total: considered={totals['considered']} skipped_no_protein={totals['skipped_no_protein']} "
-          f"inserted={totals['inserted']} updated={totals['updated']} complete_profile={totals['complete']}")
+          f"inserted={totals['inserted']} updated={totals['updated']} complete_profile={totals['complete']} "
+          f"nutrient_rows={totals['nutrient_rows']}")
 
 
 if __name__ == "__main__":

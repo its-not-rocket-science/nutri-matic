@@ -37,3 +37,12 @@ class ScoreOut(BaseModel):
     limiting_amino_acid: str
     per_aa_ratios: dict[str, float]
     digestibility_source: str | None = None
+
+
+class NutrientAmountOut(BaseModel):
+    key: str
+    name: str
+    unit: str
+    amount_per_100g: float
+    adult_drv: float | None
+    percent_drv_per_100g: float | None

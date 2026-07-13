@@ -1,4 +1,4 @@
-import type { Food, FoodCreate, Score } from './types';
+import type { Food, FoodCreate, NutrientAmount, Score } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -20,5 +20,6 @@ export const api = {
 	createFood: (food: FoodCreate) =>
 		request<Food>('/api/foods', { method: 'POST', body: JSON.stringify(food) }),
 	scoreFood: (id: number, method: 'diaas' | 'pdcaas') =>
-		request<Score>(`/api/foods/${id}/score?method=${method}`)
+		request<Score>(`/api/foods/${id}/score?method=${method}`),
+	getNutrients: (id: number) => request<NutrientAmount[]>(`/api/foods/${id}/nutrients`)
 };

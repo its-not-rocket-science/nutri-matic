@@ -2,31 +2,60 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { api } from '$lib/api';
-	import { AMINO_ACID_LABELS, type Food, type Score } from '$lib/types';
+	import { AMINO_ACID_LABELS, type Food, type NutrientAmount, type Score } from '$lib/types';
 
 	const foodId = Number(page.params.id);
+
+	const NUTRIENT_GROUPS: { label: string; keys: string[] }[] = [
+		{
+			label: 'Fat-soluble vitamins',
+			keys: ['vitamin_a', 'retinol', 'beta_carotene', 'vitamin_d', 'vitamin_e', 'vitamin_k1', 'vitamin_k2']
+		},
+		{
+			label: 'Water-soluble vitamins',
+			keys: [
+				'vitamin_c', 'thiamin', 'riboflavin', 'niacin', 'pantothenic_acid',
+				'vitamin_b6', 'biotin', 'folate', 'vitamin_b12', 'choline'
+			]
+		},
+		{
+			label: 'Minerals',
+			keys: [
+				'calcium', 'iron', 'iron_heme', 'iron_non_heme', 'magnesium', 'phosphorus',
+				'potassium', 'zinc', 'copper', 'manganese', 'selenium', 'iodine'
+			]
+		}
+	];
 
 	let food: Food | null = $state(null);
 	let diaasScore: Score | null = $state(null);
 	let pdcaasScore: Score | null = $state(null);
+	let nutrients: NutrientAmount[] = $state([]);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
 	onMount(async () => {
 		try {
 			food = await api.getFood(foodId);
-			const [diaas, pdcaas] = await Promise.allSettled([
+			const [diaas, pdcaas, nutrientResult] = await Promise.allSettled([
 				food.digestibility_diaas ? api.scoreFood(foodId, 'diaas') : Promise.reject(),
-				food.digestibility_pdcaas !== null ? api.scoreFood(foodId, 'pdcaas') : Promise.reject()
+				food.digestibility_pdcaas !== null ? api.scoreFood(foodId, 'pdcaas') : Promise.reject(),
+				api.getNutrients(foodId)
 			]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
 			if (pdcaas.status === 'fulfilled') pdcaasScore = pdcaas.value;
+			if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			loading = false;
 		}
 	});
+
+	function groupNutrients(keys: string[]): NutrientAmount[] {
+		const byKey = new Map(nutrients.map((n) => [n.key, n]));
+		return keys.map((k) => byKey.get(k)).filter((n): n is NutrientAmount => !!n);
+	}
 </script>
 
 <p><a href="/">&larr; Back</a></p>
@@ -77,6 +106,44 @@
 	{#if !diaasScore && !pdcaasScore}
 		<p>No digestibility data on this food — no score can be computed.</p>
 	{/if}
+
+	{#if nutrients.length > 0}
+		<h2>Vitamins &amp; minerals <span class="muted">(per 100g)</span></h2>
+		{#each NUTRIENT_GROUPS as group (group.label)}
+			{@const rows = groupNutrients(group.keys)}
+			{#if rows.length > 0}
+				<section>
+					<h3>{group.label}</h3>
+					<ul class="bars">
+						{#each rows as n (n.key)}
+							<li>
+								<span class="aa-name">{n.name}</span>
+								<span class="bar-track">
+									{#if n.percent_drv_per_100g !== null}
+										<span
+											class="bar-fill"
+											style="width: {Math.min(n.percent_drv_per_100g, 150) / 1.5}%"
+										></span>
+									{/if}
+								</span>
+								<span class="aa-value">
+									{n.amount_per_100g < 10 ? n.amount_per_100g.toFixed(2) : n.amount_per_100g.toFixed(0)}
+									{n.unit}
+									{#if n.percent_drv_per_100g !== null}
+										<span class="muted">({n.percent_drv_per_100g.toFixed(0)}% DRV)</span>
+									{/if}
+								</span>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
+		{/each}
+		<p class="muted">
+			% DRV is against a single generic-adult reference value, not adjusted for your age, sex,
+			or life stage.
+		</p>
+	{/if}
 {/if}
 
 <style>
@@ -115,9 +182,12 @@
 	}
 	.bars li {
 		display: grid;
-		grid-template-columns: 12rem 1fr 3.5rem;
+		grid-template-columns: 12rem 1fr auto;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	.bars .aa-value {
+		white-space: nowrap;
 	}
 	.bars li.limiting .aa-name,
 	.bars li.limiting .aa-value {
