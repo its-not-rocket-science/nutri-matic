@@ -109,7 +109,12 @@
 			{#each recipes as recipe (recipe.id)}
 				<li>
 					<a href="/recipes/{recipe.id}">{recipe.name}</a>
-					<span class="muted">{recipe.ingredients.length} ingredients · {recipe.servings} servings</span>
+					<span class="muted">
+						{recipe.ingredients.length} ingredients · {recipe.servings} servings
+						{#if recipe.rating_count > 0}
+							· ★ {recipe.average_rating?.toFixed(1)} ({recipe.rating_count})
+						{/if}
+					</span>
 				</li>
 			{/each}
 		</ul>
@@ -123,7 +128,12 @@
 			{#each sharedRecipes as recipe (recipe.id)}
 				<li>
 					<a href="/recipes/{recipe.id}">{recipe.name}</a>
-					<span class="muted">by {recipe.owner_email} · {recipe.servings} servings</span>
+					<span class="muted">
+						by {recipe.owner_email} · {recipe.servings} servings
+						{#if recipe.rating_count > 0}
+							· ★ {recipe.average_rating?.toFixed(1)} ({recipe.rating_count})
+						{/if}
+					</span>
 					<button
 						type="button"
 						onclick={() => handleCopy(recipe.id)}

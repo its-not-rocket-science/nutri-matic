@@ -86,6 +86,8 @@ export interface Recipe {
 	ingredients: RecipeIngredient[];
 	owner_email: string;
 	is_owner: boolean;
+	average_rating: number | null;
+	rating_count: number;
 }
 
 export interface RecipeCreate {
@@ -98,6 +100,20 @@ export interface RecipeShare {
 	id: number;
 	email: string;
 	created_at: string;
+}
+
+export interface RecipeRatingSummary {
+	average: number | null;
+	count: number;
+	my_rating: number | null;
+}
+
+export interface RecipeComment {
+	id: number;
+	user_email: string;
+	body: string;
+	created_at: string;
+	is_own: boolean;
 }
 
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
