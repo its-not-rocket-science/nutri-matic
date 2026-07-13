@@ -66,7 +66,8 @@
 				</h3>
 				<ul class="bars">
 					{#each rows as n (n.key)}
-						<li>
+						{@const isGap = per === 'per day' && n.percent_drv !== null && n.percent_drv < 50}
+						<li class:gap={isGap}>
 							<span class="aa-name">{n.name}</span>
 							<span class="bar-track">
 								{#if n.percent_drv !== null}
@@ -89,6 +90,9 @@
 	<p class="muted">
 		% DRV is against a single generic-adult reference value, not adjusted for your age, sex, or
 		life stage.
+		{#if per === 'per day'}
+			Nutrients under 50% of target for the day are highlighted.
+		{/if}
 	</p>
 {/if}
 
@@ -123,5 +127,13 @@
 		display: block;
 		height: 100%;
 		background: #3a7d44;
+	}
+	.gap .aa-name,
+	.gap .aa-value {
+		font-weight: bold;
+		color: #b00020;
+	}
+	.gap .bar-fill {
+		background: #b00020;
 	}
 </style>
