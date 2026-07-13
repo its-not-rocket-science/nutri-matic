@@ -19,5 +19,9 @@
 		"svelte-check": "^4.6.0",
 		"typescript": "^5.7.2",
 		"vite": "^6.0.7"
+	},
+	"dependencies": {
+		"@zxing/browser": "^0.1.5",
+		"@zxing/library": "^0.21.3"
 	}
 }

@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
 	import type { Food, Meal, MealPlanEntry, Recipe, ShoppingList } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -46,6 +47,8 @@
 	let meal: Meal = $state('breakfast');
 	let adding = $state(false);
 	let markingId: number | null = $state(null);
+	let showScanner = $state(false);
+	let scanning = $state(false);
 
 	let showShoppingList = $state(false);
 	let shoppingList: ShoppingList | null = $state(null);
@@ -159,6 +162,22 @@
 		}
 	}
 
+	async function handleScan(barcode: string) {
+		showScanner = false;
+		error = null;
+		scanning = true;
+		try {
+			const food = await api.getFoodByBarcode(barcode);
+			itemType = 'food';
+			selectedFood = food;
+			selectedRecipe = null;
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			scanning = false;
+		}
+	}
+
 	async function handleDelete(id: number) {
 		error = null;
 		try {
@@ -267,6 +286,12 @@
 			</select>
 		</label>
 
+		{#if itemType === 'food'}
+			<button type="button" onclick={() => (showScanner = true)} disabled={scanning}>
+				{scanning ? 'Looking up…' : 'Scan barcode'}
+			</button>
+		{/if}
+
 		{#if (itemType === 'food' && selectedFood) || (itemType === 'recipe' && selectedRecipe)}
 			<p>
 				Selected: <strong>{itemType === 'food' ? selectedFood?.name : selectedRecipe?.name}</strong>
@@ -332,6 +357,10 @@
 			{/if}
 		{/if}
 	</section>
+{/if}
+
+{#if showScanner}
+	<BarcodeScanner onScan={handleScan} onClose={() => (showScanner = false)} />
 {/if}
 
 <style>

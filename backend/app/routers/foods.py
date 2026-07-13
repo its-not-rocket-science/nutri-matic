@@ -23,6 +23,7 @@ def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db)):
         digestibility_pdcaas_source=food.digestibility_pdcaas_source,
         fdc_id=food.fdc_id,
         data_type=food.data_type,
+        gtin_upc=food.gtin_upc,
     )
     db.add(db_food)
     db.commit()
@@ -42,6 +43,14 @@ def food_search(body: schemas.SearchRequest, db: Session = Depends(get_db)):
         return search_foods(db, filters, limit=body.limit)
     except UnknownFilterKey as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+@router.get("/barcode/{gtin_upc}", response_model=schemas.FoodOut)
+def get_food_by_barcode(gtin_upc: str, db: Session = Depends(get_db)):
+    food = db.query(models.Food).filter(models.Food.gtin_upc == gtin_upc).one_or_none()
+    if food is None:
+        raise HTTPException(status_code=404, detail="No food found for that barcode")
+    return food
 
 
 @router.get("/{food_id}", response_model=schemas.FoodOut)
