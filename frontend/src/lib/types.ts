@@ -157,6 +157,37 @@ export interface DiarySummary {
 	nutrients: NutrientAmount[];
 }
 
+export interface MealPlanEntry {
+	id: number;
+	plan_date: string;
+	meal: Meal;
+	food_id: number | null;
+	food_name: string | null;
+	quantity_g: number | null;
+	recipe_id: number | null;
+	recipe_name: string | null;
+	quantity_servings: number | null;
+}
+
+export interface MealPlanEntryCreate {
+	plan_date: string;
+	meal: Meal;
+	food_id?: number | null;
+	quantity_g?: number | null;
+	recipe_id?: number | null;
+	quantity_servings?: number | null;
+}
+
+export interface ShoppingListItem {
+	food_id: number;
+	food_name: string;
+	quantity_g: number;
+}
+
+export interface ShoppingList {
+	items: ShoppingListItem[];
+}
+
 export type FilterOp = 'gte' | 'lte' | 'eq';
 
 export interface FilterKey {

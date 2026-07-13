@@ -9,6 +9,8 @@ import type {
 	FilterScope,
 	Food,
 	FoodCreate,
+	MealPlanEntry,
+	MealPlanEntryCreate,
 	NutrientAmount,
 	ProfileUpdate,
 	Recipe,
@@ -20,6 +22,7 @@ import type {
 	SavedFilterPresetCreate,
 	Score,
 	SearchRequest,
+	ShoppingList,
 	TokenResponse,
 	User
 } from './types';
@@ -102,6 +105,16 @@ export const api = {
 	addDiaryEntry: (entry: DiaryEntryCreate) =>
 		request<DiaryEntry>('/api/diary', { method: 'POST', body: JSON.stringify(entry) }),
 	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' }),
+
+	listMealPlanEntries: (startDate: string, endDate: string) =>
+		request<MealPlanEntry[]>(`/api/meal-plan?start_date=${startDate}&end_date=${endDate}`),
+	addMealPlanEntry: (entry: MealPlanEntryCreate) =>
+		request<MealPlanEntry>('/api/meal-plan', { method: 'POST', body: JSON.stringify(entry) }),
+	deleteMealPlanEntry: (id: number) => request<void>(`/api/meal-plan/${id}`, { method: 'DELETE' }),
+	markMealPlanEntryEaten: (id: number) =>
+		request<DiaryEntry>(`/api/meal-plan/${id}/mark-eaten`, { method: 'POST' }),
+	getShoppingList: (startDate: string, endDate: string) =>
+		request<ShoppingList>(`/api/meal-plan/shopping-list?start_date=${startDate}&end_date=${endDate}`),
 
 	getFilterKeys: () => request<FilterKeysResponse>('/api/search/keys'),
 	searchFoods: (req: SearchRequest) =>
