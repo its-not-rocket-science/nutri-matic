@@ -31,6 +31,13 @@
 				'fiber_total', 'fiber_soluble', 'fiber_insoluble',
 				'resistant_starch', 'inulin', 'beta_glucan'
 			]
+		},
+		{
+			label: 'Fats',
+			keys: [
+				'fat_total', 'saturated_fat', 'monounsaturated_fat', 'polyunsaturated_fat',
+				'ala', 'epa', 'dha', 'la', 'arachidonic_acid'
+			]
 		}
 	];
 
@@ -63,6 +70,14 @@
 		const byKey = new Map(nutrients.map((n) => [n.key, n]));
 		return keys.map((k) => byKey.get(k)).filter((n): n is NutrientAmount => !!n);
 	}
+
+	const omega3to6Ratio = $derived.by(() => {
+		const byKey = new Map(nutrients.map((n) => [n.key, n.amount_per_100g]));
+		const n3 = (byKey.get('ala') ?? 0) + (byKey.get('epa') ?? 0) + (byKey.get('dha') ?? 0);
+		const n6 = (byKey.get('la') ?? 0) + (byKey.get('arachidonic_acid') ?? 0);
+		if (n3 <= 0 || n6 <= 0) return null;
+		return n6 / n3;
+	});
 </script>
 
 <p><a href="/">&larr; Back</a></p>
@@ -120,7 +135,12 @@
 			{@const rows = groupNutrients(group.keys)}
 			{#if rows.length > 0}
 				<section>
-					<h3>{group.label}</h3>
+					<h3>
+						{group.label}
+						{#if group.label === 'Fats' && omega3to6Ratio !== null}
+							<span class="muted">(n-3 : n-6 = 1 : {omega3to6Ratio.toFixed(1)})</span>
+						{/if}
+					</h3>
 					<ul class="bars">
 						{#each rows as n (n.key)}
 							<li>
