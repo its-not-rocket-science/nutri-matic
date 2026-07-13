@@ -5,9 +5,11 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
+	import PrintButton from '$lib/components/PrintButton.svelte';
 	import ScoreCard from '$lib/components/ScoreCard.svelte';
 	import StarRating from '$lib/components/StarRating.svelte';
 	import TagEditor from '$lib/components/TagEditor.svelte';
+	import { downloadCsv } from '$lib/csv';
 	import type { NutrientAmount, Recipe, RecipeComment, RecipeRatingSummary, RecipeShare, Score } from '$lib/types';
 
 	const recipeId = Number(page.params.id);
@@ -160,9 +162,24 @@
 			commentError = e instanceof Error ? e.message : String(e);
 		}
 	}
+
+	function handleDownloadCsv() {
+		if (!recipe) return;
+		const rows: (string | number | null)[][] = [['Ingredients'], ['Food', 'Quantity (g)']];
+		for (const ing of recipe.ingredients) {
+			rows.push([ing.food_name, ing.quantity_g]);
+		}
+		rows.push([]);
+		rows.push(['Nutrients (per serving)']);
+		rows.push(['Name', 'Amount', 'Unit', 'DRV', '% DRV']);
+		for (const n of nutrients) {
+			rows.push([n.name, n.amount, n.unit, n.adult_drv, n.percent_drv]);
+		}
+		downloadCsv(`recipe-${recipe.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`, rows);
+	}
 </script>
 
-<p><a href="/recipes">&larr; Back</a></p>
+<p class="no-print"><a href="/recipes">&larr; Back</a></p>
 
 {#if loading}
 	<p>Loading…</p>
@@ -177,7 +194,12 @@
 		{/if}
 	</p>
 
-	<div class="rating-row">
+	<div class="export-actions no-print">
+		<PrintButton />
+		<button type="button" onclick={handleDownloadCsv}>Download CSV</button>
+	</div>
+
+	<div class="rating-row no-print">
 		<StarRating
 			value={ratings?.my_rating ?? null}
 			onRate={handleRate}
@@ -192,7 +214,9 @@
 		{/if}
 	</div>
 
-	<TagEditor bind:recipe={recipe as Recipe} editable={recipe.is_owner} />
+	<div class="no-print">
+		<TagEditor bind:recipe={recipe as Recipe} editable={recipe.is_owner} />
+	</div>
 
 	<ul class="ingredients">
 		{#each recipe.ingredients as ingredient (ingredient.food_id)}
@@ -213,7 +237,7 @@
 	<NutrientBars {nutrients} per="per serving" />
 
 	{#if recipe.is_owner}
-		<section class="sharing">
+		<section class="sharing no-print">
 			<h2>Sharing</h2>
 			{#if shares.length > 0}
 				<ul class="shares">
@@ -236,16 +260,16 @@
 			{/if}
 		</section>
 
-		<p><button type="button" onclick={handleDelete} disabled={deleting}>Delete recipe</button></p>
+		<p class="no-print"><button type="button" onclick={handleDelete} disabled={deleting}>Delete recipe</button></p>
 	{:else}
-		<p>
+		<p class="no-print">
 			<button type="button" onclick={handleCopy} disabled={copying}>
 				{copying ? 'Copying…' : 'Copy to my recipes'}
 			</button>
 		</p>
 	{/if}
 
-	<section class="comments">
+	<section class="comments no-print">
 		<h2>Comments</h2>
 		{#if comments.length > 0}
 			<ul>
@@ -356,5 +380,15 @@
 	.comments textarea {
 		font-family: inherit;
 		resize: vertical;
+	}
+	.export-actions {
+		display: flex;
+		gap: 0.5rem;
+		margin: 0.5rem 0 1rem;
+	}
+	@media print {
+		.no-print {
+			display: none !important;
+		}
 	}
 </style>

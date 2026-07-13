@@ -5,6 +5,8 @@
 	import { auth } from '$lib/auth.svelte';
 	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
+	import PrintButton from '$lib/components/PrintButton.svelte';
+	import { downloadCsv } from '$lib/csv';
 	import type { DiarySummary, Food, Meal, Recipe } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -138,16 +140,44 @@
 	}
 
 	const MEALS: Meal[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+	function handleDownloadCsv() {
+		if (!summary) return;
+		const rows: (string | number | null)[][] = [['Entries'], ['Meal', 'Food/Recipe', 'Quantity']];
+		for (const entry of summary.entries) {
+			rows.push([
+				entry.meal,
+				entry.food_name ?? entry.recipe_name,
+				entry.food_id ? `${entry.quantity_g}g` : `${entry.quantity_servings} serving(s)`
+			]);
+		}
+		rows.push([]);
+		rows.push(['Nutrients']);
+		rows.push(['Name', 'Amount', 'Unit', 'DRV', '% DRV']);
+		for (const n of summary.nutrients) {
+			rows.push([n.name, n.amount, n.unit, n.adult_drv, n.percent_drv]);
+		}
+		downloadCsv(`diary-${date}.csv`, rows);
+	}
 </script>
 
 <h1>Diary</h1>
-<p><a href="/">&larr; Back</a></p>
+<p class="no-print"><a href="/">&larr; Back</a></p>
 
-<div class="date-nav">
+<div class="date-nav no-print">
 	<button type="button" onclick={() => shiftDay(-1)}>&larr; Prev</button>
 	<input type="date" bind:value={date} onchange={loadDay} />
 	<button type="button" onclick={() => shiftDay(1)}>Next &rarr;</button>
 </div>
+
+<p class="date-heading">{date}</p>
+
+{#if summary}
+	<div class="export-actions no-print">
+		<PrintButton />
+		<button type="button" onclick={handleDownloadCsv}>Download CSV</button>
+	</div>
+{/if}
 
 {#if error}
 	<p class="error">{error}</p>
@@ -171,7 +201,7 @@
 								<a href="/recipes/{entry.recipe_id}">{entry.recipe_name}</a>
 								<span class="muted">{entry.quantity_servings} serving(s)</span>
 							{/if}
-							<button type="button" onclick={() => handleDelete(entry.id)}>Remove</button>
+							<button type="button" class="no-print" onclick={() => handleDelete(entry.id)}>Remove</button>
 						</li>
 					{/each}
 				</ul>
@@ -183,7 +213,7 @@
 		<p>Nothing logged for this day yet.</p>
 	{/if}
 
-	<form onsubmit={handleAdd}>
+	<form onsubmit={handleAdd} class="no-print">
 		<h3>Add entry</h3>
 		<label>
 			Type
@@ -304,6 +334,23 @@
 		align-items: center;
 		gap: 0.75rem;
 		margin-bottom: 1.5rem;
+	}
+	.date-heading {
+		display: none;
+	}
+	.export-actions {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	@media print {
+		.no-print {
+			display: none !important;
+		}
+		.date-heading {
+			display: block;
+			font-weight: 600;
+		}
 	}
 	.error {
 		color: #b00020;

@@ -4,6 +4,8 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
+	import PrintButton from '$lib/components/PrintButton.svelte';
+	import { downloadCsv } from '$lib/csv';
 	import type { Food, Meal, MealPlanEntry, Recipe, ShoppingList } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -202,12 +204,23 @@
 			markingId = null;
 		}
 	}
+
+	function handleDownloadCsv() {
+		if (!shoppingList) return;
+		const rows: (string | number | null)[][] = [['Food', 'Quantity (g)', 'Price per 100g', 'Estimated cost']];
+		for (const item of shoppingList.items) {
+			rows.push([item.food_name, item.quantity_g, item.price_per_100g, item.estimated_cost]);
+		}
+		rows.push([]);
+		rows.push(['Estimated total', '', '', shoppingList.total_cost]);
+		downloadCsv(`shopping-list-${weekDates[0]}-to-${weekDates[6]}.csv`, rows);
+	}
 </script>
 
 <h1>Meal plan</h1>
-<p><a href="/">&larr; Back</a></p>
+<p class="no-print"><a href="/">&larr; Back</a></p>
 
-<div class="date-nav">
+<div class="date-nav no-print">
 	<button type="button" onclick={() => shiftWeek(-1)}>&larr; Prev week</button>
 	<span>{weekDates[0]} &ndash; {weekDates[6]}</span>
 	<button type="button" onclick={() => shiftWeek(1)}>Next week &rarr;</button>
@@ -222,7 +235,7 @@
 {:else}
 	{#each weekDates as d, i (d)}
 		{@const dayEntries = entries.filter((e) => e.plan_date === d)}
-		<section>
+		<section class="no-print">
 			<h3>{WEEKDAY_LABELS[i]} <span class="muted">{d}</span></h3>
 			{#if dayEntries.length === 0}
 				<p class="muted">Nothing planned.</p>
@@ -260,7 +273,7 @@
 		</section>
 	{/each}
 
-	<form onsubmit={handleAdd}>
+	<form onsubmit={handleAdd} class="no-print">
 		<h3>Add planned entry</h3>
 		<label>
 			Day
@@ -334,14 +347,19 @@
 		<button type="submit" disabled={adding}>{adding ? 'Adding…' : 'Add to plan'}</button>
 	</form>
 
-	<section>
-		<button type="button" onclick={toggleShoppingList}>
+	<section class="shopping-list">
+		<button type="button" class="no-print" onclick={toggleShoppingList}>
 			{showShoppingList ? 'Hide shopping list' : 'Show shopping list for this week'}
 		</button>
 		{#if showShoppingList}
 			{#if loadingShoppingList}
 				<p>Loading…</p>
 			{:else if shoppingList}
+				<p class="range-heading">Shopping list, {weekDates[0]} to {weekDates[6]}</p>
+				<div class="export-actions no-print">
+					<PrintButton />
+					<button type="button" onclick={handleDownloadCsv}>Download CSV</button>
+				</div>
 				{#if shoppingList.items.length === 0}
 					<p class="muted">Nothing planned this week.</p>
 				{:else}
@@ -423,6 +441,23 @@
 	}
 	.total {
 		margin-top: 0.75rem;
+	}
+	.range-heading {
+		display: none;
+	}
+	.export-actions {
+		display: flex;
+		gap: 0.5rem;
+		margin: 0.5rem 0;
+	}
+	@media print {
+		.no-print {
+			display: none !important;
+		}
+		.range-heading {
+			display: block;
+			font-weight: 600;
+		}
 	}
 	form {
 		display: flex;
