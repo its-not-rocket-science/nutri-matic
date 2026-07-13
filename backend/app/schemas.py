@@ -46,3 +46,37 @@ class NutrientAmountOut(BaseModel):
     amount_per_100g: float
     adult_drv: float | None
     percent_drv_per_100g: float | None
+
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    email: str
+    sex: str | None = None
+    birth_year: int | None = None
+    activity_level: str | None = None
+    is_pregnant: bool = False
+    is_lactating: bool = False
+
+
+class ProfileUpdate(BaseModel):
+    sex: str | None = None
+    birth_year: int | None = None
+    activity_level: str | None = None
+    is_pregnant: bool = False
+    is_lactating: bool = False
