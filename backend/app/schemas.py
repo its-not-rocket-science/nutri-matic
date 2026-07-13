@@ -213,9 +213,30 @@ class DiaryEntryOut(BaseModel):
     quantity_servings: float | None
 
 
+class MealIronBioavailabilityOut(BaseModel):
+    meal: Meal
+    heme_iron_mg: float
+    non_heme_iron_mg: float
+    vitamin_c_mg: float
+    absorbed_heme_mg: float
+    absorbed_non_heme_mg: float
+    absorbed_total_mg: float
+    non_heme_absorption_tier: Literal["baseline", "enhanced"]
+    iron_split_source: Literal["measured", "estimated"]
+
+
+class CalciumPhosphorusOut(BaseModel):
+    calcium_mg: float
+    phosphorus_mg: float
+    ratio: float
+    guidance: str
+
+
 class DiarySummaryOut(BaseModel):
     entries: list[DiaryEntryOut]
     nutrients: list[NutrientAmountOut]
+    iron_bioavailability: list[MealIronBioavailabilityOut]
+    calcium_phosphorus: CalciumPhosphorusOut | None
 
 
 class MealPlanEntryCreate(BaseModel):
