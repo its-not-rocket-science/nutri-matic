@@ -7,6 +7,7 @@ from .. import schemas
 from ..aggregation import WeightedFood, aggregate_nutrients, scale_recipe_ingredients
 from ..auth import get_current_user
 from ..database import get_db
+from ..energy import calculate_eer
 from ..models import DiaryEntry, Food, FoodNutrient, Recipe, RecipeIngredient, User
 from ..nutrients import NUTRIENTS, resolve_drv
 
@@ -111,13 +112,17 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
 
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
     totals = aggregate_nutrients(items, by_food_id)  # divide_by=1 — this is a day total, not per-serving
+    eer = calculate_eer(current_user)
 
     nutrients_out = []
     for key, amount in totals.items():
         nutrient_def = NUTRIENTS.get(key)
         if nutrient_def is None:
             continue
-        drv = resolve_drv(key, profile)
+        # energy's target is a personalized BMR+activity calculation, not a
+        # sex/life-stage table lookup — resolve_drv() correctly returns None
+        # for it (see nutrients.py), so it's handled separately here
+        drv = eer if key == "energy" else resolve_drv(key, profile)
         nutrients_out.append(
             schemas.NutrientAmountOut(
                 key=key,

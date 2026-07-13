@@ -54,6 +54,8 @@ export interface User {
 	activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
 	is_pregnant: boolean;
 	is_lactating: boolean;
+	weight_kg: number | null;
+	height_cm: number | null;
 }
 
 export interface ProfileUpdate {
@@ -62,6 +64,8 @@ export interface ProfileUpdate {
 	activity_level: User['activity_level'];
 	is_pregnant: boolean;
 	is_lactating: boolean;
+	weight_kg: number | null;
+	height_cm: number | null;
 }
 
 export interface TokenResponse {

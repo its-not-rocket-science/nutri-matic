@@ -10,6 +10,8 @@
 	let activityLevel: User['activity_level'] = $state(null);
 	let isPregnant = $state(false);
 	let isLactating = $state(false);
+	let weightKg: number | null = $state(null);
+	let heightCm: number | null = $state(null);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -27,6 +29,8 @@
 			activityLevel = profile.activity_level;
 			isPregnant = profile.is_pregnant;
 			isLactating = profile.is_lactating;
+			weightKg = profile.weight_kg;
+			heightCm = profile.height_cm;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -45,7 +49,9 @@
 				birth_year: birthYear,
 				activity_level: activityLevel,
 				is_pregnant: isPregnant,
-				is_lactating: isLactating
+				is_lactating: isLactating,
+				weight_kg: weightKg,
+				height_cm: heightCm
 			});
 			auth.setUser(updated);
 			saved = true;
@@ -99,10 +105,20 @@
 			Lactating
 		</label>
 
+		<label>
+			Weight (kg)
+			<input type="number" step="any" min="0" bind:value={weightKg} />
+		</label>
+		<label>
+			Height (cm)
+			<input type="number" step="any" min="0" bind:value={heightCm} />
+		</label>
+
 		<p class="muted">
 			Sex and pregnancy/lactation status are used to select the right reference values when
-			checking your diary against nutrient targets. Activity level is stored but not yet used
-			(it would feed energy/calorie targets, which this app doesn't track yet).
+			checking your diary against nutrient targets. Weight, height, sex, birth year, and activity
+			level together are used to calculate your daily calorie target (Mifflin-St Jeor) — all five
+			are needed for that; anything missing just means no calorie target shows up.
 		</p>
 
 		{#if error}

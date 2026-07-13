@@ -24,6 +24,10 @@ class User(Base):
     activity_level: Mapped[str | None] = mapped_column(String, nullable=True)
     is_pregnant: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_lactating: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # needed for energy.py's BMR calculation — nullable since not required
+    # to use the rest of the app, only for a personalized calorie target
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class Food(Base):
