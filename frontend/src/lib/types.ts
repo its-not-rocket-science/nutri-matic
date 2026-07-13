@@ -144,6 +144,21 @@ export interface FilterKeysResponse {
 	recipe: FilterKey[];
 }
 
+export type FilterScope = 'food' | 'recipe';
+
+export interface SavedFilterPreset {
+	id: number;
+	name: string;
+	scope: FilterScope;
+	filters: NutrientFilterInput[];
+}
+
+export interface SavedFilterPresetCreate {
+	name: string;
+	scope: FilterScope;
+	filters: NutrientFilterInput[];
+}
+
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {
 	histidine: 'Histidine',
 	isoleucine: 'Isoleucine',

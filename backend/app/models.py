@@ -113,3 +113,19 @@ class DiaryEntry(Base):
     # per-serving) rather than grams, since a recipe's total mass isn't tracked
     recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class SavedFilterPreset(Base):
+    __tablename__ = "saved_filter_presets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    scope: Mapped[str] = mapped_column(String, nullable=False)  # "food" | "recipe"
+    # list of {"key": str, "op": "gte"|"lte"|"eq", "value": float} — same
+    # shape as search.NutrientFilter, validated against FOOD_FILTER_KEYS /
+    # RECIPE_FILTER_KEYS at save time in routers/presets.py
+    filters: Mapped[list] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
