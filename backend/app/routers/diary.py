@@ -6,12 +6,21 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods
 from ..auth import get_current_user
+from ..bioavailability import (
+    IronSplit,
+    estimate_calcium_phosphorus,
+    estimate_meal_iron_absorption,
+    is_meat_fish_poultry,
+    split_food_iron,
+)
 from ..database import get_db
 from ..energy import calculate_eer
 from ..models import DiaryEntry, Food, FoodNutrient, Recipe, User
 from ..nutrients import NUTRIENTS, resolve_drv
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
+
+MEALS = ("breakfast", "lunch", "dinner", "snack")
 
 
 def _entry_out(entry: DiaryEntry, foods_by_id: dict[int, Food], recipes_by_id: dict[int, Recipe]) -> schemas.DiaryEntryOut:
@@ -104,7 +113,66 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
         )
     nutrients_out.sort(key=lambda n: n.name)
 
-    return schemas.DiarySummaryOut(entries=entries_out, nutrients=nutrients_out)
+    iron_out: list[schemas.MealIronBioavailabilityOut] = []
+    for meal in MEALS:
+        meal_entries = [e for e in entries if e.meal == meal]
+        if not meal_entries:
+            continue
+        meal_items = expand_entries_to_weighted_foods(meal_entries, foods_by_id, recipes_by_id, db)
+
+        iron_splits: list[IronSplit] = []
+        vitamin_c_mg = 0.0
+        has_mfp = False
+        for item in meal_items:
+            nutrients_by_key = {row.nutrient_key: row.amount_per_100g for row in by_food_id.get(item.food.id, [])}
+            scale = item.quantity_g / 100
+            total_iron_mg = nutrients_by_key.get("iron", 0.0) * scale
+            measured_heme_mg = nutrients_by_key.get("iron_heme")
+            measured_non_heme_mg = nutrients_by_key.get("iron_non_heme")
+            if total_iron_mg > 0 or measured_heme_mg is not None or measured_non_heme_mg is not None:
+                iron_splits.append(
+                    split_food_iron(
+                        item.food.name,
+                        total_iron_mg,
+                        measured_heme_mg * scale if measured_heme_mg is not None else None,
+                        measured_non_heme_mg * scale if measured_non_heme_mg is not None else None,
+                    )
+                )
+            vitamin_c_mg += nutrients_by_key.get("vitamin_c", 0.0) * scale
+            if is_meat_fish_poultry(item.food.name):
+                has_mfp = True
+
+        estimate = estimate_meal_iron_absorption(iron_splits, vitamin_c_mg, has_mfp)
+        if estimate is not None:
+            iron_out.append(
+                schemas.MealIronBioavailabilityOut(
+                    meal=meal,
+                    heme_iron_mg=estimate.heme_iron_mg,
+                    non_heme_iron_mg=estimate.non_heme_iron_mg,
+                    vitamin_c_mg=estimate.vitamin_c_mg,
+                    absorbed_heme_mg=estimate.absorbed_heme_mg,
+                    absorbed_non_heme_mg=estimate.absorbed_non_heme_mg,
+                    absorbed_total_mg=estimate.absorbed_total_mg,
+                    non_heme_absorption_tier=estimate.non_heme_absorption_tier,
+                    iron_split_source=estimate.iron_split_source,
+                )
+            )
+
+    cp_estimate = estimate_calcium_phosphorus(totals.get("calcium", 0.0), totals.get("phosphorus", 0.0))
+    calcium_phosphorus = (
+        schemas.CalciumPhosphorusOut(
+            calcium_mg=cp_estimate.calcium_mg,
+            phosphorus_mg=cp_estimate.phosphorus_mg,
+            ratio=cp_estimate.ratio,
+            guidance=cp_estimate.guidance,
+        )
+        if cp_estimate is not None
+        else None
+    )
+
+    return schemas.DiarySummaryOut(
+        entries=entries_out, nutrients=nutrients_out, iron_bioavailability=iron_out, calcium_phosphorus=calcium_phosphorus
+    )
 
 
 @router.delete("/{entry_id}", status_code=204)

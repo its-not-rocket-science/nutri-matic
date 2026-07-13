@@ -153,9 +153,30 @@ export interface DiaryEntryCreate {
 	quantity_servings?: number | null;
 }
 
+export interface MealIronBioavailability {
+	meal: Meal;
+	heme_iron_mg: number;
+	non_heme_iron_mg: number;
+	vitamin_c_mg: number;
+	absorbed_heme_mg: number;
+	absorbed_non_heme_mg: number;
+	absorbed_total_mg: number;
+	non_heme_absorption_tier: 'baseline' | 'enhanced';
+	iron_split_source: 'measured' | 'estimated';
+}
+
+export interface CalciumPhosphorus {
+	calcium_mg: number;
+	phosphorus_mg: number;
+	ratio: number;
+	guidance: string;
+}
+
 export interface DiarySummary {
 	entries: DiaryEntry[];
 	nutrients: NutrientAmount[];
+	iron_bioavailability: MealIronBioavailability[];
+	calcium_phosphorus: CalciumPhosphorus | null;
 }
 
 export interface MealPlanEntry {

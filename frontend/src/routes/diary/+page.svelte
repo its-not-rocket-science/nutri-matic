@@ -249,6 +249,49 @@
 	</form>
 
 	<NutrientBars nutrients={summary.nutrients} per="per day" />
+
+	{#if summary.iron_bioavailability.length > 0 || summary.calcium_phosphorus}
+		<section class="bioavailability">
+			<h3>Bioavailability estimate</h3>
+			<p class="muted">
+				A simplified estimate, not lab-measured — see below for what it does and doesn't account for.
+			</p>
+
+			{#each summary.iron_bioavailability as meal (meal.meal)}
+				<div class="iron-meal">
+					<strong class="meal-label">{meal.meal}</strong>
+					<span>
+						{meal.absorbed_total_mg.toFixed(2)}mg iron absorbed (of {(meal.heme_iron_mg + meal.non_heme_iron_mg).toFixed(2)}mg total)
+					</span>
+					<span class="muted">
+						{meal.non_heme_absorption_tier === 'enhanced' ? 'enhanced' : 'baseline'} non-haem absorption
+						{#if meal.iron_split_source === 'estimated'}(estimated haem/non-haem split){/if}
+					</span>
+				</div>
+			{/each}
+
+			{#if summary.calcium_phosphorus}
+				<div class="calcium-phosphorus">
+					<strong>Calcium:phosphorus ratio</strong>
+					<span>{summary.calcium_phosphorus.ratio.toFixed(2)}:1</span>
+					<p class="muted">{summary.calcium_phosphorus.guidance}</p>
+				</div>
+			{/if}
+
+			<details>
+				<summary>Methodology</summary>
+				<p class="muted">
+					Haem iron is assumed to be 25% absorbed, non-haem 5% (baseline) or 10% (if the meal has
+					&ge;25mg vitamin C or any meat/fish/poultry) — a simplified two-tier model built from
+					published constants (Monsen 1978/1982; FAO 2004 Human Vitamin and Mineral Requirements),
+					not a full continuous algorithm. Phytates, tannins, and oxalates aren't modelled — FDC
+					doesn't track them. The calcium:phosphorus ratio references ESPGHAN's traditional 1:1–2:1
+					guidance; newer research in older adults found no link between this ratio and bone
+					density, so treat it as informational.
+				</p>
+			</details>
+		</section>
+	{/if}
 {/if}
 
 {#if showScanner}
@@ -269,6 +312,26 @@
 		color: #666;
 		font-size: 0.9em;
 		margin: 0 0.5rem;
+	}
+	.bioavailability {
+		margin-top: 1.5rem;
+		padding: 1rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
+	}
+	.iron-meal {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		padding: 0.4rem 0;
+	}
+	.meal-label {
+		text-transform: capitalize;
+	}
+	.calcium-phosphorus {
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid #eee;
 	}
 	.entries {
 		list-style: none;
