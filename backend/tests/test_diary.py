@@ -115,3 +115,65 @@ def test_day_summary_omits_iron_bioavailability_for_meals_with_no_iron(client):
     res = client.get("/api/diary?entry_date=2026-07-21", headers=auth_headers(token))
     assert res.status_code == 200
     assert res.json()["iron_bioavailability"] == []
+
+
+def test_trends_averages_over_logged_days_grouped_by_week(client):
+    token = register_and_token(client, "a@example.com")
+    # 2026-07-13 (Mon) and 2026-07-14 (Tue) are the same week; 2026-07-20 is the next week
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-14", "meal": "breakfast", "food_id": 1, "quantity_g": 300},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-20", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.get(
+        "/api/diary/trends?start_date=2026-07-13&end_date=2026-07-20&group_by=week", headers=auth_headers(token)
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["group_by"] == "week"
+    assert len(body["buckets"]) == 2
+
+    week1 = body["buckets"][0]
+    assert week1["bucket_start"] == "2026-07-13"
+    assert week1["bucket_end"] == "2026-07-19"
+    assert week1["logged_days"] == 2
+    iron = next(n for n in week1["nutrients"] if n["key"] == "iron")
+    # (100g@2mg/100g=2mg) + (300g@2mg/100g=6mg) averaged over 2 logged days = 4mg
+    assert iron["avg_amount"] == pytest.approx(4.0)
+
+    week2 = body["buckets"][1]
+    assert week2["logged_days"] == 1
+    iron2 = next(n for n in week2["nutrients"] if n["key"] == "iron")
+    assert iron2["avg_amount"] == pytest.approx(2.0)
+
+
+def test_trends_scoped_to_date_range_and_user(client):
+    token = register_and_token(client, "a@example.com")
+    other_token = register_and_token(client, "b@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-01-01", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(other_token),
+    )
+
+    res = client.get(
+        "/api/diary/trends?start_date=2026-07-01&end_date=2026-07-31&group_by=month", headers=auth_headers(token)
+    )
+    assert res.status_code == 200
+    assert res.json()["buckets"] == []

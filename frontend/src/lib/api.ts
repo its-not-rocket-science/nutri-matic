@@ -5,6 +5,7 @@ import type {
 	DiaryEntry,
 	DiaryEntryCreate,
 	DiarySummary,
+	DiaryTrends,
 	FilterKeysResponse,
 	FilterScope,
 	Food,
@@ -26,6 +27,7 @@ import type {
 	SearchRequest,
 	ShoppingList,
 	TokenResponse,
+	TrendGroupBy,
 	User
 } from './types';
 
@@ -108,6 +110,8 @@ export const api = {
 	addDiaryEntry: (entry: DiaryEntryCreate) =>
 		request<DiaryEntry>('/api/diary', { method: 'POST', body: JSON.stringify(entry) }),
 	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' }),
+	getDiaryTrends: (startDate: string, endDate: string, groupBy: TrendGroupBy) =>
+		request<DiaryTrends>(`/api/diary/trends?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`),
 
 	listMealPlanEntries: (startDate: string, endDate: string) =>
 		request<MealPlanEntry[]>(`/api/meal-plan?start_date=${startDate}&end_date=${endDate}`),

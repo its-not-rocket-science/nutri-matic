@@ -17,6 +17,7 @@ from ..database import get_db
 from ..energy import calculate_eer
 from ..models import DiaryEntry, Food, FoodNutrient, Recipe, User
 from ..nutrients import NUTRIENTS, resolve_drv
+from ..trends import GroupBy, bucket_day_totals
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
 
@@ -173,6 +174,77 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
     return schemas.DiarySummaryOut(
         entries=entries_out, nutrients=nutrients_out, iron_bioavailability=iron_out, calcium_phosphorus=calcium_phosphorus
     )
+
+
+@router.get("/trends", response_model=schemas.DiaryTrendsOut)
+def get_trends(
+    start_date: date,
+    end_date: date,
+    group_by: GroupBy = "week",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    entries = (
+        db.query(DiaryEntry)
+        .filter(
+            DiaryEntry.user_id == current_user.id,
+            DiaryEntry.entry_date >= start_date,
+            DiaryEntry.entry_date <= end_date,
+        )
+        .all()
+    )
+
+    entries_by_date: dict[date, list[DiaryEntry]] = {}
+    for entry in entries:
+        entries_by_date.setdefault(entry.entry_date, []).append(entry)
+
+    food_ids = {e.food_id for e in entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+
+    profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
+    eer = calculate_eer(current_user)
+
+    day_totals: dict[date, dict[str, float]] = {}
+    for day, day_entries in entries_by_date.items():
+        items = expand_entries_to_weighted_foods(day_entries, foods_by_id, recipes_by_id, db)
+        all_food_ids = [item.food.id for item in items]
+        rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all()
+        by_food_id: dict[int, list[FoodNutrient]] = {}
+        for row in rows:
+            by_food_id.setdefault(row.food_id, []).append(row)
+        day_totals[day] = aggregate_nutrients(items, by_food_id)
+
+    buckets_out = []
+    for bucket in bucket_day_totals(day_totals, group_by):
+        nutrients_out = []
+        for key, avg_amount in bucket.avg_nutrients.items():
+            nutrient_def = NUTRIENTS.get(key)
+            if nutrient_def is None:
+                continue
+            drv = eer if key == "energy" else resolve_drv(key, profile)
+            nutrients_out.append(
+                schemas.TrendNutrientOut(
+                    key=key,
+                    name=nutrient_def.name,
+                    unit=nutrient_def.unit,
+                    avg_amount=avg_amount,
+                    adult_drv=drv,
+                    avg_percent_drv=(avg_amount / drv * 100) if drv else None,
+                )
+            )
+        nutrients_out.sort(key=lambda n: n.name)
+        buckets_out.append(
+            schemas.TrendBucketOut(
+                bucket_start=bucket.bucket_start,
+                bucket_end=bucket.bucket_end,
+                logged_days=bucket.logged_days,
+                nutrients=nutrients_out,
+            )
+        )
+
+    return schemas.DiaryTrendsOut(group_by=group_by, buckets=buckets_out)
 
 
 @router.delete("/{entry_id}", status_code=204)
