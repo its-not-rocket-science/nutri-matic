@@ -17,6 +17,7 @@ export interface Food {
 	amino_acids: AminoAcidProfile;
 	digestibility_diaas: AminoAcidProfile | null;
 	digestibility_pdcaas: number | null;
+	gtin_upc: string | null;
 }
 
 export interface FoodCreate {

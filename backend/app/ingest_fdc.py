@@ -1,19 +1,26 @@
-"""Ingest USDA FoodData Central Foundation Foods / SR Legacy CSV exports.
+"""Ingest USDA FoodData Central Foundation Foods / SR Legacy / Branded Foods
+CSV exports.
 
 Usage:
     python -m app.ingest_fdc --dir path/to/FoodData_Central_foundation_food_csv_2025-04-24 \
-                              --dir path/to/FoodData_Central_sr_legacy_food_csv_2018-04
+                              --dir path/to/FoodData_Central_sr_legacy_food_csv_2018-04 \
+                              --dir path/to/FoodData_Central_branded_food_csv_2025-04-24
 
 Each --dir is a directory unzipped from a USDA FDC "Download Datasets" CSV
-export (https://fdc.nal.usda.gov/download-datasets.html) — Foundation Foods
-and/or SR Legacy. It must contain food.csv, nutrient.csv, food_nutrient.csv.
+export (https://fdc.nal.usda.gov/download-datasets.html) — Foundation Foods,
+SR Legacy, and/or Branded Foods. Foundation/SR Legacy dirs must contain
+food.csv, nutrient.csv, food_nutrient.csv; a Branded Foods dir additionally
+needs branded_food.csv (brand_owner, gtin_upc) — auto-detected per --dir by
+that file's presence, no separate flag needed.
 
-Only foods with data_type "foundation_food" or "sr_legacy_food" are
-considered. Foods without a usable protein value are skipped (amino acid
-content can't be expressed per gram protein without it). Individual amino
-acids missing from the source data are left null — see
-IncompleteAminoAcidProfile in scoring.py for how that's handled at score
-time.
+Only foods with data_type "foundation_food", "sr_legacy_food", or
+"branded_food" are considered. Foods without a usable protein value are
+skipped (amino acid content can't be expressed per gram protein without
+it). Individual amino acids missing from the source data are left null —
+see IncompleteAminoAcidProfile in scoring.py for how that's handled at
+score time. In practice Branded Foods foods are *always* missing amino
+acids (nutrition labels don't publish them), so scanned/packaged foods are
+unscorable for DIAAS/PDCAAS — same "incomplete profile" path, not a bug.
 
 FDC does not publish digestibility coefficients, so digestibility_diaas and
 digestibility_pdcaas are always left null by this script.
@@ -21,6 +28,12 @@ digestibility_pdcaas are always left null by this script.
 Vitamin/mineral amounts (per 100g) are pulled for every nutrient listed in
 nutrients.NUTRIENTS and stored as FoodNutrient rows — a food simply
 has no row for a nutrient FDC didn't report, rather than a null placeholder.
+
+A branded food's name is prefixed with its brand_owner (e.g. "General
+Mills Cheerios") since "description" alone is often ambiguous/generic
+across competing products; gtin_upc is stored for barcode-scan lookup.
+Rows with no gtin_upc are still ingested (name/nutrient search still works
+for them) — they just can't be found by scanning.
 """
 
 import argparse
@@ -32,7 +45,7 @@ from .database import Base, SessionLocal, engine
 from .nutrients import NUTRIENTS
 from .models import Food, FoodNutrient
 
-WANTED_DATA_TYPES = {"foundation_food", "sr_legacy_food"}
+WANTED_DATA_TYPES = {"foundation_food", "sr_legacy_food", "branded_food"}
 
 # USDA nutrient numbers (stable across FDC releases, unlike the internal
 # nutrient `id`), mapped to our field names. Amino acid / protein fields
@@ -78,6 +91,17 @@ def load_foods(food_csv: Path) -> dict[str, dict]:
             row["fdc_id"]: {"name": row["description"], "data_type": row["data_type"]}
             for row in csv.DictReader(f)
             if row["data_type"] in WANTED_DATA_TYPES
+        }
+
+
+def load_branded_food_info(branded_food_csv: Path) -> dict[str, dict[str, str | None]]:
+    with open(branded_food_csv, newline="", encoding="utf-8") as f:
+        return {
+            row["fdc_id"]: {
+                "gtin_upc": row["gtin_upc"].strip() or None,
+                "brand_owner": row["brand_owner"].strip() or None,
+            }
+            for row in csv.DictReader(f)
         }
 
 
@@ -129,12 +153,18 @@ def build_amino_acid_profile(nutrients: dict[str, float]) -> dict[str, float | N
 def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
     stats = {
         "considered": 0, "skipped_no_protein": 0, "inserted": 0, "updated": 0, "complete": 0,
-        "nutrient_rows": 0,
+        "nutrient_rows": 0, "duplicate_barcode_skipped": 0,
     }
 
     foods = load_foods(dir_path / "food.csv")
     nutrient_id_to_nbr = load_nutrient_id_to_nbr(dir_path / "nutrient.csv")
     amounts = load_nutrient_amounts(dir_path / "food_nutrient.csv", nutrient_id_to_nbr, set(foods))
+
+    branded_food_csv = dir_path / "branded_food.csv"
+    branded_info = load_branded_food_info(branded_food_csv) if branded_food_csv.exists() else {}
+    for fdc_id, info in branded_info.items():
+        if fdc_id in foods and info["brand_owner"]:
+            foods[fdc_id]["name"] = f"{info['brand_owner']} {foods[fdc_id]['name']}"
 
     db = SessionLocal()
     try:
@@ -154,6 +184,13 @@ def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
             if dry_run:
                 continue
 
+            gtin_upc = branded_info.get(fdc_id, {}).get("gtin_upc")
+            if gtin_upc is not None:
+                conflict = db.query(Food).filter(Food.gtin_upc == gtin_upc, Food.fdc_id != int(fdc_id)).first()
+                if conflict is not None:
+                    stats["duplicate_barcode_skipped"] += 1
+                    gtin_upc = None
+
             existing = db.query(Food).filter(Food.fdc_id == int(fdc_id)).one_or_none()
             if existing is None:
                 food = Food(
@@ -162,6 +199,7 @@ def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
                     amino_acids=profile,
                     fdc_id=int(fdc_id),
                     data_type=food_info["data_type"],
+                    gtin_upc=gtin_upc,
                 )
                 db.add(food)
                 db.flush()
@@ -172,6 +210,7 @@ def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
                 food.protein_g_per_100g = protein
                 food.amino_acids = profile
                 food.data_type = food_info["data_type"]
+                food.gtin_upc = gtin_upc
                 db.query(FoodNutrient).filter(FoodNutrient.food_id == food.id).delete()
                 stats["updated"] += 1
 
@@ -206,7 +245,7 @@ def main() -> None:
 
     totals = {
         "considered": 0, "skipped_no_protein": 0, "inserted": 0, "updated": 0, "complete": 0,
-        "nutrient_rows": 0,
+        "nutrient_rows": 0, "duplicate_barcode_skipped": 0,
     }
     for dir_arg in args.dirs:
         dir_path = Path(dir_arg)
@@ -219,11 +258,11 @@ def main() -> None:
             totals[k] += v
         print(f"  considered={stats['considered']} skipped_no_protein={stats['skipped_no_protein']} "
               f"inserted={stats['inserted']} updated={stats['updated']} complete_profile={stats['complete']} "
-              f"nutrient_rows={stats['nutrient_rows']}")
+              f"nutrient_rows={stats['nutrient_rows']} duplicate_barcode_skipped={stats['duplicate_barcode_skipped']}")
 
     print(f"Total: considered={totals['considered']} skipped_no_protein={totals['skipped_no_protein']} "
           f"inserted={totals['inserted']} updated={totals['updated']} complete_profile={totals['complete']} "
-          f"nutrient_rows={totals['nutrient_rows']}")
+          f"nutrient_rows={totals['nutrient_rows']} duplicate_barcode_skipped={totals['duplicate_barcode_skipped']}")
 
 
 if __name__ == "__main__":

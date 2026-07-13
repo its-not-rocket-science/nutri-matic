@@ -59,6 +59,10 @@ class Food(Base):
     fdc_id: Mapped[int | None] = mapped_column(Integer, unique=True, nullable=True, index=True)
     data_type: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # UPC/EAN barcode, from FDC's Branded Foods dataset — null for
+    # Foundation/SR Legacy foods, which aren't sold as packaged retail items
+    gtin_upc: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
+
 
 class FoodNutrient(Base):
     __tablename__ = "food_nutrients"

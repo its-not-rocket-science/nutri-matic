@@ -30,6 +30,7 @@ class FoodCreate(BaseModel):
     digestibility_pdcaas_source: str | None = None
     fdc_id: int | None = None
     data_type: str | None = None
+    gtin_upc: str | None = None
 
 
 class FoodOut(FoodCreate):
