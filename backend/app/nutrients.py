@@ -60,6 +60,13 @@ def _drv(male: float, female: float, pregnant: float | None = None, lactating: f
 
 
 NUTRIENTS: dict[str, NutrientDef] = {
+    # --- energy ---
+    # No flat DRV here — unlike vitamins/minerals, energy needs are
+    # individualized (weight, height, age, sex, activity), not a per-sex/
+    # life-stage table lookup. energy.py computes a personalized daily
+    # target (Mifflin-St Jeor BMR x activity multiplier); the diary
+    # endpoint uses that instead of resolve_drv() for this key specifically.
+    "energy": NutrientDef("Energy", "kcal", "208", _drv(0, 0), "no flat DRV — see energy.py"),
     # --- fat-soluble vitamins ---
     "vitamin_a": NutrientDef(
         "Vitamin A (RAE)", "mcg", "320",

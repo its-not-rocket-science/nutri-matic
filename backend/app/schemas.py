@@ -80,6 +80,8 @@ class UserOut(BaseModel):
     activity_level: ActivityLevel | None = None
     is_pregnant: bool = False
     is_lactating: bool = False
+    weight_kg: float | None = None
+    height_cm: float | None = None
 
 
 class ProfileUpdate(BaseModel):
@@ -88,6 +90,8 @@ class ProfileUpdate(BaseModel):
     activity_level: ActivityLevel | None = None
     is_pregnant: bool = False
     is_lactating: bool = False
+    weight_kg: float | None = None
+    height_cm: float | None = None
 
 
 class RecipeIngredientCreate(BaseModel):

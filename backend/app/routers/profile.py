@@ -25,6 +25,8 @@ def update_profile(
     current_user.activity_level = body.activity_level
     current_user.is_pregnant = body.is_pregnant
     current_user.is_lactating = body.is_lactating
+    current_user.weight_kg = body.weight_kg
+    current_user.height_cm = body.height_cm
     db.commit()
     db.refresh(current_user)
     return current_user

@@ -43,6 +43,12 @@
 		return keys.map((k) => byKey.get(k)).filter((n): n is NutrientAmount => !!n);
 	}
 
+	// energy is a flagship single figure (esp. on the diary's "per day"
+	// view, where it's consumed-vs-personalized-target), not one row among
+	// many vitamin/mineral bars — shown separately, excluded from the
+	// generic groups below.
+	const energy = $derived(nutrients.find((n) => n.key === 'energy'));
+
 	const omega3to6Ratio = $derived.by(() => {
 		const byKey = new Map(nutrients.map((n) => [n.key, n.amount]));
 		const n3 = (byKey.get('ala') ?? 0) + (byKey.get('epa') ?? 0) + (byKey.get('dha') ?? 0);
@@ -51,6 +57,20 @@
 		return n6 / n3;
 	});
 </script>
+
+{#if energy}
+	<div class="energy">
+		<strong>{energy.amount.toFixed(0)} kcal</strong>
+		<span class="muted">{per}</span>
+		{#if energy.adult_drv !== null}
+			<span class="muted">
+				of {energy.adult_drv.toFixed(0)} kcal target ({energy.percent_drv?.toFixed(0)}%)
+			</span>
+		{:else if per === 'per day'}
+			<span class="muted">— set weight, height, sex, birth year &amp; activity level in your profile for a target</span>
+		{/if}
+	</div>
+{/if}
 
 {#if nutrients.length > 0}
 	<h2>Vitamins, minerals &amp; fibre <span class="muted">({per})</span></h2>
@@ -97,6 +117,14 @@
 {/if}
 
 <style>
+	.energy {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		margin-bottom: 1rem;
+		font-size: 1.1em;
+	}
 	.muted {
 		color: #666;
 		font-size: 0.9em;
