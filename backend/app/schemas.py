@@ -1,4 +1,9 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+Sex = Literal["male", "female"]
+ActivityLevel = Literal["sedentary", "light", "moderate", "active", "very_active"]
 
 
 class AminoAcidProfile(BaseModel):
@@ -67,16 +72,16 @@ class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     email: str
-    sex: str | None = None
+    sex: Sex | None = None
     birth_year: int | None = None
-    activity_level: str | None = None
+    activity_level: ActivityLevel | None = None
     is_pregnant: bool = False
     is_lactating: bool = False
 
 
 class ProfileUpdate(BaseModel):
-    sex: str | None = None
+    sex: Sex | None = None
     birth_year: int | None = None
-    activity_level: str | None = None
+    activity_level: ActivityLevel | None = None
     is_pregnant: bool = False
     is_lactating: bool = False
