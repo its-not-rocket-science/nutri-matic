@@ -19,7 +19,7 @@
 </script>
 
 <h1>Nutri-Matic</h1>
-<p><a href="/foods/new">+ Add a food</a></p>
+<p><a href="/foods/new">+ Add a food</a> · <a href="/search">Search by nutrient goals</a></p>
 
 {#if loading}
 	<p>Loading…</p>

@@ -6,6 +6,7 @@ from ..database import get_db
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
+from ..search import NutrientFilter, UnknownFilterKey, search_foods
 
 router = APIRouter(prefix="/api/foods", tags=["foods"])
 
@@ -32,6 +33,15 @@ def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=list[schemas.FoodOut])
 def list_foods(db: Session = Depends(get_db)):
     return db.query(models.Food).order_by(models.Food.name).all()
+
+
+@router.post("/search", response_model=list[schemas.FoodOut])
+def food_search(body: schemas.SearchRequest, db: Session = Depends(get_db)):
+    filters = [NutrientFilter(f.key, f.op, f.value) for f in body.filters]
+    try:
+        return search_foods(db, filters, limit=body.limit)
+    except UnknownFilterKey as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.get("/{food_id}", response_model=schemas.FoodOut)

@@ -3,6 +3,7 @@ import type {
 	DiaryEntry,
 	DiaryEntryCreate,
 	DiarySummary,
+	FilterKeysResponse,
 	Food,
 	FoodCreate,
 	NutrientAmount,
@@ -10,6 +11,7 @@ import type {
 	Recipe,
 	RecipeCreate,
 	Score,
+	SearchRequest,
 	TokenResponse,
 	User
 } from './types';
@@ -63,5 +65,11 @@ export const api = {
 	getDiaryDay: (entryDate: string) => request<DiarySummary>(`/api/diary?entry_date=${entryDate}`),
 	addDiaryEntry: (entry: DiaryEntryCreate) =>
 		request<DiaryEntry>('/api/diary', { method: 'POST', body: JSON.stringify(entry) }),
-	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' })
+	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' }),
+
+	getFilterKeys: () => request<FilterKeysResponse>('/api/search/keys'),
+	searchFoods: (req: SearchRequest) =>
+		request<Food[]>('/api/foods/search', { method: 'POST', body: JSON.stringify(req) }),
+	searchRecipes: (req: SearchRequest) =>
+		request<Recipe[]>('/api/recipes/search', { method: 'POST', body: JSON.stringify(req) })
 };

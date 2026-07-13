@@ -9,6 +9,7 @@ from ..models import Food, FoodNutrient, Recipe, RecipeIngredient, User
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
+from ..search import NutrientFilter, UnknownFilterKey, search_recipes
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
@@ -71,6 +72,18 @@ def create_recipe(
 def list_recipes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     recipes = db.query(Recipe).filter(Recipe.user_id == current_user.id).order_by(Recipe.name).all()
     return [_recipe_out(r, db) for r in recipes]
+
+
+@router.post("/search", response_model=list[schemas.RecipeOut])
+def recipe_search(
+    body: schemas.SearchRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    filters = [NutrientFilter(f.key, f.op, f.value) for f in body.filters]
+    try:
+        matches = search_recipes(db, current_user.id, filters)
+    except UnknownFilterKey as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return [_recipe_out(r, db) for r in matches[: body.limit]]
 
 
 @router.get("/{recipe_id}", response_model=schemas.RecipeOut)
