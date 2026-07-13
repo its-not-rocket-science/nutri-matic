@@ -350,9 +350,23 @@
 							<li>
 								<a href="/foods/{item.food_id}">{item.food_name}</a>
 								<span class="muted">{Math.round(item.quantity_g)}g</span>
+								{#if item.estimated_cost !== null}
+									<span class="cost">${item.estimated_cost.toFixed(2)}</span>
+								{:else}
+									<span class="muted no-price">no price set</span>
+								{/if}
 							</li>
 						{/each}
 					</ul>
+					<p class="total">
+						Estimated total: <strong>${shoppingList.total_cost.toFixed(2)}</strong>
+						{#if shoppingList.items_missing_price > 0}
+							<span class="muted">
+								({shoppingList.items_missing_price} item{shoppingList.items_missing_price === 1 ? '' : 's'}
+								missing a price — <a href="/food-prices">set prices</a>)
+							</span>
+						{/if}
+					</p>
 				{/if}
 			{/if}
 		{/if}
@@ -399,6 +413,16 @@
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
+	}
+	.cost {
+		margin-left: auto;
+		font-weight: 600;
+	}
+	.no-price {
+		margin-left: auto;
+	}
+	.total {
+		margin-top: 0.75rem;
 	}
 	form {
 		display: flex;

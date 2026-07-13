@@ -214,6 +214,20 @@ class MealPlanEntry(Base):
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class FoodPrice(Base):
+    __tablename__ = "food_prices"
+    __table_args__ = (UniqueConstraint("user_id", "food_id", name="uq_food_price_user_food"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False, index=True)
+    # what the user actually sees on the shelf/receipt — price-per-100g is
+    # derived from these at query time rather than stored, so re-editing
+    # either field doesn't require the user to redo any unit conversion
+    package_price: Mapped[float] = mapped_column(Float, nullable=False)
+    package_quantity_g: Mapped[float] = mapped_column(Float, nullable=False)
+
+
 class SavedFilterPreset(Base):
     __tablename__ = "saved_filter_presets"
 
