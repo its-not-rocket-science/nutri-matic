@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import FilterBuilder from '$lib/components/FilterBuilder.svelte';
+	import PresetControls from '$lib/components/PresetControls.svelte';
 	import type { FilterKey, Food, NutrientFilterInput } from '$lib/types';
 
 	let keys: FilterKey[] = $state([]);
@@ -46,6 +47,7 @@
 {:else}
 	<form onsubmit={handleSearch}>
 		<FilterBuilder {keys} bind:filters />
+		<PresetControls scope="food" bind:filters />
 		<button type="submit" disabled={searching}>{searching ? 'Searching…' : 'Search'}</button>
 	</form>
 

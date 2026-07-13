@@ -174,3 +174,19 @@ class FilterKeyOut(BaseModel):
     key: str
     label: str
     unit: str | None
+
+
+Scope = Literal["food", "recipe"]
+
+
+class SavedFilterPresetCreate(BaseModel):
+    name: str
+    scope: Scope
+    filters: list[NutrientFilterIn]
+
+
+class SavedFilterPresetOut(BaseModel):
+    id: int
+    name: str
+    scope: Scope
+    filters: list[NutrientFilterIn]

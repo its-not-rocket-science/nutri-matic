@@ -4,12 +4,15 @@ import type {
 	DiaryEntryCreate,
 	DiarySummary,
 	FilterKeysResponse,
+	FilterScope,
 	Food,
 	FoodCreate,
 	NutrientAmount,
 	ProfileUpdate,
 	Recipe,
 	RecipeCreate,
+	SavedFilterPreset,
+	SavedFilterPresetCreate,
 	Score,
 	SearchRequest,
 	TokenResponse,
@@ -71,5 +74,10 @@ export const api = {
 	searchFoods: (req: SearchRequest) =>
 		request<Food[]>('/api/foods/search', { method: 'POST', body: JSON.stringify(req) }),
 	searchRecipes: (req: SearchRequest) =>
-		request<Recipe[]>('/api/recipes/search', { method: 'POST', body: JSON.stringify(req) })
+		request<Recipe[]>('/api/recipes/search', { method: 'POST', body: JSON.stringify(req) }),
+
+	listPresets: (scope: FilterScope) => request<SavedFilterPreset[]>(`/api/presets?scope=${scope}`),
+	createPreset: (preset: SavedFilterPresetCreate) =>
+		request<SavedFilterPreset>('/api/presets', { method: 'POST', body: JSON.stringify(preset) }),
+	deletePreset: (id: number) => request<void>(`/api/presets/${id}`, { method: 'DELETE' })
 };

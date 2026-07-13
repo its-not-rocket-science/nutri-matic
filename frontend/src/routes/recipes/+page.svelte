@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import FilterBuilder from '$lib/components/FilterBuilder.svelte';
+	import PresetControls from '$lib/components/PresetControls.svelte';
 	import type { FilterKey, NutrientFilterInput, Recipe } from '$lib/types';
 
 	let recipes: Recipe[] = $state([]);
@@ -69,6 +70,7 @@
 	{#if showFilters}
 		<form onsubmit={handleFilter}>
 			<FilterBuilder keys={filterKeys} bind:filters />
+			<PresetControls scope="recipe" bind:filters />
 			<div class="actions">
 				<button type="submit" disabled={filtering}>{filtering ? 'Filtering…' : 'Apply filters'}</button>
 				<button type="button" onclick={clearFilters} disabled={filtering}>Clear</button>
