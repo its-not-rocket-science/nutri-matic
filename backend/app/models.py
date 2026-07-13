@@ -102,6 +102,31 @@ class RecipeShare(Base):
     )
 
 
+class RecipeRating(Base):
+    __tablename__ = "recipe_ratings"
+    __table_args__ = (UniqueConstraint("recipe_id", "user_id", name="uq_recipe_rating"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5, enforced in schemas.RecipeRatingCreate
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class RecipeComment(Base):
+    __tablename__ = "recipe_comments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    body: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class DiaryEntry(Base):
     __tablename__ = "diary_entries"
     __table_args__ = (

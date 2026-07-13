@@ -120,6 +120,8 @@ class RecipeOut(BaseModel):
     ingredients: list[RecipeIngredientOut]
     owner_email: str
     is_owner: bool
+    average_rating: float | None
+    rating_count: int
 
 
 class RecipeShareCreate(BaseModel):
@@ -130,6 +132,28 @@ class RecipeShareOut(BaseModel):
     id: int
     email: str
     created_at: datetime
+
+
+class RecipeRatingCreate(BaseModel):
+    rating: int = Field(ge=1, le=5)
+
+
+class RecipeRatingSummary(BaseModel):
+    average: float | None
+    count: int
+    my_rating: int | None
+
+
+class RecipeCommentCreate(BaseModel):
+    body: str
+
+
+class RecipeCommentOut(BaseModel):
+    id: int
+    user_email: str
+    body: str
+    created_at: datetime
+    is_own: bool
 
 
 class DiaryEntryCreate(BaseModel):

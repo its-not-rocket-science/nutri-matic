@@ -5,7 +5,7 @@ from .. import schemas
 from ..aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, User
+from ..models import Food, FoodNutrient, Recipe, RecipeComment, RecipeIngredient, RecipeRating, RecipeShare, User
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
@@ -42,10 +42,23 @@ def _get_visible_recipe(recipe_id: int, current_user: User, db: Session) -> Reci
     return recipe
 
 
+def _rating_summary(recipe_id: int, user_id: int, db: Session) -> schemas.RecipeRatingSummary:
+    ratings = [r.rating for r in db.query(RecipeRating).filter(RecipeRating.recipe_id == recipe_id).all()]
+    mine = db.query(RecipeRating).filter(
+        RecipeRating.recipe_id == recipe_id, RecipeRating.user_id == user_id
+    ).one_or_none()
+    return schemas.RecipeRatingSummary(
+        average=(sum(ratings) / len(ratings)) if ratings else None,
+        count=len(ratings),
+        my_rating=mine.rating if mine else None,
+    )
+
+
 def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.RecipeOut:
     ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).all()
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([i.food_id for i in ingredients])).all()}
     owner = db.get(User, recipe.user_id)
+    ratings = [r.rating for r in db.query(RecipeRating).filter(RecipeRating.recipe_id == recipe.id).all()]
     return schemas.RecipeOut(
         id=recipe.id,
         name=recipe.name,
@@ -58,6 +71,8 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
         ],
         owner_email=owner.email,
         is_owner=recipe.user_id == current_user.id,
+        average_rating=(sum(ratings) / len(ratings)) if ratings else None,
+        rating_count=len(ratings),
     )
 
 
@@ -269,3 +284,94 @@ def copy_recipe(recipe_id: int, current_user: User = Depends(get_current_user), 
     db.commit()
     db.refresh(copy)
     return _recipe_out(copy, db, current_user)
+
+
+@router.get("/{recipe_id}/ratings", response_model=schemas.RecipeRatingSummary)
+def get_ratings(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _get_visible_recipe(recipe_id, current_user, db)
+    return _rating_summary(recipe_id, current_user.id, db)
+
+
+@router.post("/{recipe_id}/ratings", response_model=schemas.RecipeRatingSummary)
+def rate_recipe(
+    recipe_id: int,
+    body: schemas.RecipeRatingCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upsert — rating again just replaces your previous rating."""
+    _get_visible_recipe(recipe_id, current_user, db)
+    existing = db.query(RecipeRating).filter(
+        RecipeRating.recipe_id == recipe_id, RecipeRating.user_id == current_user.id
+    ).one_or_none()
+    if existing:
+        existing.rating = body.rating
+    else:
+        db.add(RecipeRating(recipe_id=recipe_id, user_id=current_user.id, rating=body.rating))
+    db.commit()
+    return _rating_summary(recipe_id, current_user.id, db)
+
+
+@router.delete("/{recipe_id}/ratings", response_model=schemas.RecipeRatingSummary)
+def delete_rating(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _get_visible_recipe(recipe_id, current_user, db)
+    existing = db.query(RecipeRating).filter(
+        RecipeRating.recipe_id == recipe_id, RecipeRating.user_id == current_user.id
+    ).one_or_none()
+    if existing:
+        db.delete(existing)
+        db.commit()
+    return _rating_summary(recipe_id, current_user.id, db)
+
+
+@router.get("/{recipe_id}/comments", response_model=list[schemas.RecipeCommentOut])
+def list_comments(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _get_visible_recipe(recipe_id, current_user, db)
+    comments = (
+        db.query(RecipeComment).filter(RecipeComment.recipe_id == recipe_id).order_by(RecipeComment.created_at).all()
+    )
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_([c.user_id for c in comments])).all()}
+    return [
+        schemas.RecipeCommentOut(
+            id=c.id,
+            user_email=users_by_id[c.user_id].email,
+            body=c.body,
+            created_at=c.created_at,
+            is_own=c.user_id == current_user.id,
+        )
+        for c in comments
+    ]
+
+
+@router.post("/{recipe_id}/comments", response_model=schemas.RecipeCommentOut, status_code=201)
+def create_comment(
+    recipe_id: int,
+    body: schemas.RecipeCommentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not body.body.strip():
+        raise HTTPException(status_code=422, detail="Comment can't be empty")
+    _get_visible_recipe(recipe_id, current_user, db)
+    comment = RecipeComment(recipe_id=recipe_id, user_id=current_user.id, body=body.body)
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
+    return schemas.RecipeCommentOut(
+        id=comment.id, user_email=current_user.email, body=comment.body, created_at=comment.created_at, is_own=True
+    )
+
+
+@router.delete("/{recipe_id}/comments/{comment_id}", status_code=204)
+def delete_comment(
+    recipe_id: int, comment_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
+    comment = db.get(RecipeComment, comment_id)
+    if comment is None or comment.recipe_id != recipe.id:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    # comment author or the recipe owner (moderation) may delete
+    if comment.user_id != current_user.id and recipe.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this comment")
+    db.delete(comment)
+    db.commit()

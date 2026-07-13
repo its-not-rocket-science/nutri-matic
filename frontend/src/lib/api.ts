@@ -10,7 +10,9 @@ import type {
 	NutrientAmount,
 	ProfileUpdate,
 	Recipe,
+	RecipeComment,
 	RecipeCreate,
+	RecipeRatingSummary,
 	RecipeShare,
 	SavedFilterPreset,
 	SavedFilterPresetCreate,
@@ -73,6 +75,21 @@ export const api = {
 		request<RecipeShare>(`/api/recipes/${recipeId}/shares`, { method: 'POST', body: JSON.stringify({ email }) }),
 	deleteShare: (recipeId: number, shareId: number) =>
 		request<void>(`/api/recipes/${recipeId}/shares/${shareId}`, { method: 'DELETE' }),
+
+	getRatings: (recipeId: number) => request<RecipeRatingSummary>(`/api/recipes/${recipeId}/ratings`),
+	rateRecipe: (recipeId: number, rating: number) =>
+		request<RecipeRatingSummary>(`/api/recipes/${recipeId}/ratings`, {
+			method: 'POST',
+			body: JSON.stringify({ rating })
+		}),
+	deleteRating: (recipeId: number) =>
+		request<RecipeRatingSummary>(`/api/recipes/${recipeId}/ratings`, { method: 'DELETE' }),
+
+	listComments: (recipeId: number) => request<RecipeComment[]>(`/api/recipes/${recipeId}/comments`),
+	createComment: (recipeId: number, body: string) =>
+		request<RecipeComment>(`/api/recipes/${recipeId}/comments`, { method: 'POST', body: JSON.stringify({ body }) }),
+	deleteComment: (recipeId: number, commentId: number) =>
+		request<void>(`/api/recipes/${recipeId}/comments/${commentId}`, { method: 'DELETE' }),
 
 	getDiaryDay: (entryDate: string) => request<DiarySummary>(`/api/diary?entry_date=${entryDate}`),
 	addDiaryEntry: (entry: DiaryEntryCreate) =>
