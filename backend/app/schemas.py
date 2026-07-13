@@ -122,6 +122,7 @@ class RecipeOut(BaseModel):
     is_owner: bool
     average_rating: float | None
     rating_count: int
+    tags: list[str]
 
 
 class RecipeShareCreate(BaseModel):
@@ -154,6 +155,30 @@ class RecipeCommentOut(BaseModel):
     body: str
     created_at: datetime
     is_own: bool
+
+
+class TagAdd(BaseModel):
+    tag: str
+
+
+class CollectionCreate(BaseModel):
+    name: str
+
+
+class CollectionOut(BaseModel):
+    id: int
+    name: str
+    recipe_count: int
+
+
+class CollectionDetailOut(BaseModel):
+    id: int
+    name: str
+    recipes: list[RecipeOut]
+
+
+class CollectionRecipeAdd(BaseModel):
+    recipe_id: int
 
 
 class DiaryEntryCreate(BaseModel):

@@ -11,6 +11,8 @@
 	let sharedRecipes: Recipe[] = $state([]);
 	let filterKeys: FilterKey[] = $state([]);
 	let filters: NutrientFilterInput[] = $state([]);
+	let myTags: string[] = $state([]);
+	let tagFilter = $state('');
 	let filtering = $state(false);
 	let showFilters = $state(false);
 	let error: string | null = $state(null);
@@ -23,20 +25,31 @@
 			return;
 		}
 		try {
-			const [recipeList, shared, keys] = await Promise.all([
+			const [recipeList, shared, keys, tags] = await Promise.all([
 				api.listRecipes(),
 				api.listSharedWithMe(),
-				api.getFilterKeys()
+				api.getFilterKeys(),
+				api.listMyTags()
 			]);
 			recipes = recipeList;
 			sharedRecipes = shared;
 			filterKeys = keys.recipe;
+			myTags = tags;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			loading = false;
 		}
 	});
+
+	async function handleTagFilter() {
+		error = null;
+		try {
+			recipes = await api.listRecipes(tagFilter || undefined);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
 
 	async function runSearch() {
 		error = null;
@@ -75,7 +88,7 @@
 
 <h1>Recipes</h1>
 <p><a href="/">&larr; Back</a></p>
-<p><a href="/recipes/new">+ New recipe</a></p>
+<p><a href="/recipes/new">+ New recipe</a> · <a href="/collections">Collections</a></p>
 
 {#if loading}
 	<p>Loading…</p>
@@ -95,6 +108,18 @@
 				<button type="button" onclick={clearFilters} disabled={filtering}>Clear</button>
 			</div>
 		</form>
+	{/if}
+
+	{#if myTags.length > 0}
+		<p class="tag-filter">
+			Filter by tag:
+			<select bind:value={tagFilter} onchange={handleTagFilter}>
+				<option value="">All</option>
+				{#each myTags as tag (tag)}
+					<option value={tag}>{tag}</option>
+				{/each}
+			</select>
+		</p>
 	{/if}
 
 	{#if error}

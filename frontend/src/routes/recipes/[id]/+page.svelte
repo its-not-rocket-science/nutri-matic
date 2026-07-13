@@ -7,6 +7,7 @@
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import ScoreCard from '$lib/components/ScoreCard.svelte';
 	import StarRating from '$lib/components/StarRating.svelte';
+	import TagEditor from '$lib/components/TagEditor.svelte';
 	import type { NutrientAmount, Recipe, RecipeComment, RecipeRatingSummary, RecipeShare, Score } from '$lib/types';
 
 	const recipeId = Number(page.params.id);
@@ -190,6 +191,8 @@
 			<span class="muted">No ratings yet</span>
 		{/if}
 	</div>
+
+	<TagEditor bind:recipe={recipe as Recipe} editable={recipe.is_owner} />
 
 	<ul class="ingredients">
 		{#each recipe.ingredients as ingredient (ingredient.food_id)}

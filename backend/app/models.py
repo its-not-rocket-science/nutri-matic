@@ -127,6 +127,41 @@ class RecipeComment(Base):
     )
 
 
+class RecipeTag(Base):
+    __tablename__ = "recipe_tags"
+    __table_args__ = (UniqueConstraint("recipe_id", "tag", name="uq_recipe_tag"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+    # denormalized string rather than a separate Tag entity — tags are
+    # scoped to whoever owns the recipe (no cross-user tag reuse/renaming
+    # to worry about), so there's nothing a normalized Tag table would buy
+    tag: Mapped[str] = mapped_column(String, nullable=False, index=True)
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class CollectionRecipe(Base):
+    __tablename__ = "collection_recipes"
+    __table_args__ = (UniqueConstraint("collection_id", "recipe_id", name="uq_collection_recipe"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    collection_id: Mapped[int] = mapped_column(Integer, ForeignKey("collections.id"), nullable=False, index=True)
+    # the recipe doesn't have to be owned by the collection's owner — a
+    # recipe shared with you can be filed into your own collection too,
+    # same as it can be copied; unlike copying, this doesn't clone anything
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+
+
 class DiaryEntry(Base):
     __tablename__ = "diary_entries"
     __table_args__ = (
