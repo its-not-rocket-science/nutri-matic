@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..nutrients import NUTRIENTS
+from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
 
@@ -95,7 +95,9 @@ def food_nutrients(food_id: int, db: Session = Depends(get_db)):
         nutrient_def = NUTRIENTS.get(row.nutrient_key)
         if nutrient_def is None:
             continue
-        drv = nutrient_def.adult_drv or None
+        # public/unauthenticated endpoint — always the generic adult_female
+        # baseline; profile-aware DRVs are used by the diary/recipe endpoints
+        drv = resolve_drv(row.nutrient_key, profile=None)
         out.append(
             schemas.NutrientAmountOut(
                 key=row.nutrient_key,
