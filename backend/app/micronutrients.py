@@ -1,0 +1,71 @@
+"""Vitamin and mineral reference data: which nutrients we track, how to pull
+them from USDA FoodData Central, and a single adult daily reference value
+(DRV) per nutrient for gap analysis.
+
+fdc_nutrient_nbr values are USDA's stable nutrient numbers (verified
+directly against nutrient.csv in both the Foundation Foods 2026-04-30 and
+SR Legacy 2018-04 CSV exports — same numbers in both).
+
+DRV CAVEAT: this is a single generic-adult baseline, not the age/sex/
+pregnancy/lactation-specific matrix the README's "User profiles" feature
+will eventually need — that's future work. Each value below is UK
+Reference Nutrient Intake (RNI) where one exists, else EFSA Population
+Reference Intake / Adequate Intake, else US RDA/AI, in that preference
+order (matches README's "UK/EFSA Dietary Reference Values"; US figures
+used only as a last resort where UK/EFSA don't set one). Grounded against
+a comparison table cross-referencing UK RNI/EFSA PRI/US RDA/WHO-FAO RNI
+(nutritionalassessment.org/nrv/); where UK/EFSA gave a male/female range,
+the midpoint (or the more conservative higher figure, for iron) is used —
+see per-nutrient comments.
+"""
+
+from dataclasses import dataclass
+
+
+@dataclass
+class NutrientDef:
+    name: str
+    unit: str  # "mg" or "mcg", as stored (amount_per_100g uses this unit)
+    fdc_nutrient_nbr: str
+    adult_drv: float
+    drv_source: str
+
+
+NUTRIENTS: dict[str, NutrientDef] = {
+    # --- fat-soluble vitamins ---
+    "vitamin_a": NutrientDef("Vitamin A (RAE)", "mcg", "320", 700, "EFSA PRI, ~midpoint of M750/F650"),
+    "retinol": NutrientDef("Retinol", "mcg", "319", 700, "same DRV as vitamin_a (retinol is its dominant form)"),
+    "beta_carotene": NutrientDef("Beta-carotene", "mcg", "321", 0, "no independent DRV — contributes to vitamin_a"),
+    "vitamin_d": NutrientDef("Vitamin D", "mcg", "328", 10, "UK RNI"),
+    "vitamin_e": NutrientDef("Vitamin E", "mg", "323", 15, "US RDA/AI — no UK RNI or EFSA PRI set"),
+    "vitamin_k1": NutrientDef("Vitamin K1 (phylloquinone)", "mcg", "430", 70, "EFSA AI"),
+    "vitamin_k2": NutrientDef("Vitamin K2 (menaquinone-4)", "mcg", "428", 0, "no independent DRV — contributes to vitamin_k1's role"),
+    # --- water-soluble vitamins ---
+    "vitamin_c": NutrientDef("Vitamin C", "mg", "401", 40, "UK RNI"),
+    "thiamin": NutrientDef("Thiamin (B1)", "mg", "404", 0.9, "UK RNI, midpoint of 0.8-1.0"),
+    "riboflavin": NutrientDef("Riboflavin (B2)", "mg", "405", 1.2, "UK RNI, midpoint of 1.1-1.3"),
+    "niacin": NutrientDef("Niacin (B3)", "mg", "406", 14, "UK RNI, midpoint of 12-16"),
+    "pantothenic_acid": NutrientDef("Pantothenic acid (B5)", "mg", "410", 5, "US RDA/AI — no UK RNI or EFSA PRI set"),
+    "vitamin_b6": NutrientDef("Vitamin B6", "mg", "415", 1.3, "UK RNI, midpoint of 1.2-1.4"),
+    "biotin": NutrientDef("Biotin (B7)", "mcg", "416", 30, "US RDA/AI — no UK RNI or EFSA PRI set"),
+    "folate": NutrientDef("Folate (DFE)", "mcg", "435", 200, "UK RNI"),
+    "vitamin_b12": NutrientDef("Vitamin B12", "mcg", "418", 1.5, "UK RNI"),
+    "choline": NutrientDef("Choline", "mg", "421", 400, "approx. EFSA AI"),
+    # --- minerals ---
+    "calcium": NutrientDef("Calcium", "mg", "301", 700, "UK RNI"),
+    "iron": NutrientDef("Iron", "mg", "303", 14.8, "UK RNI, premenopausal female figure (higher of the 8.7-14.8 range)"),
+    "iron_heme": NutrientDef("Iron, haem", "mg", "364", 0, "no independent DRV — subset of iron"),
+    "iron_non_heme": NutrientDef("Iron, non-haem", "mg", "365", 0, "no independent DRV — subset of iron"),
+    "magnesium": NutrientDef("Magnesium", "mg", "304", 300, "UK RNI, midpoint of 270-400"),
+    "phosphorus": NutrientDef("Phosphorus", "mg", "305", 550, "UK RNI"),
+    "potassium": NutrientDef("Potassium", "mg", "306", 3500, "UK RNI"),
+    "zinc": NutrientDef("Zinc", "mg", "309", 9.5, "UK RNI, midpoint of 7-11"),
+    "copper": NutrientDef("Copper", "mg", "312", 1.5, "EFSA PRI, midpoint of 1.5-1.6 — no UK RNI"),
+    "manganese": NutrientDef("Manganese", "mg", "315", 2.0, "US RDA/AI, midpoint of 1.8-2.3 — no UK RNI or EFSA PRI"),
+    "selenium": NutrientDef("Selenium", "mcg", "317", 75, "UK RNI"),
+    "iodine": NutrientDef("Iodine", "mcg", "314", 140, "UK RNI"),
+}
+
+# nutrients with no independent DRV (their intake matters, but %DRV gap
+# analysis isn't meaningful for them individually)
+NO_DRV = {key for key, d in NUTRIENTS.items() if d.adult_drv == 0}

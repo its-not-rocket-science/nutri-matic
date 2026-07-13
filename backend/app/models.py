@@ -1,4 +1,4 @@
-from sqlalchemy import Float, Integer, JSON, String
+from sqlalchemy import Float, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -32,3 +32,15 @@ class Food(Base):
     # USDA FoodData Central provenance, null for manually-entered foods
     fdc_id: Mapped[int | None] = mapped_column(Integer, unique=True, nullable=True, index=True)
     data_type: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class FoodNutrient(Base):
+    __tablename__ = "food_nutrients"
+    __table_args__ = (UniqueConstraint("food_id", "nutrient_key", name="uq_food_nutrient"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False, index=True)
+    # key into micronutrients.NUTRIENTS
+    nutrient_key: Mapped[str] = mapped_column(String, nullable=False)
+    # amount per 100g of food, in the unit micronutrients.NUTRIENTS[nutrient_key].unit
+    amount_per_100g: Mapped[float] = mapped_column(Float, nullable=False)

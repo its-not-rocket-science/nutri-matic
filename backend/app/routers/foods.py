@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..micronutrients import NUTRIENTS
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
 
@@ -80,3 +81,30 @@ def score_food(
             food.digestibility_diaas_source if method == "diaas" else food.digestibility_pdcaas_source
         ),
     )
+
+
+@router.get("/{food_id}/nutrients", response_model=list[schemas.NutrientAmountOut])
+def food_nutrients(food_id: int, db: Session = Depends(get_db)):
+    food = db.get(models.Food, food_id)
+    if food is None:
+        raise HTTPException(status_code=404, detail="Food not found")
+
+    rows = db.query(models.FoodNutrient).filter(models.FoodNutrient.food_id == food_id).all()
+    out = []
+    for row in rows:
+        nutrient_def = NUTRIENTS.get(row.nutrient_key)
+        if nutrient_def is None:
+            continue
+        drv = nutrient_def.adult_drv or None
+        out.append(
+            schemas.NutrientAmountOut(
+                key=row.nutrient_key,
+                name=nutrient_def.name,
+                unit=nutrient_def.unit,
+                amount_per_100g=row.amount_per_100g,
+                adult_drv=drv,
+                percent_drv_per_100g=(row.amount_per_100g / drv * 100) if drv else None,
+            )
+        )
+    out.sort(key=lambda n: n.name)
+    return out

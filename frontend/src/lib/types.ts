@@ -36,6 +36,15 @@ export interface Score {
 	digestibility_source: 'measured' | 'estimated' | null;
 }
 
+export interface NutrientAmount {
+	key: string;
+	name: string;
+	unit: string;
+	amount_per_100g: number;
+	adult_drv: number | null;
+	percent_drv_per_100g: number | null;
+}
+
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {
 	histidine: 'Histidine',
 	isoleucine: 'Isoleucine',
