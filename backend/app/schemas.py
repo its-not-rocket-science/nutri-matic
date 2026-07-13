@@ -154,3 +154,23 @@ class DiaryEntryOut(BaseModel):
 class DiarySummaryOut(BaseModel):
     entries: list[DiaryEntryOut]
     nutrients: list[NutrientAmountOut]
+
+
+FilterOp = Literal["gte", "lte", "eq"]
+
+
+class NutrientFilterIn(BaseModel):
+    key: str
+    op: FilterOp
+    value: float
+
+
+class SearchRequest(BaseModel):
+    filters: list[NutrientFilterIn]
+    limit: int = 100
+
+
+class FilterKeyOut(BaseModel):
+    key: str
+    label: str
+    unit: str | None

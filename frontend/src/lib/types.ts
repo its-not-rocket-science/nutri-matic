@@ -120,6 +120,30 @@ export interface DiarySummary {
 	nutrients: NutrientAmount[];
 }
 
+export type FilterOp = 'gte' | 'lte' | 'eq';
+
+export interface FilterKey {
+	key: string;
+	label: string;
+	unit: string | null;
+}
+
+export interface NutrientFilterInput {
+	key: string;
+	op: FilterOp;
+	value: number;
+}
+
+export interface SearchRequest {
+	filters: NutrientFilterInput[];
+	limit?: number;
+}
+
+export interface FilterKeysResponse {
+	food: FilterKey[];
+	recipe: FilterKey[];
+}
+
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {
 	histidine: 'Histidine',
 	isoleucine: 'Isoleucine',

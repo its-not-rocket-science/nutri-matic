@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine
-from .routers import auth, diary, foods, profile, recipes
+from .routers import auth, diary, foods, profile, recipes, search
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,6 +20,7 @@ app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(recipes.router)
 app.include_router(diary.router)
+app.include_router(search.router)
 
 
 @app.get("/api/health")

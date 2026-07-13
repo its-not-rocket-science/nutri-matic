@@ -3,9 +3,14 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
-	import type { Recipe } from '$lib/types';
+	import FilterBuilder from '$lib/components/FilterBuilder.svelte';
+	import type { FilterKey, NutrientFilterInput, Recipe } from '$lib/types';
 
 	let recipes: Recipe[] = $state([]);
+	let filterKeys: FilterKey[] = $state([]);
+	let filters: NutrientFilterInput[] = $state([]);
+	let filtering = $state(false);
+	let showFilters = $state(false);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
@@ -15,13 +20,37 @@
 			return;
 		}
 		try {
-			recipes = await api.listRecipes();
+			const [recipeList, keys] = await Promise.all([api.listRecipes(), api.getFilterKeys()]);
+			recipes = recipeList;
+			filterKeys = keys.recipe;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			loading = false;
 		}
 	});
+
+	async function runSearch() {
+		error = null;
+		filtering = true;
+		try {
+			recipes = filters.length > 0 ? await api.searchRecipes({ filters }) : await api.listRecipes();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			filtering = false;
+		}
+	}
+
+	function handleFilter(e: SubmitEvent) {
+		e.preventDefault();
+		runSearch();
+	}
+
+	function clearFilters() {
+		filters = [];
+		runSearch();
+	}
 </script>
 
 <h1>Recipes</h1>
@@ -30,22 +59,54 @@
 
 {#if loading}
 	<p>Loading…</p>
-{:else if error}
-	<p class="error">{error}</p>
-{:else if recipes.length === 0}
-	<p>No recipes yet.</p>
 {:else}
-	<ul>
-		{#each recipes as recipe (recipe.id)}
-			<li>
-				<a href="/recipes/{recipe.id}">{recipe.name}</a>
-				<span class="muted">{recipe.ingredients.length} ingredients · {recipe.servings} servings</span>
-			</li>
-		{/each}
-	</ul>
+	<p>
+		<button type="button" onclick={() => (showFilters = !showFilters)}>
+			{showFilters ? 'Hide filters' : 'Filter by nutrient goals'}
+		</button>
+	</p>
+
+	{#if showFilters}
+		<form onsubmit={handleFilter}>
+			<FilterBuilder keys={filterKeys} bind:filters />
+			<div class="actions">
+				<button type="submit" disabled={filtering}>{filtering ? 'Filtering…' : 'Apply filters'}</button>
+				<button type="button" onclick={clearFilters} disabled={filtering}>Clear</button>
+			</div>
+		</form>
+	{/if}
+
+	{#if error}
+		<p class="error">{error}</p>
+	{:else if recipes.length === 0}
+		<p>No recipes match.</p>
+	{:else}
+		<ul>
+			{#each recipes as recipe (recipe.id)}
+				<li>
+					<a href="/recipes/{recipe.id}">{recipe.name}</a>
+					<span class="muted">{recipe.ingredients.length} ingredients · {recipe.servings} servings</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 {/if}
 
 <style>
+	form {
+		max-width: 32rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		margin: 1rem 0 1.5rem;
+		padding: 1rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
+	}
+	.actions {
+		display: flex;
+		gap: 0.5rem;
+	}
 	.muted {
 		color: #666;
 		margin-left: 0.5rem;
