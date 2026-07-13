@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -118,6 +118,18 @@ class RecipeOut(BaseModel):
     name: str
     servings: float
     ingredients: list[RecipeIngredientOut]
+    owner_email: str
+    is_owner: bool
+
+
+class RecipeShareCreate(BaseModel):
+    email: str
+
+
+class RecipeShareOut(BaseModel):
+    id: int
+    email: str
+    created_at: datetime
 
 
 class DiaryEntryCreate(BaseModel):

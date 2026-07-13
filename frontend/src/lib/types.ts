@@ -84,12 +84,20 @@ export interface Recipe {
 	name: string;
 	servings: number;
 	ingredients: RecipeIngredient[];
+	owner_email: string;
+	is_owner: boolean;
 }
 
 export interface RecipeCreate {
 	name: string;
 	servings: number;
 	ingredients: { food_id: number; quantity_g: number }[];
+}
+
+export interface RecipeShare {
+	id: number;
+	email: string;
+	created_at: string;
 }
 
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';

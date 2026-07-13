@@ -11,6 +11,7 @@ import type {
 	ProfileUpdate,
 	Recipe,
 	RecipeCreate,
+	RecipeShare,
 	SavedFilterPreset,
 	SavedFilterPresetCreate,
 	Score,
@@ -57,13 +58,21 @@ export const api = {
 		request<User>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }),
 
 	listRecipes: () => request<Recipe[]>('/api/recipes'),
+	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),
 	getRecipe: (id: number) => request<Recipe>(`/api/recipes/${id}`),
 	createRecipe: (recipe: RecipeCreate) =>
 		request<Recipe>('/api/recipes', { method: 'POST', body: JSON.stringify(recipe) }),
 	deleteRecipe: (id: number) => request<void>(`/api/recipes/${id}`, { method: 'DELETE' }),
+	copyRecipe: (id: number) => request<Recipe>(`/api/recipes/${id}/copy`, { method: 'POST' }),
 	scoreRecipe: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/recipes/${id}/score?method=${method}`),
 	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(`/api/recipes/${id}/nutrients`),
+
+	listShares: (recipeId: number) => request<RecipeShare[]>(`/api/recipes/${recipeId}/shares`),
+	createShare: (recipeId: number, email: string) =>
+		request<RecipeShare>(`/api/recipes/${recipeId}/shares`, { method: 'POST', body: JSON.stringify({ email }) }),
+	deleteShare: (recipeId: number, shareId: number) =>
+		request<void>(`/api/recipes/${recipeId}/shares/${shareId}`, { method: 'DELETE' }),
 
 	getDiaryDay: (entryDate: string) => request<DiarySummary>(`/api/diary?entry_date=${entryDate}`),
 	addDiaryEntry: (entry: DiaryEntryCreate) =>
