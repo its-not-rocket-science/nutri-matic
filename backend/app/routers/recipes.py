@@ -5,7 +5,7 @@ from .. import schemas
 from ..aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Food, FoodNutrient, Recipe, RecipeIngredient, User
+from ..models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, User
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
@@ -14,16 +14,38 @@ from ..search import NutrientFilter, UnknownFilterKey, search_recipes
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
+def _is_shared_with(recipe_id: int, user_id: int, db: Session) -> bool:
+    return (
+        db.query(RecipeShare)
+        .filter(RecipeShare.recipe_id == recipe_id, RecipeShare.shared_with_user_id == user_id)
+        .first()
+        is not None
+    )
+
+
 def _get_owned_recipe(recipe_id: int, current_user: User, db: Session) -> Recipe:
+    """For mutating operations (delete, share management) — owner only."""
     recipe = db.get(Recipe, recipe_id)
     if recipe is None or recipe.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Recipe not found")
     return recipe
 
 
-def _recipe_out(recipe: Recipe, db: Session) -> schemas.RecipeOut:
+def _get_visible_recipe(recipe_id: int, current_user: User, db: Session) -> Recipe:
+    """For read-only operations (view, score, nutrients, copy) — owner or
+    anyone the recipe has been shared with."""
+    recipe = db.get(Recipe, recipe_id)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    if recipe.user_id != current_user.id and not _is_shared_with(recipe_id, current_user.id, db):
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return recipe
+
+
+def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.RecipeOut:
     ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).all()
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([i.food_id for i in ingredients])).all()}
+    owner = db.get(User, recipe.user_id)
     return schemas.RecipeOut(
         id=recipe.id,
         name=recipe.name,
@@ -34,6 +56,8 @@ def _recipe_out(recipe: Recipe, db: Session) -> schemas.RecipeOut:
             )
             for i in ingredients
         ],
+        owner_email=owner.email,
+        is_owner=recipe.user_id == current_user.id,
     )
 
 
@@ -65,13 +89,22 @@ def create_recipe(
         db.add(RecipeIngredient(recipe_id=recipe.id, food_id=ingredient.food_id, quantity_g=ingredient.quantity_g))
     db.commit()
     db.refresh(recipe)
-    return _recipe_out(recipe, db)
+    return _recipe_out(recipe, db, current_user)
 
 
 @router.get("", response_model=list[schemas.RecipeOut])
 def list_recipes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     recipes = db.query(Recipe).filter(Recipe.user_id == current_user.id).order_by(Recipe.name).all()
-    return [_recipe_out(r, db) for r in recipes]
+    return [_recipe_out(r, db, current_user) for r in recipes]
+
+
+@router.get("/shared-with-me", response_model=list[schemas.RecipeOut])
+def list_shared_with_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    shares = db.query(RecipeShare).filter(RecipeShare.shared_with_user_id == current_user.id).all()
+    recipes = [db.get(Recipe, s.recipe_id) for s in shares]
+    recipes = [r for r in recipes if r is not None]
+    recipes.sort(key=lambda r: r.name)
+    return [_recipe_out(r, db, current_user) for r in recipes]
 
 
 @router.post("/search", response_model=list[schemas.RecipeOut])
@@ -83,13 +116,13 @@ def recipe_search(
         matches = search_recipes(db, current_user.id, filters)
     except UnknownFilterKey as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    return [_recipe_out(r, db) for r in matches[: body.limit]]
+    return [_recipe_out(r, db, current_user) for r in matches[: body.limit]]
 
 
 @router.get("/{recipe_id}", response_model=schemas.RecipeOut)
 def get_recipe(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    recipe = _get_owned_recipe(recipe_id, current_user, db)
-    return _recipe_out(recipe, db)
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
+    return _recipe_out(recipe, db, current_user)
 
 
 @router.delete("/{recipe_id}", status_code=204)
@@ -108,7 +141,7 @@ def score_recipe(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
     aggregate = aggregate_amino_acids(_weighted_foods(recipe, db))
 
     try:
@@ -141,7 +174,7 @@ def score_recipe(
 
 @router.get("/{recipe_id}/nutrients", response_model=list[schemas.NutrientAmountOut])
 def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
     items = _weighted_foods(recipe, db)
 
     food_ids = [item.food.id for item in items]
@@ -171,3 +204,68 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
         )
     out.sort(key=lambda n: n.name)
     return out
+
+
+@router.get("/{recipe_id}/shares", response_model=list[schemas.RecipeShareOut])
+def list_shares(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    shares = db.query(RecipeShare).filter(RecipeShare.recipe_id == recipe.id).all()
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_([s.shared_with_user_id for s in shares])).all()}
+    return [
+        schemas.RecipeShareOut(id=s.id, email=users_by_id[s.shared_with_user_id].email, created_at=s.created_at)
+        for s in shares
+    ]
+
+
+@router.post("/{recipe_id}/shares", response_model=schemas.RecipeShareOut, status_code=201)
+def create_share(
+    recipe_id: int,
+    body: schemas.RecipeShareCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+
+    target = db.query(User).filter(User.email == body.email).one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"No user with email: {body.email}")
+    if target.id == current_user.id:
+        raise HTTPException(status_code=422, detail="Can't share a recipe with yourself")
+    if _is_shared_with(recipe.id, target.id, db):
+        raise HTTPException(status_code=409, detail=f"Already shared with {body.email}")
+
+    share = RecipeShare(recipe_id=recipe.id, shared_with_user_id=target.id)
+    db.add(share)
+    db.commit()
+    db.refresh(share)
+    return schemas.RecipeShareOut(id=share.id, email=target.email, created_at=share.created_at)
+
+
+@router.delete("/{recipe_id}/shares/{share_id}", status_code=204)
+def delete_share(
+    recipe_id: int, share_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    share = db.get(RecipeShare, share_id)
+    if share is None or share.recipe_id != recipe.id:
+        raise HTTPException(status_code=404, detail="Share not found")
+    db.delete(share)
+    db.commit()
+
+
+@router.post("/{recipe_id}/copy", response_model=schemas.RecipeOut, status_code=201)
+def copy_recipe(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Clones a recipe (view-visible to the caller — their own, or shared
+    with them) into a brand new recipe owned by the caller, which they can
+    then edit freely. The original is untouched."""
+    original = _get_visible_recipe(recipe_id, current_user, db)
+    ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == original.id).all()
+
+    copy = Recipe(user_id=current_user.id, name=f"{original.name} (copy)", servings=original.servings)
+    db.add(copy)
+    db.flush()
+    for ingredient in ingredients:
+        db.add(RecipeIngredient(recipe_id=copy.id, food_id=ingredient.food_id, quantity_g=ingredient.quantity_g))
+    db.commit()
+    db.refresh(copy)
+    return _recipe_out(copy, db, current_user)

@@ -90,6 +90,18 @@ class RecipeIngredient(Base):
     quantity_g: Mapped[float] = mapped_column(Float, nullable=False)
 
 
+class RecipeShare(Base):
+    __tablename__ = "recipe_shares"
+    __table_args__ = (UniqueConstraint("recipe_id", "shared_with_user_id", name="uq_recipe_share"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+    shared_with_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class DiaryEntry(Base):
     __tablename__ = "diary_entries"
     __table_args__ = (
