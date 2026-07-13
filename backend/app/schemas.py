@@ -249,14 +249,32 @@ class MealPlanEntryOut(BaseModel):
     quantity_servings: float | None
 
 
+class FoodPriceCreate(BaseModel):
+    package_price: float = Field(gt=0)
+    package_quantity_g: float = Field(gt=0)
+
+
+class FoodPriceOut(BaseModel):
+    id: int
+    food_id: int
+    food_name: str
+    package_price: float
+    package_quantity_g: float
+    price_per_100g: float
+
+
 class ShoppingListItemOut(BaseModel):
     food_id: int
     food_name: str
     quantity_g: float
+    price_per_100g: float | None
+    estimated_cost: float | None
 
 
 class ShoppingListOut(BaseModel):
     items: list[ShoppingListItemOut]
+    total_cost: float
+    items_missing_price: int
 
 
 FilterOp = Literal["gte", "lte", "eq"]

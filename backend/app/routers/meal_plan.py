@@ -7,7 +7,7 @@ from .. import schemas
 from ..aggregation import aggregate_food_grams, expand_entries_to_weighted_foods
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import DiaryEntry, Food, MealPlanEntry, Recipe, User
+from ..models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Recipe, User
 
 router = APIRouter(prefix="/api/meal-plan", tags=["meal-plan"])
 
@@ -101,13 +101,36 @@ def get_shopping_list(
     items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
     totals = aggregate_food_grams(items)
 
-    shopping_items = [
-        schemas.ShoppingListItemOut(food_id=food_id, food_name=foods_by_id[food_id].name, quantity_g=quantity_g)
-        for food_id, quantity_g in totals.items()
-    ]
+    prices_by_food_id = {
+        p.food_id: p
+        for p in db.query(FoodPrice).filter(FoodPrice.user_id == current_user.id, FoodPrice.food_id.in_(totals)).all()
+    }
+
+    shopping_items = []
+    total_cost = 0.0
+    items_missing_price = 0
+    for food_id, quantity_g in totals.items():
+        price = prices_by_food_id.get(food_id)
+        if price is not None:
+            price_per_100g = price.package_price / price.package_quantity_g * 100
+            estimated_cost = price_per_100g * quantity_g / 100
+            total_cost += estimated_cost
+        else:
+            price_per_100g = None
+            estimated_cost = None
+            items_missing_price += 1
+        shopping_items.append(
+            schemas.ShoppingListItemOut(
+                food_id=food_id,
+                food_name=foods_by_id[food_id].name,
+                quantity_g=quantity_g,
+                price_per_100g=price_per_100g,
+                estimated_cost=estimated_cost,
+            )
+        )
     shopping_items.sort(key=lambda i: i.food_name)
 
-    return schemas.ShoppingListOut(items=shopping_items)
+    return schemas.ShoppingListOut(items=shopping_items, total_cost=total_cost, items_missing_price=items_missing_price)
 
 
 @router.delete("/{entry_id}", status_code=204)

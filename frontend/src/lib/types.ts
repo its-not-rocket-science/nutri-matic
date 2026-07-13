@@ -183,10 +183,28 @@ export interface ShoppingListItem {
 	food_id: number;
 	food_name: string;
 	quantity_g: number;
+	price_per_100g: number | null;
+	estimated_cost: number | null;
 }
 
 export interface ShoppingList {
 	items: ShoppingListItem[];
+	total_cost: number;
+	items_missing_price: number;
+}
+
+export interface FoodPrice {
+	id: number;
+	food_id: number;
+	food_name: string;
+	package_price: number;
+	package_quantity_g: number;
+	price_per_100g: number;
+}
+
+export interface FoodPriceCreate {
+	package_price: number;
+	package_quantity_g: number;
 }
 
 export type FilterOp = 'gte' | 'lte' | 'eq';

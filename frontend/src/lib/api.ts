@@ -9,6 +9,8 @@ import type {
 	FilterScope,
 	Food,
 	FoodCreate,
+	FoodPrice,
+	FoodPriceCreate,
 	MealPlanEntry,
 	MealPlanEntryCreate,
 	NutrientAmount,
@@ -116,6 +118,11 @@ export const api = {
 		request<DiaryEntry>(`/api/meal-plan/${id}/mark-eaten`, { method: 'POST' }),
 	getShoppingList: (startDate: string, endDate: string) =>
 		request<ShoppingList>(`/api/meal-plan/shopping-list?start_date=${startDate}&end_date=${endDate}`),
+
+	listFoodPrices: () => request<FoodPrice[]>('/api/food-prices'),
+	setFoodPrice: (foodId: number, price: FoodPriceCreate) =>
+		request<FoodPrice>(`/api/food-prices/${foodId}`, { method: 'PUT', body: JSON.stringify(price) }),
+	deleteFoodPrice: (foodId: number) => request<void>(`/api/food-prices/${foodId}`, { method: 'DELETE' }),
 
 	getFilterKeys: () => request<FilterKeysResponse>('/api/search/keys'),
 	searchFoods: (req: SearchRequest) =>
