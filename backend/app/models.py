@@ -66,3 +66,21 @@ class FoodNutrient(Base):
     nutrient_key: Mapped[str] = mapped_column(String, nullable=False)
     # amount per 100g of food, in the unit nutrients.NUTRIENTS[nutrient_key].unit
     amount_per_100g: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class Recipe(Base):
+    __tablename__ = "recipes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    servings: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class RecipeIngredient(Base):
+    __tablename__ = "recipe_ingredients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+    food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False)
+    quantity_g: Mapped[float] = mapped_column(Float, nullable=False)

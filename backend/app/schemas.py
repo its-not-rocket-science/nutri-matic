@@ -48,9 +48,10 @@ class NutrientAmountOut(BaseModel):
     key: str
     name: str
     unit: str
-    amount_per_100g: float
+    # per 100g for a food, per serving for a recipe, per day for a diary summary
+    amount: float
     adult_drv: float | None
-    percent_drv_per_100g: float | None
+    percent_drv: float | None
 
 
 class UserCreate(BaseModel):
@@ -85,3 +86,29 @@ class ProfileUpdate(BaseModel):
     activity_level: ActivityLevel | None = None
     is_pregnant: bool = False
     is_lactating: bool = False
+
+
+class RecipeIngredientCreate(BaseModel):
+    food_id: int
+    quantity_g: float
+
+
+class RecipeCreate(BaseModel):
+    name: str
+    servings: float
+    ingredients: list[RecipeIngredientCreate]
+
+
+class RecipeIngredientOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    food_id: int
+    food_name: str
+    quantity_g: float
+
+
+class RecipeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    servings: float
+    ingredients: list[RecipeIngredientOut]

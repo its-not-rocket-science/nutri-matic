@@ -40,9 +40,10 @@ export interface NutrientAmount {
 	key: string;
 	name: string;
 	unit: string;
-	amount_per_100g: number;
+	/** per 100g for a food, per serving for a recipe, per day for a diary summary */
+	amount: number;
 	adult_drv: number | null;
-	percent_drv_per_100g: number | null;
+	percent_drv: number | null;
 }
 
 export interface User {
@@ -66,6 +67,25 @@ export interface ProfileUpdate {
 export interface TokenResponse {
 	access_token: string;
 	token_type: string;
+}
+
+export interface RecipeIngredient {
+	food_id: number;
+	food_name: string;
+	quantity_g: number;
+}
+
+export interface Recipe {
+	id: number;
+	name: string;
+	servings: number;
+	ingredients: RecipeIngredient[];
+}
+
+export interface RecipeCreate {
+	name: string;
+	servings: number;
+	ingredients: { food_id: number; quantity_g: number }[];
 }
 
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {

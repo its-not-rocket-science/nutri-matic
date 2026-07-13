@@ -103,9 +103,9 @@ def food_nutrients(food_id: int, db: Session = Depends(get_db)):
                 key=row.nutrient_key,
                 name=nutrient_def.name,
                 unit=nutrient_def.unit,
-                amount_per_100g=row.amount_per_100g,
+                amount=row.amount_per_100g,
                 adult_drv=drv,
-                percent_drv_per_100g=(row.amount_per_100g / drv * 100) if drv else None,
+                percent_drv=(row.amount_per_100g / drv * 100) if drv else None,
             )
         )
     out.sort(key=lambda n: n.name)
