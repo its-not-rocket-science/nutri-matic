@@ -217,6 +217,47 @@ class DiarySummaryOut(BaseModel):
     nutrients: list[NutrientAmountOut]
 
 
+class MealPlanEntryCreate(BaseModel):
+    plan_date: date
+    meal: Meal
+    food_id: int | None = None
+    quantity_g: float | None = None
+    recipe_id: int | None = None
+    quantity_servings: float | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_of_food_or_recipe(self):
+        is_food = self.food_id is not None and self.quantity_g is not None
+        is_recipe = self.recipe_id is not None and self.quantity_servings is not None
+        if is_food == is_recipe:  # both or neither
+            raise ValueError(
+                "Provide exactly one of (food_id, quantity_g) or (recipe_id, quantity_servings)"
+            )
+        return self
+
+
+class MealPlanEntryOut(BaseModel):
+    id: int
+    plan_date: date
+    meal: Meal
+    food_id: int | None
+    food_name: str | None
+    quantity_g: float | None
+    recipe_id: int | None
+    recipe_name: str | None
+    quantity_servings: float | None
+
+
+class ShoppingListItemOut(BaseModel):
+    food_id: int
+    food_name: str
+    quantity_g: float
+
+
+class ShoppingListOut(BaseModel):
+    items: list[ShoppingListItemOut]
+
+
 FilterOp = Literal["gte", "lte", "eq"]
 
 

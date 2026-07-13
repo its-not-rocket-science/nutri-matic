@@ -23,8 +23,11 @@ micronutrient data.
 """
 
 from dataclasses import dataclass
+from typing import Protocol
 
-from .models import Food, FoodNutrient, RecipeIngredient
+from sqlalchemy.orm import Session
+
+from .models import Food, FoodNutrient, Recipe, RecipeIngredient
 from .reference_patterns import AMINO_ACIDS
 
 
@@ -45,6 +48,66 @@ def scale_recipe_ingredients(
     same per-gram aggregation as directly-logged foods."""
     scale = servings_eaten / recipe_servings
     return [WeightedFood(foods_by_id[ing.food_id], ing.quantity_g * scale) for ing in ingredients]
+
+
+class QuantifiedEntry(Protocol):
+    """Anything shaped like a DiaryEntry/MealPlanEntry — exactly one of
+    (food_id, quantity_g) or (recipe_id, quantity_servings) set."""
+
+    food_id: int | None
+    quantity_g: float | None
+    recipe_id: int | None
+    quantity_servings: float | None
+
+
+def expand_entries_to_weighted_foods(
+    entries: list[QuantifiedEntry],
+    foods_by_id: dict[int, Food],
+    recipes_by_id: dict[int, Recipe],
+    db: Session,
+) -> list[WeightedFood]:
+    """A food entry becomes one WeightedFood; a recipe entry expands into
+    its ingredients, each scaled by quantity_servings / recipe.servings.
+    Shared by the diary and meal plan, whose entries have the same shape
+    but different lifecycles (actual vs. planned) — this is the part
+    that's identical between them.
+
+    foods_by_id is mutated in place with any recipe-ingredient foods not
+    already present, so callers that need the full food set afterward
+    (e.g. to look up FoodNutrient rows) see it reflected there too.
+    """
+    items: list[WeightedFood] = []
+    recipe_ingredient_cache: dict[int, list[RecipeIngredient]] = {}
+
+    for entry in entries:
+        if entry.food_id is not None:
+            items.append(WeightedFood(foods_by_id[entry.food_id], entry.quantity_g))
+        else:
+            recipe = recipes_by_id[entry.recipe_id]
+            if recipe.id not in recipe_ingredient_cache:
+                recipe_ingredient_cache[recipe.id] = (
+                    db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).all()
+                )
+            ingredients = recipe_ingredient_cache[recipe.id]
+            missing_ids = {i.food_id for i in ingredients} - foods_by_id.keys()
+            if missing_ids:
+                for food in db.query(Food).filter(Food.id.in_(missing_ids)).all():
+                    foods_by_id[food.id] = food
+            items.extend(
+                scale_recipe_ingredients(ingredients, recipe.servings, entry.quantity_servings, foods_by_id)
+            )
+
+    return items
+
+
+def aggregate_food_grams(items: list[WeightedFood]) -> dict[int, float]:
+    """Sums quantity_g per food_id across items — the shopping-list shape
+    (how much of each actual food is needed), as opposed to
+    aggregate_nutrients' per-nutrient totals."""
+    totals: dict[int, float] = {}
+    for item in items:
+        totals[item.food.id] = totals.get(item.food.id, 0.0) + item.quantity_g
+    return totals
 
 
 @dataclass

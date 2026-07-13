@@ -1,0 +1,400 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { api } from '$lib/api';
+	import { auth } from '$lib/auth.svelte';
+	import type { Food, Meal, MealPlanEntry, Recipe, ShoppingList } from '$lib/types';
+
+	function toIsoDate(d: Date): string {
+		return d.toISOString().slice(0, 10);
+	}
+
+	function startOfWeek(d: Date): Date {
+		const copy = new Date(d);
+		const day = copy.getUTCDay(); // 0 = Sunday
+		const diff = day === 0 ? -6 : 1 - day; // shift back to Monday
+		copy.setUTCDate(copy.getUTCDate() + diff);
+		return copy;
+	}
+
+	const MEALS: Meal[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+	const WEEKDAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+	let weekStart = $state(startOfWeek(new Date()));
+	const weekDates = $derived.by(() => {
+		const dates: string[] = [];
+		for (let i = 0; i < 7; i++) {
+			const d = new Date(weekStart);
+			d.setUTCDate(d.getUTCDate() + i);
+			dates.push(toIsoDate(d));
+		}
+		return dates;
+	});
+
+	let entries: MealPlanEntry[] = $state([]);
+	let allFoods: Food[] = $state([]);
+	let allRecipes: Recipe[] = $state([]);
+	let error: string | null = $state(null);
+	let loading = $state(true);
+
+	let itemType: 'food' | 'recipe' = $state('food');
+	let search = $state('');
+	let selectedFood: Food | null = $state(null);
+	let selectedRecipe: Recipe | null = $state(null);
+	let quantity = $state<number | null>(100);
+	let planDate = $state(weekDates[0]);
+	let meal: Meal = $state('breakfast');
+	let adding = $state(false);
+	let markingId: number | null = $state(null);
+
+	let showShoppingList = $state(false);
+	let shoppingList: ShoppingList | null = $state(null);
+	let loadingShoppingList = $state(false);
+
+	const searchResults = $derived.by(() => {
+		const q = search.trim().toLowerCase();
+		if (q.length < 2) return [];
+		const source = itemType === 'food' ? allFoods : allRecipes;
+		return source.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
+	});
+
+	async function loadWeek() {
+		loading = true;
+		error = null;
+		try {
+			entries = await api.listMealPlanEntries(weekDates[0], weekDates[6]);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			loading = false;
+		}
+		if (showShoppingList) await loadShoppingList();
+	}
+
+	async function loadShoppingList() {
+		loadingShoppingList = true;
+		try {
+			shoppingList = await api.getShoppingList(weekDates[0], weekDates[6]);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			loadingShoppingList = false;
+		}
+	}
+
+	onMount(async () => {
+		if (!auth.isLoggedIn) {
+			await goto('/login');
+			return;
+		}
+		try {
+			[allFoods, allRecipes] = await Promise.all([api.listFoods(), api.listRecipes()]);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+		await loadWeek();
+	});
+
+	function shiftWeek(weeks: number) {
+		const d = new Date(weekStart);
+		d.setUTCDate(d.getUTCDate() + weeks * 7);
+		weekStart = d;
+		planDate = weekDates[0];
+		loadWeek();
+	}
+
+	function selectItem(item: Food | Recipe) {
+		if (itemType === 'food') selectedFood = item as Food;
+		else selectedRecipe = item as Recipe;
+		search = '';
+	}
+
+	async function toggleShoppingList() {
+		showShoppingList = !showShoppingList;
+		if (showShoppingList && !shoppingList) await loadShoppingList();
+	}
+
+	async function handleAdd(e: SubmitEvent) {
+		e.preventDefault();
+		error = null;
+		if (quantity === null || quantity <= 0) {
+			error = 'Enter a positive quantity.';
+			return;
+		}
+		if (itemType === 'food' && !selectedFood) {
+			error = 'Search for and select a food.';
+			return;
+		}
+		if (itemType === 'recipe' && !selectedRecipe) {
+			error = 'Search for and select a recipe.';
+			return;
+		}
+
+		adding = true;
+		try {
+			if (itemType === 'food' && selectedFood) {
+				await api.addMealPlanEntry({
+					plan_date: planDate,
+					meal,
+					food_id: selectedFood.id,
+					quantity_g: quantity
+				});
+			} else if (selectedRecipe) {
+				await api.addMealPlanEntry({
+					plan_date: planDate,
+					meal,
+					recipe_id: selectedRecipe.id,
+					quantity_servings: quantity
+				});
+			}
+			selectedFood = null;
+			selectedRecipe = null;
+			quantity = 100;
+			shoppingList = null;
+			await loadWeek();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			adding = false;
+		}
+	}
+
+	async function handleDelete(id: number) {
+		error = null;
+		try {
+			await api.deleteMealPlanEntry(id);
+			shoppingList = null;
+			await loadWeek();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function handleMarkEaten(id: number) {
+		error = null;
+		markingId = id;
+		try {
+			await api.markMealPlanEntryEaten(id);
+			shoppingList = null;
+			await loadWeek();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			markingId = null;
+		}
+	}
+</script>
+
+<h1>Meal plan</h1>
+<p><a href="/">&larr; Back</a></p>
+
+<div class="date-nav">
+	<button type="button" onclick={() => shiftWeek(-1)}>&larr; Prev week</button>
+	<span>{weekDates[0]} &ndash; {weekDates[6]}</span>
+	<button type="button" onclick={() => shiftWeek(1)}>Next week &rarr;</button>
+</div>
+
+{#if error}
+	<p class="error">{error}</p>
+{/if}
+
+{#if loading}
+	<p>Loading…</p>
+{:else}
+	{#each weekDates as d, i (d)}
+		{@const dayEntries = entries.filter((e) => e.plan_date === d)}
+		<section>
+			<h3>{WEEKDAY_LABELS[i]} <span class="muted">{d}</span></h3>
+			{#if dayEntries.length === 0}
+				<p class="muted">Nothing planned.</p>
+			{:else}
+				{#each MEALS as m (m)}
+					{@const mealEntries = dayEntries.filter((e) => e.meal === m)}
+					{#if mealEntries.length > 0}
+						<div class="meal-group">
+							<span class="meal-label">{m}</span>
+							<ul class="entries">
+								{#each mealEntries as entry (entry.id)}
+									<li>
+										{#if entry.food_id}
+											<a href="/foods/{entry.food_id}">{entry.food_name}</a>
+											<span class="muted">{entry.quantity_g}g</span>
+										{:else}
+											<a href="/recipes/{entry.recipe_id}">{entry.recipe_name}</a>
+											<span class="muted">{entry.quantity_servings} serving(s)</span>
+										{/if}
+										<button
+											type="button"
+											onclick={() => handleMarkEaten(entry.id)}
+											disabled={markingId === entry.id}
+										>
+											{markingId === entry.id ? 'Marking…' : 'Mark eaten'}
+										</button>
+										<button type="button" onclick={() => handleDelete(entry.id)}>Remove</button>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				{/each}
+			{/if}
+		</section>
+	{/each}
+
+	<form onsubmit={handleAdd}>
+		<h3>Add planned entry</h3>
+		<label>
+			Day
+			<select bind:value={planDate}>
+				{#each weekDates as d, i (d)}
+					<option value={d}>{WEEKDAY_LABELS[i]} ({d})</option>
+				{/each}
+			</select>
+		</label>
+
+		<label>
+			Type
+			<select
+				bind:value={itemType}
+				onchange={() => {
+					search = '';
+					selectedFood = null;
+					selectedRecipe = null;
+				}}
+			>
+				<option value="food">Food</option>
+				<option value="recipe">Recipe</option>
+			</select>
+		</label>
+
+		{#if (itemType === 'food' && selectedFood) || (itemType === 'recipe' && selectedRecipe)}
+			<p>
+				Selected: <strong>{itemType === 'food' ? selectedFood?.name : selectedRecipe?.name}</strong>
+				<button
+					type="button"
+					onclick={() => {
+						selectedFood = null;
+						selectedRecipe = null;
+					}}>Change</button
+				>
+			</p>
+		{:else}
+			<label>
+				Search {itemType}s
+				<input type="text" bind:value={search} placeholder="Search…" />
+			</label>
+			{#if searchResults.length > 0}
+				<ul class="search-results">
+					{#each searchResults as item (item.id)}
+						<li><button type="button" onclick={() => selectItem(item)}>{item.name}</button></li>
+					{/each}
+				</ul>
+			{/if}
+		{/if}
+
+		<label>
+			{itemType === 'food' ? 'Quantity (g)' : 'Servings'}
+			<input type="number" step="any" min="0" bind:value={quantity} required />
+		</label>
+
+		<label>
+			Meal
+			<select bind:value={meal}>
+				{#each MEALS as m (m)}
+					<option value={m}>{m}</option>
+				{/each}
+			</select>
+		</label>
+
+		<button type="submit" disabled={adding}>{adding ? 'Adding…' : 'Add to plan'}</button>
+	</form>
+
+	<section>
+		<button type="button" onclick={toggleShoppingList}>
+			{showShoppingList ? 'Hide shopping list' : 'Show shopping list for this week'}
+		</button>
+		{#if showShoppingList}
+			{#if loadingShoppingList}
+				<p>Loading…</p>
+			{:else if shoppingList}
+				{#if shoppingList.items.length === 0}
+					<p class="muted">Nothing planned this week.</p>
+				{:else}
+					<ul class="entries">
+						{#each shoppingList.items as item (item.food_id)}
+							<li>
+								<a href="/foods/{item.food_id}">{item.food_name}</a>
+								<span class="muted">{Math.round(item.quantity_g)}g</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{/if}
+		{/if}
+	</section>
+{/if}
+
+<style>
+	.date-nav {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1.5rem;
+	}
+	.error {
+		color: #b00020;
+	}
+	.muted {
+		color: #666;
+		font-size: 0.9em;
+		margin: 0 0.5rem;
+	}
+	section {
+		margin-bottom: 1.25rem;
+	}
+	.meal-group {
+		margin: 0.25rem 0 0.5rem;
+	}
+	.meal-label {
+		text-transform: capitalize;
+		font-weight: 600;
+		font-size: 0.85em;
+		color: #444;
+	}
+	.entries {
+		list-style: none;
+		padding: 0;
+	}
+	.entries li {
+		padding: 0.25rem 0;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		max-width: 28rem;
+		margin: 1.5rem 0;
+		padding: 1rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
+	}
+	label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.search-results {
+		list-style: none;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+	.search-results button {
+		width: 100%;
+		text-align: left;
+	}
+</style>

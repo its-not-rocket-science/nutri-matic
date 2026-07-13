@@ -187,6 +187,29 @@ class DiaryEntry(Base):
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class MealPlanEntry(Base):
+    __tablename__ = "meal_plan_entries"
+    __table_args__ = (
+        # exactly one of (food_id, quantity_g) / (recipe_id, quantity_servings) — same shape as DiaryEntry
+        CheckConstraint(
+            "(food_id IS NOT NULL AND quantity_g IS NOT NULL AND recipe_id IS NULL AND quantity_servings IS NULL) "
+            "OR (recipe_id IS NOT NULL AND quantity_servings IS NOT NULL AND food_id IS NULL AND quantity_g IS NULL)",
+            name="ck_meal_plan_entry_exactly_one_of_food_or_recipe",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    plan_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    meal: Mapped[str] = mapped_column(String, nullable=False)  # "breakfast" | "lunch" | "dinner" | "snack"
+
+    food_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("foods.id"), nullable=True)
+    quantity_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
+    quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
 class SavedFilterPreset(Base):
     __tablename__ = "saved_filter_presets"
 

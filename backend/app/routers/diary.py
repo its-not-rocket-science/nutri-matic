@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..aggregation import WeightedFood, aggregate_nutrients, scale_recipe_ingredients
+from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods
 from ..auth import get_current_user
 from ..database import get_db
 from ..energy import calculate_eer
-from ..models import DiaryEntry, Food, FoodNutrient, Recipe, RecipeIngredient, User
+from ..models import DiaryEntry, Food, FoodNutrient, Recipe, User
 from ..nutrients import NUTRIENTS, resolve_drv
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
@@ -26,37 +26,6 @@ def _entry_out(entry: DiaryEntry, foods_by_id: dict[int, Food], recipes_by_id: d
         recipe_name=recipes_by_id[entry.recipe_id].name if entry.recipe_id else None,
         quantity_servings=entry.quantity_servings,
     )
-
-
-def _expand_to_weighted_foods(
-    entries: list[DiaryEntry], foods_by_id: dict[int, Food], recipes_by_id: dict[int, Recipe], db: Session
-) -> list[WeightedFood]:
-    """A food entry becomes one WeightedFood; a recipe entry expands into
-    its ingredients, each scaled by quantity_servings / recipe.servings —
-    this lets the same aggregation math used for recipes handle diary
-    totals without duplicating it."""
-    items: list[WeightedFood] = []
-    recipe_ingredient_cache: dict[int, list[RecipeIngredient]] = {}
-
-    for entry in entries:
-        if entry.food_id is not None:
-            items.append(WeightedFood(foods_by_id[entry.food_id], entry.quantity_g))
-        else:
-            recipe = recipes_by_id[entry.recipe_id]
-            if recipe.id not in recipe_ingredient_cache:
-                recipe_ingredient_cache[recipe.id] = (
-                    db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).all()
-                )
-            ingredients = recipe_ingredient_cache[recipe.id]
-            missing_ids = {i.food_id for i in ingredients} - foods_by_id.keys()
-            if missing_ids:
-                for food in db.query(Food).filter(Food.id.in_(missing_ids)).all():
-                    foods_by_id[food.id] = food
-            items.extend(
-                scale_recipe_ingredients(ingredients, recipe.servings, entry.quantity_servings, foods_by_id)
-            )
-
-    return items
 
 
 @router.post("", response_model=schemas.DiaryEntryOut, status_code=201)
@@ -103,7 +72,7 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
 
     entries_out = [_entry_out(e, foods_by_id, recipes_by_id) for e in entries]
 
-    items = _expand_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
+    items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
     all_food_ids = [item.food.id for item in items]
     rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all()
     by_food_id: dict[int, list[FoodNutrient]] = {}
