@@ -66,4 +66,9 @@
 	.muted {
 		color: #666;
 	}
+	@media print {
+		nav {
+			display: none;
+		}
+	}
 </style>

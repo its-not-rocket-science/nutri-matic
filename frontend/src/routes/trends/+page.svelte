@@ -3,6 +3,8 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import PrintButton from '$lib/components/PrintButton.svelte';
+	import { downloadCsv } from '$lib/csv';
 	import type { DiaryTrends, TrendGroupBy } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -89,12 +91,34 @@
 	function barHeight(percent: number): number {
 		return (Math.min(percent, DISPLAY_CEILING) / DISPLAY_CEILING) * CHART_HEIGHT;
 	}
+
+	function handleDownloadCsv() {
+		if (!trends) return;
+		const rows: (string | number | null)[][] = [
+			['Bucket start', 'Bucket end', 'Logged days', 'Nutrient', 'Avg amount', 'Unit', 'DRV', 'Avg % DRV']
+		];
+		for (const bucket of trends.buckets) {
+			for (const n of bucket.nutrients) {
+				rows.push([
+					bucket.bucket_start,
+					bucket.bucket_end,
+					bucket.logged_days,
+					n.name,
+					n.avg_amount,
+					n.unit,
+					n.adult_drv,
+					n.avg_percent_drv
+				]);
+			}
+		}
+		downloadCsv(`diet-trends-${groupBy}-${startDate}-to-${endDate}.csv`, rows);
+	}
 </script>
 
 <h1>Diet trends</h1>
-<p><a href="/">&larr; Back</a></p>
+<p class="no-print"><a href="/">&larr; Back</a></p>
 
-<div class="controls">
+<div class="controls no-print">
 	<div class="toggle">
 		<button type="button" class:active={groupBy === 'week'} onclick={() => handleGroupByChange('week')}>
 			Week
@@ -114,6 +138,8 @@
 	</label>
 </div>
 
+<p class="range-heading">{groupBy === 'week' ? 'Weekly' : 'Monthly'} trends, {startDate} to {endDate}</p>
+
 {#if error}
 	<p class="error">{error}</p>
 {/if}
@@ -123,7 +149,12 @@
 {:else if !trends || trends.buckets.length === 0}
 	<p class="muted">Nothing logged in this range yet.</p>
 {:else}
-	<label class="nutrient-picker">
+	<div class="export-actions no-print">
+		<PrintButton />
+		<button type="button" onclick={handleDownloadCsv}>Download CSV (all nutrients)</button>
+	</div>
+
+	<label class="nutrient-picker no-print">
 		Nutrient
 		<select bind:value={selectedKey}>
 			{#each nutrientOptions as [key, name] (key)}
@@ -131,6 +162,12 @@
 			{/each}
 		</select>
 	</label>
+
+	{#if selectedKey}
+		<p class="selected-nutrient-heading">
+			{nutrientOptions.find(([key]) => key === selectedKey)?.[1]}
+		</p>
+	{/if}
 
 	{#if selectedKey}
 		{@const hasDrv = chartData.some((d) => d.nutrient?.adult_drv)}
@@ -239,5 +276,28 @@
 	.logged-days-label {
 		font-size: 7px;
 		fill: #888;
+	}
+	.range-heading,
+	.selected-nutrient-heading {
+		display: none;
+	}
+	.export-actions {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	@media print {
+		.no-print {
+			display: none !important;
+		}
+		.range-heading {
+			display: block;
+			font-weight: 600;
+		}
+		.selected-nutrient-heading {
+			display: block;
+			font-weight: 600;
+			margin-top: 1rem;
+		}
 	}
 </style>
