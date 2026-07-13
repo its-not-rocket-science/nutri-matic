@@ -24,6 +24,13 @@
 				'calcium', 'iron', 'iron_heme', 'iron_non_heme', 'magnesium', 'phosphorus',
 				'potassium', 'zinc', 'copper', 'manganese', 'selenium', 'iodine'
 			]
+		},
+		{
+			label: 'Dietary fibre',
+			keys: [
+				'fiber_total', 'fiber_soluble', 'fiber_insoluble',
+				'resistant_starch', 'inulin', 'beta_glucan'
+			]
 		}
 	];
 
@@ -108,7 +115,7 @@
 	{/if}
 
 	{#if nutrients.length > 0}
-		<h2>Vitamins &amp; minerals <span class="muted">(per 100g)</span></h2>
+		<h2>Vitamins, minerals &amp; fibre <span class="muted">(per 100g)</span></h2>
 		{#each NUTRIENT_GROUPS as group (group.label)}
 			{@const rows = groupNutrients(group.keys)}
 			{#if rows.length > 0}

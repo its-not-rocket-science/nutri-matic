@@ -40,7 +40,7 @@ class FoodNutrient(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False, index=True)
-    # key into micronutrients.NUTRIENTS
+    # key into nutrients.NUTRIENTS
     nutrient_key: Mapped[str] = mapped_column(String, nullable=False)
-    # amount per 100g of food, in the unit micronutrients.NUTRIENTS[nutrient_key].unit
+    # amount per 100g of food, in the unit nutrients.NUTRIENTS[nutrient_key].unit
     amount_per_100g: Mapped[float] = mapped_column(Float, nullable=False)

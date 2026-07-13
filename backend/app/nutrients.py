@@ -1,6 +1,9 @@
-"""Vitamin and mineral reference data: which nutrients we track, how to pull
-them from USDA FoodData Central, and a single adult daily reference value
-(DRV) per nutrient for gap analysis.
+"""Reference data for nutrients tracked via the FoodNutrient table (vitamins,
+minerals, dietary fibre — anything expressed as a simple amount per 100g,
+as opposed to amino acids, which get their own per-gram-protein handling in
+reference_patterns.py): which nutrients we track, how to pull them from
+USDA FoodData Central, and a single adult daily reference value (DRV) per
+nutrient for gap analysis where one applies.
 
 fdc_nutrient_nbr values are USDA's stable nutrient numbers (verified
 directly against nutrient.csv in both the Foundation Foods 2026-04-30 and
@@ -25,7 +28,7 @@ from dataclasses import dataclass
 @dataclass
 class NutrientDef:
     name: str
-    unit: str  # "mg" or "mcg", as stored (amount_per_100g uses this unit)
+    unit: str  # "mg", "mcg", or "g", as stored (amount_per_100g uses this unit)
     fdc_nutrient_nbr: str
     adult_drv: float
     drv_source: str
@@ -64,6 +67,16 @@ NUTRIENTS: dict[str, NutrientDef] = {
     "manganese": NutrientDef("Manganese", "mg", "315", 2.0, "US RDA/AI, midpoint of 1.8-2.3 — no UK RNI or EFSA PRI"),
     "selenium": NutrientDef("Selenium", "mcg", "317", 75, "UK RNI"),
     "iodine": NutrientDef("Iodine", "mcg", "314", 140, "UK RNI"),
+    # --- dietary fibre ---
+    # "Fiber, total dietary" (nbr 291) used rather than the newer AOAC 2011.25
+    # method (nbr 293) — 291 is the one present in both Foundation Foods and
+    # SR Legacy, avoiding the ambiguity of two methods for the same food.
+    "fiber_total": NutrientDef("Fibre, total", "g", "291", 30, "UK SACN/NHS recommendation (30g/day)"),
+    "fiber_soluble": NutrientDef("Fibre, soluble", "g", "295", 0, "no independent DRV — subset of fiber_total"),
+    "fiber_insoluble": NutrientDef("Fibre, insoluble", "g", "297", 0, "no independent DRV — subset of fiber_total"),
+    "resistant_starch": NutrientDef("Resistant starch", "g", "283", 0, "prebiotic fibre — no established DRV"),
+    "inulin": NutrientDef("Inulin", "g", "806", 0, "prebiotic fibre — no established DRV"),
+    "beta_glucan": NutrientDef("Beta-glucan", "g", "276", 0, "prebiotic fibre — no established DRV"),
 }
 
 # nutrients with no independent DRV (their intake matters, but %DRV gap

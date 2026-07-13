@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..micronutrients import NUTRIENTS
+from ..nutrients import NUTRIENTS
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
 

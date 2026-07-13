@@ -19,7 +19,7 @@ FDC does not publish digestibility coefficients, so digestibility_diaas and
 digestibility_pdcaas are always left null by this script.
 
 Vitamin/mineral amounts (per 100g) are pulled for every nutrient listed in
-micronutrients.NUTRIENTS and stored as FoodNutrient rows — a food simply
+nutrients.NUTRIENTS and stored as FoodNutrient rows — a food simply
 has no row for a nutrient FDC didn't report, rather than a null placeholder.
 """
 
@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 from .database import Base, SessionLocal, engine
-from .micronutrients import NUTRIENTS
+from .nutrients import NUTRIENTS
 from .models import Food, FoodNutrient
 
 WANTED_DATA_TYPES = {"foundation_food", "sr_legacy_food"}
@@ -37,7 +37,7 @@ WANTED_DATA_TYPES = {"foundation_food", "sr_legacy_food"}
 # USDA nutrient numbers (stable across FDC releases, unlike the internal
 # nutrient `id`), mapped to our field names. Amino acid / protein fields
 # below feed build_amino_acid_profile(); micronutrient fields (from
-# micronutrients.NUTRIENTS) map straight through to FoodNutrient rows.
+# nutrients.NUTRIENTS) map straight through to FoodNutrient rows.
 NUTRIENT_NBR_TO_FIELD = {
     "203": "protein",
     "501": "tryptophan",
@@ -51,6 +51,13 @@ NUTRIENT_NBR_TO_FIELD = {
     "509": "tyrosine",
     "510": "valine",
     "512": "histidine",
+    # nbr 293, "Total dietary fiber (AOAC 2011.25)" — a newer method some
+    # Foundation Foods entries report *instead of* nbr 291 ("Fiber, total
+    # dietary", NUTRIENTS' fiber_total). Kept separate here and folded into
+    # fiber_total as a fallback in ingest_dir() below, rather than mapped to
+    # the same key directly, so a food reporting both isn't silently
+    # overwritten by whichever row happens to appear last in the CSV.
+    "293": "fiber_total_aoac",
     **{d.fdc_nutrient_nbr: key for key, d in NUTRIENTS.items()},
 }
 
@@ -129,6 +136,8 @@ def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
         for i, (fdc_id, food_info) in enumerate(foods.items(), start=1):
             stats["considered"] += 1
             nutrients = amounts.get(fdc_id, {})
+            if "fiber_total" not in nutrients and "fiber_total_aoac" in nutrients:
+                nutrients["fiber_total"] = nutrients["fiber_total_aoac"]
             protein = nutrients.get("protein")
             profile = build_amino_acid_profile(nutrients)
             if profile is None:
