@@ -59,6 +59,11 @@ NUTRIENT_NBR_TO_FIELD = {
     # overwritten by whichever row happens to appear last in the CSV.
     "293": "fiber_total_aoac",
     **{d.fdc_nutrient_nbr: key for key, d in NUTRIENTS.items()},
+    # arachidonic acid's nutrient_nbr differs by FDC release (855 in
+    # Foundation Foods, already covered by the NUTRIENTS comprehension above;
+    # 853 in SR Legacy) — a single food only ever comes from one dataset, so
+    # aliasing both to the same key is safe, no overwrite-order ambiguity.
+    "853": "arachidonic_acid",
 }
 
 

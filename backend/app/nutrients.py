@@ -5,9 +5,13 @@ reference_patterns.py): which nutrients we track, how to pull them from
 USDA FoodData Central, and a single adult daily reference value (DRV) per
 nutrient for gap analysis where one applies.
 
-fdc_nutrient_nbr values are USDA's stable nutrient numbers (verified
-directly against nutrient.csv in both the Foundation Foods 2026-04-30 and
-SR Legacy 2018-04 CSV exports — same numbers in both).
+fdc_nutrient_nbr values are USDA's nutrient numbers, verified directly
+against nutrient.csv in both the Foundation Foods 2026-04-30 and SR Legacy
+2018-04 CSV exports. These are meant to be stable across releases, but
+aren't always — arachidonic_acid's differs between the two datasets (see
+its comment below); ingest_fdc.py's NUTRIENT_NBR_TO_FIELD maps both. Worth
+re-diffing nutrient.csv between datasets when adding new nutrients here
+rather than assuming a number checked once holds everywhere.
 
 DRV CAVEAT: this is a single generic-adult baseline, not the age/sex/
 pregnancy/lactation-specific matrix the README's "User profiles" feature
@@ -77,6 +81,22 @@ NUTRIENTS: dict[str, NutrientDef] = {
     "resistant_starch": NutrientDef("Resistant starch", "g", "283", 0, "prebiotic fibre — no established DRV"),
     "inulin": NutrientDef("Inulin", "g", "806", 0, "prebiotic fibre — no established DRV"),
     "beta_glucan": NutrientDef("Beta-glucan", "g", "276", 0, "prebiotic fibre — no established DRV"),
+    # --- fats ---
+    "fat_total": NutrientDef("Total fat", "g", "204", 70, "UK population reference (~33% food energy, adult)"),
+    "saturated_fat": NutrientDef("Saturated fat", "g", "606", 30, "UK SACN recommendation (<30g/day average adult)"),
+    "monounsaturated_fat": NutrientDef("Monounsaturated fat", "g", "645", 0, "no established individual DRV"),
+    "polyunsaturated_fat": NutrientDef("Polyunsaturated fat", "g", "646", 0, "no established individual DRV"),
+    # omega-3
+    "ala": NutrientDef("ALA (18:3 n-3)", "g", "851", 2.0, "EFSA AI, ~2g/day adult"),
+    "epa": NutrientDef("EPA (20:5 n-3)", "g", "629", 0, "no individual DRV — EFSA/WHO guidance is a combined "
+                        "EPA+DHA target (~250-500mg/day), not split per acid"),
+    "dha": NutrientDef("DHA (22:6 n-3)", "g", "621", 0, "no individual DRV — see epa's note on the combined target"),
+    # omega-6
+    "la": NutrientDef("LA (18:2 n-6)", "g", "675", 10.0, "EFSA AI, ~10g/day adult"),
+    # nutrient_nbr for this one differs by FDC release: 855 in Foundation
+    # Foods 2026-04-30, 853 in SR Legacy 2018-04 — both verified directly
+    # against nutrient.csv; ingest_fdc.py maps both to this key.
+    "arachidonic_acid": NutrientDef("Arachidonic acid (20:4 n-6)", "g", "855", 0, "no established DRV"),
 }
 
 # nutrients with no independent DRV (their intake matters, but %DRV gap
