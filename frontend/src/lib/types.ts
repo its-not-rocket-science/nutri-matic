@@ -45,6 +45,29 @@ export interface NutrientAmount {
 	percent_drv_per_100g: number | null;
 }
 
+export interface User {
+	id: number;
+	email: string;
+	sex: 'male' | 'female' | null;
+	birth_year: number | null;
+	activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
+	is_pregnant: boolean;
+	is_lactating: boolean;
+}
+
+export interface ProfileUpdate {
+	sex: 'male' | 'female' | null;
+	birth_year: number | null;
+	activity_level: User['activity_level'];
+	is_pregnant: boolean;
+	is_lactating: boolean;
+}
+
+export interface TokenResponse {
+	access_token: string;
+	token_type: string;
+}
+
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {
 	histidine: 'Histidine',
 	isoleucine: 'Isoleucine',

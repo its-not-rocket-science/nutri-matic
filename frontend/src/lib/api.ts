@@ -1,10 +1,14 @@
-import type { Food, FoodCreate, NutrientAmount, Score } from './types';
+import { auth } from './auth.svelte';
+import type { Food, FoodCreate, NutrientAmount, Score, TokenResponse, User } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+	if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`;
+
 	const res = await fetch(`${API_URL}${path}`, {
-		headers: { 'Content-Type': 'application/json' },
+		headers,
 		...options
 	});
 	if (!res.ok) {
@@ -21,5 +25,11 @@ export const api = {
 		request<Food>('/api/foods', { method: 'POST', body: JSON.stringify(food) }),
 	scoreFood: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/foods/${id}/score?method=${method}`),
-	getNutrients: (id: number) => request<NutrientAmount[]>(`/api/foods/${id}/nutrients`)
+	getNutrients: (id: number) => request<NutrientAmount[]>(`/api/foods/${id}/nutrients`),
+
+	register: (email: string, password: string) =>
+		request<TokenResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
+	login: (email: string, password: string) =>
+		request<TokenResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+	me: () => request<User>('/api/auth/me')
 };
