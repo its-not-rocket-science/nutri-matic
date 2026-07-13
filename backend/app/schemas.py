@@ -298,6 +298,27 @@ class ShoppingListOut(BaseModel):
     items_missing_price: int
 
 
+class TrendNutrientOut(BaseModel):
+    key: str
+    name: str
+    unit: str
+    avg_amount: float
+    adult_drv: float | None
+    avg_percent_drv: float | None
+
+
+class TrendBucketOut(BaseModel):
+    bucket_start: date
+    bucket_end: date
+    logged_days: int
+    nutrients: list[TrendNutrientOut]
+
+
+class DiaryTrendsOut(BaseModel):
+    group_by: Literal["week", "month"]
+    buckets: list[TrendBucketOut]
+
+
 FilterOp = Literal["gte", "lte", "eq"]
 
 

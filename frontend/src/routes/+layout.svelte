@@ -25,6 +25,7 @@
 	<a href="/">Nutri-Matic</a>
 	{#if auth.isLoggedIn}
 		<a href="/diary">Diary</a>
+		<a href="/trends">Trends</a>
 		<a href="/meal-plan">Meal Plan</a>
 		<a href="/food-prices">Food Prices</a>
 		<a href="/recipes">Recipes</a>

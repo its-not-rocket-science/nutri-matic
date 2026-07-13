@@ -228,6 +228,29 @@ export interface FoodPriceCreate {
 	package_quantity_g: number;
 }
 
+export type TrendGroupBy = 'week' | 'month';
+
+export interface TrendNutrient {
+	key: string;
+	name: string;
+	unit: string;
+	avg_amount: number;
+	adult_drv: number | null;
+	avg_percent_drv: number | null;
+}
+
+export interface TrendBucket {
+	bucket_start: string;
+	bucket_end: string;
+	logged_days: number;
+	nutrients: TrendNutrient[];
+}
+
+export interface DiaryTrends {
+	group_by: TrendGroupBy;
+	buckets: TrendBucket[];
+}
+
 export type FilterOp = 'gte' | 'lte' | 'eq';
 
 export interface FilterKey {
