@@ -5,7 +5,17 @@ from .. import schemas
 from ..aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Food, FoodNutrient, Recipe, RecipeComment, RecipeIngredient, RecipeRating, RecipeShare, User
+from ..models import (
+    Food,
+    FoodNutrient,
+    Recipe,
+    RecipeComment,
+    RecipeIngredient,
+    RecipeRating,
+    RecipeShare,
+    RecipeTag,
+    User,
+)
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
@@ -59,6 +69,7 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([i.food_id for i in ingredients])).all()}
     owner = db.get(User, recipe.user_id)
     ratings = [r.rating for r in db.query(RecipeRating).filter(RecipeRating.recipe_id == recipe.id).all()]
+    tags = [t.tag for t in db.query(RecipeTag).filter(RecipeTag.recipe_id == recipe.id).order_by(RecipeTag.tag).all()]
     return schemas.RecipeOut(
         id=recipe.id,
         name=recipe.name,
@@ -73,6 +84,7 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
         is_owner=recipe.user_id == current_user.id,
         average_rating=(sum(ratings) / len(ratings)) if ratings else None,
         rating_count=len(ratings),
+        tags=tags,
     )
 
 
@@ -108,9 +120,31 @@ def create_recipe(
 
 
 @router.get("", response_model=list[schemas.RecipeOut])
-def list_recipes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    recipes = db.query(Recipe).filter(Recipe.user_id == current_user.id).order_by(Recipe.name).all()
+def list_recipes(
+    tag: str | None = None, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    query = db.query(Recipe).filter(Recipe.user_id == current_user.id)
+    if tag is not None:
+        query = query.filter(
+            Recipe.id.in_(db.query(RecipeTag.recipe_id).filter(RecipeTag.tag == tag))
+        )
+    recipes = query.order_by(Recipe.name).all()
     return [_recipe_out(r, db, current_user) for r in recipes]
+
+
+@router.get("/tags", response_model=list[str])
+def list_my_tags(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Distinct tags across the current user's own recipes, for autocomplete
+    when tagging any recipe."""
+    rows = (
+        db.query(RecipeTag.tag)
+        .join(Recipe, Recipe.id == RecipeTag.recipe_id)
+        .filter(Recipe.user_id == current_user.id)
+        .distinct()
+        .order_by(RecipeTag.tag)
+        .all()
+    )
+    return [r[0] for r in rows]
 
 
 @router.get("/shared-with-me", response_model=list[schemas.RecipeOut])
@@ -375,3 +409,28 @@ def delete_comment(
         raise HTTPException(status_code=403, detail="Not allowed to delete this comment")
     db.delete(comment)
     db.commit()
+
+
+@router.post("/{recipe_id}/tags", response_model=schemas.RecipeOut)
+def add_tag(
+    recipe_id: int, body: schemas.TagAdd, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    tag = body.tag.strip().lower()
+    if not tag:
+        raise HTTPException(status_code=422, detail="Tag can't be empty")
+    exists = db.query(RecipeTag).filter(RecipeTag.recipe_id == recipe.id, RecipeTag.tag == tag).one_or_none()
+    if exists is None:
+        db.add(RecipeTag(recipe_id=recipe.id, tag=tag))
+        db.commit()
+    return _recipe_out(recipe, db, current_user)
+
+
+@router.delete("/{recipe_id}/tags/{tag}", response_model=schemas.RecipeOut)
+def remove_tag(
+    recipe_id: int, tag: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    db.query(RecipeTag).filter(RecipeTag.recipe_id == recipe.id, RecipeTag.tag == tag).delete()
+    db.commit()
+    return _recipe_out(recipe, db, current_user)

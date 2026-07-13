@@ -88,6 +88,7 @@ export interface Recipe {
 	is_owner: boolean;
 	average_rating: number | null;
 	rating_count: number;
+	tags: string[];
 }
 
 export interface RecipeCreate {
@@ -114,6 +115,18 @@ export interface RecipeComment {
 	body: string;
 	created_at: string;
 	is_own: boolean;
+}
+
+export interface Collection {
+	id: number;
+	name: string;
+	recipe_count: number;
+}
+
+export interface CollectionDetail {
+	id: number;
+	name: string;
+	recipes: Recipe[];
 }
 
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';

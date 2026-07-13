@@ -1,5 +1,7 @@
 import { auth } from './auth.svelte';
 import type {
+	Collection,
+	CollectionDetail,
 	DiaryEntry,
 	DiaryEntryCreate,
 	DiarySummary,
@@ -59,8 +61,13 @@ export const api = {
 	updateProfile: (profile: ProfileUpdate) =>
 		request<User>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }),
 
-	listRecipes: () => request<Recipe[]>('/api/recipes'),
+	listRecipes: (tag?: string) => request<Recipe[]>(`/api/recipes${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`),
 	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),
+	listMyTags: () => request<string[]>('/api/recipes/tags'),
+	addTag: (recipeId: number, tag: string) =>
+		request<Recipe>(`/api/recipes/${recipeId}/tags`, { method: 'POST', body: JSON.stringify({ tag }) }),
+	removeTag: (recipeId: number, tag: string) =>
+		request<Recipe>(`/api/recipes/${recipeId}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' }),
 	getRecipe: (id: number) => request<Recipe>(`/api/recipes/${id}`),
 	createRecipe: (recipe: RecipeCreate) =>
 		request<Recipe>('/api/recipes', { method: 'POST', body: JSON.stringify(recipe) }),
@@ -105,5 +112,18 @@ export const api = {
 	listPresets: (scope: FilterScope) => request<SavedFilterPreset[]>(`/api/presets?scope=${scope}`),
 	createPreset: (preset: SavedFilterPresetCreate) =>
 		request<SavedFilterPreset>('/api/presets', { method: 'POST', body: JSON.stringify(preset) }),
-	deletePreset: (id: number) => request<void>(`/api/presets/${id}`, { method: 'DELETE' })
+	deletePreset: (id: number) => request<void>(`/api/presets/${id}`, { method: 'DELETE' }),
+
+	listCollections: () => request<Collection[]>('/api/collections'),
+	createCollection: (name: string) =>
+		request<Collection>('/api/collections', { method: 'POST', body: JSON.stringify({ name }) }),
+	getCollection: (id: number) => request<CollectionDetail>(`/api/collections/${id}`),
+	deleteCollection: (id: number) => request<void>(`/api/collections/${id}`, { method: 'DELETE' }),
+	addRecipeToCollection: (collectionId: number, recipeId: number) =>
+		request<CollectionDetail>(`/api/collections/${collectionId}/recipes`, {
+			method: 'POST',
+			body: JSON.stringify({ recipe_id: recipeId })
+		}),
+	removeRecipeFromCollection: (collectionId: number, recipeId: number) =>
+		request<CollectionDetail>(`/api/collections/${collectionId}/recipes/${recipeId}`, { method: 'DELETE' })
 };
