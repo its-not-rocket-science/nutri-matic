@@ -24,6 +24,7 @@
 <nav>
 	<a href="/">Nutri-Matic</a>
 	{#if auth.isLoggedIn}
+		<a href="/diary">Diary</a>
 		<a href="/recipes">Recipes</a>
 		<a href="/profile">Profile</a>
 		<span class="muted">{auth.user?.email ?? ''}</span>

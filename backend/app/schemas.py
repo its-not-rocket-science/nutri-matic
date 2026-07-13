@@ -1,9 +1,11 @@
+from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Sex = Literal["male", "female"]
 ActivityLevel = Literal["sedentary", "light", "moderate", "active", "very_active"]
+Meal = Literal["breakfast", "lunch", "dinner", "snack"]
 
 
 class AminoAcidProfile(BaseModel):
@@ -112,3 +114,39 @@ class RecipeOut(BaseModel):
     name: str
     servings: float
     ingredients: list[RecipeIngredientOut]
+
+
+class DiaryEntryCreate(BaseModel):
+    entry_date: date
+    meal: Meal
+    food_id: int | None = None
+    quantity_g: float | None = None
+    recipe_id: int | None = None
+    quantity_servings: float | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_of_food_or_recipe(self):
+        is_food = self.food_id is not None and self.quantity_g is not None
+        is_recipe = self.recipe_id is not None and self.quantity_servings is not None
+        if is_food == is_recipe:  # both or neither
+            raise ValueError(
+                "Provide exactly one of (food_id, quantity_g) or (recipe_id, quantity_servings)"
+            )
+        return self
+
+
+class DiaryEntryOut(BaseModel):
+    id: int
+    entry_date: date
+    meal: Meal
+    food_id: int | None
+    food_name: str | None
+    quantity_g: float | None
+    recipe_id: int | None
+    recipe_name: str | None
+    quantity_servings: float | None
+
+
+class DiarySummaryOut(BaseModel):
+    entries: list[DiaryEntryOut]
+    nutrients: list[NutrientAmountOut]

@@ -1,5 +1,8 @@
 import { auth } from './auth.svelte';
 import type {
+	DiaryEntry,
+	DiaryEntryCreate,
+	DiarySummary,
 	Food,
 	FoodCreate,
 	NutrientAmount,
@@ -55,5 +58,10 @@ export const api = {
 	deleteRecipe: (id: number) => request<void>(`/api/recipes/${id}`, { method: 'DELETE' }),
 	scoreRecipe: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/recipes/${id}/score?method=${method}`),
-	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(`/api/recipes/${id}/nutrients`)
+	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(`/api/recipes/${id}/nutrients`),
+
+	getDiaryDay: (entryDate: string) => request<DiarySummary>(`/api/diary?entry_date=${entryDate}`),
+	addDiaryEntry: (entry: DiaryEntryCreate) =>
+		request<DiaryEntry>('/api/diary', { method: 'POST', body: JSON.stringify(entry) }),
+	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' })
 };

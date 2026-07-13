@@ -88,6 +88,34 @@ export interface RecipeCreate {
 	ingredients: { food_id: number; quantity_g: number }[];
 }
 
+export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface DiaryEntry {
+	id: number;
+	entry_date: string;
+	meal: Meal;
+	food_id: number | null;
+	food_name: string | null;
+	quantity_g: number | null;
+	recipe_id: number | null;
+	recipe_name: string | null;
+	quantity_servings: number | null;
+}
+
+export interface DiaryEntryCreate {
+	entry_date: string;
+	meal: Meal;
+	food_id?: number | null;
+	quantity_g?: number | null;
+	recipe_id?: number | null;
+	quantity_servings?: number | null;
+}
+
+export interface DiarySummary {
+	entries: DiaryEntry[];
+	nutrients: NutrientAmount[];
+}
+
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {
 	histidine: 'Histidine',
 	isoleucine: 'Isoleucine',
