@@ -24,6 +24,7 @@
 <nav>
 	<a href="/">Nutri-Matic</a>
 	{#if auth.isLoggedIn}
+		<a href="/profile">Profile</a>
 		<span class="muted">{auth.user?.email ?? ''}</span>
 		<button type="button" onclick={() => auth.logout()}>Log out</button>
 	{:else}

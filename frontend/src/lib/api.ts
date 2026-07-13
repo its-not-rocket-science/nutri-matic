@@ -1,5 +1,5 @@
 import { auth } from './auth.svelte';
-import type { Food, FoodCreate, NutrientAmount, Score, TokenResponse, User } from './types';
+import type { Food, FoodCreate, NutrientAmount, ProfileUpdate, Score, TokenResponse, User } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -31,5 +31,9 @@ export const api = {
 		request<TokenResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
 	login: (email: string, password: string) =>
 		request<TokenResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-	me: () => request<User>('/api/auth/me')
+	me: () => request<User>('/api/auth/me'),
+
+	getProfile: () => request<User>('/api/profile'),
+	updateProfile: (profile: ProfileUpdate) =>
+		request<User>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) })
 };
