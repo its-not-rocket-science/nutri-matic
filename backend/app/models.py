@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -84,3 +84,28 @@ class RecipeIngredient(Base):
     recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
     food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False)
     quantity_g: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class DiaryEntry(Base):
+    __tablename__ = "diary_entries"
+    __table_args__ = (
+        # exactly one of (food_id, quantity_g) / (recipe_id, quantity_servings)
+        CheckConstraint(
+            "(food_id IS NOT NULL AND quantity_g IS NOT NULL AND recipe_id IS NULL AND quantity_servings IS NULL) "
+            "OR (recipe_id IS NOT NULL AND quantity_servings IS NOT NULL AND food_id IS NULL AND quantity_g IS NULL)",
+            name="ck_diary_entry_exactly_one_of_food_or_recipe",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    entry_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    meal: Mapped[str] = mapped_column(String, nullable=False)  # "breakfast" | "lunch" | "dinner" | "snack"
+
+    food_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("foods.id"), nullable=True)
+    quantity_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # a recipe entry is logged in servings (recipes are already computed
+    # per-serving) rather than grams, since a recipe's total mass isn't tracked
+    recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
+    quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)

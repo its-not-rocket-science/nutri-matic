@@ -1,7 +1,7 @@
 import pytest
 
-from app.aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
-from app.models import Food, FoodNutrient
+from app.aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients, scale_recipe_ingredients
+from app.models import Food, FoodNutrient, RecipeIngredient
 from app.reference_patterns import AMINO_ACIDS
 
 
@@ -81,3 +81,55 @@ def test_aggregate_nutrients_missing_row_contributes_zero():
     food_nutrients = {1: []}
     totals = aggregate_nutrients([WeightedFood(food_a, quantity_g=100)], food_nutrients)
     assert totals == {}
+
+
+def test_scale_recipe_ingredients_by_servings_eaten():
+    # recipe makes 4 servings from 400g of food A and 200g of food B
+    food_a = Food(id=1, name="a", protein_g_per_100g=1, amino_acids={})
+    food_b = Food(id=2, name="b", protein_g_per_100g=1, amino_acids={})
+    ingredients = [
+        RecipeIngredient(recipe_id=1, food_id=1, quantity_g=400),
+        RecipeIngredient(recipe_id=1, food_id=2, quantity_g=200),
+    ]
+
+    # eating 1.5 of the 4 servings -> scale factor 1.5/4 = 0.375
+    weighted = scale_recipe_ingredients(
+        ingredients, recipe_servings=4, servings_eaten=1.5, foods_by_id={1: food_a, 2: food_b}
+    )
+
+    by_food_id = {w.food.id: w.quantity_g for w in weighted}
+    assert by_food_id[1] == pytest.approx(400 * 0.375)
+    assert by_food_id[2] == pytest.approx(200 * 0.375)
+
+
+def test_diary_day_combines_direct_food_and_recipe_entries():
+    """A day with one direct food entry and one 'N servings of a recipe'
+    entry should aggregate exactly as if the recipe's scaled ingredients
+    had been logged directly."""
+    direct_food = Food(id=1, name="yogurt", protein_g_per_100g=1, amino_acids={})
+    recipe_food_a = Food(id=2, name="a", protein_g_per_100g=1, amino_acids={})
+    recipe_food_b = Food(id=3, name="b", protein_g_per_100g=1, amino_acids={})
+
+    recipe_ingredients = [
+        RecipeIngredient(recipe_id=1, food_id=2, quantity_g=400),
+        RecipeIngredient(recipe_id=1, food_id=3, quantity_g=200),
+    ]
+    # 2 servings out of 4 -> scale 0.5
+    from_recipe = scale_recipe_ingredients(
+        recipe_ingredients, recipe_servings=4, servings_eaten=2,
+        foods_by_id={2: recipe_food_a, 3: recipe_food_b},
+    )
+    items = [WeightedFood(direct_food, quantity_g=150), *from_recipe]
+
+    food_nutrients = {
+        1: [FoodNutrient(food_id=1, nutrient_key="calcium", amount_per_100g=100)],
+        2: [FoodNutrient(food_id=2, nutrient_key="calcium", amount_per_100g=10)],
+        3: [FoodNutrient(food_id=3, nutrient_key="calcium", amount_per_100g=20)],
+    }
+
+    totals = aggregate_nutrients(items, food_nutrients)
+
+    # yogurt: 100*150/100 = 150
+    # recipe: food a scaled to 200g -> 10*200/100=20; food b scaled to 100g -> 20*100/100=20
+    # total = 150 + 20 + 20 = 190
+    assert totals["calcium"] == pytest.approx(190.0)

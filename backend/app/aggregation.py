@@ -24,7 +24,7 @@ micronutrient data.
 
 from dataclasses import dataclass
 
-from .models import Food, FoodNutrient
+from .models import Food, FoodNutrient, RecipeIngredient
 from .reference_patterns import AMINO_ACIDS
 
 
@@ -32,6 +32,19 @@ from .reference_patterns import AMINO_ACIDS
 class WeightedFood:
     food: Food
     quantity_g: float
+
+
+def scale_recipe_ingredients(
+    ingredients: list[RecipeIngredient],
+    recipe_servings: float,
+    servings_eaten: float,
+    foods_by_id: dict[int, Food],
+) -> list[WeightedFood]:
+    """Expands 'N servings of a recipe' into its scaled ingredient
+    quantities, so a diary entry logged as servings can be folded into the
+    same per-gram aggregation as directly-logged foods."""
+    scale = servings_eaten / recipe_servings
+    return [WeightedFood(foods_by_id[ing.food_id], ing.quantity_g * scale) for ing in ingredients]
 
 
 @dataclass
