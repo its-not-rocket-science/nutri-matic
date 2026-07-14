@@ -179,6 +179,27 @@ export interface DiarySummary {
 	calcium_phosphorus: CalciumPhosphorus | null;
 }
 
+export interface DiaryMealTemplateItem {
+	food_id: number | null;
+	food_name: string | null;
+	quantity_g: number | null;
+	recipe_id: number | null;
+	recipe_name: string | null;
+	quantity_servings: number | null;
+}
+
+export interface DiaryMealTemplate {
+	id: number;
+	name: string;
+	item_count: number;
+}
+
+export interface DiaryMealTemplateDetail {
+	id: number;
+	name: string;
+	items: DiaryMealTemplateItem[];
+}
+
 export interface MealPlanEntry {
 	id: number;
 	plan_date: string;

@@ -284,6 +284,33 @@ class FoodPriceOut(BaseModel):
     price_per_100g: float
 
 
+class DiaryMealTemplateItemOut(BaseModel):
+    food_id: int | None
+    food_name: str | None
+    quantity_g: float | None
+    recipe_id: int | None
+    recipe_name: str | None
+    quantity_servings: float | None
+
+
+class DiaryMealTemplateCreate(BaseModel):
+    name: str
+    entry_date: date
+    meal: Meal
+
+
+class DiaryMealTemplateOut(BaseModel):
+    id: int
+    name: str
+    item_count: int
+
+
+class DiaryMealTemplateDetailOut(BaseModel):
+    id: int
+    name: str
+    items: list[DiaryMealTemplateItemOut]
+
+
 class MealPlanTemplateEntryOut(BaseModel):
     day_offset: int = Field(ge=0, le=6)
     meal: Meal

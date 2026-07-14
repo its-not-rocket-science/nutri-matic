@@ -7,7 +7,7 @@
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
-	import type { DiarySummary, Food, Meal, Recipe } from '$lib/types';
+	import type { DiaryMealTemplate, DiarySummary, Food, Meal, Recipe } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
@@ -30,6 +30,10 @@
 	let showScanner = $state(false);
 	let scanning = $state(false);
 
+	let templates: DiaryMealTemplate[] = $state([]);
+	let applyingTemplateId: number | null = $state(null);
+	let deletingTemplateId: number | null = $state(null);
+
 	const searchResults = $derived.by(() => {
 		const q = search.trim().toLowerCase();
 		if (q.length < 2) return [];
@@ -49,6 +53,14 @@
 		}
 	}
 
+	async function loadTemplates() {
+		try {
+			templates = await api.listDiaryMealTemplates();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
@@ -59,7 +71,7 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
-		await loadDay();
+		await Promise.all([loadDay(), loadTemplates()]);
 	});
 
 	function shiftDay(days: number) {
@@ -139,6 +151,45 @@
 		}
 	}
 
+	async function handleSaveAsTemplate(m: Meal) {
+		const defaultName = `${m[0].toUpperCase()}${m.slice(1)}`;
+		const name = prompt('Template name:', defaultName);
+		if (!name || !name.trim()) return;
+		error = null;
+		try {
+			await api.createDiaryMealTemplate(name.trim(), date, m);
+			await loadTemplates();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function handleApplyTemplate(templateId: number) {
+		error = null;
+		applyingTemplateId = templateId;
+		try {
+			await api.applyDiaryMealTemplate(templateId, date, meal);
+			await loadDay();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			applyingTemplateId = null;
+		}
+	}
+
+	async function handleDeleteTemplate(templateId: number) {
+		error = null;
+		deletingTemplateId = templateId;
+		try {
+			await api.deleteDiaryMealTemplate(templateId);
+			await loadTemplates();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			deletingTemplateId = null;
+		}
+	}
+
 	const MEALS: Meal[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 	function handleDownloadCsv() {
@@ -190,7 +241,12 @@
 		{@const mealEntries = summary.entries.filter((e) => e.meal === m)}
 		{#if mealEntries.length > 0}
 			<section>
-				<h3>{m}</h3>
+				<h3>
+					{m}
+					<button type="button" class="no-print save-template-btn" onclick={() => handleSaveAsTemplate(m)}>
+						Save as template
+					</button>
+				</h3>
 				<ul class="entries">
 					{#each mealEntries as entry (entry.id)}
 						<li>
@@ -277,6 +333,36 @@
 
 		<button type="submit" disabled={adding}>{adding ? 'Adding…' : 'Add to diary'}</button>
 	</form>
+
+	<section class="meal-templates no-print">
+		<h3>Meal templates</h3>
+		{#if templates.length === 0}
+			<p class="muted">No meal templates saved yet — log a meal above, then use "Save as template".</p>
+		{:else}
+			<ul class="entries">
+				{#each templates as t (t.id)}
+					<li>
+						<span>{t.name}</span>
+						<span class="muted">{t.item_count} item{t.item_count === 1 ? '' : 's'}</span>
+						<button
+							type="button"
+							onclick={() => handleApplyTemplate(t.id)}
+							disabled={applyingTemplateId === t.id}
+						>
+							{applyingTemplateId === t.id ? 'Logging…' : `Log as ${meal}`}
+						</button>
+						<button
+							type="button"
+							onclick={() => handleDeleteTemplate(t.id)}
+							disabled={deletingTemplateId === t.id}
+						>
+							{deletingTemplateId === t.id ? 'Deleting…' : 'Delete'}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
 
 	<NutrientBars nutrients={summary.nutrients} per="per day" />
 
@@ -386,6 +472,16 @@
 	}
 	.entries li {
 		padding: 0.25rem 0;
+	}
+	.meal-templates .entries li {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+	.save-template-btn {
+		margin-left: 0.75rem;
+		font-size: 0.75em;
 	}
 	form {
 		display: flex;

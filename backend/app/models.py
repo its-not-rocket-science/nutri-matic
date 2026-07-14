@@ -264,6 +264,42 @@ class MealPlanTemplateEntry(Base):
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class DiaryMealTemplate(Base):
+    __tablename__ = "diary_meal_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class DiaryMealTemplateItem(Base):
+    __tablename__ = "diary_meal_template_items"
+    __table_args__ = (
+        # exactly one of (food_id, quantity_g) / (recipe_id, quantity_servings) — same shape as DiaryEntry.
+        # No date/meal here — unlike MealPlanTemplateEntry's day_offset, a meal template isn't tied to
+        # any particular slot in the week, it's applied to whatever date+meal the user picks when logging.
+        CheckConstraint(
+            "(food_id IS NOT NULL AND quantity_g IS NOT NULL AND recipe_id IS NULL AND quantity_servings IS NULL) "
+            "OR (recipe_id IS NOT NULL AND quantity_servings IS NOT NULL AND food_id IS NULL AND quantity_g IS NULL)",
+            name="ck_diary_meal_template_item_exactly_one_of_food_or_recipe",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    template_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("diary_meal_templates.id"), nullable=False, index=True
+    )
+
+    food_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("foods.id"), nullable=True)
+    quantity_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
+    quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
 class SavedFilterPreset(Base):
     __tablename__ = "saved_filter_presets"
 
