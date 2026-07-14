@@ -2,6 +2,7 @@ import { auth } from './auth.svelte';
 import type {
 	Collection,
 	CollectionDetail,
+	Complement,
 	DiaryEntry,
 	DiaryEntryCreate,
 	DiaryMealTemplate,
@@ -64,6 +65,8 @@ export const api = {
 		request<Food>('/api/foods', { method: 'POST', body: JSON.stringify(food) }),
 	scoreFood: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/foods/${id}/score?method=${method}`),
+	complementFood: (id: number, method: 'diaas' | 'pdcaas') =>
+		request<Complement>(`/api/foods/${id}/complement?method=${method}`),
 	getFoodByBarcode: (gtinUpc: string) => request<Food>(`/api/foods/barcode/${encodeURIComponent(gtinUpc)}`),
 	getNutrients: (id: number) => request<NutrientAmount[]>(`/api/foods/${id}/nutrients`),
 
