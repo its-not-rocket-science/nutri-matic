@@ -179,6 +179,52 @@ def test_trends_scoped_to_date_range_and_user(client):
     assert res.json()["buckets"] == []
 
 
+def test_gap_suggestions_picks_worst_percent_drv_and_ranks_foods(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 2, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    # totals: calcium 21mg/700 = 3%, phosphorus 217mg/550 = 39.5%, iron 2.2mg/14.8 = 14.9%,
+    # vitamin_c 50mg/40 = 125% — calcium is the worst (lowest %DRV) gap
+    res = client.get("/api/diary/gap-suggestions?entry_date=2026-07-13", headers=auth_headers(token))
+    assert res.status_code == 200
+    body = res.json()
+    assert body["nutrient_key"] == "calcium"
+    assert len(body["foods"]) == 2
+    # oj's 11mg/100g calcium beats beef's 10mg/100g
+    assert body["foods"][0]["food_name"] == "Orange juice, raw"
+    assert body["foods"][0]["amount_per_100g"] == 11.0
+    assert body["foods"][1]["food_name"] == "Beef, ground, cooked"
+
+
+def test_gap_suggestions_none_when_nothing_logged(client):
+    token = register_and_token(client, "a@example.com")
+    res = client.get("/api/diary/gap-suggestions?entry_date=2026-07-13", headers=auth_headers(token))
+    assert res.status_code == 200
+    assert res.json() is None
+
+
+def test_gap_suggestions_scoped_to_user(client):
+    token = register_and_token(client, "a@example.com")
+    other_token = register_and_token(client, "b@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary/gap-suggestions?entry_date=2026-07-13", headers=auth_headers(other_token))
+    assert res.json() is None
+
+
 def test_quick_add_recent_orders_by_last_logged(client):
     token = register_and_token(client, "a@example.com")
     client.post(

@@ -15,6 +15,7 @@ import type {
 	FoodCreate,
 	FoodPrice,
 	FoodPriceCreate,
+	GapSuggestion,
 	Meal,
 	MealPlanEntry,
 	MealPlanEntryCreate,
@@ -130,6 +131,8 @@ export const api = {
 	getDiaryTrends: (startDate: string, endDate: string, groupBy: TrendGroupBy) =>
 		request<DiaryTrends>(`/api/diary/trends?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`),
 	getQuickAdd: () => request<QuickAdd>('/api/diary/quick-add'),
+	getGapSuggestions: (entryDate: string) =>
+		request<GapSuggestion | null>(`/api/diary/gap-suggestions?entry_date=${entryDate}`),
 
 	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>('/api/diary-meal-templates'),
 	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>

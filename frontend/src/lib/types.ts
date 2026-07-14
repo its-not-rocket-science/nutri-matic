@@ -338,6 +338,20 @@ export interface DiaryTrends {
 	buckets: TrendBucket[];
 }
 
+export interface FoodNutrientRank {
+	food_id: number;
+	food_name: string;
+	amount_per_100g: number;
+}
+
+export interface GapSuggestion {
+	nutrient_key: string;
+	nutrient_name: string;
+	unit: string;
+	percent_drv: number;
+	foods: FoodNutrientRank[];
+}
+
 export type FilterOp = 'gte' | 'lte' | 'eq';
 
 export interface FilterKey {
