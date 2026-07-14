@@ -4,6 +4,8 @@ import type {
 	CollectionDetail,
 	DiaryEntry,
 	DiaryEntryCreate,
+	DiaryMealTemplate,
+	DiaryMealTemplateDetail,
 	DiarySummary,
 	DiaryTrends,
 	FilterKeysResponse,
@@ -12,6 +14,7 @@ import type {
 	FoodCreate,
 	FoodPrice,
 	FoodPriceCreate,
+	Meal,
 	MealPlanEntry,
 	MealPlanEntryCreate,
 	MealPlanTemplate,
@@ -114,6 +117,19 @@ export const api = {
 	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' }),
 	getDiaryTrends: (startDate: string, endDate: string, groupBy: TrendGroupBy) =>
 		request<DiaryTrends>(`/api/diary/trends?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`),
+
+	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>('/api/diary-meal-templates'),
+	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>
+		request<DiaryMealTemplate>('/api/diary-meal-templates', {
+			method: 'POST',
+			body: JSON.stringify({ name, entry_date: entryDate, meal })
+		}),
+	getDiaryMealTemplate: (id: number) => request<DiaryMealTemplateDetail>(`/api/diary-meal-templates/${id}`),
+	deleteDiaryMealTemplate: (id: number) => request<void>(`/api/diary-meal-templates/${id}`, { method: 'DELETE' }),
+	applyDiaryMealTemplate: (id: number, entryDate: string, meal: Meal) =>
+		request<DiaryEntry[]>(`/api/diary-meal-templates/${id}/apply?entry_date=${entryDate}&meal=${meal}`, {
+			method: 'POST'
+		}),
 
 	listMealPlanEntries: (startDate: string, endDate: string) =>
 		request<MealPlanEntry[]>(`/api/meal-plan?start_date=${startDate}&end_date=${endDate}`),

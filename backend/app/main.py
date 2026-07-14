@@ -6,6 +6,7 @@ from .routers import (
     auth,
     collections,
     diary,
+    diary_meal_templates,
     food_prices,
     foods,
     meal_plan,
@@ -38,6 +39,7 @@ app.include_router(collections.router)
 app.include_router(meal_plan.router)
 app.include_router(food_prices.router)
 app.include_router(meal_plan_templates.router)
+app.include_router(diary_meal_templates.router)
 
 
 @app.get("/api/health")
