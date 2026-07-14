@@ -7,7 +7,7 @@
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
-	import type { DiaryMealTemplate, DiarySummary, Food, Meal, Recipe } from '$lib/types';
+	import type { DiaryMealTemplate, DiarySummary, Food, Meal, QuickAdd, QuickAddItem, Recipe } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
@@ -33,6 +33,14 @@
 	let templates: DiaryMealTemplate[] = $state([]);
 	let applyingTemplateId: number | null = $state(null);
 	let deletingTemplateId: number | null = $state(null);
+
+	let quickAdd: QuickAdd | null = $state(null);
+	let quickAddTab: 'recent' | 'frequent' = $state('recent');
+	let addingQuickAddKey: string | null = $state(null);
+
+	function quickAddKey(item: QuickAddItem): string {
+		return item.food_id !== null ? `f${item.food_id}` : `r${item.recipe_id}`;
+	}
 
 	const searchResults = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -61,6 +69,14 @@
 		}
 	}
 
+	async function loadQuickAdd() {
+		try {
+			quickAdd = await api.getQuickAdd();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
@@ -71,7 +87,7 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
-		await Promise.all([loadDay(), loadTemplates()]);
+		await Promise.all([loadDay(), loadTemplates(), loadQuickAdd()]);
 	});
 
 	function shiftDay(days: number) {
@@ -119,10 +135,40 @@
 			selectedRecipe = null;
 			quantity = 100;
 			await loadDay();
+			await loadQuickAdd();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			adding = false;
+		}
+	}
+
+	async function handleQuickAdd(item: QuickAddItem) {
+		error = null;
+		const key = quickAddKey(item);
+		addingQuickAddKey = key;
+		try {
+			if (item.food_id !== null) {
+				await api.addDiaryEntry({
+					entry_date: date,
+					meal,
+					food_id: item.food_id,
+					quantity_g: item.quantity_g
+				});
+			} else if (item.recipe_id !== null) {
+				await api.addDiaryEntry({
+					entry_date: date,
+					meal,
+					recipe_id: item.recipe_id,
+					quantity_servings: item.quantity_servings
+				});
+			}
+			await loadDay();
+			await loadQuickAdd();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			addingQuickAddKey = null;
 		}
 	}
 
@@ -267,6 +313,41 @@
 
 	{#if summary.entries.length === 0}
 		<p>Nothing logged for this day yet.</p>
+	{/if}
+
+	{#if quickAdd && (quickAdd.recent.length > 0 || quickAdd.frequent.length > 0)}
+		<section class="quick-add no-print">
+			<h3>Quick add</h3>
+			<div class="quick-add-tabs">
+				<button type="button" class:active={quickAddTab === 'recent'} onclick={() => (quickAddTab = 'recent')}>
+					Recent
+				</button>
+				<button
+					type="button"
+					class:active={quickAddTab === 'frequent'}
+					onclick={() => (quickAddTab = 'frequent')}
+				>
+					Frequent
+				</button>
+			</div>
+			<ul class="entries">
+				{#each quickAddTab === 'recent' ? quickAdd.recent : quickAdd.frequent as item (quickAddKey(item))}
+					<li>
+						<span>{item.food_name ?? item.recipe_name}</span>
+						<span class="muted">
+							{item.food_id !== null ? `${item.quantity_g}g` : `${item.quantity_servings} serving(s)`}
+						</span>
+						<button
+							type="button"
+							onclick={() => handleQuickAdd(item)}
+							disabled={addingQuickAddKey === quickAddKey(item)}
+						>
+							{addingQuickAddKey === quickAddKey(item) ? 'Adding…' : `Add as ${meal}`}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</section>
 	{/if}
 
 	<form onsubmit={handleAdd} class="no-print">
@@ -482,6 +563,30 @@
 	.save-template-btn {
 		margin-left: 0.75rem;
 		font-size: 0.75em;
+	}
+	.quick-add {
+		margin: 1rem 0;
+		padding: 1rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
+		max-width: 28rem;
+	}
+	.quick-add-tabs {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
+	.quick-add-tabs button.active {
+		font-weight: 600;
+		text-decoration: underline;
+	}
+	.quick-add .entries li {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.quick-add .entries li span:first-child {
+		flex: 1;
 	}
 	form {
 		display: flex;
