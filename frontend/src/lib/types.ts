@@ -200,6 +200,29 @@ export interface MealPlanEntryCreate {
 	quantity_servings?: number | null;
 }
 
+export interface MealPlanTemplateEntry {
+	day_offset: number;
+	meal: Meal;
+	food_id: number | null;
+	food_name: string | null;
+	quantity_g: number | null;
+	recipe_id: number | null;
+	recipe_name: string | null;
+	quantity_servings: number | null;
+}
+
+export interface MealPlanTemplate {
+	id: number;
+	name: string;
+	entry_count: number;
+}
+
+export interface MealPlanTemplateDetail {
+	id: number;
+	name: string;
+	entries: MealPlanTemplateEntry[];
+}
+
 export interface ShoppingListItem {
 	food_id: number;
 	food_name: string;

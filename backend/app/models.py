@@ -228,6 +228,42 @@ class FoodPrice(Base):
     package_quantity_g: Mapped[float] = mapped_column(Float, nullable=False)
 
 
+class MealPlanTemplate(Base):
+    __tablename__ = "meal_plan_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class MealPlanTemplateEntry(Base):
+    __tablename__ = "meal_plan_template_entries"
+    __table_args__ = (
+        # exactly one of (food_id, quantity_g) / (recipe_id, quantity_servings) — same shape as MealPlanEntry
+        CheckConstraint(
+            "(food_id IS NOT NULL AND quantity_g IS NOT NULL AND recipe_id IS NULL AND quantity_servings IS NULL) "
+            "OR (recipe_id IS NOT NULL AND quantity_servings IS NOT NULL AND food_id IS NULL AND quantity_g IS NULL)",
+            name="ck_meal_plan_template_entry_exactly_one_of_food_or_recipe",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    template_id: Mapped[int] = mapped_column(Integer, ForeignKey("meal_plan_templates.id"), nullable=False, index=True)
+    # 0 = Monday .. 6 = Sunday, relative to whatever week the template gets applied to —
+    # a template has no absolute dates of its own, that's the whole point of it being reusable
+    day_offset: Mapped[int] = mapped_column(Integer, nullable=False)
+    meal: Mapped[str] = mapped_column(String, nullable=False)  # "breakfast" | "lunch" | "dinner" | "snack"
+
+    food_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("foods.id"), nullable=True)
+    quantity_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
+    quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
 class SavedFilterPreset(Base):
     __tablename__ = "saved_filter_presets"
 
