@@ -300,6 +300,16 @@ class DiaryMealTemplateItem(Base):
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class WeightLog(Base):
+    __tablename__ = "weight_logs"
+    __table_args__ = (UniqueConstraint("user_id", "log_date", name="uq_weight_log_user_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    log_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
+
+
 class SavedFilterPreset(Base):
     __tablename__ = "saved_filter_presets"
 

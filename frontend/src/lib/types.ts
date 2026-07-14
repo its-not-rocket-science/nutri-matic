@@ -69,6 +69,17 @@ export interface ProfileUpdate {
 	height_cm: number | null;
 }
 
+export interface WeightLog {
+	id: number;
+	log_date: string;
+	weight_kg: number;
+}
+
+export interface WeightLogCreate {
+	log_date: string;
+	weight_kg: number;
+}
+
 export interface TokenResponse {
 	access_token: string;
 	token_type: string;

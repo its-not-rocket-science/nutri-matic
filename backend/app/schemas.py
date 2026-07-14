@@ -393,6 +393,17 @@ class DiaryTrendsOut(BaseModel):
     buckets: list[TrendBucketOut]
 
 
+class WeightLogCreate(BaseModel):
+    log_date: date
+    weight_kg: float = Field(gt=0)
+
+
+class WeightLogOut(BaseModel):
+    id: int
+    log_date: date
+    weight_kg: float
+
+
 FilterOp = Literal["gte", "lte", "eq"]
 
 
