@@ -4,12 +4,21 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..complement import suggest_complements
 from ..database import get_db
+from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, ScoreResult, UnknownReferencePattern, compute_diaas, compute_pdcaas
-from ..search import NutrientFilter, UnknownFilterKey, search_foods
+from ..search import NutrientFilter, UnknownFilterKey, search_foods, search_foods_by_name
 
 router = APIRouter(prefix="/api/foods", tags=["foods"])
+
+# human-readable label per Food.data_type, for the provenance endpoint —
+# see ingest_fdc.py for how each is actually parsed/ingested
+DATASET_LABELS = {
+    "foundation_food": "USDA FoodData Central — Foundation Foods",
+    "sr_legacy_food": "USDA FoodData Central — SR Legacy",
+    "branded_food": "USDA FoodData Central — Branded Foods",
+}
 
 
 def _compute_score(food: models.Food, method: str, pattern: str) -> ScoreResult:
@@ -60,6 +69,15 @@ def list_foods(db: Session = Depends(get_db)):
     return db.query(models.Food).order_by(models.Food.name).all()
 
 
+@router.get("/search-by-name", response_model=list[schemas.FoodOut])
+def food_search_by_name(q: str, limit: int = 20, db: Session = Depends(get_db)):
+    """Name autocomplete for logging a diary/meal-plan entry or building a
+    recipe — synonym/plural-aware substring matching, ranked by relevance,
+    with typo-tolerant fuzzy fallback where the database supports it. See
+    search.py's module docstring for the full design."""
+    return search_foods_by_name(db, q, limit=limit)
+
+
 @router.post("/search", response_model=list[schemas.FoodOut])
 def food_search(body: schemas.SearchRequest, db: Session = Depends(get_db)):
     filters = [NutrientFilter(f.key, f.op, f.value) for f in body.filters]
@@ -107,6 +125,7 @@ def score_food(
         digestibility_source=(
             food.digestibility_diaas_source if method == "diaas" else food.digestibility_pdcaas_source
         ),
+        methodology_version=SCORING_METHODOLOGY_VERSION,
     )
 
 
@@ -136,6 +155,7 @@ def complement_food(
             )
             for s in suggestions
         ],
+        methodology_version=SCORING_METHODOLOGY_VERSION,
     )
 
 
@@ -154,16 +174,50 @@ def food_nutrients(food_id: int, db: Session = Depends(get_db)):
         # public/unauthenticated endpoint — always the generic adult_female
         # baseline; profile-aware DRVs are used by the diary/recipe endpoints
         drv = resolve_drv(row.nutrient_key, profile=None)
-        out.append(
-            schemas.NutrientAmountOut(
-                key=row.nutrient_key,
-                name=nutrient_def.name,
-                unit=nutrient_def.unit,
-                amount=row.amount_per_100g,
-                adult_drv=drv,
-                percent_drv=(row.amount_per_100g / drv * 100) if drv else None,
-                drv_source=nutrient_def.drv_source or None,
-            )
-        )
+        out.append(schemas.NutrientAmountOut.build(row.nutrient_key, nutrient_def, row.amount_per_100g, drv))
     out.sort(key=lambda n: n.name)
     return out
+
+
+@router.get("/{food_id}/provenance", response_model=schemas.FoodProvenanceOut)
+def food_provenance(food_id: int, db: Session = Depends(get_db)):
+    """Full traceability chain for every value this food contributes:
+    Food -> fdc_id/dataset -> USDA nutrient number -> FoodNutrient row ->
+    DRV comparison. Raw amounts are always exactly as USDA reported them
+    (this app never estimates/imputes a micronutrient amount — a food
+    either has the row FDC gave it, or has no row for that nutrient at
+    all), so the per-value provenance that actually varies is the DRV
+    comparison side, not the amount itself."""
+    food = db.get(models.Food, food_id)
+    if food is None:
+        raise HTTPException(status_code=404, detail="Food not found")
+
+    rows = db.query(models.FoodNutrient).filter(models.FoodNutrient.food_id == food_id).all()
+    nutrients_out = []
+    for row in rows:
+        nutrient_def = NUTRIENTS.get(row.nutrient_key)
+        if nutrient_def is None:
+            continue
+        nutrients_out.append(
+            schemas.NutrientProvenanceOut(
+                key=row.nutrient_key,
+                name=nutrient_def.name,
+                fdc_nutrient_nbr=nutrient_def.fdc_nutrient_nbr,
+                amount_per_100g=row.amount_per_100g,
+                drv_source=nutrient_def.drv_source or None,
+                drv_confidence=nutrient_def.drv_confidence if nutrient_def.drv_source else None,
+            )
+        )
+    nutrients_out.sort(key=lambda n: n.name)
+
+    return schemas.FoodProvenanceOut(
+        food_id=food.id,
+        food_name=food.name,
+        fdc_id=food.fdc_id,
+        data_type=food.data_type,
+        dataset_label=DATASET_LABELS.get(food.data_type) if food.data_type else None,
+        gtin_upc=food.gtin_upc,
+        digestibility_diaas_source=food.digestibility_diaas_source,
+        digestibility_pdcaas_source=food.digestibility_pdcaas_source,
+        nutrients=nutrients_out,
+    )

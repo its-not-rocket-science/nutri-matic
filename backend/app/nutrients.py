@@ -46,6 +46,16 @@ class NutrientDef:
     fdc_nutrient_nbr: str
     drv: dict[str, float] = field(default_factory=dict)  # adult_male/adult_female/pregnant/lactating
     drv_source: str = ""
+    # "live_confirmed": at least one figure here (a base value or an
+    # increment) was independently checked against a live/primary source
+    # this session, per drv_source's text — not just this codebase's
+    # opinion of itself, an explicit flag set only where the comment says
+    # so. "secondary_source": the default — sourced from the named table
+    # (RNI/PRI/RDA) via a secondary comparison table, consistently
+    # reproduced across sources but not independently re-verified against
+    # the primary document page-by-page. See nutrients.py's module
+    # docstring for the fuller caveat this tag is a structured version of.
+    drv_confidence: str = "secondary_source"
 
 
 def _drv(male: float, female: float, pregnant: float | None = None, lactating: float | None = None) -> dict[str, float]:
@@ -73,10 +83,12 @@ NUTRIENTS: dict[str, NutrientDef] = {
         _drv(700, 600, pregnant=700, lactating=950),
         "UK RNI; pregnancy (+100mcg to 700) confirmed live this session; lactation figure "
         "(950) recalled from COMA-derived sources, not re-confirmed",
+        drv_confidence="live_confirmed",
     ),
     "retinol": NutrientDef(
         "Retinol", "mcg", "319", _drv(700, 600, pregnant=700, lactating=950),
         "same DRV as vitamin_a (retinol is its dominant form)",
+        drv_confidence="live_confirmed",
     ),
     "beta_carotene": NutrientDef("Beta-carotene", "mcg", "321", _drv(0, 0), "no independent DRV — contributes to vitamin_a"),
     "vitamin_d": NutrientDef(
@@ -137,12 +149,14 @@ NUTRIENTS: dict[str, NutrientDef] = {
     "calcium": NutrientDef(
         "Calcium", "mg", "301", _drv(700, 700, pregnant=700, lactating=1250),
         "UK RNI; no pregnancy increment and +550mg lactation increment both confirmed live this session",
+        drv_confidence="live_confirmed",
     ),
     "iron": NutrientDef(
         "Iron", "mg", "303", _drv(8.7, 14.8, pregnant=14.8, lactating=14.8),
         "UK RNI; no pregnancy increment confirmed live this session (UK position: absorption "
         "efficiency rises to meet demand). Lactation also left at the female baseline — no "
         "confirmed UK increment found",
+        drv_confidence="live_confirmed",
     ),
     "iron_heme": NutrientDef("Iron, haem", "mg", "364", _drv(0, 0), "no independent DRV — subset of iron"),
     "iron_non_heme": NutrientDef("Iron, non-haem", "mg", "365", _drv(0, 0), "no independent DRV — subset of iron"),
@@ -152,6 +166,19 @@ NUTRIENTS: dict[str, NutrientDef] = {
     ),
     "phosphorus": NutrientDef("Phosphorus", "mg", "305", _drv(550, 550), "UK RNI, flat across groups"),
     "potassium": NutrientDef("Potassium", "mg", "306", _drv(3500, 3500), "UK RNI, flat across groups"),
+    # nutrient_nbr 307 is the standard/stable USDA FDC number for "Sodium, Na"
+    # (unlike arachidonic_acid's, this one has never been seen to vary between
+    # datasets) — not independently re-verified against a live nutrient.csv
+    # this session, flagged per this module's own house rule on that.
+    #
+    # No upward drv here deliberately — sodium is a "don't exceed" nutrient,
+    # not a "reach this" one, and this app's percent_drv/gap-analysis
+    # machinery is built entirely around targets you want to *reach*.
+    # Applying it to sodium would tell a user who already eats too much salt
+    # to "eat more to hit 100%" — exactly backwards. See food_chemistry.py
+    # for the sodium:potassium ratio, which handles the inverted framing
+    # honestly instead of forcing it through resolve_drv().
+    "sodium": NutrientDef("Sodium", "mg", "307", _drv(0, 0), "no upward DRV — see food_chemistry.py for the sodium:potassium ratio"),
     "zinc": NutrientDef(
         "Zinc", "mg", "309", _drv(9.5, 7.0, lactating=13.0),
         "UK RNI; lactation increment (to 13, first 4 months) is a commonly-cited COMA figure, "

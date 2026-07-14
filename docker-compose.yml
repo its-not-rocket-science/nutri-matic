@@ -22,6 +22,13 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql://nutrimatic:nutrimatic@postgres:5432/nutrimatic
+      # Dev-only value so `docker compose up` doesn't silently fall back to
+      # app/auth.py's hardcoded "dev-secret-change-me" default (anyone who's
+      # read the source — i.e. everyone, it's public — could otherwise forge
+      # auth tokens for any user id). A real deployment MUST override this
+      # with its own secret (e.g. via an untracked .env file / host secret
+      # manager), never reuse the value below outside local development.
+      JWT_SECRET: "1596dfe31d13c3682f357d84658459591506c44c91bb23eb8e063d12087e4799"
     ports:
       - "8000:8000"
     depends_on:

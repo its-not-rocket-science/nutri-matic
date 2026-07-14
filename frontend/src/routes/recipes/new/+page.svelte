@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import type { Food } from '$lib/types';
 
 	interface IngredientRow {
@@ -13,29 +14,12 @@
 	let name = $state('');
 	let servings = $state<number | null>(1);
 	let rows: IngredientRow[] = $state([]);
-	let allFoods: Food[] = $state([]);
-	let search = $state('');
 	let error: string | null = $state(null);
 	let submitting = $state(false);
-	let loadingFoods = $state(true);
-
-	const searchResults = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (q.length < 2) return [];
-		return allFoods.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
-	});
 
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
-			return;
-		}
-		try {
-			allFoods = await api.listFoods();
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-		} finally {
-			loadingFoods = false;
 		}
 	});
 
@@ -43,7 +27,6 @@
 		if (!rows.some((r) => r.food.id === food.id)) {
 			rows = [...rows, { food, quantity_g: 100 }];
 		}
-		search = '';
 	}
 
 	function removeIngredient(foodId: number) {
@@ -107,19 +90,11 @@
 			</ul>
 		{/if}
 
-		<label>
-			Add ingredient
-			<input type="text" bind:value={search} placeholder="Search foods…" disabled={loadingFoods} />
-		</label>
-		{#if searchResults.length > 0}
-			<ul class="search-results">
-				{#each searchResults as food (food.id)}
-					<li>
-						<button type="button" onclick={() => addIngredient(food)}>{food.name}</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+		<FoodSearchInput
+			onSelect={addIngredient}
+			label="Add ingredient"
+			exclude={(food) => rows.some((r) => r.food.id === food.id)}
+		/>
 	</fieldset>
 
 	{#if error}
@@ -146,8 +121,7 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	.ingredients,
-	.search-results {
+	.ingredients {
 		list-style: none;
 		padding: 0;
 		display: flex;
@@ -164,10 +138,6 @@
 	}
 	.ingredients input[type='number'] {
 		width: 5rem;
-	}
-	.search-results button {
-		width: 100%;
-		text-align: left;
 	}
 	.muted {
 		color: #666;

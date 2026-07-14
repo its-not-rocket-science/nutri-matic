@@ -4,7 +4,7 @@
 	import { api } from '$lib/api';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import ScoreCard from '$lib/components/ScoreCard.svelte';
-	import type { Complement, Food, NutrientAmount, Score } from '$lib/types';
+	import type { Complement, Food, FoodProvenance, NutrientAmount, Score } from '$lib/types';
 
 	const foodId = Number(page.params.id);
 
@@ -14,20 +14,23 @@
 	let diaasComplement: Complement | null = $state(null);
 	let pdcaasComplement: Complement | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
+	let provenance: FoodProvenance | null = $state(null);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
 	onMount(async () => {
 		try {
 			food = await api.getFood(foodId);
-			const [diaas, pdcaas, nutrientResult] = await Promise.allSettled([
+			const [diaas, pdcaas, nutrientResult, provenanceResult] = await Promise.allSettled([
 				food.digestibility_diaas ? api.scoreFood(foodId, 'diaas') : Promise.reject(),
 				food.digestibility_pdcaas !== null ? api.scoreFood(foodId, 'pdcaas') : Promise.reject(),
-				api.getNutrients(foodId)
+				api.getNutrients(foodId),
+				api.getFoodProvenance(foodId)
 			]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
 			if (pdcaas.status === 'fulfilled') pdcaasScore = pdcaas.value;
 			if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
+			if (provenanceResult.status === 'fulfilled') provenance = provenanceResult.value;
 
 			const [diaasComp, pdcaasComp] = await Promise.allSettled([
 				diaasScore ? api.complementFood(foodId, 'diaas') : Promise.reject(),
@@ -103,6 +106,48 @@
 	{/if}
 
 	<NutrientBars {nutrients} per="per 100g" />
+
+	{#if provenance}
+		<details class="provenance">
+			<summary>Show data provenance for this food</summary>
+			<dl>
+				<dt>Dataset</dt>
+				<dd>{provenance.dataset_label ?? 'unknown'}</dd>
+				<dt>USDA FDC ID</dt>
+				<dd>{provenance.fdc_id ?? 'n/a (manually entered)'}</dd>
+				{#if provenance.gtin_upc}
+					<dt>Barcode (GTIN/UPC)</dt>
+					<dd>{provenance.gtin_upc}</dd>
+				{/if}
+				{#if provenance.digestibility_diaas_source}
+					<dt>DIAAS digestibility</dt>
+					<dd>{provenance.digestibility_diaas_source}</dd>
+				{/if}
+				{#if provenance.digestibility_pdcaas_source}
+					<dt>PDCAAS digestibility</dt>
+					<dd>{provenance.digestibility_pdcaas_source}</dd>
+				{/if}
+			</dl>
+			<table>
+				<thead>
+					<tr>
+						<th>Nutrient</th>
+						<th>USDA nutrient #</th>
+						<th>Amount / 100g</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each provenance.nutrients as n (n.key)}
+						<tr>
+							<td>{n.name}</td>
+							<td>{n.fdc_nutrient_nbr}</td>
+							<td>{n.amount_per_100g}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</details>
+	{/if}
 {/if}
 
 <style>
@@ -128,5 +173,36 @@
 	}
 	.entries li {
 		padding: 0.2rem 0;
+	}
+	.provenance {
+		margin: 1rem 0;
+		font-size: 0.85em;
+	}
+	.provenance dl {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 0.2rem 0.75rem;
+		margin: 0.5rem 0 1rem;
+	}
+	.provenance dt {
+		font-weight: 600;
+		color: #555;
+	}
+	.provenance dd {
+		margin: 0;
+	}
+	.provenance table {
+		width: 100%;
+		border-collapse: collapse;
+		max-height: 20rem;
+	}
+	.provenance th {
+		text-align: left;
+		border-bottom: 1px solid #ccc;
+		padding: 0.25rem 0.5rem 0.25rem 0;
+	}
+	.provenance td {
+		padding: 0.25rem 0.5rem 0.25rem 0;
+		border-bottom: 1px solid #eee;
 	}
 </style>

@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
+	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
@@ -13,6 +14,8 @@
 		Food,
 		GapSuggestion,
 		Meal,
+		MealOptimization,
+		OptimizationSuggestion,
 		QuickAdd,
 		QuickAddItem,
 		Recipe
@@ -30,7 +33,6 @@
 
 	let date = $state(toIsoDate(new Date()));
 	let summary: DiarySummary | null = $state(null);
-	let allFoods: Food[] = $state([]);
 	let allRecipes: Recipe[] = $state([]);
 	let error: string | null = $state(null);
 	let loading = $state(true);
@@ -60,6 +62,10 @@
 	let gapSuggestion: GapSuggestion | null = $state(null);
 	let addingGapFoodId: number | null = $state(null);
 
+	let mealOptimizations: Partial<Record<Meal, MealOptimization | null>> = $state({});
+	let optimizingMeal: Meal | null = $state(null);
+	let applyingSuggestionKey: string | null = $state(null);
+
 	function quickAddKey(item: QuickAddItem): string {
 		return item.food_id !== null ? `f${item.food_id}` : `r${item.recipe_id}`;
 	}
@@ -67,8 +73,7 @@
 	const searchResults = $derived.by(() => {
 		const q = search.trim().toLowerCase();
 		if (q.length < 2) return [];
-		const source = itemType === 'food' ? allFoods : allRecipes;
-		return source.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
+		return allRecipes.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
 	});
 
 	async function loadDay() {
@@ -113,7 +118,7 @@
 			return;
 		}
 		try {
-			[allFoods, allRecipes] = await Promise.all([api.listFoods(), api.listRecipes()]);
+			allRecipes = await api.listRecipes();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
@@ -129,9 +134,8 @@
 		loadGapSuggestions();
 	}
 
-	function selectItem(item: Food | Recipe) {
-		if (itemType === 'food') selectedFood = item as Food;
-		else selectedRecipe = item as Recipe;
+	function selectItem(item: Recipe) {
+		selectedRecipe = item;
 		search = '';
 	}
 
@@ -218,6 +222,42 @@
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			addingGapFoodId = null;
+		}
+	}
+
+	async function handleOptimizeMeal(m: Meal) {
+		error = null;
+		optimizingMeal = m;
+		try {
+			mealOptimizations[m] = await api.getMealOptimization(date, m);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			optimizingMeal = null;
+		}
+	}
+
+	function suggestionKey(m: Meal, s: OptimizationSuggestion): string {
+		return `${m}-${s.action}-${s.food_id}`;
+	}
+
+	async function handleApplySuggestion(m: Meal, s: OptimizationSuggestion) {
+		error = null;
+		applyingSuggestionKey = suggestionKey(m, s);
+		try {
+			if (s.action === 'swap' && s.replaces_food_id !== null) {
+				const replaced = summary?.entries.find((e) => e.meal === m && e.food_id === s.replaces_food_id);
+				if (replaced) await api.deleteDiaryEntry(replaced.id);
+			}
+			await api.addDiaryEntry({ entry_date: date, meal: m, food_id: s.food_id, quantity_g: s.quantity_g });
+			await loadDay();
+			await loadQuickAdd();
+			await loadGapSuggestions();
+			mealOptimizations[m] = await api.getMealOptimization(date, m);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			applyingSuggestionKey = null;
 		}
 	}
 
@@ -382,6 +422,14 @@
 					<button type="button" class="no-print save-template-btn" onclick={() => handleSaveAsTemplate(m)}>
 						Save as template
 					</button>
+					<button
+						type="button"
+						class="no-print save-template-btn"
+						onclick={() => handleOptimizeMeal(m)}
+						disabled={optimizingMeal === m}
+					>
+						{optimizingMeal === m ? 'Optimizing…' : 'Optimize this meal'}
+					</button>
 				</h3>
 				<ul class="entries">
 					{#each mealEntries as entry (entry.id)}
@@ -397,6 +445,44 @@
 						</li>
 					{/each}
 				</ul>
+
+				{#if mealOptimizations[m] !== undefined}
+					{#if mealOptimizations[m] === null}
+						<p class="muted">No worthwhile improvements found for this meal.</p>
+					{:else}
+						{@const opt = mealOptimizations[m]}
+						{#if opt && opt.suggestions.length > 0}
+							<div class="optimize-suggestions">
+								<p class="muted">Targeting: {opt.target_nutrient_name} (lowest %DRV in this day)</p>
+								<ul class="entries">
+									{#each opt.suggestions as s (suggestionKey(m, s))}
+										<li>
+											{#if s.action === 'swap'}
+												<span>Swap {s.replaces_food_name} &rarr; {s.food_name} ({s.quantity_g}g)</span>
+											{:else}
+												<span>Add {s.quantity_g}g {s.food_name}</span>
+											{/if}
+											<span class="muted">
+												{s.before_percent_drv.toFixed(0)}% &rarr; {s.after_percent_drv.toFixed(0)}%
+												({s.improvement >= 0 ? '+' : ''}{s.improvement.toFixed(1)}pp{s.calories_added
+													? `, +${s.calories_added.toFixed(0)}kcal`
+													: ''})
+											</span>
+											<button
+												type="button"
+												class="no-print"
+												onclick={() => handleApplySuggestion(m, s)}
+												disabled={applyingSuggestionKey === suggestionKey(m, s)}
+											>
+												{applyingSuggestionKey === suggestionKey(m, s) ? 'Applying…' : 'Apply'}
+											</button>
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					{/if}
+				{/if}
 			</section>
 		{/if}
 	{/each}
@@ -474,9 +560,11 @@
 					}}>Change</button
 				>
 			</p>
+		{:else if itemType === 'food'}
+			<FoodSearchInput onSelect={(food) => (selectedFood = food)} label="Search foods" />
 		{:else}
 			<label>
-				Search {itemType}s
+				Search recipes
 				<input type="text" bind:value={search} placeholder="Search…" />
 			</label>
 			{#if searchResults.length > 0}
@@ -605,6 +693,45 @@
 			</details>
 		</section>
 	{/if}
+
+	{#if summary.sodium_potassium || summary.protein_distribution.length > 0}
+		<section class="food-chemistry">
+			<h3>Food chemistry <a class="no-print" href="/methodology#food-chemistry">ⓘ</a></h3>
+
+			{#if summary.sodium_potassium}
+				<div class="sodium-potassium">
+					<strong>Sodium:potassium ratio</strong>
+					<span>
+						{summary.sodium_potassium.ratio !== null
+							? `${summary.sodium_potassium.ratio.toFixed(2)}:1`
+							: 'n/a'}
+					</span>
+					<p class="muted">{summary.sodium_potassium.guidance}</p>
+				</div>
+			{/if}
+
+			{#if summary.protein_distribution.length > 0}
+				<div class="protein-distribution">
+					<strong>Protein distribution &amp; leucine threshold</strong>
+					<ul class="entries">
+						{#each summary.protein_distribution as d (d.meal)}
+							<li>
+								<span class="meal-label">{d.meal}</span>
+								<span class="muted">{d.protein_g.toFixed(0)}g protein, {d.leucine_g.toFixed(2)}g leucine</span>
+								<span
+									class:threshold-met={d.meets_leucine_threshold}
+									class:threshold-missed={!d.meets_leucine_threshold}
+								>
+									{d.meets_leucine_threshold ? '✓ meets' : '✗ below'}
+									{d.leucine_threshold_g}g threshold
+								</span>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+		</section>
+	{/if}
 {/if}
 
 {#if showScanner}
@@ -681,6 +808,26 @@
 		padding-top: 0.75rem;
 		border-top: 1px solid #eee;
 	}
+	.food-chemistry {
+		margin-top: 1.5rem;
+		padding: 1rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
+	}
+	.sodium-potassium {
+		margin-bottom: 0.75rem;
+	}
+	.protein-distribution .entries li {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.threshold-met {
+		color: #2d6a2d;
+	}
+	.threshold-missed {
+		color: #666;
+	}
 	.entries {
 		list-style: none;
 		padding: 0;
@@ -697,6 +844,12 @@
 	.save-template-btn {
 		margin-left: 0.75rem;
 		font-size: 0.75em;
+	}
+	.optimize-suggestions {
+		margin-top: 0.5rem;
+		padding: 0.75rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
 	}
 	.quick-add {
 		margin: 1rem 0;

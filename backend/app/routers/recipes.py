@@ -16,6 +16,7 @@ from ..models import (
     RecipeTag,
     User,
 )
+from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
@@ -217,7 +218,10 @@ def score_recipe(
         score=result.score,
         limiting_amino_acid=result.limiting_amino_acid,
         per_aa_ratios=result.per_aa_ratios,
-        digestibility_source=None,  # a recipe's digestibility is a blend, not a single measured/estimated tag
+        digestibility_source=(
+            aggregate.digestibility_diaas_source if method == "diaas" else aggregate.digestibility_pdcaas_source
+        ),
+        methodology_version=SCORING_METHODOLOGY_VERSION,
     )
 
 
@@ -241,17 +245,7 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
         if nutrient_def is None:
             continue
         drv = resolve_drv(key, profile)
-        out.append(
-            schemas.NutrientAmountOut(
-                key=key,
-                name=nutrient_def.name,
-                unit=nutrient_def.unit,
-                amount=amount,
-                adult_drv=drv,
-                percent_drv=(amount / drv * 100) if drv else None,
-                drv_source=nutrient_def.drv_source or None,
-            )
-        )
+        out.append(schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv))
     out.sort(key=lambda n: n.name)
     return out
 

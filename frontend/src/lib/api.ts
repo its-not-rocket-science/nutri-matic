@@ -15,8 +15,10 @@ import type {
 	FoodCreate,
 	FoodPrice,
 	FoodPriceCreate,
+	FoodProvenance,
 	GapSuggestion,
 	Meal,
+	MealOptimization,
 	MealPlanEntry,
 	MealPlanEntryCreate,
 	MealPlanTemplate,
@@ -69,7 +71,10 @@ export const api = {
 	complementFood: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Complement>(`/api/foods/${id}/complement?method=${method}`),
 	getFoodByBarcode: (gtinUpc: string) => request<Food>(`/api/foods/barcode/${encodeURIComponent(gtinUpc)}`),
+	searchFoodsByName: (q: string, limit = 15) =>
+		request<Food[]>(`/api/foods/search-by-name?q=${encodeURIComponent(q)}&limit=${limit}`),
 	getNutrients: (id: number) => request<NutrientAmount[]>(`/api/foods/${id}/nutrients`),
+	getFoodProvenance: (id: number) => request<FoodProvenance>(`/api/foods/${id}/provenance`),
 
 	register: (email: string, password: string) =>
 		request<TokenResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -137,6 +142,8 @@ export const api = {
 	getQuickAdd: () => request<QuickAdd>('/api/diary/quick-add'),
 	getGapSuggestions: (entryDate: string) =>
 		request<GapSuggestion | null>(`/api/diary/gap-suggestions?entry_date=${entryDate}`),
+	getMealOptimization: (entryDate: string, meal: Meal) =>
+		request<MealOptimization | null>(`/api/diary/meal-optimize?entry_date=${entryDate}&meal=${meal}`),
 
 	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>('/api/diary-meal-templates'),
 	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>

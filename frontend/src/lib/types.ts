@@ -35,6 +35,7 @@ export interface Score {
 	limiting_amino_acid: string;
 	per_aa_ratios: Record<string, number>;
 	digestibility_source: 'measured' | 'estimated' | null;
+	methodology_version: string;
 }
 
 export interface ComplementSuggestion {
@@ -48,6 +49,28 @@ export interface Complement {
 	original_score: number;
 	limiting_amino_acid: string;
 	suggestions: ComplementSuggestion[];
+	methodology_version: string;
+}
+
+export interface NutrientProvenance {
+	key: string;
+	name: string;
+	fdc_nutrient_nbr: string;
+	amount_per_100g: number;
+	drv_source: string | null;
+	drv_confidence: string | null;
+}
+
+export interface FoodProvenance {
+	food_id: number;
+	food_name: string;
+	fdc_id: number | null;
+	data_type: string | null;
+	dataset_label: string | null;
+	gtin_upc: string | null;
+	digestibility_diaas_source: string | null;
+	digestibility_pdcaas_source: string | null;
+	nutrients: NutrientProvenance[];
 }
 
 export interface NutrientAmount {
@@ -60,6 +83,9 @@ export interface NutrientAmount {
 	percent_drv: number | null;
 	/** provenance of adult_drv, e.g. "UK RNI; pregnancy increment confirmed live" */
 	drv_source: string | null;
+	/** "live_confirmed" | "secondary_source" | "personalized_calculation" | null */
+	drv_confidence: string | null;
+	drv_methodology_version: string;
 }
 
 export interface User {
@@ -214,11 +240,28 @@ export interface QuickAdd {
 	frequent: QuickAddItem[];
 }
 
+export interface SodiumPotassium {
+	sodium_mg: number;
+	potassium_mg: number;
+	ratio: number | null;
+	guidance: string;
+}
+
+export interface MealProteinDistribution {
+	meal: Meal;
+	protein_g: number;
+	leucine_g: number;
+	leucine_threshold_g: number;
+	meets_leucine_threshold: boolean;
+}
+
 export interface DiarySummary {
 	entries: DiaryEntry[];
 	nutrients: NutrientAmount[];
 	iron_bioavailability: MealIronBioavailability[];
 	calcium_phosphorus: CalciumPhosphorus | null;
+	sodium_potassium: SodiumPotassium | null;
+	protein_distribution: MealProteinDistribution[];
 }
 
 export interface DiaryMealTemplateItem {
@@ -324,6 +367,8 @@ export interface TrendNutrient {
 	adult_drv: number | null;
 	avg_percent_drv: number | null;
 	drv_source: string | null;
+	drv_confidence: string | null;
+	drv_methodology_version: string;
 }
 
 export interface TrendBucket {
@@ -350,6 +395,27 @@ export interface GapSuggestion {
 	unit: string;
 	percent_drv: number;
 	foods: FoodNutrientRank[];
+}
+
+export interface OptimizationSuggestion {
+	action: 'add' | 'swap';
+	food_id: number;
+	food_name: string;
+	quantity_g: number;
+	replaces_food_id: number | null;
+	replaces_food_name: string | null;
+	before_percent_drv: number;
+	after_percent_drv: number;
+	improvement: number;
+	calories_added: number;
+	improvement_per_100kcal: number | null;
+}
+
+export interface MealOptimization {
+	meal: Meal;
+	target_nutrient_key: string;
+	target_nutrient_name: string;
+	suggestions: OptimizationSuggestion[];
 }
 
 export type FilterOp = 'gte' | 'lte' | 'eq';

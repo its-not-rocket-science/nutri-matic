@@ -1,5 +1,24 @@
-"""Filter foods or a user's recipes by nutrient thresholds and computed
-protein-quality scores.
+"""Name search (this module) and nutrient-goal filtering (below) for foods
+and recipes.
+
+search_foods_by_name is deliberately built from SQLAlchemy operations that
+compile identically on SQLite (what the test suite uses) and PostgreSQL
+(production) — synonym expansion, singular/plural normalization, and
+substring matching via .ilike(), plus Python-side (difflib, stdlib)
+relevance ranking. Real fuzzy/typo-tolerant matching at full-catalog scale
+needs something like PostgreSQL's pg_trgm extension, which SQLite has no
+equivalent for; that layer is gated on the live session's actual dialect
+(checked at query time, not assumed) so it activates automatically in
+production without breaking the SQLite-based test suite.
+
+Filters are ANDed together. A filter's key is either a nutrients.NUTRIENTS
+key (compared against per-100g for a food, per-serving for a recipe),
+"protein_g_per_100g" (foods only — a recipe has no single protein-per-100g
+figure), or one of the two computed scores "diaas_score" / "pdcaas_score"
+(using the child_3y_adult reference pattern, same default the rest of the
+app uses). A food/recipe that can't be scored (missing digestibility data)
+simply doesn't match a score filter, rather than raising — search isn't
+the place to surprise a caller with a 422 for an unrelated food.
 
 Filters are ANDed together. A filter's key is either a nutrients.NUTRIENTS
 key (compared against per-100g for a food, per-serving for a recipe),
@@ -22,8 +41,10 @@ the user's own recipes in Python — there are typically only a handful.
 """
 
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Literal
 
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
@@ -37,6 +58,115 @@ Op = Literal["gte", "lte", "eq"]
 SCORE_KEYS = {"diaas_score", "pdcaas_score"}
 FOOD_FILTER_KEYS = set(NUTRIENTS) | SCORE_KEYS | {"protein_g_per_100g"}
 RECIPE_FILTER_KEYS = set(NUTRIENTS) | SCORE_KEYS
+
+# Common food-search synonyms/aliases — a modest, hand-picked list rather
+# than a general thesaurus. Each key's search also matches foods named with
+# any of its values; kept symmetric (both directions listed) so a search
+# for either term finds foods named with the other.
+FOOD_SYNONYMS: dict[str, list[str]] = {
+    "egg": ["hen egg"],
+    "hen egg": ["egg"],
+    "chicken": ["hen", "poultry"],
+    "hen": ["chicken"],
+    "aubergine": ["eggplant"],
+    "eggplant": ["aubergine"],
+    "courgette": ["zucchini"],
+    "zucchini": ["courgette"],
+    "garbanzo": ["chickpea"],
+    "chickpea": ["garbanzo"],
+    "scallion": ["green onion", "spring onion"],
+    "spring onion": ["scallion", "green onion"],
+    "coriander": ["cilantro"],
+    "cilantro": ["coriander"],
+    "ground beef": ["beef mince"],
+    "beef mince": ["ground beef"],
+    "capsicum": ["bell pepper", "pepper"],
+    "bell pepper": ["capsicum"],
+    "shrimp": ["prawn"],
+    "prawn": ["shrimp"],
+    "yoghurt": ["yogurt"],
+    "yogurt": ["yoghurt"],
+    "soda": ["soft drink", "pop"],
+}
+
+
+def _singularize(word: str) -> str | None:
+    """Cheap plural -> singular heuristic, not a full stemmer — strips a
+    trailing 's' (but not 'ss', so "grass" doesn't become "gras"). Returns
+    None if the word doesn't look pluralized."""
+    if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+        return word[:-1]
+    return None
+
+
+def expand_query_terms(query: str) -> list[str]:
+    """The original query plus its plural/singular counterpart and any
+    known synonyms — the full set of substrings actually searched for, so
+    "eggs", "egg", and "hen egg" are all treated as the same search."""
+    query = query.strip().lower()
+    terms = {query}
+
+    singular = _singularize(query)
+    if singular:
+        terms.add(singular)
+    else:
+        terms.add(query + "s")
+
+    for term in list(terms):
+        terms.update(FOOD_SYNONYMS.get(term, []))
+
+    return sorted(terms)
+
+
+def _rank_by_relevance(foods: list[Food], query: str, limit: int) -> list[Food]:
+    """Portable relevance ranking (difflib, stdlib — no database-specific
+    function needed): exact match first, then prefix matches, then by
+    string similarity to the raw query."""
+    query_lower = query.strip().lower()
+
+    def sort_key(food: Food) -> tuple:
+        name_lower = food.name.lower()
+        is_exact = name_lower == query_lower
+        is_prefix = name_lower.startswith(query_lower)
+        similarity = SequenceMatcher(None, query_lower, name_lower).ratio()
+        return (not is_exact, not is_prefix, -similarity)
+
+    return sorted(foods, key=sort_key)[:limit]
+
+
+def search_foods_by_name(db: Session, query: str, limit: int = 20) -> list[Food]:
+    """Synonym/plural-aware substring search, ranked by relevance — the
+    food-name autocomplete used when logging a diary/meal-plan entry or
+    building a recipe. Falls back to PostgreSQL trigram similarity for
+    typo tolerance when running against Postgres and the substring pass
+    didn't fill the result list; see the module docstring for why that
+    part is gated on the actual DB dialect."""
+    query = query.strip()
+    if len(query) < 2:
+        return []
+
+    terms = expand_query_terms(query)
+    conditions = [Food.name.ilike(f"%{t}%") for t in terms]
+    candidates = db.query(Food).filter(or_(*conditions)).order_by(Food.name).limit(limit * 5).all()
+    ranked = _rank_by_relevance(candidates, query, limit)
+
+    if len(ranked) >= limit or db.bind is None or db.bind.dialect.name != "postgresql":
+        return ranked
+
+    already_matched_ids = {f.id for f in ranked}
+    fuzzy_rows = db.execute(
+        text(
+            "SELECT id FROM foods WHERE similarity(name, :q) > 0.2 "
+            "ORDER BY similarity(name, :q) DESC LIMIT :fetch_limit"
+        ),
+        {"q": query, "fetch_limit": limit * 2},
+    ).fetchall()
+    fuzzy_ids = [row[0] for row in fuzzy_rows if row[0] not in already_matched_ids]
+    if fuzzy_ids:
+        fuzzy_foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(fuzzy_ids)).all()}
+        ranked.extend(fuzzy_foods_by_id[i] for i in fuzzy_ids if i in fuzzy_foods_by_id)
+
+    return ranked[:limit]
 
 
 @dataclass

@@ -113,3 +113,60 @@ def test_complement_empty_when_nothing_improves(client):
     res = client.get("/api/foods/2/complement?method=diaas")
     assert res.status_code == 200
     assert res.json()["suggestions"] == []
+
+
+def test_complement_skips_zero_protein_candidate():
+    """A candidate with zero protein contributes nothing to the combined
+    amino acid mixture — suggest_complements must skip it (aggregation
+    would otherwise divide by zero total protein)."""
+    from app.complement import suggest_complements
+    from app.scoring import compute_diaas
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    db = sessionmaker(bind=engine)()
+
+    grain = Food(
+        id=1, name="grain", protein_g_per_100g=20, amino_acids=_aa(lysine=20),
+        digestibility_diaas=dict.fromkeys(AMINO_ACIDS, 0.9),
+    )
+    zero_protein_candidate = Food(
+        id=2, name="water-like", protein_g_per_100g=0, amino_acids=_aa(lysine=200),
+        digestibility_diaas=dict.fromkeys(AMINO_ACIDS, 0.9),
+    )
+    db.add_all([grain, zero_protein_candidate])
+    db.commit()
+
+    original_score = compute_diaas(grain.amino_acids, grain.digestibility_diaas, "child_3y_adult")
+    suggestions = suggest_complements(grain, original_score, "diaas", "child_3y_adult", db)
+    assert suggestions == []
+
+
+def test_complement_skips_candidate_with_incomplete_amino_acid_profile():
+    """A candidate strong in the limiting amino acid but missing another
+    amino acid entirely can't be scored once combined — compute_diaas
+    raises IncompleteAminoAcidProfile, which suggest_complements must
+    catch and skip rather than propagate."""
+    from app.complement import suggest_complements
+    from app.scoring import compute_diaas
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    db = sessionmaker(bind=engine)()
+
+    grain = Food(
+        id=1, name="grain", protein_g_per_100g=20, amino_acids=_aa(lysine=20),
+        digestibility_diaas=dict.fromkeys(AMINO_ACIDS, 0.9),
+    )
+    incomplete_aa = _aa(lysine=200)
+    incomplete_aa["tryptophan"] = None  # missing one amino acid entirely
+    incomplete_candidate = Food(
+        id=2, name="incomplete profile", protein_g_per_100g=20, amino_acids=incomplete_aa,
+        digestibility_diaas=dict.fromkeys(AMINO_ACIDS, 0.9),
+    )
+    db.add_all([grain, incomplete_candidate])
+    db.commit()
+
+    original_score = compute_diaas(grain.amino_acids, grain.digestibility_diaas, "child_3y_adult")
+    suggestions = suggest_complements(grain, original_score, "diaas", "child_3y_adult", db)
+    assert suggestions == []

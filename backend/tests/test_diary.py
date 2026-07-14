@@ -37,10 +37,13 @@ def client():
             FoodNutrient(food_id=1, nutrient_key="iron", amount_per_100g=2.0),
             FoodNutrient(food_id=1, nutrient_key="calcium", amount_per_100g=10.0),
             FoodNutrient(food_id=1, nutrient_key="phosphorus", amount_per_100g=200.0),
+            FoodNutrient(food_id=1, nutrient_key="sodium", amount_per_100g=70.0),
+            FoodNutrient(food_id=1, nutrient_key="potassium", amount_per_100g=318.0),
             FoodNutrient(food_id=2, nutrient_key="iron", amount_per_100g=0.2),
             FoodNutrient(food_id=2, nutrient_key="vitamin_c", amount_per_100g=50.0),
             FoodNutrient(food_id=2, nutrient_key="calcium", amount_per_100g=11.0),
             FoodNutrient(food_id=2, nutrient_key="phosphorus", amount_per_100g=17.0),
+            FoodNutrient(food_id=2, nutrient_key="potassium", amount_per_100g=200.0),
         ]
     )
     db.commit()
@@ -398,3 +401,52 @@ def test_copy_day_scoped_to_user(client):
         "/api/diary/copy-day?source_date=2026-07-13&target_date=2026-07-14", headers=auth_headers(other_token)
     )
     assert res.json() == []
+
+
+def test_day_summary_includes_sodium_potassium(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 2, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary?entry_date=2026-07-13", headers=auth_headers(token))
+    assert res.status_code == 200
+    nak = res.json()["sodium_potassium"]
+    assert nak is not None
+    assert nak["sodium_mg"] == pytest.approx(70.0)
+    assert nak["potassium_mg"] == pytest.approx(518.0)
+    assert nak["ratio"] == pytest.approx(70.0 / 518.0)
+
+
+def test_day_summary_includes_protein_distribution(client):
+    token = register_and_token(client, "a@example.com")
+    # beef: 26g protein/100g, leucine 20mg/g protein. 500g -> 130g protein, 2.6g leucine (>=2.5g threshold)
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "dinner", "food_id": 1, "quantity_g": 500},
+        headers=auth_headers(token),
+    )
+    # a small amount at lunch stays under threshold
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 1, "quantity_g": 50},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary?entry_date=2026-07-13", headers=auth_headers(token))
+    assert res.status_code == 200
+    by_meal = {d["meal"]: d for d in res.json()["protein_distribution"]}
+
+    assert by_meal["dinner"]["protein_g"] == pytest.approx(130.0)
+    assert by_meal["dinner"]["leucine_g"] == pytest.approx(2.6)
+    assert by_meal["dinner"]["meets_leucine_threshold"] is True
+
+    assert by_meal["lunch"]["protein_g"] == pytest.approx(13.0)
+    assert by_meal["lunch"]["meets_leucine_threshold"] is False

@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
+	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
 	import type { Food, Meal, MealPlanEntry, MealPlanTemplate, Recipe, ShoppingList } from '$lib/types';
@@ -35,7 +36,6 @@
 	});
 
 	let entries: MealPlanEntry[] = $state([]);
-	let allFoods: Food[] = $state([]);
 	let allRecipes: Recipe[] = $state([]);
 	let error: string | null = $state(null);
 	let loading = $state(true);
@@ -71,8 +71,7 @@
 	const searchResults = $derived.by(() => {
 		const q = search.trim().toLowerCase();
 		if (q.length < 2) return [];
-		const source = itemType === 'food' ? allFoods : allRecipes;
-		return source.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
+		return allRecipes.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
 	});
 
 	async function loadWeek() {
@@ -113,7 +112,7 @@
 			return;
 		}
 		try {
-			[allFoods, allRecipes] = await Promise.all([api.listFoods(), api.listRecipes()]);
+			allRecipes = await api.listRecipes();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
@@ -128,9 +127,8 @@
 		loadWeek();
 	}
 
-	function selectItem(item: Food | Recipe) {
-		if (itemType === 'food') selectedFood = item as Food;
-		else selectedRecipe = item as Recipe;
+	function selectItem(item: Recipe) {
+		selectedRecipe = item;
 		search = '';
 	}
 
@@ -379,9 +377,11 @@
 					}}>Change</button
 				>
 			</p>
+		{:else if itemType === 'food'}
+			<FoodSearchInput onSelect={(food) => (selectedFood = food)} label="Search foods" />
 		{:else}
 			<label>
-				Search {itemType}s
+				Search recipes
 				<input type="text" bind:value={search} placeholder="Search…" />
 			</label>
 			{#if searchResults.length > 0}

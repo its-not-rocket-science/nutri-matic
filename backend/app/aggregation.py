@@ -116,6 +116,14 @@ class AminoAcidAggregate:
     digestibility_diaas: dict[str, float | None] | None
     digestibility_pdcaas: float | None
     total_protein_g: float
+    # weakest-link confidence tag across every protein-contributing
+    # ingredient: "measured" only if every one of them had food-specific
+    # (not category-fallback) digestibility data for this method; None if
+    # no ingredient contributed digestibility data for it at all. This is
+    # what lets a recipe/diary score report real provenance instead of the
+    # blend just going unlabelled.
+    digestibility_diaas_source: str | None = None
+    digestibility_pdcaas_source: str | None = None
 
 
 def aggregate_amino_acids(items: list[WeightedFood]) -> AminoAcidAggregate:
@@ -126,6 +134,11 @@ def aggregate_amino_acids(items: list[WeightedFood]) -> AminoAcidAggregate:
     diaas_complete = dict.fromkeys(AMINO_ACIDS, True)
     pdcaas_numerator = 0.0
     pdcaas_complete = True
+
+    any_diaas_contributor = False
+    diaas_all_measured = True
+    any_pdcaas_contributor = False
+    pdcaas_all_measured = True
 
     for item in items:
         protein_g = item.food.protein_g_per_100g * item.quantity_g / 100
@@ -151,10 +164,18 @@ def aggregate_amino_acids(items: list[WeightedFood]) -> AminoAcidAggregate:
                 continue
             diaas_numerators[aa] += aa_mg * diaas_coefficient
 
+        if item.food.digestibility_diaas is not None:
+            any_diaas_contributor = True
+            if item.food.digestibility_diaas_source != "measured":
+                diaas_all_measured = False
+
         if item.food.digestibility_pdcaas is None:
             pdcaas_complete = False
         else:
             pdcaas_numerator += protein_g * item.food.digestibility_pdcaas
+            any_pdcaas_contributor = True
+            if item.food.digestibility_pdcaas_source != "measured":
+                pdcaas_all_measured = False
 
     if total_protein <= 0:
         return AminoAcidAggregate(
@@ -178,6 +199,12 @@ def aggregate_amino_acids(items: list[WeightedFood]) -> AminoAcidAggregate:
         digestibility_diaas=digestibility_diaas,
         digestibility_pdcaas=digestibility_pdcaas,
         total_protein_g=total_protein,
+        digestibility_diaas_source=(
+            ("measured" if diaas_all_measured else "estimated") if any_diaas_contributor else None
+        ),
+        digestibility_pdcaas_source=(
+            ("measured" if pdcaas_all_measured else "estimated") if any_pdcaas_contributor else None
+        ),
     )
 
 

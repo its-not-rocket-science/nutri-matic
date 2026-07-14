@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from .database import Base, engine
 from .routers import (
@@ -19,6 +20,15 @@ from .routers import (
 )
 
 Base.metadata.create_all(bind=engine)
+
+# pg_trgm powers search.py's typo-tolerant fuzzy fallback for food-name
+# search — Postgres-only (no SQLite equivalent, which is why that code path
+# is gated on the live dialect rather than assumed available). A no-op on
+# non-Postgres engines, and idempotent, so safe to run on every startup.
+if engine.dialect.name == "postgresql":
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        conn.commit()
 
 app = FastAPI(title="Nutri-Matic API")
 
