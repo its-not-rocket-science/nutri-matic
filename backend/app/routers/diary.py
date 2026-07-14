@@ -15,14 +15,39 @@ from ..bioavailability import (
     split_food_iron,
 )
 from ..database import get_db
-from ..energy import calculate_eer
+from ..energy import calculate_age, calculate_eer
+from ..food_chemistry import compute_meal_protein_distribution, estimate_sodium_potassium, leucine_threshold_for_age
 from ..models import DiaryEntry, Food, FoodNutrient, Recipe, User
 from ..nutrients import NUTRIENTS, resolve_drv
+from ..optimizer import suggest_meal_optimizations
 from ..trends import GroupBy, bucket_day_totals
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
 
 MEALS = ("breakfast", "lunch", "dinner", "snack")
+
+# energy's target is a personalized BMR+activity calculation, not a
+# sex/life-stage table lookup — resolve_drv() correctly returns None for it
+# (see nutrients.py), so day-total and trend-bucket nutrient rows both need
+# to override the source/confidence text on that one nutrient specifically
+_ENERGY_DRV_SOURCE = "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
+_ENERGY_DRV_CONFIDENCE = "personalized_calculation"
+
+
+def _nutrient_amount_out(key: str, nutrient_def, amount: float, drv: float | None) -> schemas.NutrientAmountOut:
+    if key == "energy":
+        return schemas.NutrientAmountOut.build(
+            key, nutrient_def, amount, drv, drv_source=_ENERGY_DRV_SOURCE, drv_confidence=_ENERGY_DRV_CONFIDENCE
+        )
+    return schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv)
+
+
+def _trend_nutrient_out(key: str, nutrient_def, avg_amount: float, drv: float | None) -> schemas.TrendNutrientOut:
+    if key == "energy":
+        return schemas.TrendNutrientOut.build(
+            key, nutrient_def, avg_amount, drv, drv_source=_ENERGY_DRV_SOURCE, drv_confidence=_ENERGY_DRV_CONFIDENCE
+        )
+    return schemas.TrendNutrientOut.build(key, nutrient_def, avg_amount, drv)
 
 
 def _entry_out(entry: DiaryEntry, foods_by_id: dict[int, Food], recipes_by_id: dict[int, Recipe]) -> schemas.DiaryEntryOut:
@@ -151,22 +176,7 @@ def _compute_nutrient_gaps(
         # sex/life-stage table lookup — resolve_drv() correctly returns None
         # for it (see nutrients.py), so it's handled separately here
         drv = eer if key == "energy" else resolve_drv(key, profile)
-        drv_source = (
-            "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
-            if key == "energy"
-            else (nutrient_def.drv_source or None)
-        )
-        nutrients_out.append(
-            schemas.NutrientAmountOut(
-                key=key,
-                name=nutrient_def.name,
-                unit=nutrient_def.unit,
-                amount=amount,
-                adult_drv=drv,
-                percent_drv=(amount / drv * 100) if drv else None,
-                drv_source=drv_source,
-            )
-        )
+        nutrients_out.append(_nutrient_amount_out(key, nutrient_def, amount, drv))
     nutrients_out.sort(key=lambda n: n.name)
     return NutrientGaps(nutrients_out=nutrients_out, totals=totals, by_food_id=by_food_id)
 
@@ -189,12 +199,27 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
     gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
     nutrients_out, totals, by_food_id = gaps.nutrients_out, gaps.totals, gaps.by_food_id
 
+    leucine_threshold_g = leucine_threshold_for_age(calculate_age(current_user))
+
     iron_out: list[schemas.MealIronBioavailabilityOut] = []
+    protein_distribution_out: list[schemas.MealProteinDistributionOut] = []
     for meal in MEALS:
         meal_entries = [e for e in entries if e.meal == meal]
         if not meal_entries:
             continue
         meal_items = expand_entries_to_weighted_foods(meal_entries, foods_by_id, recipes_by_id, db)
+
+        distribution = compute_meal_protein_distribution(meal, meal_items, leucine_threshold_g)
+        if distribution is not None:
+            protein_distribution_out.append(
+                schemas.MealProteinDistributionOut(
+                    meal=distribution.meal,
+                    protein_g=distribution.protein_g,
+                    leucine_g=distribution.leucine_g,
+                    leucine_threshold_g=distribution.leucine_threshold_g,
+                    meets_leucine_threshold=distribution.meets_leucine_threshold,
+                )
+            )
 
         iron_splits: list[IronSplit] = []
         vitamin_c_mg = 0.0
@@ -246,9 +271,52 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
         else None
     )
 
-    return schemas.DiarySummaryOut(
-        entries=entries_out, nutrients=nutrients_out, iron_bioavailability=iron_out, calcium_phosphorus=calcium_phosphorus
+    nak_estimate = estimate_sodium_potassium(totals.get("sodium", 0.0), totals.get("potassium", 0.0))
+    sodium_potassium = (
+        schemas.SodiumPotassiumOut(
+            sodium_mg=nak_estimate.sodium_mg,
+            potassium_mg=nak_estimate.potassium_mg,
+            ratio=nak_estimate.ratio,
+            guidance=nak_estimate.guidance,
+        )
+        if nak_estimate is not None
+        else None
     )
+
+    return schemas.DiarySummaryOut(
+        entries=entries_out,
+        nutrients=nutrients_out,
+        iron_bioavailability=iron_out,
+        calcium_phosphorus=calcium_phosphorus,
+        sodium_potassium=sodium_potassium,
+        protein_distribution=protein_distribution_out,
+    )
+
+
+def _find_worst_gap(nutrients_out: list[schemas.NutrientAmountOut]) -> schemas.NutrientAmountOut | None:
+    """The single lowest-%DRV nutrient for a day, excluding energy — a
+    calorie target isn't a "gap" in the same sense. Shared by
+    /gap-suggestions and /meal-optimize so they always agree on what
+    "the" gap is."""
+    candidates = [n for n in nutrients_out if n.percent_drv is not None and n.key != "energy"]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda n: n.percent_drv)
+
+
+def _rank_foods_by_nutrient(db: Session, nutrient_key: str, limit: int) -> list[tuple[Food, float]]:
+    """Real foods carrying the most of a given nutrient per 100g, paired
+    with that amount — the candidate pool both /gap-suggestions and
+    /meal-optimize draw from."""
+    rows = (
+        db.query(FoodNutrient)
+        .filter(FoodNutrient.nutrient_key == nutrient_key)
+        .order_by(FoodNutrient.amount_per_100g.desc())
+        .limit(limit)
+        .all()
+    )
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([r.food_id for r in rows])).all()}
+    return [(foods_by_id[r.food_id], r.amount_per_100g) for r in rows if r.food_id in foods_by_id]
 
 
 @router.get("/gap-suggestions", response_model=schemas.GapSuggestionOut | None)
@@ -256,7 +324,6 @@ def get_gap_suggestions(
     entry_date: date, limit: int = 8, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """Picks the single nutrient with the lowest %DRV for the given day
-    (excluding energy — a calorie target isn't a "gap" in the same sense)
     and ranks real foods by how much of that nutrient they carry per 100g.
     Returns None if nothing's logged yet, or if nothing logged has a DRV to
     compare against."""
@@ -272,19 +339,11 @@ def get_gap_suggestions(
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
     gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
-    candidates = [n for n in gaps.nutrients_out if n.percent_drv is not None and n.key != "energy"]
-    if not candidates:
+    worst = _find_worst_gap(gaps.nutrients_out)
+    if worst is None:
         return None
-    worst = min(candidates, key=lambda n: n.percent_drv)
 
-    rows = (
-        db.query(FoodNutrient)
-        .filter(FoodNutrient.nutrient_key == worst.key)
-        .order_by(FoodNutrient.amount_per_100g.desc())
-        .limit(limit)
-        .all()
-    )
-    ranked_foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([r.food_id for r in rows])).all()}
+    ranked_foods = _rank_foods_by_nutrient(db, worst.key, limit)
 
     return schemas.GapSuggestionOut(
         nutrient_key=worst.key,
@@ -292,11 +351,84 @@ def get_gap_suggestions(
         unit=worst.unit,
         percent_drv=worst.percent_drv,
         foods=[
-            schemas.FoodNutrientRankOut(
-                food_id=r.food_id, food_name=ranked_foods_by_id[r.food_id].name, amount_per_100g=r.amount_per_100g
+            schemas.FoodNutrientRankOut(food_id=food.id, food_name=food.name, amount_per_100g=amount)
+            for food, amount in ranked_foods
+        ],
+    )
+
+
+@router.get("/meal-optimize", response_model=schemas.MealOptimizationOut | None)
+def get_meal_optimization(
+    entry_date: date,
+    meal: str,
+    limit: int = 5,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Nutri-Matic's flagship feature: real, simulated additions and
+    same-family swaps for one logged meal that measurably close the day's
+    single worst nutrient gap. See optimizer.py for the full design and
+    what's deliberately out of scope (per-cost/per-serving ranking).
+    Returns None if the meal has no entries, or there's no gap to target."""
+    entries = (
+        db.query(DiaryEntry)
+        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
+        .all()
+    )
+    meal_entries = [e for e in entries if e.meal == meal]
+    if not meal_entries:
+        return None
+
+    food_ids = {e.food_id for e in entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+
+    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
+    worst = _find_worst_gap(gaps.nutrients_out)
+    if worst is None:
+        return None
+
+    other_entries = [e for e in entries if e.meal != meal]
+    meal_recipe_entries = [e for e in meal_entries if e.recipe_id is not None]
+    meal_food_entries = [e for e in meal_entries if e.food_id is not None]
+
+    other_items = expand_entries_to_weighted_foods(other_entries, foods_by_id, recipes_by_id, db)
+    other_items += expand_entries_to_weighted_foods(meal_recipe_entries, foods_by_id, recipes_by_id, db)
+    swappable_items = expand_entries_to_weighted_foods(meal_food_entries, foods_by_id, recipes_by_id, db)
+
+    # "add" suggestions shouldn't just be "eat more of what's already in this
+    # meal" — that's what the swap suggestions (and simply logging more of
+    # it) already cover; excluded here so every add suggestion is a genuinely
+    # new option
+    already_in_meal = {item.food.id for item in swappable_items}
+    gap_candidates = [
+        food for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8) if food.id not in already_in_meal
+    ]
+
+    suggestions = suggest_meal_optimizations(
+        db, other_items, swappable_items, gaps.by_food_id, worst.key, worst.adult_drv or 0.0, gap_candidates, limit
+    )
+
+    return schemas.MealOptimizationOut(
+        meal=meal,
+        target_nutrient_key=worst.key,
+        target_nutrient_name=worst.name,
+        suggestions=[
+            schemas.OptimizationSuggestionOut(
+                action=s.action,
+                food_id=s.food_id,
+                food_name=s.food_name,
+                quantity_g=s.quantity_g,
+                replaces_food_id=s.replaces_food_id,
+                replaces_food_name=s.replaces_food_name,
+                before_percent_drv=s.before_percent_drv,
+                after_percent_drv=s.after_percent_drv,
+                improvement=s.improvement,
+                calories_added=s.calories_added,
+                improvement_per_100kcal=s.improvement_per_100kcal,
             )
-            for r in rows
-            if r.food_id in ranked_foods_by_id
+            for s in suggestions
         ],
     )
 
@@ -374,15 +506,25 @@ def get_trends(
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
     eer = calculate_eer(current_user)
 
-    day_totals: dict[date, dict[str, float]] = {}
+    # expand every day up front so the FoodNutrient lookup below can run once
+    # for the whole date range's food set, instead of once per day (which,
+    # over a multi-month trend range, meant the same commonly-eaten foods'
+    # nutrient rows were re-fetched on every single day they appeared)
+    day_items: dict[date, list] = {}
+    all_food_ids: set[int] = set()
     for day, day_entries in entries_by_date.items():
         items = expand_entries_to_weighted_foods(day_entries, foods_by_id, recipes_by_id, db)
-        all_food_ids = [item.food.id for item in items]
-        rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all()
-        by_food_id: dict[int, list[FoodNutrient]] = {}
-        for row in rows:
-            by_food_id.setdefault(row.food_id, []).append(row)
-        day_totals[day] = aggregate_nutrients(items, by_food_id)
+        day_items[day] = items
+        all_food_ids.update(item.food.id for item in items)
+
+    nutrient_rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all()
+    by_food_id: dict[int, list[FoodNutrient]] = {}
+    for row in nutrient_rows:
+        by_food_id.setdefault(row.food_id, []).append(row)
+
+    day_totals: dict[date, dict[str, float]] = {
+        day: aggregate_nutrients(items, by_food_id) for day, items in day_items.items()
+    }
 
     buckets_out = []
     for bucket in bucket_day_totals(day_totals, group_by):
@@ -392,22 +534,7 @@ def get_trends(
             if nutrient_def is None:
                 continue
             drv = eer if key == "energy" else resolve_drv(key, profile)
-            drv_source = (
-                "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
-                if key == "energy"
-                else (nutrient_def.drv_source or None)
-            )
-            nutrients_out.append(
-                schemas.TrendNutrientOut(
-                    key=key,
-                    name=nutrient_def.name,
-                    unit=nutrient_def.unit,
-                    avg_amount=avg_amount,
-                    adult_drv=drv,
-                    avg_percent_drv=(avg_amount / drv * 100) if drv else None,
-                    drv_source=drv_source,
-                )
-            )
+            nutrients_out.append(_trend_nutrient_out(key, nutrient_def, avg_amount, drv))
         nutrients_out.sort(key=lambda n: n.name)
         buckets_out.append(
             schemas.TrendBucketOut(

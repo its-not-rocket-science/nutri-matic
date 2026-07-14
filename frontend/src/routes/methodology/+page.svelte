@@ -36,6 +36,52 @@
 	</p>
 </section>
 
+<section id="provenance">
+	<h2>Provenance &amp; confidence</h2>
+	<p>
+		Every displayed value traces through the same chain: <strong>Food → FDC ID / dataset → USDA
+		nutrient number → the FoodNutrient row → any recipe/diary aggregation → the DRV comparison</strong>.
+		A food's own <code>/provenance</code> API endpoint exposes this chain directly (dataset, nutrient
+		numbers, digestibility sources) for anyone who wants to check a number rather than trust it.
+	</p>
+	<p>
+		Raw nutrient <em>amounts</em> are always exactly what USDA reported — this app never estimates or
+		imputes a micronutrient amount; a food either has the row FDC gave it, or has no row for that
+		nutrient at all. What actually varies in confidence is everything built <em>from</em> those
+		amounts:
+	</p>
+	<ul>
+		<li>
+			<strong>Digestibility</strong> (DIAAS/PDCAAS) — <span class="badge badge-measured">measured</span>
+			or <span class="badge badge-estimated">estimated</span>, as described above. For a recipe or a
+			diary day, this is computed as the <em>weakest link</em> across every ingredient that
+			contributed protein: the combined result is only <code>measured</code> if every contributing
+			food's digestibility was; one estimated ingredient makes the whole combination
+			<code>estimated</code>. This used to just be left blank for recipes ("a blend, not a single
+			tag") — it's now computed for real.
+		</li>
+		<li>
+			<strong>Iron haem/non-haem split</strong> — same measured/estimated tagging, described in the
+			bioavailability section below.
+		</li>
+		<li>
+			<strong>Daily reference values</strong> — tagged <code>live_confirmed</code> (this specific
+			figure, or an increment on it, was independently checked against a live/primary source this
+			session — currently vitamin A, retinol, calcium, and iron) or <code>secondary_source</code>
+			(the default: sourced from the named RNI/PRI/RDA table via a secondary comparison table,
+			consistently reproduced but not independently re-verified against the primary document
+			page-by-page). Energy targets get their own tag,
+			<code>personalized_calculation</code>, since they're computed live from your own profile
+			rather than looked up from a population table at all.
+		</li>
+	</ul>
+	<p class="muted">
+		These are deliberately coarse, hand-set tiers describing real, checkable facts about how each
+		value was sourced — not a fabricated numeric confidence score. A single number implying false
+		precision would be worse than no number at all.
+	</p>
+</section>
+
 <section id="protein-quality">
 	<h2>Protein quality (DIAAS / PDCAAS)</h2>
 	<p>
@@ -162,6 +208,39 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 		trimester-aware for simplicity); lactation adds +500 kcal/day (first 6 months). This requires
 		weight, height, birth year, sex, and activity level all set in your profile — without all five,
 		no target is shown rather than a guessed one.
+	</p>
+</section>
+
+<section id="food-chemistry">
+	<h2>Sodium:potassium ratio, leucine threshold, protein distribution</h2>
+	<p>
+		Three more diary checks, each computed from data already tracked rather than anything new:
+	</p>
+	<ul>
+		<li>
+			<strong>Sodium:potassium ratio</strong> — WHO recommends less than 2000mg sodium and at least
+			3510mg potassium per day, implying a target ratio around 0.57. Both nutrients are directly
+			tracked from FDC, so this is a real ratio against a real published target — presented as
+			context, not a pass/fail grade.
+		</li>
+		<li>
+			<strong>Leucine threshold</strong> — the minimum leucine in a single meal to maximally
+			stimulate muscle protein synthesis, from Norton &amp; Layman (2006) and widely reproduced
+			since: ~2.5g for younger adults, ~3g for older adults (age 65+, reflecting anabolic
+			resistance). Computed from each meal's actual logged foods' leucine content; defaults to the
+			lower, younger-adult threshold if your profile has no birth year set.
+		</li>
+		<li>
+			<strong>Protein distribution</strong> — the same leucine-threshold check applied to every meal
+			of the day, so you can see whether protein is spread out enough to clear the threshold more
+			than once, rather than concentrated into a single meal (research, e.g. Mamerow et al. 2014,
+			associates even distribution with better muscle protein synthesis than the same daily total
+			skewed into one meal).
+		</li>
+	</ul>
+	<p class="muted">
+		Not implemented: phytates, oxalates, and tannins. USDA FoodData Central doesn't track any of
+		them as nutrients, so there's nothing to compute from — see "What this app doesn't do" below.
 	</p>
 </section>
 

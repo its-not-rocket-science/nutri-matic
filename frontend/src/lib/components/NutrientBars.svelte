@@ -119,6 +119,32 @@
 			Nutrients under 50% of target for the day are highlighted.
 		{/if}
 	</p>
+
+	<details class="sourcing-detail">
+		<summary>Show sourcing &amp; confidence for every nutrient above</summary>
+		<table>
+			<thead>
+				<tr>
+					<th>Nutrient</th>
+					<th>Confidence</th>
+					<th>Source</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each nutrients.filter((n) => n.drv_source) as n (n.key)}
+					<tr>
+						<td>{n.name}</td>
+						<td>
+							<span class="confidence-badge confidence-{n.drv_confidence}">
+								{n.drv_confidence?.replaceAll('_', ' ')}
+							</span>
+						</td>
+						<td class="muted">{n.drv_source}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</details>
 {/if}
 
 <style>
@@ -168,5 +194,44 @@
 	}
 	.gap .bar-fill {
 		background: #b00020;
+	}
+	.sourcing-detail {
+		margin-top: 0.75rem;
+		font-size: 0.85em;
+	}
+	.sourcing-detail table {
+		width: 100%;
+		border-collapse: collapse;
+		margin-top: 0.5rem;
+	}
+	.sourcing-detail th {
+		text-align: left;
+		border-bottom: 1px solid #ccc;
+		padding: 0.25rem 0.5rem 0.25rem 0;
+	}
+	.sourcing-detail td {
+		padding: 0.35rem 0.5rem 0.35rem 0;
+		border-bottom: 1px solid #eee;
+		vertical-align: top;
+	}
+	.confidence-badge {
+		display: inline-block;
+		font-size: 0.9em;
+		padding: 0.1em 0.5em;
+		border-radius: 999px;
+		white-space: nowrap;
+		text-transform: capitalize;
+	}
+	.confidence-live_confirmed {
+		background: #dff0d8;
+		color: #2d6a2d;
+	}
+	.confidence-secondary_source {
+		background: #f0f0f0;
+		color: #555;
+	}
+	.confidence-personalized_calculation {
+		background: #d9e8fb;
+		color: #1d4e89;
 	}
 </style>

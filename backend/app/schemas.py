@@ -1,7 +1,10 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from .methodology import DRV_METHODOLOGY_VERSION
+from .nutrients import NutrientDef
 
 Sex = Literal["male", "female"]
 ActivityLevel = Literal["sedentary", "light", "moderate", "active", "very_active"]
@@ -45,6 +48,31 @@ class ScoreOut(BaseModel):
     limiting_amino_acid: str
     per_aa_ratios: dict[str, float]
     digestibility_source: str | None = None
+    # see methodology.SCORING_METHODOLOGY_VERSION — bumps whenever a change
+    # to the scoring formula or reference patterns would alter this score
+    # for the same input data
+    methodology_version: str
+
+
+class NutrientProvenanceOut(BaseModel):
+    key: str
+    name: str
+    fdc_nutrient_nbr: str
+    amount_per_100g: float
+    drv_source: str | None
+    drv_confidence: str | None
+
+
+class FoodProvenanceOut(BaseModel):
+    food_id: int
+    food_name: str
+    fdc_id: int | None
+    data_type: str | None
+    dataset_label: str | None
+    gtin_upc: str | None
+    digestibility_diaas_source: str | None
+    digestibility_pdcaas_source: str | None
+    nutrients: list[NutrientProvenanceOut]
 
 
 class ComplementSuggestionOut(BaseModel):
@@ -60,6 +88,7 @@ class ComplementOut(BaseModel):
     original_score: float
     limiting_amino_acid: str
     suggestions: list[ComplementSuggestionOut]
+    methodology_version: str
 
 
 class NutrientAmountOut(BaseModel):
@@ -73,11 +102,64 @@ class NutrientAmountOut(BaseModel):
     # provenance of adult_drv — see nutrients.NutrientDef.drv_source; null only
     # for nutrients with no DRV at all (adult_drv is also null in that case)
     drv_source: str | None
+    # "live_confirmed" | "secondary_source" | null — see nutrients.NutrientDef.drv_confidence
+    drv_confidence: str | None
+    # see methodology.DRV_METHODOLOGY_VERSION — bumps whenever a change to
+    # the DRV matrix or resolve_drv() would alter this figure for the same
+    # profile/nutrient
+    drv_methodology_version: str
+
+    @classmethod
+    def build(
+        cls,
+        key: str,
+        nutrient_def: NutrientDef,
+        amount: float,
+        drv: float | None,
+        *,
+        drv_source: str | None = None,
+        drv_confidence: str | None = None,
+    ) -> "NutrientAmountOut":
+        """Shared shaping logic for the four call sites that turn a
+        (nutrient_def, amount, drv) triple into this schema — food/recipe
+        nutrients endpoints and the diary day/trends endpoints. Callers with
+        a personalized override (currently just diary's "energy" nutrient,
+        whose source/confidence describe a BMR calculation rather than a
+        table lookup) pass drv_source/drv_confidence explicitly; everyone
+        else gets them straight from nutrient_def."""
+        return cls(
+            key=key,
+            name=nutrient_def.name,
+            unit=nutrient_def.unit,
+            amount=amount,
+            adult_drv=drv,
+            percent_drv=(amount / drv * 100) if drv else None,
+            drv_source=drv_source if drv_source is not None else (nutrient_def.drv_source or None),
+            drv_confidence=(
+                drv_confidence
+                if drv_confidence is not None
+                else (nutrient_def.drv_confidence if nutrient_def.drv_source else None)
+            ),
+            drv_methodology_version=DRV_METHODOLOGY_VERSION,
+        )
 
 
 class UserCreate(BaseModel):
     email: str
-    password: str
+    password: str = Field(min_length=8)
+
+    @field_validator("email")
+    @classmethod
+    def email_must_look_like_email(cls, v: str) -> str:
+        # Deliberately not pulling in the `email-validator` package for full
+        # RFC validation — this app has no email-sending feature (no
+        # verification link, no password reset) to make deep validation
+        # worth the dependency; this just blocks the obviously-not-an-email
+        # inputs (empty string, no "@") that register() would otherwise
+        # cheerfully hash a password for and store.
+        if "@" not in v or v.startswith("@") or v.endswith("@"):
+            raise ValueError("must be a valid email address")
+        return v
 
 
 class LoginRequest(BaseModel):
@@ -250,6 +332,21 @@ class CalciumPhosphorusOut(BaseModel):
     guidance: str
 
 
+class SodiumPotassiumOut(BaseModel):
+    sodium_mg: float
+    potassium_mg: float
+    ratio: float | None
+    guidance: str
+
+
+class MealProteinDistributionOut(BaseModel):
+    meal: Meal
+    protein_g: float
+    leucine_g: float
+    leucine_threshold_g: float
+    meets_leucine_threshold: bool
+
+
 class QuickAddItemOut(BaseModel):
     food_id: int | None
     food_name: str | None
@@ -273,6 +370,8 @@ class DiarySummaryOut(BaseModel):
     nutrients: list[NutrientAmountOut]
     iron_bioavailability: list[MealIronBioavailabilityOut]
     calcium_phosphorus: CalciumPhosphorusOut | None
+    sodium_potassium: SodiumPotassiumOut | None
+    protein_distribution: list[MealProteinDistributionOut]
 
 
 class FoodNutrientRankOut(BaseModel):
@@ -287,6 +386,27 @@ class GapSuggestionOut(BaseModel):
     unit: str
     percent_drv: float
     foods: list[FoodNutrientRankOut]
+
+
+class OptimizationSuggestionOut(BaseModel):
+    action: Literal["add", "swap"]
+    food_id: int
+    food_name: str
+    quantity_g: float
+    replaces_food_id: int | None
+    replaces_food_name: str | None
+    before_percent_drv: float
+    after_percent_drv: float
+    improvement: float
+    calories_added: float
+    improvement_per_100kcal: float | None
+
+
+class MealOptimizationOut(BaseModel):
+    meal: Meal
+    target_nutrient_key: str
+    target_nutrient_name: str
+    suggestions: list[OptimizationSuggestionOut]
 
 
 class MealPlanEntryCreate(BaseModel):
@@ -412,6 +532,37 @@ class TrendNutrientOut(BaseModel):
     adult_drv: float | None
     avg_percent_drv: float | None
     drv_source: str | None
+    drv_confidence: str | None
+    drv_methodology_version: str
+
+    @classmethod
+    def build(
+        cls,
+        key: str,
+        nutrient_def: NutrientDef,
+        avg_amount: float,
+        drv: float | None,
+        *,
+        drv_source: str | None = None,
+        drv_confidence: str | None = None,
+    ) -> "TrendNutrientOut":
+        """See NutrientAmountOut.build — same shaping logic, different
+        field names (avg_amount/avg_percent_drv) for the trends endpoint."""
+        return cls(
+            key=key,
+            name=nutrient_def.name,
+            unit=nutrient_def.unit,
+            avg_amount=avg_amount,
+            adult_drv=drv,
+            avg_percent_drv=(avg_amount / drv * 100) if drv else None,
+            drv_source=drv_source if drv_source is not None else (nutrient_def.drv_source or None),
+            drv_confidence=(
+                drv_confidence
+                if drv_confidence is not None
+                else (nutrient_def.drv_confidence if nutrient_def.drv_source else None)
+            ),
+            drv_methodology_version=DRV_METHODOLOGY_VERSION,
+        )
 
 
 class TrendBucketOut(BaseModel):

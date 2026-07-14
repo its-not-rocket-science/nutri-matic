@@ -5,7 +5,15 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.models import Food, FoodNutrient, Recipe, RecipeIngredient, User
 from app.reference_patterns import AMINO_ACIDS
-from app.search import NutrientFilter, UnknownFilterKey, search_foods, search_recipes
+from app.search import (
+    NutrientFilter,
+    UnknownFilterKey,
+    _rank_by_relevance,
+    expand_query_terms,
+    search_foods,
+    search_foods_by_name,
+    search_recipes,
+)
 
 
 @pytest.fixture
@@ -93,6 +101,36 @@ def test_search_foods_unknown_key_raises(db):
         search_foods(db, [NutrientFilter("not_a_real_key", "gte", 1.0)])
 
 
+def test_search_foods_eq_operator(db):
+    make_food(db, 1, "exact match")
+    make_food(db, 2, "different value")
+    add_nutrient(db, 1, "fiber_total", 5.0)
+    add_nutrient(db, 2, "fiber_total", 6.0)
+    db.commit()
+
+    results = search_foods(db, [NutrientFilter("fiber_total", "eq", 5.0)])
+    assert [f.name for f in results] == ["exact match"]
+
+
+def test_search_foods_pdcaas_score_filter(db):
+    from app.reference_patterns import REFERENCE_PATTERNS
+    pattern = REFERENCE_PATTERNS["child_3y_adult"]
+
+    good = Food(
+        id=1, name="good pdcaas", protein_g_per_100g=10,
+        amino_acids=dict(pattern), digestibility_pdcaas=1.0,
+    )
+    bad = Food(
+        id=2, name="no pdcaas data", protein_g_per_100g=10,
+        amino_acids=dict(pattern), digestibility_pdcaas=None,
+    )
+    db.add_all([good, bad])
+    db.commit()
+
+    results = search_foods(db, [NutrientFilter("pdcaas_score", "gte", 90.0)])
+    assert [f.name for f in results] == ["good pdcaas"]
+
+
 def test_search_recipes_scoped_to_user_and_filters(db):
     user = User(id=1, email="a@example.com", password_hash="x")
     other_user = User(id=2, email="b@example.com", password_hash="x")
@@ -120,3 +158,111 @@ def test_search_recipes_unknown_key_raises(db):
     db.commit()
     with pytest.raises(UnknownFilterKey):
         search_recipes(db, user_id=1, filters=[NutrientFilter("protein_g_per_100g", "gte", 1.0)])
+
+
+def test_search_recipes_skips_recipes_with_no_ingredients(db):
+    user = User(id=1, email="a@example.com", password_hash="x")
+    db.add(user)
+    empty_recipe = Recipe(id=1, user_id=1, name="empty", servings=1)
+    db.add(empty_recipe)
+    db.commit()
+
+    results = search_recipes(db, user_id=1, filters=[])
+    assert results == []
+
+
+def test_search_recipes_diaas_score_filter(db):
+    from app.reference_patterns import REFERENCE_PATTERNS
+    pattern = REFERENCE_PATTERNS["child_3y_adult"]
+
+    user = User(id=1, email="a@example.com", password_hash="x")
+    db.add(user)
+    food = Food(
+        id=1, name="ingredient", protein_g_per_100g=10,
+        amino_acids=dict(pattern), digestibility_diaas=dict.fromkeys(AMINO_ACIDS, 1.0),
+    )
+    db.add(food)
+    recipe = Recipe(id=1, user_id=1, name="high quality recipe", servings=1)
+    db.add(recipe)
+    db.flush()
+    db.add(RecipeIngredient(recipe_id=1, food_id=1, quantity_g=100))
+    db.commit()
+
+    results = search_recipes(db, user_id=1, filters=[NutrientFilter("diaas_score", "gte", 90.0)])
+    assert [r.name for r in results] == ["high quality recipe"]
+
+    results_none = search_recipes(db, user_id=1, filters=[NutrientFilter("diaas_score", "gte", 999.0)])
+    assert results_none == []
+
+
+def test_expand_query_terms_handles_plural():
+    assert "egg" in expand_query_terms("eggs")
+    assert "eggs" in expand_query_terms("egg")
+
+
+def test_expand_query_terms_handles_synonyms():
+    terms = expand_query_terms("egg")
+    assert "hen egg" in terms
+    terms2 = expand_query_terms("aubergine")
+    assert "eggplant" in terms2
+
+
+def test_expand_query_terms_avoids_double_s_mangling():
+    # "grass" shouldn't singularize to "gras"
+    terms = expand_query_terms("grass")
+    assert "gras" not in terms
+
+
+def test_search_foods_by_name_substring_match(db):
+    make_food(db, 1, "Chicken, breast, cooked")
+    make_food(db, 2, "Beef, ground, cooked")
+    db.commit()
+
+    results = search_foods_by_name(db, "chicken")
+    assert [f.name for f in results] == ["Chicken, breast, cooked"]
+
+
+def test_search_foods_by_name_plural_matches_singular_food(db):
+    make_food(db, 1, "Egg, whole, cooked")
+    db.commit()
+
+    results = search_foods_by_name(db, "eggs")
+    assert len(results) == 1
+    assert results[0].name == "Egg, whole, cooked"
+
+
+def test_search_foods_by_name_synonym_match(db):
+    make_food(db, 1, "Aubergine, raw")
+    db.commit()
+
+    results = search_foods_by_name(db, "eggplant")
+    assert len(results) == 1
+    assert results[0].name == "Aubergine, raw"
+
+
+def test_search_foods_by_name_ranks_exact_and_prefix_first():
+    exact = Food(id=1, name="egg", protein_g_per_100g=1, amino_acids={})
+    prefix = Food(id=2, name="egg substitute", protein_g_per_100g=1, amino_acids={})
+    unrelated = Food(id=3, name="scrambled egg dish", protein_g_per_100g=1, amino_acids={})
+
+    ranked = _rank_by_relevance([unrelated, prefix, exact], "egg", limit=10)
+    assert ranked[0].name == "egg"
+    assert ranked[1].name == "egg substitute"
+
+
+def test_search_foods_by_name_short_query_returns_empty(db):
+    make_food(db, 1, "Chicken, breast, cooked")
+    db.commit()
+    assert search_foods_by_name(db, "c") == []
+
+
+def test_search_foods_by_name_no_postgres_fuzzy_fallback_on_sqlite(db):
+    """Confirms the pg_trgm-only fallback path is skipped gracefully (not
+    an error) when the session isn't backed by Postgres — the whole point
+    of gating it on db.bind.dialect.name."""
+    make_food(db, 1, "Chicken, breast, cooked")
+    db.commit()
+    # a misspelling with no substring/synonym/plural match — on SQLite this
+    # correctly returns nothing rather than raising, since the fuzzy
+    # fallback that WOULD catch this is Postgres-only
+    assert search_foods_by_name(db, "chiken") == []

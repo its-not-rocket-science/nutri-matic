@@ -3,25 +3,19 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import type { Food, FoodPrice } from '$lib/types';
 
 	let prices: FoodPrice[] = $state([]);
-	let allFoods: Food[] = $state([]);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 	let saving = $state(false);
 
-	let search = $state('');
 	let selectedFood: Food | null = $state(null);
 	let packagePrice = $state<number | null>(null);
 	let packageQuantityG = $state<number | null>(null);
 
-	const searchResults = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (q.length < 2) return [];
-		const priced = new Set(prices.map((p) => p.food_id));
-		return allFoods.filter((f) => !priced.has(f.id) && f.name.toLowerCase().includes(q)).slice(0, 15);
-	});
+	const pricedFoodIds = $derived(new Set(prices.map((p) => p.food_id)));
 
 	async function load() {
 		prices = await api.listFoodPrices();
@@ -33,7 +27,6 @@
 			return;
 		}
 		try {
-			allFoods = await api.listFoods();
 			await load();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -41,11 +34,6 @@
 			loading = false;
 		}
 	});
-
-	function selectFood(food: Food) {
-		selectedFood = food;
-		search = '';
-	}
 
 	async function handleAdd(e: SubmitEvent) {
 		e.preventDefault();
@@ -119,17 +107,10 @@
 				<button type="button" onclick={() => (selectedFood = null)}>Change</button>
 			</p>
 		{:else}
-			<label>
-				Search foods
-				<input type="text" bind:value={search} placeholder="Search…" />
-			</label>
-			{#if searchResults.length > 0}
-				<ul class="search-results">
-					{#each searchResults as food (food.id)}
-						<li><button type="button" onclick={() => selectFood(food)}>{food.name}</button></li>
-					{/each}
-				</ul>
-			{/if}
+			<FoodSearchInput
+				onSelect={(food) => (selectedFood = food)}
+				exclude={(food) => pricedFoodIds.has(food.id)}
+			/>
 		{/if}
 
 		<label>
@@ -179,16 +160,5 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-	}
-	.search-results {
-		list-style: none;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-	.search-results button {
-		width: 100%;
-		text-align: left;
 	}
 </style>

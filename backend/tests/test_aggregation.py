@@ -5,14 +5,18 @@ from app.models import Food, FoodNutrient, RecipeIngredient
 from app.reference_patterns import AMINO_ACIDS
 
 
-def make_food(id_, protein_g_per_100g, aa_value, diaas_value, pdcaas_value):
+def make_food(
+    id_, protein_g_per_100g, aa_value, diaas_value, pdcaas_value, diaas_source=None, pdcaas_source=None
+):
     return Food(
         id=id_,
         name=f"food-{id_}",
         protein_g_per_100g=protein_g_per_100g,
         amino_acids=dict.fromkeys(AMINO_ACIDS, aa_value),
         digestibility_diaas=dict.fromkeys(AMINO_ACIDS, diaas_value) if diaas_value is not None else None,
+        digestibility_diaas_source=diaas_source,
         digestibility_pdcaas=pdcaas_value,
+        digestibility_pdcaas_source=pdcaas_source,
     )
 
 
@@ -56,6 +60,66 @@ def test_aggregate_amino_acids_zero_protein_returns_empty():
     result = aggregate_amino_acids([WeightedFood(food, quantity_g=100)])
     assert result.total_protein_g == 0
     assert all(v is None for v in result.amino_acids.values())
+
+
+def test_aggregate_source_is_measured_only_if_every_contributor_measured():
+    food_a = make_food(
+        1, protein_g_per_100g=10, aa_value=10, diaas_value=0.9, pdcaas_value=0.85,
+        diaas_source="measured", pdcaas_source="measured",
+    )
+    food_b = make_food(
+        2, protein_g_per_100g=5, aa_value=30, diaas_value=0.8, pdcaas_value=0.7,
+        diaas_source="measured", pdcaas_source="measured",
+    )
+
+    result = aggregate_amino_acids([WeightedFood(food_a, quantity_g=100), WeightedFood(food_b, quantity_g=100)])
+    assert result.digestibility_diaas_source == "measured"
+    assert result.digestibility_pdcaas_source == "measured"
+
+
+def test_aggregate_source_is_estimated_if_any_contributor_estimated():
+    food_a = make_food(
+        1, protein_g_per_100g=10, aa_value=10, diaas_value=0.9, pdcaas_value=0.85,
+        diaas_source="measured", pdcaas_source="measured",
+    )
+    food_b = make_food(
+        2, protein_g_per_100g=5, aa_value=30, diaas_value=0.8, pdcaas_value=0.7,
+        diaas_source="estimated", pdcaas_source="estimated",
+    )
+
+    result = aggregate_amino_acids([WeightedFood(food_a, quantity_g=100), WeightedFood(food_b, quantity_g=100)])
+    assert result.digestibility_diaas_source == "estimated"
+    assert result.digestibility_pdcaas_source == "estimated"
+
+
+def test_aggregate_amino_acids_partial_diaas_profile_leaves_only_missing_aa_null():
+    """Mirrors the real-world "measured" digestibility rows in
+    digestibility_reference.py, where a study reports coefficients for most
+    but not all amino acids (e.g. histidine/tryptophan not reported for
+    egg/chicken) — the dict has some keys present and others entirely
+    absent. Amino acids WITH a reported coefficient must still aggregate
+    correctly; only the unreported one should end up null."""
+    partial_diaas = dict.fromkeys(AMINO_ACIDS, 0.9)
+    del partial_diaas["histidine"]  # not reported by the source study
+    food = Food(
+        id=1, name="partially-measured", protein_g_per_100g=10,
+        amino_acids=dict.fromkeys(AMINO_ACIDS, 20),
+        digestibility_diaas=partial_diaas,
+        digestibility_pdcaas=0.85,
+    )
+
+    result = aggregate_amino_acids([WeightedFood(food, quantity_g=100)])
+
+    assert result.digestibility_diaas["histidine"] is None
+    assert result.digestibility_diaas["leucine"] == pytest.approx(0.9)
+    assert result.amino_acids["histidine"] == pytest.approx(20.0)  # AA content itself is still known
+
+
+def test_aggregate_source_is_none_when_no_contributor_has_digestibility():
+    food = make_food(1, protein_g_per_100g=10, aa_value=10, diaas_value=None, pdcaas_value=None)
+    result = aggregate_amino_acids([WeightedFood(food, quantity_g=100)])
+    assert result.digestibility_diaas_source is None
+    assert result.digestibility_pdcaas_source is None
 
 
 def test_aggregate_nutrients_sums_and_divides_by_servings():
