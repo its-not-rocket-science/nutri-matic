@@ -176,6 +176,49 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
     )
 
 
+@router.get("/quick-add", response_model=schemas.QuickAddOut)
+def get_quick_add(limit: int = 10, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    entries = db.query(DiaryEntry).filter(DiaryEntry.user_id == current_user.id).all()
+
+    groups: dict[tuple[str, int], dict] = {}
+    for entry in entries:
+        key = ("food", entry.food_id) if entry.food_id is not None else ("recipe", entry.recipe_id)
+        group = groups.setdefault(key, {"count": 0, "last_entry": entry})
+        group["count"] += 1
+        if entry.entry_date > group["last_entry"].entry_date:
+            group["last_entry"] = entry
+
+    food_ids = {obj_id for kind, obj_id in groups if kind == "food"}
+    recipe_ids = {obj_id for kind, obj_id in groups if kind == "recipe"}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+
+    items: list[schemas.QuickAddItemOut] = []
+    for (kind, obj_id), group in groups.items():
+        # a recipe logged in the past may since have been deleted — skip rather than
+        # surface a quick-add entry that would 422 when applied. Foods aren't deletable.
+        if kind == "recipe" and obj_id not in recipes_by_id:
+            continue
+        entry = group["last_entry"]
+        items.append(
+            schemas.QuickAddItemOut(
+                food_id=entry.food_id,
+                food_name=foods_by_id[entry.food_id].name if entry.food_id else None,
+                recipe_id=entry.recipe_id,
+                recipe_name=recipes_by_id[entry.recipe_id].name if entry.recipe_id else None,
+                quantity_g=entry.quantity_g,
+                quantity_servings=entry.quantity_servings,
+                last_logged=entry.entry_date,
+                log_count=group["count"],
+            )
+        )
+
+    recent = sorted(items, key=lambda i: i.last_logged, reverse=True)[:limit]
+    frequent = sorted(items, key=lambda i: (i.log_count, i.last_logged), reverse=True)[:limit]
+
+    return schemas.QuickAddOut(recent=recent, frequent=frequent)
+
+
 @router.get("/trends", response_model=schemas.DiaryTrendsOut)
 def get_trends(
     start_date: date,

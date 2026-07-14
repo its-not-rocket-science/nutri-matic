@@ -172,6 +172,22 @@ export interface CalciumPhosphorus {
 	guidance: string;
 }
 
+export interface QuickAddItem {
+	food_id: number | null;
+	food_name: string | null;
+	recipe_id: number | null;
+	recipe_name: string | null;
+	quantity_g: number | null;
+	quantity_servings: number | null;
+	last_logged: string;
+	log_count: number;
+}
+
+export interface QuickAdd {
+	recent: QuickAddItem[];
+	frequent: QuickAddItem[];
+}
+
 export interface DiarySummary {
 	entries: DiaryEntry[];
 	nutrients: NutrientAmount[];

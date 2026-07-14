@@ -232,6 +232,24 @@ class CalciumPhosphorusOut(BaseModel):
     guidance: str
 
 
+class QuickAddItemOut(BaseModel):
+    food_id: int | None
+    food_name: str | None
+    recipe_id: int | None
+    recipe_name: str | None
+    # the quantity used the most recent time this was logged — a reasonable
+    # one-click default, not necessarily today's intended amount
+    quantity_g: float | None
+    quantity_servings: float | None
+    last_logged: date
+    log_count: int
+
+
+class QuickAddOut(BaseModel):
+    recent: list[QuickAddItemOut]
+    frequent: list[QuickAddItemOut]
+
+
 class DiarySummaryOut(BaseModel):
     entries: list[DiaryEntryOut]
     nutrients: list[NutrientAmountOut]

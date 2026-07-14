@@ -21,6 +21,7 @@ import type {
 	MealPlanTemplateDetail,
 	NutrientAmount,
 	ProfileUpdate,
+	QuickAdd,
 	Recipe,
 	RecipeComment,
 	RecipeCreate,
@@ -117,6 +118,7 @@ export const api = {
 	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' }),
 	getDiaryTrends: (startDate: string, endDate: string, groupBy: TrendGroupBy) =>
 		request<DiaryTrends>(`/api/diary/trends?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`),
+	getQuickAdd: () => request<QuickAdd>('/api/diary/quick-add'),
 
 	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>('/api/diary-meal-templates'),
 	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>

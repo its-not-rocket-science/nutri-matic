@@ -177,3 +177,95 @@ def test_trends_scoped_to_date_range_and_user(client):
     )
     assert res.status_code == 200
     assert res.json()["buckets"] == []
+
+
+def test_quick_add_recent_orders_by_last_logged(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-01", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 2, "quantity_g": 250},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary/quick-add", headers=auth_headers(token))
+    assert res.status_code == 200
+    recent = res.json()["recent"]
+    assert [i["food_name"] for i in recent] == ["Orange juice, raw", "Beef, ground, cooked"]
+    assert recent[0]["quantity_g"] == 250
+    assert recent[0]["last_logged"] == "2026-07-13"
+
+
+def test_quick_add_frequent_orders_by_log_count(client):
+    token = register_and_token(client, "a@example.com")
+    for d in ["2026-07-01", "2026-07-02", "2026-07-03"]:
+        client.post(
+            "/api/diary",
+            json={"entry_date": d, "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+            headers=auth_headers(token),
+        )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 2, "quantity_g": 250},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary/quick-add", headers=auth_headers(token))
+    frequent = res.json()["frequent"]
+    assert frequent[0]["food_name"] == "Beef, ground, cooked"
+    assert frequent[0]["log_count"] == 3
+    assert frequent[1]["log_count"] == 1
+
+
+def test_quick_add_uses_most_recent_quantity_as_representative(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-01", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-05", "meal": "breakfast", "food_id": 1, "quantity_g": 175},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary/quick-add", headers=auth_headers(token))
+    item = res.json()["recent"][0]
+    assert item["quantity_g"] == 175
+    assert item["log_count"] == 2
+
+
+def test_quick_add_scoped_to_user(client):
+    token = register_and_token(client, "a@example.com")
+    other_token = register_and_token(client, "b@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-01", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary/quick-add", headers=auth_headers(other_token))
+    assert res.json() == {"recent": [], "frequent": []}
+
+
+def test_quick_add_skips_deleted_recipe(client):
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "temp recipe", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    ).json()
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-01", "meal": "breakfast", "recipe_id": recipe["id"], "quantity_servings": 1},
+        headers=auth_headers(token),
+    )
+    client.delete(f"/api/recipes/{recipe['id']}", headers=auth_headers(token))
+
+    res = client.get("/api/diary/quick-add", headers=auth_headers(token))
+    assert res.json() == {"recent": [], "frequent": []}
