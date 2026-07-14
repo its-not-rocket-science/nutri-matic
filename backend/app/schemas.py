@@ -275,6 +275,20 @@ class DiarySummaryOut(BaseModel):
     calcium_phosphorus: CalciumPhosphorusOut | None
 
 
+class FoodNutrientRankOut(BaseModel):
+    food_id: int
+    food_name: str
+    amount_per_100g: float
+
+
+class GapSuggestionOut(BaseModel):
+    nutrient_key: str
+    nutrient_name: str
+    unit: str
+    percent_drv: float
+    foods: list[FoodNutrientRankOut]
+
+
 class MealPlanEntryCreate(BaseModel):
     plan_date: date
     meal: Meal

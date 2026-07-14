@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
-	import type { DiarySummary, Food, MealPlanEntry, ShoppingList } from '$lib/types';
+	import type { DiarySummary, Food, GapSuggestion, MealPlanEntry, ShoppingList } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
@@ -24,6 +24,7 @@
 	let todaySummary: DiarySummary | null = $state(null);
 	let upcomingEntries: MealPlanEntry[] = $state([]);
 	let weekShoppingList: ShoppingList | null = $state(null);
+	let gapSuggestion: GapSuggestion | null = $state(null);
 	let dashboardLoading = $state(true);
 	let dashboardError: string | null = $state(null);
 
@@ -46,14 +47,16 @@
 			const upcomingEnd = new Date(today);
 			upcomingEnd.setUTCDate(upcomingEnd.getUTCDate() + 2);
 
-			const [summary, entries, shoppingList] = await Promise.all([
+			const [summary, entries, shoppingList, gaps] = await Promise.all([
 				api.getDiaryDay(todayIso),
 				api.listMealPlanEntries(todayIso, toIsoDate(upcomingEnd)),
-				api.getShoppingList(toIsoDate(weekStart), toIsoDate(weekEnd))
+				api.getShoppingList(toIsoDate(weekStart), toIsoDate(weekEnd)),
+				api.getGapSuggestions(todayIso)
 			]);
 			todaySummary = summary;
 			upcomingEntries = entries;
 			weekShoppingList = shoppingList;
+			gapSuggestion = gaps;
 		} catch (e) {
 			dashboardError = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -103,6 +106,12 @@
 								</li>
 							{/each}
 						</ul>
+					{/if}
+					{#if gapSuggestion && gapSuggestion.foods.length > 0}
+						<p class="muted">
+							Try: <a href="/foods/{gapSuggestion.foods[0].food_id}">{gapSuggestion.foods[0].food_name}</a>
+							for {gapSuggestion.nutrient_name}
+						</p>
 					{/if}
 					<a href="/diary">Go to diary &rarr;</a>
 				</div>

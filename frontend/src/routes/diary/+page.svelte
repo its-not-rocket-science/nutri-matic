@@ -7,7 +7,16 @@
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
-	import type { DiaryMealTemplate, DiarySummary, Food, Meal, QuickAdd, QuickAddItem, Recipe } from '$lib/types';
+	import type {
+		DiaryMealTemplate,
+		DiarySummary,
+		Food,
+		GapSuggestion,
+		Meal,
+		QuickAdd,
+		QuickAddItem,
+		Recipe
+	} from '$lib/types';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
@@ -37,6 +46,9 @@
 	let quickAdd: QuickAdd | null = $state(null);
 	let quickAddTab: 'recent' | 'frequent' = $state('recent');
 	let addingQuickAddKey: string | null = $state(null);
+
+	let gapSuggestion: GapSuggestion | null = $state(null);
+	let addingGapFoodId: number | null = $state(null);
 
 	function quickAddKey(item: QuickAddItem): string {
 		return item.food_id !== null ? `f${item.food_id}` : `r${item.recipe_id}`;
@@ -77,6 +89,14 @@
 		}
 	}
 
+	async function loadGapSuggestions() {
+		try {
+			gapSuggestion = await api.getGapSuggestions(date);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
@@ -87,7 +107,7 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
-		await Promise.all([loadDay(), loadTemplates(), loadQuickAdd()]);
+		await Promise.all([loadDay(), loadTemplates(), loadQuickAdd(), loadGapSuggestions()]);
 	});
 
 	function shiftDay(days: number) {
@@ -95,6 +115,7 @@
 		d.setUTCDate(d.getUTCDate() + days);
 		date = toIsoDate(d);
 		loadDay();
+		loadGapSuggestions();
 	}
 
 	function selectItem(item: Food | Recipe) {
@@ -136,6 +157,7 @@
 			quantity = 100;
 			await loadDay();
 			await loadQuickAdd();
+			await loadGapSuggestions();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -165,10 +187,26 @@
 			}
 			await loadDay();
 			await loadQuickAdd();
+			await loadGapSuggestions();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			addingQuickAddKey = null;
+		}
+	}
+
+	async function handleAddGapFood(foodId: number) {
+		error = null;
+		addingGapFoodId = foodId;
+		try {
+			await api.addDiaryEntry({ entry_date: date, meal, food_id: foodId, quantity_g: 100 });
+			await loadDay();
+			await loadQuickAdd();
+			await loadGapSuggestions();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			addingGapFoodId = null;
 		}
 	}
 
@@ -192,6 +230,7 @@
 		try {
 			await api.deleteDiaryEntry(id);
 			await loadDay();
+			await loadGapSuggestions();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
@@ -216,6 +255,7 @@
 		try {
 			await api.applyDiaryMealTemplate(templateId, date, meal);
 			await loadDay();
+			await loadGapSuggestions();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -263,7 +303,14 @@
 
 <div class="date-nav no-print">
 	<button type="button" onclick={() => shiftDay(-1)}>&larr; Prev</button>
-	<input type="date" bind:value={date} onchange={loadDay} />
+	<input
+		type="date"
+		bind:value={date}
+		onchange={() => {
+			loadDay();
+			loadGapSuggestions();
+		}}
+	/>
 	<button type="button" onclick={() => shiftDay(1)}>Next &rarr;</button>
 </div>
 
@@ -447,6 +494,31 @@
 
 	<NutrientBars nutrients={summary.nutrients} per="per day" />
 
+	{#if gapSuggestion}
+		<section class="gap-suggestion">
+			<h3>
+				Today's biggest gap: {gapSuggestion.nutrient_name}
+				<span class="muted">({gapSuggestion.percent_drv.toFixed(0)}% of target)</span>
+			</h3>
+			<ul class="entries">
+				{#each gapSuggestion.foods as f (f.food_id)}
+					<li>
+						<a href="/foods/{f.food_id}">{f.food_name}</a>
+						<span class="muted">{f.amount_per_100g.toFixed(1)}{gapSuggestion.unit} / 100g</span>
+						<button
+							type="button"
+							class="no-print"
+							onclick={() => handleAddGapFood(f.food_id)}
+							disabled={addingGapFoodId === f.food_id}
+						>
+							{addingGapFoodId === f.food_id ? 'Adding…' : `Add 100g as ${meal}`}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	{#if summary.iron_bioavailability.length > 0 || summary.calcium_phosphorus}
 		<section class="bioavailability">
 			<h3>Bioavailability estimate</h3>
@@ -528,11 +600,17 @@
 		font-size: 0.9em;
 		margin: 0 0.5rem;
 	}
-	.bioavailability {
+	.bioavailability,
+	.gap-suggestion {
 		margin-top: 1.5rem;
 		padding: 1rem;
 		border: 1px solid #eee;
 		border-radius: 4px;
+	}
+	.gap-suggestion .entries li {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 	.iron-meal {
 		display: flex;

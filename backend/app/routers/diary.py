@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -67,21 +68,23 @@ def create_entry(
     return _entry_out(entry, foods_by_id, recipes_by_id)
 
 
-@router.get("", response_model=schemas.DiarySummaryOut)
-def get_day(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    entries = (
-        db.query(DiaryEntry)
-        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
-        .all()
-    )
+@dataclass
+class NutrientGaps:
+    nutrients_out: list[schemas.NutrientAmountOut]
+    totals: dict[str, float]
+    by_food_id: dict[int, list[FoodNutrient]]
 
-    food_ids = {e.food_id for e in entries if e.food_id is not None}
-    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
-    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
-    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
-    entries_out = [_entry_out(e, foods_by_id, recipes_by_id) for e in entries]
-
+def _compute_nutrient_gaps(
+    entries: list[DiaryEntry],
+    foods_by_id: dict[int, Food],
+    recipes_by_id: dict[int, Recipe],
+    current_user: User,
+    db: Session,
+) -> NutrientGaps:
+    """Shared by get_day() and the gap-suggestions endpoint — a day's logged
+    entries turned into per-nutrient amount + %DRV, using the signed-in
+    user's profile (sex, pregnancy/lactation) for DRV resolution."""
     items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
     all_food_ids = [item.food.id for item in items]
     rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all()
@@ -119,6 +122,26 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
             )
         )
     nutrients_out.sort(key=lambda n: n.name)
+    return NutrientGaps(nutrients_out=nutrients_out, totals=totals, by_food_id=by_food_id)
+
+
+@router.get("", response_model=schemas.DiarySummaryOut)
+def get_day(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    entries = (
+        db.query(DiaryEntry)
+        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
+        .all()
+    )
+
+    food_ids = {e.food_id for e in entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+
+    entries_out = [_entry_out(e, foods_by_id, recipes_by_id) for e in entries]
+
+    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
+    nutrients_out, totals, by_food_id = gaps.nutrients_out, gaps.totals, gaps.by_food_id
 
     iron_out: list[schemas.MealIronBioavailabilityOut] = []
     for meal in MEALS:
@@ -179,6 +202,56 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
 
     return schemas.DiarySummaryOut(
         entries=entries_out, nutrients=nutrients_out, iron_bioavailability=iron_out, calcium_phosphorus=calcium_phosphorus
+    )
+
+
+@router.get("/gap-suggestions", response_model=schemas.GapSuggestionOut | None)
+def get_gap_suggestions(
+    entry_date: date, limit: int = 8, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Picks the single nutrient with the lowest %DRV for the given day
+    (excluding energy — a calorie target isn't a "gap" in the same sense)
+    and ranks real foods by how much of that nutrient they carry per 100g.
+    Returns None if nothing's logged yet, or if nothing logged has a DRV to
+    compare against."""
+    entries = (
+        db.query(DiaryEntry)
+        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
+        .all()
+    )
+
+    food_ids = {e.food_id for e in entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+
+    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
+    candidates = [n for n in gaps.nutrients_out if n.percent_drv is not None and n.key != "energy"]
+    if not candidates:
+        return None
+    worst = min(candidates, key=lambda n: n.percent_drv)
+
+    rows = (
+        db.query(FoodNutrient)
+        .filter(FoodNutrient.nutrient_key == worst.key)
+        .order_by(FoodNutrient.amount_per_100g.desc())
+        .limit(limit)
+        .all()
+    )
+    ranked_foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([r.food_id for r in rows])).all()}
+
+    return schemas.GapSuggestionOut(
+        nutrient_key=worst.key,
+        nutrient_name=worst.name,
+        unit=worst.unit,
+        percent_drv=worst.percent_drv,
+        foods=[
+            schemas.FoodNutrientRankOut(
+                food_id=r.food_id, food_name=ranked_foods_by_id[r.food_id].name, amount_per_100g=r.amount_per_100g
+            )
+            for r in rows
+            if r.food_id in ranked_foods_by_id
+        ],
     )
 
 
