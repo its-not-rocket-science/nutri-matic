@@ -37,6 +37,19 @@ export interface Score {
 	digestibility_source: 'measured' | 'estimated' | null;
 }
 
+export interface ComplementSuggestion {
+	food_id: number;
+	food_name: string;
+	combined_score: number;
+	score_improvement: number;
+}
+
+export interface Complement {
+	original_score: number;
+	limiting_amino_acid: string;
+	suggestions: ComplementSuggestion[];
+}
+
 export interface NutrientAmount {
 	key: string;
 	name: string;

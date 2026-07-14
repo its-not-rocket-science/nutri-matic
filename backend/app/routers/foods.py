@@ -2,13 +2,37 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..complement import suggest_complements
 from ..database import get_db
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
-from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
+from ..scoring import IncompleteAminoAcidProfile, ScoreResult, UnknownReferencePattern, compute_diaas, compute_pdcaas
 from ..search import NutrientFilter, UnknownFilterKey, search_foods
 
 router = APIRouter(prefix="/api/foods", tags=["foods"])
+
+
+def _compute_score(food: models.Food, method: str, pattern: str) -> ScoreResult:
+    """Shared by /score and /complement — raises HTTPException the same way
+    both endpoints need to (missing digestibility data, unknown method,
+    incomplete amino acid profile)."""
+    try:
+        if method == "diaas":
+            if food.digestibility_diaas is None:
+                raise HTTPException(
+                    status_code=422, detail="Food has no per-amino-acid digestibility data for DIAAS"
+                )
+            return compute_diaas(food.amino_acids, food.digestibility_diaas, pattern)
+        elif method == "pdcaas":
+            if food.digestibility_pdcaas is None:
+                raise HTTPException(
+                    status_code=422, detail="Food has no overall digestibility data for PDCAAS"
+                )
+            return compute_pdcaas(food.amino_acids, food.digestibility_pdcaas, pattern)
+        else:
+            raise HTTPException(status_code=422, detail="method must be 'diaas' or 'pdcaas'")
+    except (UnknownReferencePattern, IncompleteAminoAcidProfile) as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.post("", response_model=schemas.FoodOut, status_code=201)
@@ -72,23 +96,7 @@ def score_food(
     if food is None:
         raise HTTPException(status_code=404, detail="Food not found")
 
-    try:
-        if method == "diaas":
-            if food.digestibility_diaas is None:
-                raise HTTPException(
-                    status_code=422, detail="Food has no per-amino-acid digestibility data for DIAAS"
-                )
-            result = compute_diaas(food.amino_acids, food.digestibility_diaas, pattern)
-        elif method == "pdcaas":
-            if food.digestibility_pdcaas is None:
-                raise HTTPException(
-                    status_code=422, detail="Food has no overall digestibility data for PDCAAS"
-                )
-            result = compute_pdcaas(food.amino_acids, food.digestibility_pdcaas, pattern)
-        else:
-            raise HTTPException(status_code=422, detail="method must be 'diaas' or 'pdcaas'")
-    except (UnknownReferencePattern, IncompleteAminoAcidProfile) as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
+    result = _compute_score(food, method, pattern)
 
     return schemas.ScoreOut(
         method=method,
@@ -99,6 +107,35 @@ def score_food(
         digestibility_source=(
             food.digestibility_diaas_source if method == "diaas" else food.digestibility_pdcaas_source
         ),
+    )
+
+
+@router.get("/{food_id}/complement", response_model=schemas.ComplementOut)
+def complement_food(
+    food_id: int,
+    method: str = "diaas",
+    pattern: str = DEFAULT_PATTERN,
+    db: Session = Depends(get_db),
+):
+    food = db.get(models.Food, food_id)
+    if food is None:
+        raise HTTPException(status_code=404, detail="Food not found")
+
+    result = _compute_score(food, method, pattern)
+    suggestions = suggest_complements(food, result, method, pattern, db)
+
+    return schemas.ComplementOut(
+        original_score=result.score,
+        limiting_amino_acid=result.limiting_amino_acid,
+        suggestions=[
+            schemas.ComplementSuggestionOut(
+                food_id=s.food.id,
+                food_name=s.food.name,
+                combined_score=s.combined_score,
+                score_improvement=s.score_improvement,
+            )
+            for s in suggestions
+        ],
     )
 
 

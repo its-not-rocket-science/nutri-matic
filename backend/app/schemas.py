@@ -47,6 +47,21 @@ class ScoreOut(BaseModel):
     digestibility_source: str | None = None
 
 
+class ComplementSuggestionOut(BaseModel):
+    food_id: int
+    food_name: str
+    # the DIAAS/PDCAAS score of 100g of the subject food + 100g of this
+    # suggestion, actually computed — not a guess from raw amino acid content
+    combined_score: float
+    score_improvement: float
+
+
+class ComplementOut(BaseModel):
+    original_score: float
+    limiting_amino_acid: str
+    suggestions: list[ComplementSuggestionOut]
+
+
 class NutrientAmountOut(BaseModel):
     key: str
     name: str
