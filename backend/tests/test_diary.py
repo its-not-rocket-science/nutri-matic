@@ -315,3 +315,86 @@ def test_quick_add_skips_deleted_recipe(client):
 
     res = client.get("/api/diary/quick-add", headers=auth_headers(token))
     assert res.json() == {"recent": [], "frequent": []}
+
+
+def test_copy_day_duplicates_all_meals(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 2, "quantity_g": 200},
+        headers=auth_headers(token),
+    )
+
+    res = client.post(
+        "/api/diary/copy-day?source_date=2026-07-13&target_date=2026-07-14", headers=auth_headers(token)
+    )
+    assert res.status_code == 201
+    created = res.json()
+    assert len(created) == 2
+    assert all(e["entry_date"] == "2026-07-14" for e in created)
+
+    target_day = client.get("/api/diary?entry_date=2026-07-14", headers=auth_headers(token)).json()
+    assert len(target_day["entries"]) == 2
+    # source day untouched
+    source_day = client.get("/api/diary?entry_date=2026-07-13", headers=auth_headers(token)).json()
+    assert len(source_day["entries"]) == 2
+
+
+def test_copy_day_is_additive_not_overwriting(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-14", "meal": "dinner", "food_id": 2, "quantity_g": 50},
+        headers=auth_headers(token),
+    )
+
+    client.post("/api/diary/copy-day?source_date=2026-07-13&target_date=2026-07-14", headers=auth_headers(token))
+
+    target_day = client.get("/api/diary?entry_date=2026-07-14", headers=auth_headers(token)).json()
+    meals = {e["meal"] for e in target_day["entries"]}
+    assert meals == {"breakfast", "dinner"}  # the pre-existing dinner entry survived
+
+
+def test_copy_day_skips_deleted_recipe(client):
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "temp recipe", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    ).json()
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "recipe_id": recipe["id"], "quantity_servings": 1},
+        headers=auth_headers(token),
+    )
+    client.delete(f"/api/recipes/{recipe['id']}", headers=auth_headers(token))
+
+    res = client.post(
+        "/api/diary/copy-day?source_date=2026-07-13&target_date=2026-07-14", headers=auth_headers(token)
+    )
+    assert res.json() == []
+
+
+def test_copy_day_scoped_to_user(client):
+    token = register_and_token(client, "a@example.com")
+    other_token = register_and_token(client, "b@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.post(
+        "/api/diary/copy-day?source_date=2026-07-13&target_date=2026-07-14", headers=auth_headers(other_token)
+    )
+    assert res.json() == []

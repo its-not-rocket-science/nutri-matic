@@ -68,6 +68,52 @@ def create_entry(
     return _entry_out(entry, foods_by_id, recipes_by_id)
 
 
+@router.post("/copy-day", response_model=list[schemas.DiaryEntryOut], status_code=201)
+def copy_day(
+    source_date: date, target_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Copies every entry logged on source_date onto target_date — additive,
+    like the meal-plan/diary-template apply endpoints: existing entries on
+    target_date are left alone, never overwritten or deleted."""
+    source_entries = (
+        db.query(DiaryEntry)
+        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == source_date)
+        .all()
+    )
+
+    created: list[DiaryEntry] = []
+    for source_entry in source_entries:
+        # a recipe logged that day might since have been deleted — skip rather
+        # than fail the whole copy for one stale entry
+        if source_entry.recipe_id is not None:
+            recipe = db.get(Recipe, source_entry.recipe_id)
+            if recipe is None or recipe.user_id != current_user.id:
+                continue
+
+        entry = DiaryEntry(
+            user_id=current_user.id,
+            entry_date=target_date,
+            meal=source_entry.meal,
+            food_id=source_entry.food_id,
+            quantity_g=source_entry.quantity_g,
+            recipe_id=source_entry.recipe_id,
+            quantity_servings=source_entry.quantity_servings,
+        )
+        db.add(entry)
+        created.append(entry)
+
+    db.commit()
+    for entry in created:
+        db.refresh(entry)
+
+    food_ids = {e.food_id for e in created if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in created if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+
+    return [_entry_out(e, foods_by_id, recipes_by_id) for e in created]
+
+
 @dataclass
 class NutrientGaps:
     nutrients_out: list[schemas.NutrientAmountOut]
