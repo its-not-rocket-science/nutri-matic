@@ -102,6 +102,11 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
         # sex/life-stage table lookup — resolve_drv() correctly returns None
         # for it (see nutrients.py), so it's handled separately here
         drv = eer if key == "energy" else resolve_drv(key, profile)
+        drv_source = (
+            "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
+            if key == "energy"
+            else (nutrient_def.drv_source or None)
+        )
         nutrients_out.append(
             schemas.NutrientAmountOut(
                 key=key,
@@ -110,6 +115,7 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
                 amount=amount,
                 adult_drv=drv,
                 percent_drv=(amount / drv * 100) if drv else None,
+                drv_source=drv_source,
             )
         )
     nutrients_out.sort(key=lambda n: n.name)
@@ -267,6 +273,11 @@ def get_trends(
             if nutrient_def is None:
                 continue
             drv = eer if key == "energy" else resolve_drv(key, profile)
+            drv_source = (
+                "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
+                if key == "energy"
+                else (nutrient_def.drv_source or None)
+            )
             nutrients_out.append(
                 schemas.TrendNutrientOut(
                     key=key,
@@ -275,6 +286,7 @@ def get_trends(
                     avg_amount=avg_amount,
                     adult_drv=drv,
                     avg_percent_drv=(avg_amount / drv * 100) if drv else None,
+                    drv_source=drv_source,
                 )
             )
         nutrients_out.sort(key=lambda n: n.name)

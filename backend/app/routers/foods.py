@@ -125,6 +125,7 @@ def food_nutrients(food_id: int, db: Session = Depends(get_db)):
                 amount=row.amount_per_100g,
                 adult_drv=drv,
                 percent_drv=(row.amount_per_100g / drv * 100) if drv else None,
+                drv_source=nutrient_def.drv_source or None,
             )
         )
     out.sort(key=lambda n: n.name)

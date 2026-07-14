@@ -249,6 +249,7 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
                 amount=amount,
                 adult_drv=drv,
                 percent_drv=(amount / drv * 100) if drv else None,
+                drv_source=nutrient_def.drv_source or None,
             )
         )
     out.sort(key=lambda n: n.name)

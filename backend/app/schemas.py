@@ -55,6 +55,9 @@ class NutrientAmountOut(BaseModel):
     amount: float
     adult_drv: float | None
     percent_drv: float | None
+    # provenance of adult_drv — see nutrients.NutrientDef.drv_source; null only
+    # for nutrients with no DRV at all (adult_drv is also null in that case)
+    drv_source: str | None
 
 
 class UserCreate(BaseModel):
@@ -379,6 +382,7 @@ class TrendNutrientOut(BaseModel):
     avg_amount: float
     adult_drv: float | None
     avg_percent_drv: float | None
+    drv_source: str | None
 
 
 class TrendBucketOut(BaseModel):
