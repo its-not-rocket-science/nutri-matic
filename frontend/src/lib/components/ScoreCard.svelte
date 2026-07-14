@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoLink from '$lib/components/InfoLink.svelte';
 	import { AMINO_ACID_LABELS, type Score } from '$lib/types';
 
 	let { label, score }: { label: string; score: Score } = $props();
@@ -16,6 +17,7 @@
 				>{score.digestibility_source}</span
 			>
 		{/if}
+		<InfoLink href="/methodology#protein-quality" label="How DIAAS/PDCAAS scores are computed" />
 	</h2>
 	<p class="muted">
 		Reference pattern: {score.pattern_used} · Limiting amino acid: <strong

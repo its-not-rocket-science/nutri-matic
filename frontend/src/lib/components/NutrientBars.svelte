@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InfoLink from '$lib/components/InfoLink.svelte';
 	import type { NutrientAmount } from '$lib/types';
 
 	let { nutrients, per = 'per 100g' }: { nutrients: NutrientAmount[]; per?: string } = $props();
@@ -59,7 +60,7 @@
 </script>
 
 {#if energy}
-	<div class="energy">
+	<div class="energy" title={energy.drv_source ?? undefined}>
 		<strong>{energy.amount.toFixed(0)} kcal</strong>
 		<span class="muted">{per}</span>
 		{#if energy.adult_drv !== null}
@@ -73,7 +74,10 @@
 {/if}
 
 {#if nutrients.length > 0}
-	<h2>Vitamins, minerals &amp; fibre <span class="muted">({per})</span></h2>
+	<h2>
+		Vitamins, minerals &amp; fibre <span class="muted">({per})</span>
+		<InfoLink href="/methodology#vitamins-minerals" label="Where these reference values come from" />
+	</h2>
 	{#each NUTRIENT_GROUPS as group (group.label)}
 		{@const rows = groupNutrients(group.keys)}
 		{#if rows.length > 0}
@@ -87,7 +91,7 @@
 				<ul class="bars">
 					{#each rows as n (n.key)}
 						{@const isGap = per === 'per day' && n.percent_drv !== null && n.percent_drv < 50}
-						<li class:gap={isGap}>
+						<li class:gap={isGap} title={n.drv_source ?? undefined}>
 							<span class="aa-name">{n.name}</span>
 							<span class="bar-track">
 								{#if n.percent_drv !== null}
@@ -108,8 +112,9 @@
 		{/if}
 	{/each}
 	<p class="muted">
-		% DRV is against a single generic-adult reference value, not adjusted for your age, sex, or
-		life stage.
+		Daily reference values come from UK RNI, EFSA PRI, or US RDA/AI depending on the nutrient, and
+		reflect your profile (sex, pregnancy/lactation) when signed in with one set. Hover a nutrient
+		for its specific source.
 		{#if per === 'per day'}
 			Nutrients under 50% of target for the day are highlighted.
 		{/if}

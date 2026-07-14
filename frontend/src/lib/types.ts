@@ -45,6 +45,8 @@ export interface NutrientAmount {
 	amount: number;
 	adult_drv: number | null;
 	percent_drv: number | null;
+	/** provenance of adult_drv, e.g. "UK RNI; pregnancy increment confirmed live" */
+	drv_source: string | null;
 }
 
 export interface User {
@@ -308,6 +310,7 @@ export interface TrendNutrient {
 	avg_amount: number;
 	adult_drv: number | null;
 	avg_percent_drv: number | null;
+	drv_source: string | null;
 }
 
 export interface TrendBucket {

@@ -23,6 +23,7 @@
 
 <nav>
 	<a href="/">Nutri-Matic</a>
+	<a href="/methodology">Data &amp; Methodology</a>
 	{#if auth.isLoggedIn}
 		<a href="/diary">Diary</a>
 		<a href="/trends">Trends</a>

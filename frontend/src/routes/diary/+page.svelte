@@ -485,6 +485,7 @@
 					doesn't track them. The calcium:phosphorus ratio references ESPGHAN's traditional 1:1–2:1
 					guidance; newer research in older adults found no link between this ratio and bone
 					density, so treat it as informational.
+					<a href="/methodology#bioavailability">Full citations &rarr;</a>
 				</p>
 			</details>
 		</section>
