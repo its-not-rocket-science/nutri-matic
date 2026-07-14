@@ -34,7 +34,9 @@ import type {
 	ShoppingList,
 	TokenResponse,
 	TrendGroupBy,
-	User
+	User,
+	WeightLog,
+	WeightLogCreate
 } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -74,6 +76,12 @@ export const api = {
 	getProfile: () => request<User>('/api/profile'),
 	updateProfile: (profile: ProfileUpdate) =>
 		request<User>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }),
+
+	logWeight: (entry: WeightLogCreate) =>
+		request<WeightLog>('/api/weight-logs', { method: 'POST', body: JSON.stringify(entry) }),
+	listWeightLogs: (startDate: string, endDate: string) =>
+		request<WeightLog[]>(`/api/weight-logs?start_date=${startDate}&end_date=${endDate}`),
+	deleteWeightLog: (id: number) => request<void>(`/api/weight-logs/${id}`, { method: 'DELETE' }),
 
 	listRecipes: (tag?: string) => request<Recipe[]>(`/api/recipes${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`),
 	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),

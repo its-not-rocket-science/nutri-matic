@@ -29,6 +29,7 @@
 		<a href="/meal-plan">Meal Plan</a>
 		<a href="/food-prices">Food Prices</a>
 		<a href="/recipes">Recipes</a>
+		<a href="/weight-log">Weight</a>
 		<a href="/profile">Profile</a>
 		<span class="muted">{auth.user?.email ?? ''}</span>
 		<button type="button" onclick={() => auth.logout()}>Log out</button>

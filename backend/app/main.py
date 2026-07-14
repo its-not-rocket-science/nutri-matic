@@ -15,6 +15,7 @@ from .routers import (
     profile,
     recipes,
     search,
+    weight,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -40,6 +41,7 @@ app.include_router(meal_plan.router)
 app.include_router(food_prices.router)
 app.include_router(meal_plan_templates.router)
 app.include_router(diary_meal_templates.router)
+app.include_router(weight.router)
 
 
 @app.get("/api/health")
