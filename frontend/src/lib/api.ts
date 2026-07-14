@@ -14,6 +14,8 @@ import type {
 	FoodPriceCreate,
 	MealPlanEntry,
 	MealPlanEntryCreate,
+	MealPlanTemplate,
+	MealPlanTemplateDetail,
 	NutrientAmount,
 	ProfileUpdate,
 	Recipe,
@@ -122,6 +124,17 @@ export const api = {
 		request<DiaryEntry>(`/api/meal-plan/${id}/mark-eaten`, { method: 'POST' }),
 	getShoppingList: (startDate: string, endDate: string) =>
 		request<ShoppingList>(`/api/meal-plan/shopping-list?start_date=${startDate}&end_date=${endDate}`),
+
+	listMealPlanTemplates: () => request<MealPlanTemplate[]>('/api/meal-plan-templates'),
+	createMealPlanTemplate: (name: string, startDate: string, endDate: string) =>
+		request<MealPlanTemplate>('/api/meal-plan-templates', {
+			method: 'POST',
+			body: JSON.stringify({ name, start_date: startDate, end_date: endDate })
+		}),
+	getMealPlanTemplate: (id: number) => request<MealPlanTemplateDetail>(`/api/meal-plan-templates/${id}`),
+	deleteMealPlanTemplate: (id: number) => request<void>(`/api/meal-plan-templates/${id}`, { method: 'DELETE' }),
+	applyMealPlanTemplate: (id: number, startDate: string) =>
+		request<MealPlanEntry[]>(`/api/meal-plan-templates/${id}/apply?start_date=${startDate}`, { method: 'POST' }),
 
 	listFoodPrices: () => request<FoodPrice[]>('/api/food-prices'),
 	setFoodPrice: (foodId: number, price: FoodPriceCreate) =>

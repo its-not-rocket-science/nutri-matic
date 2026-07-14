@@ -6,7 +6,7 @@
 	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
-	import type { Food, Meal, MealPlanEntry, Recipe, ShoppingList } from '$lib/types';
+	import type { Food, Meal, MealPlanEntry, MealPlanTemplate, Recipe, ShoppingList } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
@@ -56,6 +56,18 @@
 	let shoppingList: ShoppingList | null = $state(null);
 	let loadingShoppingList = $state(false);
 
+	let templates: MealPlanTemplate[] = $state([]);
+	let templateName = $state('');
+	let savingTemplate = $state(false);
+	let applyingTemplateId: number | null = $state(null);
+	let deletingTemplateId: number | null = $state(null);
+
+	function addDays(iso: string, days: number): string {
+		const d = new Date(iso + 'T00:00:00Z');
+		d.setUTCDate(d.getUTCDate() + days);
+		return toIsoDate(d);
+	}
+
 	const searchResults = $derived.by(() => {
 		const q = search.trim().toLowerCase();
 		if (q.length < 2) return [];
@@ -87,6 +99,14 @@
 		}
 	}
 
+	async function loadTemplates() {
+		try {
+			templates = await api.listMealPlanTemplates();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
@@ -97,7 +117,7 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
-		await loadWeek();
+		await Promise.all([loadWeek(), loadTemplates()]);
 	});
 
 	function shiftWeek(weeks: number) {
@@ -202,6 +222,49 @@
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			markingId = null;
+		}
+	}
+
+	async function handleSaveTemplate(e: SubmitEvent) {
+		e.preventDefault();
+		error = null;
+		if (!templateName.trim()) return;
+		savingTemplate = true;
+		try {
+			await api.createMealPlanTemplate(templateName.trim(), weekDates[0], weekDates[6]);
+			templateName = '';
+			await loadTemplates();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			savingTemplate = false;
+		}
+	}
+
+	async function handleApplyTemplate(templateId: number, startDate: string) {
+		error = null;
+		applyingTemplateId = templateId;
+		try {
+			await api.applyMealPlanTemplate(templateId, startDate);
+			shoppingList = null;
+			await loadWeek();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			applyingTemplateId = null;
+		}
+	}
+
+	async function handleDeleteTemplate(templateId: number) {
+		error = null;
+		deletingTemplateId = templateId;
+		try {
+			await api.deleteMealPlanTemplate(templateId);
+			await loadTemplates();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			deletingTemplateId = null;
 		}
 	}
 
@@ -347,6 +410,50 @@
 		<button type="submit" disabled={adding}>{adding ? 'Adding…' : 'Add to plan'}</button>
 	</form>
 
+	<section class="templates no-print">
+		<h3>Templates</h3>
+		<form onsubmit={handleSaveTemplate} class="template-save">
+			<input type="text" bind:value={templateName} placeholder="Template name (e.g. Typical week)" required />
+			<button type="submit" disabled={savingTemplate}>
+				{savingTemplate ? 'Saving…' : 'Save this week as template'}
+			</button>
+		</form>
+
+		{#if templates.length === 0}
+			<p class="muted">No templates saved yet.</p>
+		{:else}
+			<ul class="entries">
+				{#each templates as t (t.id)}
+					<li>
+						<span>{t.name}</span>
+						<span class="muted">{t.entry_count} entr{t.entry_count === 1 ? 'y' : 'ies'}</span>
+						<button
+							type="button"
+							onclick={() => handleApplyTemplate(t.id, weekDates[0])}
+							disabled={applyingTemplateId === t.id}
+						>
+							{applyingTemplateId === t.id ? 'Applying…' : 'Apply to this week'}
+						</button>
+						<button
+							type="button"
+							onclick={() => handleApplyTemplate(t.id, addDays(weekDates[0], 7))}
+							disabled={applyingTemplateId === t.id}
+						>
+							Apply to next week
+						</button>
+						<button
+							type="button"
+							onclick={() => handleDeleteTemplate(t.id)}
+							disabled={deletingTemplateId === t.id}
+						>
+							{deletingTemplateId === t.id ? 'Deleting…' : 'Delete'}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
+
 	<section class="shopping-list">
 		<button type="button" class="no-print" onclick={toggleShoppingList}>
 			{showShoppingList ? 'Hide shopping list' : 'Show shopping list for this week'}
@@ -484,5 +591,20 @@
 	.search-results button {
 		width: 100%;
 		text-align: left;
+	}
+	.template-save {
+		display: flex;
+		flex-direction: row;
+		gap: 0.5rem;
+		max-width: none;
+		margin: 0.5rem 0 1rem;
+		padding: 0;
+		border: none;
+	}
+	.template-save input {
+		flex: 1;
+	}
+	.templates .entries li {
+		flex-wrap: wrap;
 	}
 </style>
