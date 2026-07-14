@@ -128,6 +128,10 @@ export const api = {
 	addDiaryEntry: (entry: DiaryEntryCreate) =>
 		request<DiaryEntry>('/api/diary', { method: 'POST', body: JSON.stringify(entry) }),
 	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' }),
+	copyDiaryDay: (sourceDate: string, targetDate: string) =>
+		request<DiaryEntry[]>(`/api/diary/copy-day?source_date=${sourceDate}&target_date=${targetDate}`, {
+			method: 'POST'
+		}),
 	getDiaryTrends: (startDate: string, endDate: string, groupBy: TrendGroupBy) =>
 		request<DiaryTrends>(`/api/diary/trends?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`),
 	getQuickAdd: () => request<QuickAdd>('/api/diary/quick-add'),

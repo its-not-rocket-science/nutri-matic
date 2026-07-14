@@ -22,6 +22,12 @@
 		return d.toISOString().slice(0, 10);
 	}
 
+	function addDays(iso: string, days: number): string {
+		const d = new Date(iso + 'T00:00:00Z');
+		d.setUTCDate(d.getUTCDate() + days);
+		return toIsoDate(d);
+	}
+
 	let date = $state(toIsoDate(new Date()));
 	let summary: DiarySummary | null = $state(null);
 	let allFoods: Food[] = $state([]);
@@ -42,6 +48,10 @@
 	let templates: DiaryMealTemplate[] = $state([]);
 	let applyingTemplateId: number | null = $state(null);
 	let deletingTemplateId: number | null = $state(null);
+
+	let copyTargetDate = $state(addDays(toIsoDate(new Date()), 1));
+	let copying = $state(false);
+	let copySuccessMessage: string | null = $state(null);
 
 	let quickAdd: QuickAdd | null = $state(null);
 	let quickAddTab: 'recent' | 'frequent' = $state('recent');
@@ -114,6 +124,7 @@
 		const d = new Date(date);
 		d.setUTCDate(d.getUTCDate() + days);
 		date = toIsoDate(d);
+		copyTargetDate = addDays(date, 1);
 		loadDay();
 		loadGapSuggestions();
 	}
@@ -236,6 +247,24 @@
 		}
 	}
 
+	async function handleCopyDay() {
+		error = null;
+		copySuccessMessage = null;
+		copying = true;
+		try {
+			const created = await api.copyDiaryDay(date, copyTargetDate);
+			copySuccessMessage = `Copied ${created.length} entr${created.length === 1 ? 'y' : 'ies'} to ${copyTargetDate}.`;
+			if (copyTargetDate === date) {
+				await loadDay();
+				await loadGapSuggestions();
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			copying = false;
+		}
+	}
+
 	async function handleSaveAsTemplate(m: Meal) {
 		const defaultName = `${m[0].toUpperCase()}${m.slice(1)}`;
 		const name = prompt('Template name:', defaultName);
@@ -307,11 +336,25 @@
 		type="date"
 		bind:value={date}
 		onchange={() => {
+			copyTargetDate = addDays(date, 1);
 			loadDay();
 			loadGapSuggestions();
 		}}
 	/>
 	<button type="button" onclick={() => shiftDay(1)}>Next &rarr;</button>
+</div>
+
+<div class="copy-day no-print">
+	<label>
+		Copy this day to
+		<input type="date" bind:value={copyTargetDate} />
+	</label>
+	<button type="button" onclick={handleCopyDay} disabled={copying || !summary || summary.entries.length === 0}>
+		{copying ? 'Copying…' : 'Copy'}
+	</button>
+	{#if copySuccessMessage}
+		<span class="muted">{copySuccessMessage}</span>
+	{/if}
 </div>
 
 <p class="date-heading">{date}</p>
@@ -574,6 +617,18 @@
 		align-items: center;
 		gap: 0.75rem;
 		margin-bottom: 1.5rem;
+	}
+	.copy-day {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1.5rem;
+		font-size: 0.9em;
+	}
+	.copy-day label {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
 	}
 	.date-heading {
 		display: none;
