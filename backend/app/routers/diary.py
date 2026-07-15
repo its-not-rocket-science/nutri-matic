@@ -546,7 +546,16 @@ def get_meal_optimization(
 
 @router.get("/quick-add", response_model=schemas.QuickAddOut)
 def get_quick_add(limit: int = 10, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    entries = db.query(DiaryEntry).filter(DiaryEntry.user_id == current_user.id).all()
+    # Unbounded over a long-lived account this would scan the user's entire
+    # logging history on every call; recent/frequent groupings only need a
+    # bounded recent window, so cap it rather than loading every entry ever.
+    entries = (
+        db.query(DiaryEntry)
+        .filter(DiaryEntry.user_id == current_user.id)
+        .order_by(DiaryEntry.entry_date.desc())
+        .limit(2000)
+        .all()
+    )
 
     groups: dict[tuple[str, int], dict] = {}
     for entry in entries:

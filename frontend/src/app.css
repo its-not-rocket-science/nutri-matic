@@ -1,0 +1,316 @@
+/* Global design tokens + base element styles. Imported once from
+   +layout.svelte so every route shares the same variables instead of
+   hardcoding colors/spacing/type locally. */
+
+:root {
+	/* Brand: derived from app.html's theme-color meta (#3a6ea5) so the
+	   installed PWA's OS chrome and the in-app UI use the same blue. */
+	--color-primary: #3a6ea5;
+	--color-primary-hover: #2f5a87;
+	--color-primary-active: #24486c;
+	--color-on-primary: #ffffff;
+	--color-primary-subtle: #eaf1f8;
+
+	--color-bg: #ffffff;
+	--color-surface: #ffffff;
+	--color-surface-muted: #f5f7f9;
+	--color-border: #dde3e8;
+	--color-border-strong: #c3ccd3;
+
+	--color-text: #1a2226;
+	--color-text-muted: #5b6770;
+	--color-text-subtle: #7c8891;
+
+	--color-success: #1f8a4c;
+	--color-success-subtle: #e8f5ed;
+	--color-warning: #a3690a;
+	--color-warning-subtle: #fbf1e0;
+	--color-danger: #b3261e;
+	--color-danger-subtle: #fbeceb;
+
+	--color-focus-ring: #3a6ea5;
+
+	/* Type scale: 1.25 (major third) ratio off a 1rem base. */
+	--font-sans:
+		system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	--font-mono: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
+
+	--font-size-xs: 0.75rem;
+	--font-size-sm: 0.875rem;
+	--font-size-base: 1rem;
+	--font-size-md: 1.125rem;
+	--font-size-lg: 1.25rem;
+	--font-size-xl: 1.563rem;
+	--font-size-2xl: 1.953rem;
+	--font-size-3xl: 2.441rem;
+
+	--line-height-tight: 1.25;
+	--line-height-normal: 1.5;
+
+	--font-weight-normal: 400;
+	--font-weight-medium: 500;
+	--font-weight-bold: 700;
+
+	/* Spacing scale: 4px base unit. */
+	--space-1: 0.25rem;
+	--space-2: 0.5rem;
+	--space-3: 0.75rem;
+	--space-4: 1rem;
+	--space-5: 1.5rem;
+	--space-6: 2rem;
+	--space-7: 3rem;
+	--space-8: 4rem;
+
+	--radius-sm: 0.25rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 0.75rem;
+	--radius-full: 999px;
+
+	--shadow-sm: 0 1px 2px rgba(16, 24, 32, 0.06);
+	--shadow-md: 0 2px 8px rgba(16, 24, 32, 0.1);
+	--shadow-lg: 0 8px 24px rgba(16, 24, 32, 0.14);
+
+	--layout-max-width: 64rem;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-primary: #6d9bcc;
+		--color-primary-hover: #85acd6;
+		--color-primary-active: #9bbbdf;
+		--color-on-primary: #0b1720;
+		--color-primary-subtle: #16283a;
+
+		--color-bg: #14181b;
+		--color-surface: #1b2126;
+		--color-surface-muted: #20272c;
+		--color-border: #333c42;
+		--color-border-strong: #47525a;
+
+		--color-text: #e7ecef;
+		--color-text-muted: #a7b1b8;
+		--color-text-subtle: #85919a;
+
+		--color-success: #55c485;
+		--color-success-subtle: #143324;
+		--color-warning: #e0a94a;
+		--color-warning-subtle: #3a2c11;
+		--color-danger: #ec6a62;
+		--color-danger-subtle: #3a1917;
+
+		--color-focus-ring: #85acd6;
+	}
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	color-scheme: light dark;
+}
+
+body {
+	margin: 0;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	font-size: var(--font-size-base);
+	line-height: var(--line-height-normal);
+}
+
+h1,
+h2,
+h3,
+h4 {
+	line-height: var(--line-height-tight);
+	font-weight: var(--font-weight-bold);
+	margin: 0 0 var(--space-4);
+}
+
+h1 {
+	font-size: var(--font-size-2xl);
+}
+h2 {
+	font-size: var(--font-size-xl);
+}
+h3 {
+	font-size: var(--font-size-md);
+}
+
+p {
+	margin: 0 0 var(--space-4);
+}
+
+a {
+	color: var(--color-primary);
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+button {
+	cursor: pointer;
+}
+
+:focus-visible {
+	outline: 2px solid var(--color-focus-ring);
+	outline-offset: 2px;
+}
+
+/* Form controls: every route currently gets raw browser-default inputs —
+   style once here instead of per-page. min-height keeps tap targets >=44px
+   for the PWA's mobile use case. */
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+	display: block;
+	width: 100%;
+	min-height: 2.75rem;
+	padding: var(--space-2) var(--space-3);
+	background: var(--color-surface);
+	color: var(--color-text);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+	border-color: var(--color-primary);
+}
+
+label {
+	display: block;
+	font-size: var(--font-size-sm);
+	font-weight: var(--font-weight-medium);
+	margin-bottom: var(--space-1);
+}
+
+.field {
+	margin-bottom: var(--space-4);
+}
+
+/* Wrap any table that might overflow a narrow viewport in this instead of
+   letting the whole page scroll horizontally. */
+.table-scroll {
+	overflow-x: auto;
+}
+
+/* Tables: dense nutrient/score data is the app's core content, so give
+   every table sane defaults (tabular figures for aligned digits, a
+   distinguishable header, breathing room between rows) rather than
+   browser-default cramped borders. */
+table {
+	width: 100%;
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+	text-align: left;
+	padding: var(--space-2) var(--space-3);
+	border-bottom: 1px solid var(--color-border);
+}
+
+th {
+	font-size: var(--font-size-xs);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--color-text-muted);
+	font-weight: var(--font-weight-medium);
+}
+
+td.numeric,
+th.numeric {
+	text-align: right;
+}
+
+tbody tr:hover {
+	background: var(--color-surface-muted);
+}
+
+/* Buttons: one shared set of variants so every route's actions look the
+   same instead of each page inventing its own button styling. */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--space-2);
+	border-radius: var(--radius-sm);
+	padding: var(--space-2) var(--space-4);
+	font-size: var(--font-size-sm);
+	font-weight: var(--font-weight-medium);
+	text-decoration: none;
+	border: 1px solid transparent;
+	min-height: 2.75rem;
+	background: var(--color-surface);
+}
+
+.btn-primary {
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+}
+.btn-primary:hover {
+	background: var(--color-primary-hover);
+}
+
+.btn-secondary {
+	background: var(--color-surface);
+	color: var(--color-text);
+	border-color: var(--color-border);
+}
+.btn-secondary:hover {
+	border-color: var(--color-border-strong);
+}
+
+.btn-danger {
+	background: var(--color-surface);
+	color: var(--color-danger);
+	border-color: var(--color-danger-subtle);
+}
+.btn-danger:hover {
+	background: var(--color-danger-subtle);
+}
+
+.btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+/* Card: the one container style every route's sections/widgets/list-groups
+   should use instead of ad hoc borders. */
+.card {
+	background: var(--color-surface);
+	padding: var(--space-5);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-sm);
+}
+
+.card + .card {
+	margin-top: var(--space-4);
+}
+
+/* Shared utility classes used across routes for consistent muted text and
+   status coloring, so pages don't each redefine the same three rules. */
+.muted {
+	color: var(--color-text-muted);
+	font-size: var(--font-size-sm);
+}
+
+.error {
+	color: var(--color-danger);
+}
+
+.success-text {
+	color: var(--color-success);
+}

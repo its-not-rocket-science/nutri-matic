@@ -20,6 +20,14 @@ export interface Food {
 	gtin_upc: string | null;
 }
 
+export interface FoodList {
+	items: Food[];
+	total: number;
+	limit: number;
+	offset: number;
+	has_more: boolean;
+}
+
 export interface FoodCreate {
 	name: string;
 	protein_g_per_100g: number;

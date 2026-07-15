@@ -445,7 +445,7 @@
 {/if}
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else if summary}
 	<div class="optimize-budget no-print">
 		<label>
@@ -844,10 +844,10 @@
 		}
 	}
 	.error {
-		color: #b00020;
+		color: var(--color-danger);
 	}
 	.muted {
-		color: #666;
+		color: var(--color-text-muted);
 		font-size: 0.9em;
 		margin: 0 0.5rem;
 	}
@@ -855,7 +855,7 @@
 	.gap-suggestion {
 		margin-top: 1.5rem;
 		padding: 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 	}
 	.gap-suggestion .entries li {
@@ -875,12 +875,12 @@
 	.calcium-phosphorus {
 		margin-top: 0.75rem;
 		padding-top: 0.75rem;
-		border-top: 1px solid #eee;
+		border-top: 1px solid var(--color-border);
 	}
 	.food-chemistry {
 		margin-top: 1.5rem;
 		padding: 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 	}
 	.sodium-potassium {
@@ -892,10 +892,10 @@
 		gap: 0.5rem;
 	}
 	.threshold-met {
-		color: #2d6a2d;
+		color: var(--color-success);
 	}
 	.threshold-missed {
-		color: #666;
+		color: var(--color-text-muted);
 	}
 	.entries {
 		list-style: none;
@@ -917,13 +917,13 @@
 	.optimize-suggestions {
 		margin-top: 0.5rem;
 		padding: 0.75rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 	}
 	.methodology-mode {
 		margin: 1rem 0;
 		padding: 0.75rem 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 		font-size: 0.9em;
 	}
@@ -931,12 +931,12 @@
 		margin-top: 0;
 	}
 	.snapshot-status {
-		color: #1d4e89;
+		color: var(--color-primary);
 	}
 	.rationale {
 		margin: 0.15rem 0 0.5rem;
 		font-size: 0.85em;
-		color: #555;
+		color: var(--color-text-muted);
 	}
 	.optimize-budget {
 		margin: 0.75rem 0;
@@ -949,7 +949,7 @@
 	.quick-add {
 		margin: 1rem 0;
 		padding: 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 		max-width: 28rem;
 	}
@@ -977,7 +977,7 @@
 		max-width: 28rem;
 		margin: 1.5rem 0;
 		padding: 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 	}
 	label {

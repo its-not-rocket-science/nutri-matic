@@ -64,15 +64,15 @@
 <h1>New recipe</h1>
 <p><a href="/recipes">&larr; Back</a></p>
 
-<form onsubmit={handleSubmit}>
-	<label>
-		Name
-		<input type="text" bind:value={name} required />
-	</label>
-	<label>
-		Servings
-		<input type="number" step="any" min="0" bind:value={servings} required />
-	</label>
+<form class="card recipe-form" onsubmit={handleSubmit}>
+	<div class="field">
+		<label for="recipe-name">Name</label>
+		<input id="recipe-name" type="text" bind:value={name} required />
+	</div>
+	<div class="field">
+		<label for="recipe-servings">Servings</label>
+		<input id="recipe-servings" type="number" step="any" min="0" bind:value={servings} required />
+	</div>
 
 	<fieldset>
 		<legend>Ingredients</legend>
@@ -84,7 +84,9 @@
 						<span class="food-name">{row.food.name}</span>
 						<input type="number" step="any" min="0" bind:value={row.quantity_g} />
 						<span class="muted">g</span>
-						<button type="button" onclick={() => removeIngredient(row.food.id)}>Remove</button>
+						<button type="button" class="btn btn-danger" onclick={() => removeIngredient(row.food.id)}>
+							Remove
+						</button>
 					</li>
 				{/each}
 			</ul>
@@ -101,48 +103,45 @@
 		<p class="error">{error}</p>
 	{/if}
 
-	<button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save recipe'}</button>
+	<button type="submit" class="btn btn-primary" disabled={submitting}>
+		{submitting ? 'Saving…' : 'Save recipe'}
+	</button>
 </form>
 
 <style>
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+	.recipe-form {
 		max-width: 32rem;
 	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
 	fieldset {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: var(--space-4);
+		margin: 0 0 var(--space-4);
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: var(--space-3);
+	}
+	legend {
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-medium);
+		padding: 0 var(--space-2);
 	}
 	.ingredients {
 		list-style: none;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
+		gap: var(--space-2);
 	}
 	.ingredients li {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
 	.food-name {
 		flex: 1;
 	}
 	.ingredients input[type='number'] {
 		width: 5rem;
-	}
-	.muted {
-		color: #666;
-	}
-	.error {
-		color: #b00020;
 	}
 </style>

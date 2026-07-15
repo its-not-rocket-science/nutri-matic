@@ -153,7 +153,7 @@
 {/if}
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else}
 	<form onsubmit={handleInvite} class="invite-form">
 		<h3>Invite a client</h3>
@@ -213,7 +213,7 @@
 			</label>
 
 			{#if loadingSummary}
-				<p>Loading…</p>
+				<p class="muted">Loading…</p>
 			{:else if summary}
 				{#if summary.day.entries.length === 0}
 					<p class="muted">Nothing logged this day.</p>
@@ -241,10 +241,10 @@
 
 <style>
 	.error {
-		color: #b00020;
+		color: var(--color-danger);
 	}
 	.muted {
-		color: #666;
+		color: var(--color-text-muted);
 		font-size: 0.9em;
 	}
 	.entries {
@@ -268,7 +268,7 @@
 		max-width: 28rem;
 		margin: 1.5rem 0;
 		padding: 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 	}
 	.note-form {
@@ -282,7 +282,7 @@
 	.client-detail {
 		margin-top: 1.5rem;
 		padding: 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 	}
 	.note {

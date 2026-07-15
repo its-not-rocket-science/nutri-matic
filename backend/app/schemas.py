@@ -41,6 +41,14 @@ class FoodOut(FoodCreate):
     id: int
 
 
+class FoodListOut(BaseModel):
+    items: list[FoodOut]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
 class ScoreOut(BaseModel):
     method: str
     pattern_used: str

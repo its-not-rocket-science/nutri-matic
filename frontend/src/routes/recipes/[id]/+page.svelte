@@ -182,7 +182,7 @@
 <p class="no-print"><a href="/recipes">&larr; Back</a></p>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else if error}
 	<p class="error">{error}</p>
 {:else if recipe}
@@ -196,7 +196,7 @@
 
 	<div class="export-actions no-print">
 		<PrintButton />
-		<button type="button" onclick={handleDownloadCsv}>Download CSV</button>
+		<button type="button" class="btn btn-secondary" onclick={handleDownloadCsv}>Download CSV</button>
 	</div>
 
 	<div class="rating-row no-print">
@@ -237,33 +237,41 @@
 	<NutrientBars {nutrients} per="per serving" />
 
 	{#if recipe.is_owner}
-		<section class="sharing no-print">
+		<section class="card sharing no-print">
 			<h2>Sharing</h2>
 			{#if shares.length > 0}
 				<ul class="shares">
 					{#each shares as share (share.id)}
 						<li>
 							{share.email}
-							<button type="button" onclick={() => handleUnshare(share.id)}>Remove</button>
+							<button type="button" class="btn btn-danger" onclick={() => handleUnshare(share.id)}>
+								Remove
+							</button>
 						</li>
 					{/each}
 				</ul>
 			{:else}
 				<p class="muted">Not shared with anyone yet.</p>
 			{/if}
-			<form onsubmit={handleShare}>
+			<form class="share-form" onsubmit={handleShare}>
 				<input type="email" bind:value={shareEmail} placeholder="Share with (email)" required />
-				<button type="submit" disabled={sharing}>{sharing ? 'Sharing…' : 'Share'}</button>
+				<button type="submit" class="btn btn-primary" disabled={sharing}>
+					{sharing ? 'Sharing…' : 'Share'}
+				</button>
 			</form>
 			{#if shareError}
 				<p class="error">{shareError}</p>
 			{/if}
 		</section>
 
-		<p class="no-print"><button type="button" onclick={handleDelete} disabled={deleting}>Delete recipe</button></p>
+		<p class="no-print">
+			<button type="button" class="btn btn-danger" onclick={handleDelete} disabled={deleting}>
+				Delete recipe
+			</button>
+		</p>
 	{:else}
 		<p class="no-print">
-			<button type="button" onclick={handleCopy} disabled={copying}>
+			<button type="button" class="btn btn-secondary" onclick={handleCopy} disabled={copying}>
 				{copying ? 'Copying…' : 'Copy to my recipes'}
 			</button>
 		</p>
@@ -272,14 +280,16 @@
 	<section class="comments no-print">
 		<h2>Comments</h2>
 		{#if comments.length > 0}
-			<ul>
+			<ul class="card">
 				{#each comments as comment (comment.id)}
 					<li>
 						<div class="comment-meta">
 							<strong>{comment.user_email}</strong>
 							<span class="muted">{new Date(comment.created_at).toLocaleString()}</span>
 							{#if comment.is_own || recipe.is_owner}
-								<button type="button" onclick={() => handleDeleteComment(comment.id)}>Delete</button>
+								<button type="button" class="btn btn-danger" onclick={() => handleDeleteComment(comment.id)}>
+									Delete
+								</button>
 							{/if}
 						</div>
 						<p>{comment.body}</p>
@@ -290,9 +300,11 @@
 			<p class="muted">No comments yet.</p>
 		{/if}
 
-		<form onsubmit={handleAddComment}>
+		<form class="comment-form" onsubmit={handleAddComment}>
 			<textarea bind:value={newComment} placeholder="Add a comment…" rows="2" required></textarea>
-			<button type="submit" disabled={posting}>{posting ? 'Posting…' : 'Post comment'}</button>
+			<button type="submit" class="btn btn-primary" disabled={posting}>
+				{posting ? 'Posting…' : 'Post comment'}
+			</button>
 		</form>
 		{#if commentError}
 			<p class="error">{commentError}</p>
@@ -301,58 +313,48 @@
 {/if}
 
 <style>
-	.error {
-		color: #b00020;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-	}
 	.ingredients {
 		list-style: none;
 		padding: 0;
-		margin-bottom: 1.5rem;
+		margin-bottom: var(--space-5);
 	}
 	.ingredients li {
-		padding: 0.25rem 0;
+		padding: var(--space-1) 0;
 	}
 	.ingredients .muted {
-		margin-left: 0.5rem;
+		margin-left: var(--space-2);
 	}
 	.sharing {
-		margin: 1.5rem 0;
-		padding: 1rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
+		margin: var(--space-5) 0;
 		max-width: 24rem;
 	}
 	.shares {
 		list-style: none;
 		padding: 0;
-		margin-bottom: 0.75rem;
+		margin-bottom: var(--space-3);
 	}
 	.shares li {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.5rem;
-		padding: 0.2rem 0;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
 	}
-	.sharing form {
+	.share-form {
 		display: flex;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
-	.sharing input {
+	.share-form input {
 		flex: 1;
 	}
 	.rating-row {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		margin: 0.75rem 0 1.5rem;
+		gap: var(--space-3);
+		margin: var(--space-3) 0 var(--space-5);
 	}
 	.comments {
-		margin: 1.5rem 0;
+		margin: var(--space-5) 0;
 		max-width: 32rem;
 	}
 	.comments ul {
@@ -360,31 +362,34 @@
 		padding: 0;
 	}
 	.comments li {
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #eee;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.comments li:last-child {
+		border-bottom: none;
 	}
 	.comments li p {
-		margin: 0.25rem 0 0;
+		margin: var(--space-1) 0 0;
 	}
 	.comment-meta {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
-	.comments form {
+	.comment-form {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-		margin-top: 1rem;
+		gap: var(--space-2);
+		margin-top: var(--space-4);
 	}
-	.comments textarea {
+	.comment-form textarea {
 		font-family: inherit;
 		resize: vertical;
 	}
 	.export-actions {
 		display: flex;
-		gap: 0.5rem;
-		margin: 0.5rem 0 1rem;
+		gap: var(--space-2);
+		margin: var(--space-2) 0 var(--space-4);
 	}
 	@media print {
 		.no-print {

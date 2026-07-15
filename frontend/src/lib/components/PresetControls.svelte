@@ -59,17 +59,17 @@
 {#if auth.isLoggedIn}
 	<div class="presets">
 		{#if presets.length > 0}
-			<select bind:value={selectedId} onchange={applySelected}>
+			<select class="preset-select" bind:value={selectedId} onchange={applySelected}>
 				<option value={null}>Load a saved preset…</option>
 				{#each presets as p (p.id)}
 					<option value={p.id}>{p.name}</option>
 				{/each}
 			</select>
 			{#if selectedId !== null}
-				<button type="button" onclick={handleDelete}>Delete preset</button>
+				<button type="button" class="btn btn-danger" onclick={handleDelete}>Delete preset</button>
 			{/if}
 		{/if}
-		<button type="button" onclick={handleSave} disabled={saving || filters.length === 0}>
+		<button type="button" class="btn btn-secondary" onclick={handleSave} disabled={saving || filters.length === 0}>
 			{saving ? 'Saving…' : 'Save current filters as preset'}
 		</button>
 	</div>
@@ -84,15 +84,11 @@
 	.presets {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		flex-wrap: wrap;
-		margin: 0.5rem 0;
+		margin: var(--space-2) 0;
 	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-	}
-	.error {
-		color: #b00020;
+	.preset-select {
+		width: auto;
 	}
 </style>

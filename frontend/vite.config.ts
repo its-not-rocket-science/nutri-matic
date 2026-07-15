@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import adapter from '@sveltejs/adapter-auto';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
@@ -16,5 +17,8 @@ export default defineConfig({
 			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 			adapter: adapter()
 		})
-	]
+	],
+	test: {
+		environment: 'node'
+	}
 });

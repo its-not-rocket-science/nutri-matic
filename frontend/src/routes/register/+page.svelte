@@ -27,38 +27,32 @@
 <h1>Register</h1>
 <p><a href="/">&larr; Back</a></p>
 
-<form onsubmit={handleSubmit}>
-	<label>
-		Email
-		<input type="email" bind:value={email} required />
-	</label>
-	<label>
-		Password
-		<input type="password" bind:value={password} required minlength="8" />
-	</label>
+<form class="card auth-form" onsubmit={handleSubmit}>
+	<div class="field">
+		<label for="email">Email</label>
+		<input id="email" type="email" bind:value={email} required />
+	</div>
+	<div class="field">
+		<label for="password">Password</label>
+		<input id="password" type="password" bind:value={password} required minlength="8" />
+	</div>
 
 	{#if error}
 		<p class="error">{error}</p>
 	{/if}
 
-	<button type="submit" disabled={submitting}>{submitting ? 'Creating account…' : 'Register'}</button>
+	<button type="submit" class="btn btn-primary" disabled={submitting}>
+		{submitting ? 'Creating account…' : 'Register'}
+	</button>
 </form>
 
 <p>Already have an account? <a href="/login">Log in</a></p>
 
 <style>
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+	.auth-form {
 		max-width: 24rem;
 	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	.error {
-		color: #b00020;
+	.auth-form .field:last-of-type {
+		margin-bottom: var(--space-4);
 	}
 </style>

@@ -41,39 +41,37 @@
 	}
 </script>
 
-<label>
-	{label}
-	<input type="text" bind:value={query} oninput={handleInput} placeholder="Search…" />
-</label>
+<div class="field">
+	<label for="food-search-input">{label}</label>
+	<input id="food-search-input" type="text" bind:value={query} oninput={handleInput} placeholder="Search…" />
+</div>
 {#if searching}
 	<p class="muted">Searching…</p>
 {:else if results.length > 0}
-	<ul class="search-results">
+	<ul class="search-results card">
 		{#each results as food (food.id)}
-			<li><button type="button" onclick={() => handleSelect(food)}>{food.name}</button></li>
+			<li><button type="button" class="btn-plain" onclick={() => handleSelect(food)}>{food.name}</button></li>
 		{/each}
 	</ul>
 {/if}
 
 <style>
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-	}
 	.search-results {
 		list-style: none;
-		padding: 0;
+		padding: var(--space-2);
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
+		gap: 0.15rem;
 	}
-	.search-results button {
+	.btn-plain {
 		width: 100%;
 		text-align: left;
+		background: none;
+		border: none;
+		padding: var(--space-2) var(--space-2);
+		border-radius: var(--radius-sm);
+	}
+	.btn-plain:hover {
+		background: var(--color-surface-muted);
 	}
 </style>

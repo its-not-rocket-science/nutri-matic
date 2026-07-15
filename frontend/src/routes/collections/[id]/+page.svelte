@@ -81,67 +81,73 @@
 <p><a href="/collections">&larr; Back to collections</a></p>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else if error}
 	<p class="error">{error}</p>
 {:else if collection}
 	<h1>{collection.name}</h1>
 
 	{#if collection.recipes.length === 0}
-		<p>No recipes in this collection yet.</p>
+		<p class="muted">No recipes in this collection yet.</p>
 	{:else}
-		<ul>
+		<ul class="card">
 			{#each collection.recipes as recipe (recipe.id)}
 				<li>
 					<a href="/recipes/{recipe.id}">{recipe.name}</a>
 					<span class="muted">
 						{#if !recipe.is_owner}by {recipe.owner_email} · {/if}{recipe.servings} servings
 					</span>
-					<button type="button" onclick={() => handleRemove(recipe.id)}>Remove</button>
+					<button type="button" class="btn btn-danger" onclick={() => handleRemove(recipe.id)}>
+						Remove
+					</button>
 				</li>
 			{/each}
 		</ul>
 	{/if}
 
 	{#if availableCandidates.length > 0}
-		<form onsubmit={handleAdd}>
+		<form class="add-form" onsubmit={handleAdd}>
 			<select bind:value={selectedRecipeId}>
 				<option value={null}>Add a recipe…</option>
 				{#each availableCandidates as recipe (recipe.id)}
 					<option value={recipe.id}>{recipe.name}</option>
 				{/each}
 			</select>
-			<button type="submit" disabled={adding || selectedRecipeId === null}>
+			<button type="submit" class="btn btn-primary" disabled={adding || selectedRecipeId === null}>
 				{adding ? 'Adding…' : 'Add'}
 			</button>
 		</form>
 	{/if}
 
-	<p><button type="button" onclick={handleDeleteCollection} disabled={deleting}>Delete collection</button></p>
+	<p>
+		<button type="button" class="btn btn-danger" onclick={handleDeleteCollection} disabled={deleting}>
+			Delete collection
+		</button>
+	</p>
 {/if}
 
 <style>
-	.error {
-		color: #b00020;
-	}
-	.muted {
-		color: #666;
-		margin: 0 0.5rem;
-		font-size: 0.9em;
-	}
 	ul {
 		list-style: none;
 		padding: 0;
+		margin: 0;
 	}
 	li {
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #eee;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
 		display: flex;
 		align-items: center;
+		gap: var(--space-2);
 	}
-	form {
+	li:last-child {
+		border-bottom: none;
+	}
+	.add-form {
 		display: flex;
-		gap: 0.5rem;
-		margin: 1.5rem 0;
+		gap: var(--space-2);
+		margin: var(--space-5) 0;
+	}
+	.add-form select {
+		width: auto;
 	}
 </style>

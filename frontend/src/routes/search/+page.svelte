@@ -43,12 +43,14 @@
 <p><a href="/">&larr; Back</a></p>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else}
-	<form onsubmit={handleSearch}>
+	<form class="card search-form" onsubmit={handleSearch}>
 		<FilterBuilder {keys} bind:filters />
 		<PresetControls scope="food" bind:filters />
-		<button type="submit" disabled={searching}>{searching ? 'Searching…' : 'Search'}</button>
+		<button type="submit" class="btn btn-primary" disabled={searching}>
+			{searching ? 'Searching…' : 'Search'}
+		</button>
 	</form>
 
 	{#if error}
@@ -58,9 +60,9 @@
 	{#if searched}
 		<h2>Results <span class="muted">({results.length}{results.length === 100 ? '+' : ''})</span></h2>
 		{#if results.length === 0}
-			<p>No foods match those filters.</p>
+			<p class="muted">No foods match those filters.</p>
 		{:else}
-			<ul>
+			<ul class="card">
 				{#each results as food (food.id)}
 					<li>
 						<a href="/foods/{food.id}">{food.name}</a>
@@ -73,27 +75,26 @@
 {/if}
 
 <style>
-	form {
+	.search-form {
 		max-width: 32rem;
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
-		margin-bottom: 1.5rem;
-	}
-	.error {
-		color: #b00020;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-		margin-left: 0.5rem;
+		gap: var(--space-4);
+		margin-bottom: var(--space-5);
 	}
 	ul {
 		list-style: none;
 		padding: 0;
+		margin: 0;
 	}
 	li {
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #eee;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
+		display: flex;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+	li:last-child {
+		border-bottom: none;
 	}
 </style>

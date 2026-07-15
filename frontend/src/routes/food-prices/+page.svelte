@@ -79,7 +79,7 @@
 {/if}
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else}
 	{#if prices.length === 0}
 		<p class="muted">No prices set yet.</p>
@@ -92,19 +92,23 @@
 						${price.package_price.toFixed(2)} / {price.package_quantity_g}g
 						(${price.price_per_100g.toFixed(2)} per 100g)
 					</span>
-					<button type="button" onclick={() => handleDelete(price.food_id)}>Remove</button>
+					<button type="button" class="btn btn-danger" onclick={() => handleDelete(price.food_id)}>
+						Remove
+					</button>
 				</li>
 			{/each}
 		</ul>
 	{/if}
 
-	<form onsubmit={handleAdd}>
+	<form class="card price-form" onsubmit={handleAdd}>
 		<h3>Add a price</h3>
 
 		{#if selectedFood}
 			<p>
 				Selected: <strong>{selectedFood.name}</strong>
-				<button type="button" onclick={() => (selectedFood = null)}>Change</button>
+				<button type="button" class="btn btn-secondary" onclick={() => (selectedFood = null)}>
+					Change
+				</button>
 			</p>
 		{:else}
 			<FoodSearchInput
@@ -113,52 +117,42 @@
 			/>
 		{/if}
 
-		<label>
-			Package price ($)
-			<input type="number" step="any" min="0" bind:value={packagePrice} required />
-		</label>
+		<div class="field">
+			<label for="package-price">Package price ($)</label>
+			<input id="package-price" type="number" step="any" min="0" bind:value={packagePrice} required />
+		</div>
 
-		<label>
-			Package size (g)
-			<input type="number" step="any" min="0" bind:value={packageQuantityG} required />
-		</label>
+		<div class="field">
+			<label for="package-size">Package size (g)</label>
+			<input id="package-size" type="number" step="any" min="0" bind:value={packageQuantityG} required />
+		</div>
 
-		<button type="submit" disabled={saving || !selectedFood}>{saving ? 'Saving…' : 'Save price'}</button>
+		<button type="submit" class="btn btn-primary" disabled={saving || !selectedFood}>
+			{saving ? 'Saving…' : 'Save price'}
+		</button>
 	</form>
 {/if}
 
 <style>
-	.error {
-		color: #b00020;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-		margin: 0 0.5rem;
-	}
 	.entries {
 		list-style: none;
 		padding: 0;
 	}
 	.entries li {
-		padding: 0.4rem 0;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-3);
 	}
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+	.entries li:last-child {
+		border-bottom: none;
+	}
+	.price-form {
 		max-width: 28rem;
-		margin: 1.5rem 0;
-		padding: 1rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
+		margin: var(--space-5) 0;
 	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
+	.price-form .field {
+		margin-top: var(--space-3);
 	}
 </style>

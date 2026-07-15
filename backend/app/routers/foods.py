@@ -64,9 +64,23 @@ def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db)):
     return db_food
 
 
-@router.get("", response_model=list[schemas.FoodOut])
-def list_foods(db: Session = Depends(get_db)):
-    return db.query(models.Food).order_by(models.Food.name).all()
+@router.get("", response_model=schemas.FoodListOut)
+def list_foods(limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 200")
+    if offset < 0:
+        raise HTTPException(status_code=422, detail="offset must be >= 0")
+
+    base_query = db.query(models.Food)
+    total = base_query.count()
+    items = base_query.order_by(models.Food.name).offset(offset).limit(limit).all()
+    return schemas.FoodListOut(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=offset + len(items) < total,
+    )
 
 
 @router.get("/search-by-name", response_model=list[schemas.FoodOut])

@@ -294,44 +294,43 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 <style>
 	.intro {
 		max-width: 40rem;
-		color: #444;
+		color: var(--color-text-muted);
 	}
 	section {
 		max-width: 40rem;
-		margin: 2rem 0;
+		margin: var(--space-6) 0;
 	}
 	h3 {
-		margin-bottom: 0.4rem;
+		margin-bottom: var(--space-2);
 	}
 	.muted {
-		color: #666;
-		font-size: 0.9em;
+		font-size: var(--font-size-sm);
 	}
 	code {
-		background: #f5f5f5;
+		background: var(--color-surface-muted);
 		padding: 0.1em 0.3em;
-		border-radius: 3px;
-		font-size: 0.9em;
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-sm);
 	}
 	pre {
-		background: #f5f5f5;
-		padding: 0.75rem;
-		border-radius: 4px;
-		font-size: 0.9em;
+		background: var(--color-surface-muted);
+		padding: var(--space-3);
+		border-radius: var(--radius-sm);
+		font-size: var(--font-size-sm);
 		overflow-x: auto;
 	}
 	.badge {
 		display: inline-block;
-		font-size: 0.85em;
+		font-size: var(--font-size-xs);
 		padding: 0.1em 0.5em;
-		border-radius: 999px;
+		border-radius: var(--radius-full);
 	}
 	.badge-measured {
-		background: #dff0d8;
-		color: #2d6a2d;
+		background: var(--color-success-subtle);
+		color: var(--color-success);
 	}
 	.badge-estimated {
-		background: #fdf3d0;
-		color: #8a6d00;
+		background: var(--color-warning-subtle);
+		color: var(--color-warning);
 	}
 </style>

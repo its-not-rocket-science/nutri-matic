@@ -91,35 +91,39 @@
 <p><a href="/recipes/new">+ New recipe</a> · <a href="/collections">Collections</a></p>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else}
 	<p>
-		<button type="button" onclick={() => (showFilters = !showFilters)}>
+		<button type="button" class="btn btn-secondary" onclick={() => (showFilters = !showFilters)}>
 			{showFilters ? 'Hide filters' : 'Filter by nutrient goals'}
 		</button>
 	</p>
 
 	{#if showFilters}
-		<form onsubmit={handleFilter}>
+		<form class="card filter-form" onsubmit={handleFilter}>
 			<FilterBuilder keys={filterKeys} bind:filters />
 			<PresetControls scope="recipe" bind:filters />
 			<div class="actions">
-				<button type="submit" disabled={filtering}>{filtering ? 'Filtering…' : 'Apply filters'}</button>
-				<button type="button" onclick={clearFilters} disabled={filtering}>Clear</button>
+				<button type="submit" class="btn btn-primary" disabled={filtering}>
+					{filtering ? 'Filtering…' : 'Apply filters'}
+				</button>
+				<button type="button" class="btn btn-secondary" onclick={clearFilters} disabled={filtering}>
+					Clear
+				</button>
 			</div>
 		</form>
 	{/if}
 
 	{#if myTags.length > 0}
-		<p class="tag-filter">
-			Filter by tag:
-			<select bind:value={tagFilter} onchange={handleTagFilter}>
+		<div class="field tag-filter">
+			<label for="tag-filter">Filter by tag</label>
+			<select id="tag-filter" bind:value={tagFilter} onchange={handleTagFilter}>
 				<option value="">All</option>
 				{#each myTags as tag (tag)}
 					<option value={tag}>{tag}</option>
 				{/each}
 			</select>
-		</p>
+		</div>
 	{/if}
 
 	{#if error}
@@ -128,9 +132,9 @@
 
 	<h2>My recipes</h2>
 	{#if recipes.length === 0}
-		<p>No recipes match.</p>
+		<p class="muted">No recipes match.</p>
 	{:else}
-		<ul>
+		<ul class="card">
 			{#each recipes as recipe (recipe.id)}
 				<li>
 					<a href="/recipes/{recipe.id}">{recipe.name}</a>
@@ -147,9 +151,9 @@
 
 	<h2>Shared with me</h2>
 	{#if sharedRecipes.length === 0}
-		<p>No recipes have been shared with you.</p>
+		<p class="muted">No recipes have been shared with you.</p>
 	{:else}
-		<ul>
+		<ul class="card">
 			{#each sharedRecipes as recipe (recipe.id)}
 				<li>
 					<a href="/recipes/{recipe.id}">{recipe.name}</a>
@@ -161,6 +165,7 @@
 					</span>
 					<button
 						type="button"
+						class="btn btn-secondary"
 						onclick={() => handleCopy(recipe.id)}
 						disabled={copyingId === recipe.id}
 					>
@@ -173,37 +178,33 @@
 {/if}
 
 <style>
-	form {
+	.filter-form {
 		max-width: 32rem;
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
-		margin: 1rem 0 1.5rem;
-		padding: 1rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
+		gap: var(--space-4);
+		margin: var(--space-4) 0 var(--space-5);
 	}
 	.actions {
 		display: flex;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
-	.muted {
-		color: #666;
-		margin-left: 0.5rem;
-		font-size: 0.9em;
-	}
-	.error {
-		color: #b00020;
+	.tag-filter {
+		max-width: 16rem;
 	}
 	ul {
 		list-style: none;
 		padding: 0;
+		margin: 0 0 var(--space-5);
 	}
 	li {
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #eee;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-2);
+	}
+	li:last-child {
+		border-bottom: none;
 	}
 </style>

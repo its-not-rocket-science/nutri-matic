@@ -140,28 +140,30 @@
 
 	<details class="sourcing-detail">
 		<summary>Show sourcing &amp; confidence for every nutrient above</summary>
-		<table>
-			<thead>
-				<tr>
-					<th>Nutrient</th>
-					<th>Confidence</th>
-					<th>Source</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each nutrients.filter((n) => n.drv_source) as n (n.key)}
+		<div class="table-scroll">
+			<table>
+				<thead>
 					<tr>
-						<td>{n.name}</td>
-						<td>
-							<span class="confidence-badge confidence-{n.drv_confidence}">
-								{n.drv_confidence?.replaceAll('_', ' ')}
-							</span>
-						</td>
-						<td class="muted">{n.drv_source}</td>
+						<th>Nutrient</th>
+						<th>Confidence</th>
+						<th>Source</th>
 					</tr>
-				{/each}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					{#each nutrients.filter((n) => n.drv_source) as n (n.key)}
+						<tr>
+							<td>{n.name}</td>
+							<td>
+								<span class="confidence-badge confidence-{n.drv_confidence}">
+									{n.drv_confidence?.replaceAll('_', ' ')}
+								</span>
+							</td>
+							<td class="muted">{n.drv_source}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 	</details>
 {/if}
 
@@ -169,92 +171,89 @@
 	.energy {
 		display: flex;
 		align-items: baseline;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		flex-wrap: wrap;
-		margin-bottom: 1rem;
-		font-size: 1.1em;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
+		margin-bottom: var(--space-4);
+		font-size: var(--font-size-md);
+		font-variant-numeric: tabular-nums;
 	}
 	.bars {
 		list-style: none;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--space-2);
 	}
 	.bars li {
 		display: grid;
-		grid-template-columns: 12rem 1fr auto;
+		grid-template-columns: 12rem 1fr 9rem;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-3);
 	}
 	.bars .aa-value {
 		white-space: nowrap;
+		text-align: right;
+		font-variant-numeric: tabular-nums;
 	}
 	.absorbed-note {
 		grid-column: 1 / -1;
-		font-size: 0.8em;
+		font-size: var(--font-size-xs);
 		font-style: italic;
 	}
+
+	@media (max-width: 30rem) {
+		.bars li {
+			grid-template-columns: 1fr auto;
+			row-gap: var(--space-1);
+		}
+		.bar-track {
+			grid-column: 1 / -1;
+		}
+	}
 	.bar-track {
-		background: #eee;
-		border-radius: 4px;
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-sm);
 		height: 0.75rem;
 		overflow: hidden;
 	}
 	.bar-fill {
 		display: block;
 		height: 100%;
-		background: #3a7d44;
+		background: var(--color-success);
 	}
 	.gap .aa-name,
 	.gap .aa-value {
-		font-weight: bold;
-		color: #b00020;
+		font-weight: var(--font-weight-bold);
+		color: var(--color-danger);
 	}
 	.gap .bar-fill {
-		background: #b00020;
+		background: var(--color-danger);
 	}
 	.sourcing-detail {
-		margin-top: 0.75rem;
-		font-size: 0.85em;
+		margin-top: var(--space-3);
+		font-size: var(--font-size-sm);
 	}
 	.sourcing-detail table {
-		width: 100%;
-		border-collapse: collapse;
-		margin-top: 0.5rem;
-	}
-	.sourcing-detail th {
-		text-align: left;
-		border-bottom: 1px solid #ccc;
-		padding: 0.25rem 0.5rem 0.25rem 0;
-	}
-	.sourcing-detail td {
-		padding: 0.35rem 0.5rem 0.35rem 0;
-		border-bottom: 1px solid #eee;
-		vertical-align: top;
+		margin-top: var(--space-2);
 	}
 	.confidence-badge {
 		display: inline-block;
-		font-size: 0.9em;
+		font-size: var(--font-size-xs);
 		padding: 0.1em 0.5em;
-		border-radius: 999px;
+		border-radius: var(--radius-full);
 		white-space: nowrap;
 		text-transform: capitalize;
 	}
 	.confidence-live_confirmed {
-		background: #dff0d8;
-		color: #2d6a2d;
+		background: var(--color-success-subtle);
+		color: var(--color-success);
 	}
 	.confidence-secondary_source {
-		background: #f0f0f0;
-		color: #555;
+		background: var(--color-surface-muted);
+		color: var(--color-text-muted);
 	}
 	.confidence-personalized_calculation {
-		background: #d9e8fb;
-		color: #1d4e89;
+		background: var(--color-primary-subtle);
+		color: var(--color-primary);
 	}
 </style>

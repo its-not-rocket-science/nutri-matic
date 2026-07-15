@@ -49,7 +49,7 @@
 <p><a href="/">&larr; Back</a></p>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else if error}
 	<p class="error">{error}</p>
 {:else if food}
@@ -59,7 +59,7 @@
 	{#if diaasScore}
 		<ScoreCard label="DIAAS" score={diaasScore} />
 		{#if diaasComplement && diaasComplement.suggestions.length > 0}
-			<section class="complement">
+			<section class="card complement">
 				<h3>Pair with, to improve DIAAS</h3>
 				<p class="muted">
 					100g {food.name} + 100g of one of these — {diaasComplement.limiting_amino_acid} is what's
@@ -87,7 +87,7 @@
 	{#if pdcaasScore}
 		<ScoreCard label="PDCAAS" score={pdcaasScore} />
 		{#if pdcaasComplement && pdcaasComplement.suggestions.length > 0}
-			<section class="complement">
+			<section class="card complement">
 				<h3>Pair with, to improve PDCAAS</h3>
 				<p class="muted">
 					100g {food.name} + 100g of one of these — {pdcaasComplement.limiting_amino_acid} is what's
@@ -140,41 +140,33 @@
 					<dd>{provenance.digestibility_pdcaas_source}</dd>
 				{/if}
 			</dl>
-			<table>
-				<thead>
-					<tr>
-						<th>Nutrient</th>
-						<th>USDA nutrient #</th>
-						<th>Amount / 100g</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each provenance.nutrients as n (n.key)}
+			<div class="table-scroll">
+				<table>
+					<thead>
 						<tr>
-							<td>{n.name}</td>
-							<td>{n.fdc_nutrient_nbr}</td>
-							<td>{n.amount_per_100g}</td>
+							<th>Nutrient</th>
+							<th>USDA nutrient #</th>
+							<th>Amount / 100g</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{#each provenance.nutrients as n (n.key)}
+							<tr>
+								<td>{n.name}</td>
+								<td>{n.fdc_nutrient_nbr}</td>
+								<td>{n.amount_per_100g}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		</details>
 	{/if}
 {/if}
 
 <style>
-	.error {
-		color: #b00020;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-	}
 	.complement {
-		margin: 0.5rem 0 1.5rem;
-		padding: 0.75rem 1rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
+		margin: var(--space-3) 0 var(--space-5);
 	}
 	.complement h3 {
 		margin-top: 0;
@@ -184,42 +176,35 @@
 		padding: 0;
 	}
 	.entries li {
-		padding: 0.2rem 0;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.entries li:last-child {
+		border-bottom: none;
 	}
 	.why {
-		margin: 0.15rem 0 0.5rem;
-		font-size: 0.85em;
-		color: #555;
+		margin: 0.15rem 0 var(--space-2);
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted);
 	}
 	.provenance {
-		margin: 1rem 0;
-		font-size: 0.85em;
+		margin: var(--space-4) 0;
+		font-size: var(--font-size-sm);
 	}
 	.provenance dl {
 		display: grid;
 		grid-template-columns: auto 1fr;
-		gap: 0.2rem 0.75rem;
-		margin: 0.5rem 0 1rem;
+		gap: 0.2rem var(--space-3);
+		margin: var(--space-2) 0 var(--space-4);
 	}
 	.provenance dt {
-		font-weight: 600;
-		color: #555;
+		font-weight: var(--font-weight-medium);
+		color: var(--color-text-muted);
 	}
 	.provenance dd {
 		margin: 0;
 	}
 	.provenance table {
-		width: 100%;
-		border-collapse: collapse;
-		max-height: 20rem;
-	}
-	.provenance th {
-		text-align: left;
-		border-bottom: 1px solid #ccc;
-		padding: 0.25rem 0.5rem 0.25rem 0;
-	}
-	.provenance td {
-		padding: 0.25rem 0.5rem 0.25rem 0;
-		border-bottom: 1px solid #eee;
+		max-width: 40rem;
 	}
 </style>

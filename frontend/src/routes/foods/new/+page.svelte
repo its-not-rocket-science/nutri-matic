@@ -71,64 +71,68 @@
 <h1>Add a food</h1>
 <p><a href="/">&larr; Back</a></p>
 
-<form onsubmit={handleSubmit}>
-	<label>
-		Name
-		<input type="text" bind:value={name} required />
-	</label>
+<form class="card food-form" onsubmit={handleSubmit}>
+	<div class="field">
+		<label for="food-name">Name</label>
+		<input id="food-name" type="text" bind:value={name} required />
+	</div>
 
-	<label>
-		Protein (g per 100g)
-		<input type="number" step="any" min="0" bind:value={proteinPer100g} required />
-	</label>
+	<div class="field">
+		<label for="food-protein">Protein (g per 100g)</label>
+		<input id="food-protein" type="number" step="any" min="0" bind:value={proteinPer100g} required />
+	</div>
 
 	<fieldset>
 		<legend>Amino acids (mg per g protein)</legend>
-		{#each aaKeys as key (key)}
-			<label>
-				{AMINO_ACID_LABELS[key]}
-				<input type="number" step="any" min="0" bind:value={aminoAcids[key]} required />
-			</label>
-		{/each}
+		<div class="aa-grid">
+			{#each aaKeys as key (key)}
+				<div class="field">
+					<label for="aa-{key}">{AMINO_ACID_LABELS[key]}</label>
+					<input id="aa-{key}" type="number" step="any" min="0" bind:value={aminoAcids[key]} required />
+				</div>
+			{/each}
+		</div>
 	</fieldset>
 
 	<fieldset>
 		<legend>Digestibility</legend>
-		<label>
-			DIAAS digestibility (uniform SID coefficient, 0–1)
-			<input type="number" step="any" min="0" max="1" bind:value={diaasDigestibility} />
-		</label>
-		<label>
-			PDCAAS overall digestibility (0–1)
-			<input type="number" step="any" min="0" max="1" bind:value={pdcaasDigestibility} />
-		</label>
+		<div class="field">
+			<label for="diaas-digestibility">DIAAS digestibility (uniform SID coefficient, 0–1)</label>
+			<input id="diaas-digestibility" type="number" step="any" min="0" max="1" bind:value={diaasDigestibility} />
+		</div>
+		<div class="field">
+			<label for="pdcaas-digestibility">PDCAAS overall digestibility (0–1)</label>
+			<input id="pdcaas-digestibility" type="number" step="any" min="0" max="1" bind:value={pdcaasDigestibility} />
+		</div>
 	</fieldset>
 
 	{#if error}
 		<p class="error">{error}</p>
 	{/if}
 
-	<button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save food'}</button>
+	<button type="submit" class="btn btn-primary" disabled={submitting}>
+		{submitting ? 'Saving…' : 'Save food'}
+	</button>
 </form>
 
 <style>
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		max-width: 32rem;
-	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
+	.food-form {
+		max-width: 34rem;
 	}
 	fieldset {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: var(--space-4);
+		margin: 0 0 var(--space-4);
 	}
-	.error {
-		color: #b00020;
+	legend {
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-medium);
+		padding: 0 var(--space-2);
+	}
+	.aa-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+		gap: 0 var(--space-4);
 	}
 </style>

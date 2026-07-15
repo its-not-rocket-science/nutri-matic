@@ -115,48 +115,57 @@
 	<p class="error">{error}</p>
 {/if}
 
-<form onsubmit={handleLog}>
+<form class="card log-form" onsubmit={handleLog}>
 	<h3>Log weight</h3>
-	<label>
-		Date
-		<input type="date" bind:value={logDate} required />
-	</label>
-	<label>
-		Weight (kg)
-		<input type="number" step="any" min="0" bind:value={weightKg} required />
-	</label>
-	<button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Log weight'}</button>
+	<div class="field">
+		<label for="log-date">Date</label>
+		<input id="log-date" type="date" bind:value={logDate} required />
+	</div>
+	<div class="field">
+		<label for="log-weight">Weight (kg)</label>
+		<input id="log-weight" type="number" step="any" min="0" bind:value={weightKg} required />
+	</div>
+	<button type="submit" class="btn btn-primary" disabled={saving}>
+		{saving ? 'Saving…' : 'Log weight'}
+	</button>
 </form>
 
 <div class="controls">
-	<label>
-		From
-		<input type="date" bind:value={startDate} onchange={load} />
-	</label>
-	<label>
-		To
-		<input type="date" bind:value={endDate} onchange={load} />
-	</label>
+	<div class="field">
+		<label for="range-start">From</label>
+		<input id="range-start" type="date" bind:value={startDate} onchange={load} />
+	</div>
+	<div class="field">
+		<label for="range-end">To</label>
+		<input id="range-end" type="date" bind:value={endDate} onchange={load} />
+	</div>
 </div>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else if logs.length === 0}
 	<p class="muted">No weight logged in this range yet.</p>
 {:else}
-	<svg class="chart" viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}" role="img" aria-label="Weight over time">
-		<polyline points={polylinePoints} class="line" />
-		{#each chartPoints as p (p.log.id)}
-			<circle cx={p.x} cy={p.y} r="3" class="point" />
-		{/each}
-	</svg>
+	<div class="card chart-card">
+		<svg class="chart" viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}" role="img" aria-label="Weight over time">
+			<polyline points={polylinePoints} class="line" />
+			{#each chartPoints as p (p.log.id)}
+				<circle cx={p.x} cy={p.y} r="3" class="point" />
+			{/each}
+		</svg>
+	</div>
 
 	<ul class="entries">
 		{#each [...logs].reverse() as log (log.id)}
 			<li>
 				<span>{log.log_date}</span>
 				<span class="muted">{log.weight_kg}kg</span>
-				<button type="button" onclick={() => handleDelete(log.id)} disabled={deletingId === log.id}>
+				<button
+					type="button"
+					class="btn btn-danger"
+					onclick={() => handleDelete(log.id)}
+					disabled={deletingId === log.id}
+				>
 					{deletingId === log.id ? 'Deleting…' : 'Delete'}
 				</button>
 			</li>
@@ -165,59 +174,44 @@
 {/if}
 
 <style>
-	.error {
-		color: #b00020;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-		margin: 0 0.5rem;
-	}
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+	.log-form {
 		max-width: 20rem;
-		margin: 1.5rem 0;
-		padding: 1rem;
-		border: 1px solid #eee;
-		border-radius: 4px;
-	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
+		margin: var(--space-5) 0;
 	}
 	.controls {
 		display: flex;
-		gap: 1rem;
-		margin-bottom: 1rem;
+		gap: var(--space-4);
+		margin-bottom: var(--space-4);
 	}
-	.controls label {
-		font-size: 0.9em;
+	.chart-card {
+		max-width: 30rem;
+		margin-bottom: var(--space-4);
 	}
 	.chart {
 		width: 100%;
-		max-width: 30rem;
 		height: auto;
-		margin-bottom: 1rem;
+		display: block;
 	}
 	.line {
 		fill: none;
-		stroke: #3a6ea5;
+		stroke: var(--color-primary);
 		stroke-width: 2;
 	}
 	.point {
-		fill: #3a6ea5;
+		fill: var(--color-primary);
 	}
 	.entries {
 		list-style: none;
 		padding: 0;
 	}
 	.entries li {
-		padding: 0.25rem 0;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-3);
+	}
+	.entries li:last-child {
+		border-bottom: none;
 	}
 </style>

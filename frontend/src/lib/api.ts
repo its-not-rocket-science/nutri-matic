@@ -18,6 +18,7 @@ import type {
 	FilterScope,
 	Food,
 	FoodCreate,
+	FoodList,
 	FoodPrice,
 	FoodPriceCreate,
 	FoodProvenance,
@@ -51,14 +52,35 @@ import type {
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+// Without this, a request that never gets a response (dead backend, stalled
+// proxy, huge unpaginated payload) leaves every "Loading…" screen spinning
+// forever instead of surfacing an error — see the pagination fix on
+// GET /api/foods for the case that originally exposed this.
+const REQUEST_TIMEOUT_MS = 20_000;
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 	if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`;
 
-	const res = await fetch(`${API_URL}${path}`, {
-		headers,
-		...options
-	});
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+	let res: Response;
+	try {
+		res = await fetch(`${API_URL}${path}`, {
+			headers,
+			signal: controller.signal,
+			...options
+		});
+	} catch (e) {
+		if (e instanceof DOMException && e.name === 'AbortError') {
+			throw new Error('Request timed out. Please check your connection and try again.');
+		}
+		throw new Error('Network error. Please check your connection and try again.');
+	} finally {
+		clearTimeout(timeout);
+	}
+
 	if (res.status === 401 && auth.token) {
 		// Token expired or invalid (tokens are now 24h-lived, not 7 days — see
 		// docs/auth-model-review.md) — clear it and send the user back to log
@@ -76,7 +98,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-	listFoods: () => request<Food[]>('/api/foods'),
+	listFoods: (limit = 10, offset = 0) =>
+		request<FoodList>(`/api/foods?limit=${limit}&offset=${offset}`),
 	getFood: (id: number) => request<Food>(`/api/foods/${id}`),
 	createFood: (food: FoodCreate) =>
 		request<Food>('/api/foods', { method: 'POST', body: JSON.stringify(food) }),
