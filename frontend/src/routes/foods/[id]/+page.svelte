@@ -72,6 +72,12 @@
 							<span class="muted">
 								&rarr; {s.combined_score.toFixed(1)}% (+{s.score_improvement.toFixed(1)})
 							</span>
+							<p class="why">
+								{s.food_name} is rich in {diaasComplement.limiting_amino_acid} — the amino acid
+								{food.name}'s protein is shortest on. Combined, one food's surplus covers the
+								other's gap, actually simulated and scored (not a folklore guess): DIAAS goes
+								from {diaasComplement.original_score.toFixed(1)}% to {s.combined_score.toFixed(1)}%.
+							</p>
 						</li>
 					{/each}
 				</ul>
@@ -94,6 +100,12 @@
 							<span class="muted">
 								&rarr; {s.combined_score.toFixed(1)}% (+{s.score_improvement.toFixed(1)})
 							</span>
+							<p class="why">
+								{s.food_name} is rich in {pdcaasComplement.limiting_amino_acid} — the amino acid
+								{food.name}'s protein is shortest on. Combined, one food's surplus covers the
+								other's gap, actually simulated and scored (not a folklore guess): PDCAAS goes
+								from {pdcaasComplement.original_score.toFixed(1)}% to {s.combined_score.toFixed(1)}%.
+							</p>
 						</li>
 					{/each}
 				</ul>
@@ -173,6 +185,11 @@
 	}
 	.entries li {
 		padding: 0.2rem 0;
+	}
+	.why {
+		margin: 0.15rem 0 0.5rem;
+		font-size: 0.85em;
+		color: #555;
 	}
 	.provenance {
 		margin: 1rem 0;

@@ -20,11 +20,28 @@ aggregate_nutrients — the same machinery the diary endpoints themselves
 use — not estimated from the candidate's raw per-100g content alone.
 Ranked by improvement (percentage points of %DRV gained), and, where the
 change has a calorie cost, improvement per 100kcal — a real computed
-ranking axis. "Per cost" and "per serving" ranking (both mentioned as
-options for this kind of feature) are deliberately not implemented: food
-price is set for very few foods (it's optional, user-entered), and "per
-serving" isn't well-defined for a raw addition to a meal — forcing either
-would mean fabricating numbers this app has no real basis for computing.
+ranking axis.
+
+Cost: `prices_by_food_id`, when the caller supplies it (from the signed-in
+user's own FoodPrice rows — optional, user-entered), attaches a real
+estimated cost to each suggestion and can filter out ones that would
+exceed a stated `max_additional_cost`. When a candidate has no price on
+file, `estimated_cost` is left `None` rather than defaulting to 0 or being
+silently excluded — an unpriced suggestion still gets shown (nutritionally
+it may be the best option), just without a cost figure attached, same
+"don't fabricate, don't hide" convention as the rest of this app.
+
+Deliberately still not implemented, because there is no real data behind
+them and fabricating one would violate the same convention: **prep time**
+(no per-food/recipe time-to-prepare data exists anywhere in the schema),
+**dietary restriction / allergy filtering** (foods have no allergen or
+diet-tag data — USDA FDC doesn't supply it either), **family-size
+scaling** (quantities here are per-person; scaling is just multiplication
+the caller can do, not something the optimizer needs to model), and
+**preferred store** (FoodPrice is one price per food per user, not priced
+per store — there's no store dimension to select). Each would need a real
+schema addition before it could be built honestly; see
+docs/optimizer-constraints-scoping.md.
 """
 
 from dataclasses import dataclass
@@ -32,10 +49,21 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_nutrients
-from .models import Food, FoodNutrient
+from .models import Food, FoodNutrient, FoodPrice
 
 ADD_TRIAL_QUANTITY_G = 30.0
 CANDIDATE_SHORTLIST_SIZE = 8
+
+
+def load_prices_by_food_id(db: Session, user_id: int) -> dict[int, float]:
+    """Real price-per-100g for every food this user has priced (FoodPrice is
+    optional and user-entered — see food_prices.py). Loaded unfiltered by
+    food id (a personal price list) since swap candidates are only
+    discovered inside suggest_meal_optimizations itself, after this would
+    otherwise need to run. Shared by the diary and meal-plan optimize
+    endpoints so both compute cost the same way."""
+    prices = db.query(FoodPrice).filter(FoodPrice.user_id == user_id).all()
+    return {p.food_id: p.package_price / p.package_quantity_g * 100 for p in prices}
 
 
 @dataclass
@@ -51,6 +79,10 @@ class OptimizationSuggestion:
     improvement: float
     calories_added: float
     improvement_per_100kcal: float | None
+    # None when the food (or, for a swap, either food) has no price on file
+    # for this user — never fabricated, never defaulted to 0
+    estimated_cost: float | None
+    rationale: str
 
 
 def _family_key(name: str) -> str:
@@ -75,6 +107,24 @@ def _simulate_percent_drv(
     return totals.get(target_nutrient_key, 0.0) / target_drv * 100
 
 
+def _add_cost(prices_by_food_id: dict[int, float] | None, food_id: int, quantity_g: float) -> float | None:
+    if not prices_by_food_id or food_id not in prices_by_food_id:
+        return None
+    return prices_by_food_id[food_id] * quantity_g / 100
+
+
+def _swap_cost(
+    prices_by_food_id: dict[int, float] | None, old_food_id: int, new_food_id: int, quantity_g: float
+) -> float | None:
+    if not prices_by_food_id or old_food_id not in prices_by_food_id or new_food_id not in prices_by_food_id:
+        return None
+    return (prices_by_food_id[new_food_id] - prices_by_food_id[old_food_id]) * quantity_g / 100
+
+
+def _target_label(target_nutrient_name: str | None, target_nutrient_key: str) -> str:
+    return target_nutrient_name or target_nutrient_key
+
+
 def suggest_meal_optimizations(
     db: Session,
     other_items: list[WeightedFood],
@@ -84,12 +134,23 @@ def suggest_meal_optimizations(
     target_drv: float,
     gap_candidates: list[Food],
     limit: int = 5,
+    target_nutrient_name: str | None = None,
+    prices_by_food_id: dict[int, float] | None = None,
+    max_additional_cost: float | None = None,
 ) -> list[OptimizationSuggestion]:
     """other_items: every other meal's expanded items that day, plus any
     recipe-derived items from the meal being optimized (not swap-eligible
     — swapping one ingredient inside an eaten recipe isn't this feature's
     job). swappable_items: this meal's directly-logged (non-recipe) food
-    items, the only ones eligible to be swapped out."""
+    items, the only ones eligible to be swapped out.
+
+    prices_by_food_id: real price-per-100g for the calling user's own
+    FoodPrice rows (never fabricated — see module docstring). When given,
+    max_additional_cost drops suggestions whose *known* cost exceeds it;
+    suggestions with no price on file are never dropped for cost reasons,
+    since excluding them would bias results toward whatever happens to be
+    priced rather than what's nutritionally best."""
+    label = _target_label(target_nutrient_name, target_nutrient_key)
     baseline_items = other_items + swappable_items
     before_percent = _simulate_percent_drv(baseline_items, by_food_id, target_nutrient_key, target_drv)
 
@@ -103,6 +164,9 @@ def suggest_meal_optimizations(
         if improvement <= 0:
             continue
         calories_added = _energy_per_100g(by_food_id, candidate.id) * ADD_TRIAL_QUANTITY_G / 100
+        estimated_cost = _add_cost(prices_by_food_id, candidate.id, ADD_TRIAL_QUANTITY_G)
+        if max_additional_cost is not None and estimated_cost is not None and estimated_cost > max_additional_cost:
+            continue
         suggestions.append(
             OptimizationSuggestion(
                 action="add",
@@ -116,6 +180,12 @@ def suggest_meal_optimizations(
                 improvement=improvement,
                 calories_added=calories_added,
                 improvement_per_100kcal=(improvement / (calories_added / 100)) if calories_added > 0 else None,
+                estimated_cost=estimated_cost,
+                rationale=(
+                    f"Adding {ADD_TRIAL_QUANTITY_G:.0f}g of {candidate.name} raises {label} from "
+                    f"{before_percent:.0f}% to {after_percent:.0f}% of target — a real simulated change, "
+                    f"not an estimate from this food's raw content alone."
+                ),
             )
         )
 
@@ -140,6 +210,9 @@ def suggest_meal_optimizations(
             old_energy = _energy_per_100g(by_food_id, item.food.id)
             new_energy = _energy_per_100g(by_food_id, candidate.id)
             calories_added = (new_energy - old_energy) * item.quantity_g / 100
+            estimated_cost = _swap_cost(prices_by_food_id, item.food.id, candidate.id, item.quantity_g)
+            if max_additional_cost is not None and estimated_cost is not None and estimated_cost > max_additional_cost:
+                continue
             suggestions.append(
                 OptimizationSuggestion(
                     action="swap",
@@ -153,6 +226,12 @@ def suggest_meal_optimizations(
                     improvement=improvement,
                     calories_added=calories_added,
                     improvement_per_100kcal=(improvement / (calories_added / 100)) if calories_added > 0 else None,
+                    estimated_cost=estimated_cost,
+                    rationale=(
+                        f"Swapping {item.food.name} for {candidate.name} raises {label} from "
+                        f"{before_percent:.0f}% to {after_percent:.0f}% of target — same family of food, "
+                        f"same quantity, actually simulated rather than assumed interchangeable."
+                    ),
                 )
             )
 

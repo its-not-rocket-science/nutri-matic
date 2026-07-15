@@ -1,5 +1,9 @@
+import { goto } from '$app/navigation';
 import { auth } from './auth.svelte';
 import type {
+	ClinicianClientSummary,
+	ClinicianLink,
+	ClinicianNote,
 	Collection,
 	CollectionDetail,
 	Complement,
@@ -7,6 +11,7 @@ import type {
 	DiaryEntryCreate,
 	DiaryMealTemplate,
 	DiaryMealTemplateDetail,
+	DiarySnapshot,
 	DiarySummary,
 	DiaryTrends,
 	FilterKeysResponse,
@@ -24,6 +29,7 @@ import type {
 	MealPlanTemplate,
 	MealPlanTemplateDetail,
 	NutrientAmount,
+	PlanOptimization,
 	ProfileUpdate,
 	QuickAdd,
 	Recipe,
@@ -53,6 +59,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 		headers,
 		...options
 	});
+	if (res.status === 401 && auth.token) {
+		// Token expired or invalid (tokens are now 24h-lived, not 7 days — see
+		// docs/auth-model-review.md) — clear it and send the user back to log
+		// in rather than surfacing a raw "Invalid or expired token" error.
+		auth.logout();
+		await goto('/login');
+		throw new Error('Session expired — please log in again.');
+	}
 	if (!res.ok) {
 		const body = await res.json().catch(() => ({}));
 		throw new Error(body.detail ?? `Request failed: ${res.status}`);
@@ -142,8 +156,15 @@ export const api = {
 	getQuickAdd: () => request<QuickAdd>('/api/diary/quick-add'),
 	getGapSuggestions: (entryDate: string) =>
 		request<GapSuggestion | null>(`/api/diary/gap-suggestions?entry_date=${entryDate}`),
-	getMealOptimization: (entryDate: string, meal: Meal) =>
-		request<MealOptimization | null>(`/api/diary/meal-optimize?entry_date=${entryDate}&meal=${meal}`),
+	getDiarySnapshot: (entryDate: string) =>
+		request<DiarySnapshot | null>(`/api/diary/snapshot?entry_date=${entryDate}`),
+	createDiarySnapshot: (entryDate: string) =>
+		request<DiarySnapshot>(`/api/diary/snapshot?entry_date=${entryDate}`, { method: 'POST' }),
+	getMealOptimization: (entryDate: string, meal: Meal, maxAdditionalCost?: number | null) =>
+		request<MealOptimization | null>(
+			`/api/diary/meal-optimize?entry_date=${entryDate}&meal=${meal}` +
+				(maxAdditionalCost != null ? `&max_additional_cost=${maxAdditionalCost}` : '')
+		),
 
 	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>('/api/diary-meal-templates'),
 	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>
@@ -167,6 +188,11 @@ export const api = {
 		request<DiaryEntry>(`/api/meal-plan/${id}/mark-eaten`, { method: 'POST' }),
 	getShoppingList: (startDate: string, endDate: string) =>
 		request<ShoppingList>(`/api/meal-plan/shopping-list?start_date=${startDate}&end_date=${endDate}`),
+	getPlanOptimization: (startDate: string, endDate: string, maxAdditionalCost?: number | null) =>
+		request<PlanOptimization | null>(
+			`/api/meal-plan/optimize?start_date=${startDate}&end_date=${endDate}` +
+				(maxAdditionalCost != null ? `&max_additional_cost=${maxAdditionalCost}` : '')
+		),
 
 	listMealPlanTemplates: () => request<MealPlanTemplate[]>('/api/meal-plan-templates'),
 	createMealPlanTemplate: (name: string, startDate: string, endDate: string) =>
@@ -206,5 +232,28 @@ export const api = {
 			body: JSON.stringify({ recipe_id: recipeId })
 		}),
 	removeRecipeFromCollection: (collectionId: number, recipeId: number) =>
-		request<CollectionDetail>(`/api/collections/${collectionId}/recipes/${recipeId}`, { method: 'DELETE' })
+		request<CollectionDetail>(`/api/collections/${collectionId}/recipes/${recipeId}`, { method: 'DELETE' }),
+
+	inviteClinicianClient: (clientEmail: string) =>
+		request<ClinicianLink>('/api/clinician/invites', {
+			method: 'POST',
+			body: JSON.stringify({ client_email: clientEmail })
+		}),
+	listPendingClinicianInvites: () => request<ClinicianLink[]>('/api/clinician/invites/pending'),
+	acceptClinicianInvite: (linkId: number) =>
+		request<ClinicianLink>(`/api/clinician/invites/${linkId}/accept`, { method: 'POST' }),
+	declineClinicianInvite: (linkId: number) =>
+		request<ClinicianLink>(`/api/clinician/invites/${linkId}/decline`, { method: 'POST' }),
+	listClinicianClients: () => request<ClinicianLink[]>('/api/clinician/clients'),
+	revokeClinicianClient: (clientUserId: number) =>
+		request<void>(`/api/clinician/clients/${clientUserId}`, { method: 'DELETE' }),
+	getClinicianClientSummary: (clientUserId: number, entryDate: string) =>
+		request<ClinicianClientSummary>(`/api/clinician/clients/${clientUserId}/summary?entry_date=${entryDate}`),
+	listClinicianNotes: (clientUserId: number) =>
+		request<ClinicianNote[]>(`/api/clinician/clients/${clientUserId}/notes`),
+	createClinicianNote: (clientUserId: number, noteText: string) =>
+		request<ClinicianNote>(`/api/clinician/clients/${clientUserId}/notes`, {
+			method: 'POST',
+			body: JSON.stringify({ note_text: noteText })
+		})
 };

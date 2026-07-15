@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nutrimatic
+          POSTGRES_PASSWORD: nutrimatic
+          POSTGRES_DB: nutrimatic
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nutrimatic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://nutrimatic:nutrimatic@localhost:5432/nutrimatic
+      JWT_SECRET: ci-test-secret-not-for-production-use
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Run backend tests
+        working-directory: backend
+        run: pytest -q
+      - name: Dependency vulnerability scan (informational)
+        working-directory: backend
+        # Non-blocking: reports known CVEs in dependencies without failing
+        # the build. A blocking scan would need a documented process for
+        # handling findings with no available non-breaking fix (see
+        # docs/production-readiness-audit.md) — not set up yet, so this
+        # stays informational rather than red-herring-failing CI on
+        # something no one has a safe fix for.
+        run: pip install pip-audit && pip-audit -r requirements.txt || true
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Type-check
+        working-directory: frontend
+        run: npm run check
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: Dependency vulnerability scan (informational)
+        working-directory: frontend
+        run: npm audit --audit-level=high || true

@@ -7,7 +7,16 @@
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
-	import type { Food, Meal, MealPlanEntry, MealPlanTemplate, Recipe, ShoppingList } from '$lib/types';
+	import type {
+		Food,
+		Meal,
+		MealPlanEntry,
+		MealPlanTemplate,
+		OptimizationSuggestion,
+		PlanOptimization,
+		Recipe,
+		ShoppingList
+	} from '$lib/types';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
@@ -55,6 +64,11 @@
 	let showShoppingList = $state(false);
 	let shoppingList: ShoppingList | null = $state(null);
 	let loadingShoppingList = $state(false);
+
+	let planOptimization: PlanOptimization | null = $state(null);
+	let optimizingPlan = $state(false);
+	let optimizeBudget: number | null = $state(null);
+	let applyingPlanSuggestionKey: string | null = $state(null);
 
 	let templates: MealPlanTemplate[] = $state([]);
 	let templateName = $state('');
@@ -135,6 +149,48 @@
 	async function toggleShoppingList() {
 		showShoppingList = !showShoppingList;
 		if (showShoppingList && !shoppingList) await loadShoppingList();
+	}
+
+	async function handleOptimizePlan() {
+		error = null;
+		optimizingPlan = true;
+		try {
+			planOptimization = await api.getPlanOptimization(weekDates[0], weekDates[6], optimizeBudget);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			optimizingPlan = false;
+		}
+	}
+
+	function planSuggestionKey(s: OptimizationSuggestion): string {
+		return `${s.action}-${s.food_id}`;
+	}
+
+	async function handleApplyPlanSuggestion(s: OptimizationSuggestion) {
+		error = null;
+		applyingPlanSuggestionKey = planSuggestionKey(s);
+		try {
+			if (s.action === 'swap' && s.replaces_food_id !== null) {
+				const replaced = entries.find((e) => e.food_id === s.replaces_food_id);
+				if (replaced) await api.deleteMealPlanEntry(replaced.id);
+			}
+			// "add" suggestions have no single natural day/meal at the plan
+			// level — they're added wherever the entry form is currently set,
+			// same date/meal picker the user already uses to log entries by hand
+			await api.addMealPlanEntry({
+				plan_date: planDate,
+				meal,
+				food_id: s.food_id,
+				quantity_g: s.quantity_g
+			});
+			await loadWeek();
+			planOptimization = await api.getPlanOptimization(weekDates[0], weekDates[6], optimizeBudget);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			applyingPlanSuggestionKey = null;
+		}
 	}
 
 	async function handleAdd(e: SubmitEvent) {
@@ -496,6 +552,55 @@
 			{/if}
 		{/if}
 	</section>
+
+	<section class="plan-optimize">
+		<label class="optimize-budget">
+			Optional budget for suggestions
+			<input type="number" min="0" step="0.01" placeholder="no limit" bind:value={optimizeBudget} />
+		</label>
+		<button type="button" class="no-print" onclick={handleOptimizePlan} disabled={optimizingPlan}>
+			{optimizingPlan ? 'Optimizing…' : 'Optimize this plan'}
+		</button>
+
+		{#if planOptimization !== null}
+			{#if planOptimization.suggestions.length === 0}
+				<p class="muted">No worthwhile improvements found for this week's plan.</p>
+			{:else}
+				<p class="muted">
+					Targeting: {planOptimization.target_nutrient_name} (lowest %DRV across the week) — "add"
+					suggestions go to the date/meal currently selected above ({planDate}, {meal}).
+				</p>
+				<ul class="entries">
+					{#each planOptimization.suggestions as s (planSuggestionKey(s))}
+						<li>
+							{#if s.action === 'swap'}
+								<span>Swap {s.replaces_food_name} &rarr; {s.food_name} ({s.quantity_g}g)</span>
+							{:else}
+								<span>Add {s.quantity_g}g {s.food_name}</span>
+							{/if}
+							<span class="muted">
+								{s.before_percent_drv.toFixed(0)}% &rarr; {s.after_percent_drv.toFixed(0)}%
+								({s.improvement >= 0 ? '+' : ''}{s.improvement.toFixed(1)}pp{s.calories_added
+									? `, +${s.calories_added.toFixed(0)}kcal`
+									: ''}{s.estimated_cost !== null
+									? `, ${s.estimated_cost >= 0 ? '+' : ''}$${s.estimated_cost.toFixed(2)}`
+									: ''})
+							</span>
+							<button
+								type="button"
+								class="no-print"
+								onclick={() => handleApplyPlanSuggestion(s)}
+								disabled={applyingPlanSuggestionKey === planSuggestionKey(s)}
+							>
+								{applyingPlanSuggestionKey === planSuggestionKey(s) ? 'Applying…' : 'Apply'}
+							</button>
+							<p class="rationale">{s.rationale}</p>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{/if}
+	</section>
 {/if}
 
 {#if showScanner}
@@ -548,6 +653,23 @@
 	}
 	.total {
 		margin-top: 0.75rem;
+	}
+	.plan-optimize {
+		margin-top: 1.5rem;
+	}
+	.rationale {
+		margin: 0.15rem 0 0.5rem;
+		font-size: 0.85em;
+		color: #555;
+	}
+	.optimize-budget {
+		display: block;
+		margin-bottom: 0.5rem;
+		font-size: 0.9em;
+	}
+	.optimize-budget input {
+		margin-left: 0.4rem;
+		width: 6rem;
 	}
 	.range-heading {
 		display: none;

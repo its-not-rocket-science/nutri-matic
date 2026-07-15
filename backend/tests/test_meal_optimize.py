@@ -97,6 +97,50 @@ def test_meal_optimize_returns_ranked_suggestions(client):
     assert body["suggestions"][0]["action"] == "swap"
 
 
+def test_meal_optimize_includes_real_cost_when_priced(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.put(
+        "/api/food-prices/3",
+        json={"package_price": 1.0, "package_quantity_g": 100.0},
+        headers=auth_headers(token),
+    )
+
+    res = client.get(
+        "/api/diary/meal-optimize?entry_date=2026-07-13&meal=lunch", headers=auth_headers(token)
+    )
+    body = res.json()
+    add_spinach = next(s for s in body["suggestions"] if s["action"] == "add" and s["food_name"] == "Spinach, raw")
+    # 1.00/100g * 30g trial quantity = 0.30
+    assert add_spinach["estimated_cost"] == pytest.approx(0.30)
+    assert "rationale" in add_spinach and len(add_spinach["rationale"]) > 0
+
+
+def test_meal_optimize_max_additional_cost_filters_suggestions(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.put(
+        "/api/food-prices/3",
+        json={"package_price": 100.0, "package_quantity_g": 100.0},  # very expensive spinach
+        headers=auth_headers(token),
+    )
+
+    res = client.get(
+        "/api/diary/meal-optimize?entry_date=2026-07-13&meal=lunch&max_additional_cost=1.0",
+        headers=auth_headers(token),
+    )
+    body = res.json()
+    assert all(s["food_name"] != "Spinach, raw" for s in body["suggestions"])
+
+
 def test_meal_optimize_none_when_meal_empty(client):
     token = register_and_token(client, "a@example.com")
     res = client.get(

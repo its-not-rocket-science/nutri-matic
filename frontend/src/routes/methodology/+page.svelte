@@ -82,6 +82,32 @@
 	</p>
 </section>
 
+<section id="live-vs-snapshot">
+	<h2>Live vs Snapshot Mode</h2>
+	<p>
+		Every score and DRV comparison the API returns is stamped with a <code>methodology_version</code>
+		(both a DRV-matrix version and a scoring version — see the badge on the diary page). By default,
+		<strong>Live Mode</strong> is the only mode: every diary day is recomputed from current code and
+		current data every time you look at it. If this app's methodology changes later — a corrected DRV
+		figure, a new digestibility source, a scoring fix — a day you logged last month will reflect that
+		change the next time you view it, not the methodology that was in effect when you logged it.
+	</p>
+	<p>
+		<strong>Snapshot Mode</strong> is the opt-in alternative: from the diary page, you can explicitly
+		freeze a day's full computed result, including the methodology versions in effect at that moment.
+		A snapshot is immutable — taking one a second time is refused, and logging more food for that day
+		afterward doesn't change it. This is what makes the methodology-version stamping actually
+		<em>auditable</em>: without ever taking a snapshot, "methodology_version" is just a label on
+		numbers that keep moving; with one, you have a fixed point to compare today's live numbers
+		against.
+	</p>
+	<p class="muted">
+		Snapshots are never taken automatically. A day you never explicitly snapshot only ever exists in
+		Live Mode — this app doesn't claim to retroactively reconstruct the methodology that was in effect
+		on a day before this feature existed, and won't pretend to.
+	</p>
+</section>
+
 <section id="protein-quality">
 	<h2>Protein quality (DIAAS / PDCAAS)</h2>
 	<p>

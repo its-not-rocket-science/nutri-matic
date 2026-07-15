@@ -10,6 +10,7 @@
 	import { downloadCsv } from '$lib/csv';
 	import type {
 		DiaryMealTemplate,
+		DiarySnapshot,
 		DiarySummary,
 		Food,
 		GapSuggestion,
@@ -60,15 +61,26 @@
 	let addingQuickAddKey: string | null = $state(null);
 
 	let gapSuggestion: GapSuggestion | null = $state(null);
+	let snapshot: DiarySnapshot | null = $state(null);
+	let takingSnapshot = $state(false);
 	let addingGapFoodId: number | null = $state(null);
 
 	let mealOptimizations: Partial<Record<Meal, MealOptimization | null>> = $state({});
 	let optimizingMeal: Meal | null = $state(null);
 	let applyingSuggestionKey: string | null = $state(null);
+	let optimizeBudget: number | null = $state(null);
 
 	function quickAddKey(item: QuickAddItem): string {
 		return item.food_id !== null ? `f${item.food_id}` : `r${item.recipe_id}`;
 	}
+
+	// Surfaced inline next to the raw "Iron" bar so the gap between logged
+	// and actually-absorbed iron isn't only visible in the separate
+	// Bioavailability section further down the page.
+	const totalAbsorbedIronMg = $derived.by(() => {
+		if (!summary || summary.iron_bioavailability.length === 0) return null;
+		return summary.iron_bioavailability.reduce((sum, m) => sum + m.absorbed_total_mg, 0);
+	});
 
 	const searchResults = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -112,6 +124,14 @@
 		}
 	}
 
+	async function loadSnapshot() {
+		try {
+			snapshot = await api.getDiarySnapshot(date);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
@@ -122,7 +142,7 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
-		await Promise.all([loadDay(), loadTemplates(), loadQuickAdd(), loadGapSuggestions()]);
+		await Promise.all([loadDay(), loadTemplates(), loadQuickAdd(), loadGapSuggestions(), loadSnapshot()]);
 	});
 
 	function shiftDay(days: number) {
@@ -132,6 +152,7 @@
 		copyTargetDate = addDays(date, 1);
 		loadDay();
 		loadGapSuggestions();
+		loadSnapshot();
 	}
 
 	function selectItem(item: Recipe) {
@@ -229,7 +250,7 @@
 		error = null;
 		optimizingMeal = m;
 		try {
-			mealOptimizations[m] = await api.getMealOptimization(date, m);
+			mealOptimizations[m] = await api.getMealOptimization(date, m, optimizeBudget);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -253,7 +274,7 @@
 			await loadDay();
 			await loadQuickAdd();
 			await loadGapSuggestions();
-			mealOptimizations[m] = await api.getMealOptimization(date, m);
+			mealOptimizations[m] = await api.getMealOptimization(date, m, optimizeBudget);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -302,6 +323,18 @@
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			copying = false;
+		}
+	}
+
+	async function handleTakeSnapshot() {
+		error = null;
+		takingSnapshot = true;
+		try {
+			snapshot = await api.createDiarySnapshot(date);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			takingSnapshot = false;
 		}
 	}
 
@@ -379,6 +412,7 @@
 			copyTargetDate = addDays(date, 1);
 			loadDay();
 			loadGapSuggestions();
+			loadSnapshot();
 		}}
 	/>
 	<button type="button" onclick={() => shiftDay(1)}>Next &rarr;</button>
@@ -413,6 +447,13 @@
 {#if loading}
 	<p>Loading…</p>
 {:else if summary}
+	<div class="optimize-budget no-print">
+		<label>
+			Optional budget for "Optimize this meal" suggestions
+			<input type="number" min="0" step="0.01" placeholder="no limit" bind:value={optimizeBudget} />
+		</label>
+	</div>
+
 	{#each MEALS as m (m)}
 		{@const mealEntries = summary.entries.filter((e) => e.meal === m)}
 		{#if mealEntries.length > 0}
@@ -466,6 +507,8 @@
 												{s.before_percent_drv.toFixed(0)}% &rarr; {s.after_percent_drv.toFixed(0)}%
 												({s.improvement >= 0 ? '+' : ''}{s.improvement.toFixed(1)}pp{s.calories_added
 													? `, +${s.calories_added.toFixed(0)}kcal`
+													: ''}{s.estimated_cost !== null
+													? `, ${s.estimated_cost >= 0 ? '+' : ''}$${s.estimated_cost.toFixed(2)}`
 													: ''})
 											</span>
 											<button
@@ -476,6 +519,7 @@
 											>
 												{applyingSuggestionKey === suggestionKey(m, s) ? 'Applying…' : 'Apply'}
 											</button>
+											<p class="rationale">{s.rationale}</p>
 										</li>
 									{/each}
 								</ul>
@@ -623,7 +667,32 @@
 		{/if}
 	</section>
 
-	<NutrientBars nutrients={summary.nutrients} per="per day" />
+	<section class="methodology-mode no-print">
+		<h3>Live vs Snapshot <a href="/methodology#live-vs-snapshot">ⓘ</a></h3>
+		<p class="muted">
+			The numbers below are always <strong>Live</strong> — recomputed from current code and data
+			(methodology v{summary.nutrients[0]?.drv_methodology_version ?? '—'}). Snapshotting this day
+			freezes today's computation so you can compare it against Live Mode later, after any future
+			methodology change.
+		</p>
+		{#if snapshot}
+			<p class="snapshot-status">
+				Snapshotted {new Date(snapshot.created_at).toLocaleDateString()} at methodology v{snapshot.drv_methodology_version}.
+				{#if snapshot.drv_methodology_version === summary.nutrients[0]?.drv_methodology_version}
+					Matches today's live methodology — no drift yet.
+				{:else}
+					Live methodology has since changed — this day's live numbers may now differ from the
+					snapshot.
+				{/if}
+			</p>
+		{:else}
+			<button type="button" onclick={handleTakeSnapshot} disabled={takingSnapshot || summary.entries.length === 0}>
+				{takingSnapshot ? 'Snapshotting…' : 'Take a snapshot of this day'}
+			</button>
+		{/if}
+	</section>
+
+	<NutrientBars nutrients={summary.nutrients} per="per day" absorbedIronMg={totalAbsorbedIronMg} />
 
 	{#if gapSuggestion}
 		<section class="gap-suggestion">
@@ -850,6 +919,32 @@
 		padding: 0.75rem;
 		border: 1px solid #eee;
 		border-radius: 4px;
+	}
+	.methodology-mode {
+		margin: 1rem 0;
+		padding: 0.75rem 1rem;
+		border: 1px solid #eee;
+		border-radius: 4px;
+		font-size: 0.9em;
+	}
+	.methodology-mode h3 {
+		margin-top: 0;
+	}
+	.snapshot-status {
+		color: #1d4e89;
+	}
+	.rationale {
+		margin: 0.15rem 0 0.5rem;
+		font-size: 0.85em;
+		color: #555;
+	}
+	.optimize-budget {
+		margin: 0.75rem 0;
+		font-size: 0.9em;
+	}
+	.optimize-budget input {
+		margin-left: 0.4rem;
+		width: 6rem;
 	}
 	.quick-add {
 		margin: 1rem 0;

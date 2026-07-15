@@ -264,6 +264,14 @@ export interface DiarySummary {
 	protein_distribution: MealProteinDistribution[];
 }
 
+export interface DiarySnapshot {
+	entry_date: string;
+	drv_methodology_version: string;
+	scoring_methodology_version: string;
+	created_at: string;
+	summary: DiarySummary;
+}
+
 export interface DiaryMealTemplateItem {
 	food_id: number | null;
 	food_name: string | null;
@@ -409,10 +417,21 @@ export interface OptimizationSuggestion {
 	improvement: number;
 	calories_added: number;
 	improvement_per_100kcal: number | null;
+	/** null when no price is on file for the food(s) involved — never fabricated */
+	estimated_cost: number | null;
+	rationale: string;
 }
 
 export interface MealOptimization {
 	meal: Meal;
+	target_nutrient_key: string;
+	target_nutrient_name: string;
+	suggestions: OptimizationSuggestion[];
+}
+
+export interface PlanOptimization {
+	start_date: string;
+	end_date: string;
 	target_nutrient_key: string;
 	target_nutrient_name: string;
 	suggestions: OptimizationSuggestion[];
@@ -455,6 +474,29 @@ export interface SavedFilterPresetCreate {
 	name: string;
 	scope: FilterScope;
 	filters: NutrientFilterInput[];
+}
+
+export type ClinicianLinkStatus = 'pending' | 'active' | 'revoked';
+
+export interface ClinicianLink {
+	id: number;
+	clinician_email: string;
+	client_email: string;
+	client_user_id: number;
+	status: ClinicianLinkStatus;
+	created_at: string;
+	responded_at: string | null;
+}
+
+export interface ClinicianNote {
+	id: number;
+	note_text: string;
+	created_at: string;
+}
+
+export interface ClinicianClientSummary {
+	client_email: string;
+	day: DiarySummary;
 }
 
 export const AMINO_ACID_LABELS: Record<keyof AminoAcidProfile, string> = {

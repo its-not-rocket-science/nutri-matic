@@ -18,6 +18,11 @@
 </script>
 
 <svelte:head>
+	<title>Nutri-Matic — Nutrition Analysis &amp; Optimisation Engine</title>
+	<meta
+		name="description"
+		content="Nutri-Matic analyses and optimises nutritional quality — protein quality (DIAAS/PDCAAS), bioavailability-adjusted micronutrients, and computed food complementarity — not a calorie counter."
+	/>
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
@@ -31,6 +36,7 @@
 		<a href="/food-prices">Food Prices</a>
 		<a href="/recipes">Recipes</a>
 		<a href="/weight-log">Weight</a>
+		<a href="/clinician">Clinician</a>
 		<a href="/profile">Profile</a>
 		<span class="muted">{auth.user?.email ?? ''}</span>
 		<button type="button" onclick={() => auth.logout()}>Log out</button>

@@ -110,6 +110,114 @@ def test_no_swap_suggestion_for_worse_same_family_candidate(db):
     assert suggestions == []
 
 
+def test_suggestion_has_no_cost_when_price_unknown(db):
+    rice = make_food(db, 1, "Rice, white, cooked", iron=1.0)
+    spinach = make_food(db, 2, "Spinach, raw", iron=3.0, energy=20)
+    db.commit()
+
+    by_food_id = {1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all()}
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[spinach],
+        limit=5,
+    )
+    assert len(suggestions) == 1
+    assert suggestions[0].estimated_cost is None  # no prices_by_food_id given — never fabricated
+
+
+def test_suggestion_has_real_cost_when_price_known(db):
+    rice = make_food(db, 1, "Rice, white, cooked", iron=1.0)
+    spinach = make_food(db, 2, "Spinach, raw", iron=3.0, energy=20)
+    db.commit()
+
+    by_food_id = {1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all()}
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[spinach],
+        limit=5,
+        prices_by_food_id={2: 0.50},  # 50p/100g
+    )
+    assert len(suggestions) == 1
+    # ADD_TRIAL_QUANTITY_G = 30g -> 0.50 * 30/100 = 0.15
+    assert suggestions[0].estimated_cost == pytest.approx(0.15)
+
+
+def test_max_additional_cost_excludes_suggestions_over_budget(db):
+    rice = make_food(db, 1, "Rice, white, cooked", iron=1.0)
+    expensive_spinach = make_food(db, 2, "Spinach, raw", iron=3.0, energy=20)
+    db.commit()
+
+    by_food_id = {1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all()}
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[expensive_spinach],
+        limit=5,
+        prices_by_food_id={2: 10.0},  # 30g -> 3.00, well over budget
+        max_additional_cost=1.0,
+    )
+    assert suggestions == []
+
+
+def test_max_additional_cost_keeps_unpriced_suggestions(db):
+    """A budget constraint shouldn't silently exclude nutritionally-good
+    suggestions just because this user hasn't priced that food yet."""
+    rice = make_food(db, 1, "Rice, white, cooked", iron=1.0)
+    unpriced_spinach = make_food(db, 2, "Spinach, raw", iron=3.0, energy=20)
+    db.commit()
+
+    by_food_id = {1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all()}
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[unpriced_spinach],
+        limit=5,
+        prices_by_food_id={},  # nothing priced
+        max_additional_cost=0.01,
+    )
+    assert len(suggestions) == 1
+    assert suggestions[0].estimated_cost is None
+
+
+def test_rationale_mentions_target_nutrient_name(db):
+    rice = make_food(db, 1, "Rice, white, cooked", iron=1.0)
+    spinach = make_food(db, 2, "Spinach, raw", iron=3.0, energy=20)
+    db.commit()
+
+    by_food_id = {1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all()}
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[spinach],
+        limit=5,
+        target_nutrient_name="Iron",
+    )
+    assert "Iron" in suggestions[0].rationale
+    assert "Spinach, raw" in suggestions[0].rationale
+
+
 def test_no_suggestions_when_target_drv_is_zero(db):
     """A worst-gap nutrient with no established DRV (adult_drv is None,
     router falls back to 0.0) must not divide by zero — _simulate_percent_drv
