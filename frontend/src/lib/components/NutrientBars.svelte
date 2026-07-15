@@ -2,7 +2,11 @@
 	import InfoLink from '$lib/components/InfoLink.svelte';
 	import type { NutrientAmount } from '$lib/types';
 
-	let { nutrients, per = 'per 100g' }: { nutrients: NutrientAmount[]; per?: string } = $props();
+	let {
+		nutrients,
+		per = 'per 100g',
+		absorbedIronMg = null
+	}: { nutrients: NutrientAmount[]; per?: string; absorbedIronMg?: number | null } = $props();
 
 	const NUTRIENT_GROUPS: { label: string; keys: string[] }[] = [
 		{
@@ -105,6 +109,20 @@
 									<span class="muted">({n.percent_drv.toFixed(0)}% DRV)</span>
 								{/if}
 							</span>
+							{#if n.key === 'iron'}
+								{#if absorbedIronMg !== null}
+									<span class="muted absorbed-note">
+										&asymp;{absorbedIronMg.toFixed(2)}mg actually estimated absorbed today — see
+										Bioavailability estimate below for why that's so much lower than the raw total.
+									</span>
+								{:else}
+									<span class="muted absorbed-note">
+										Raw content — how much is actually absorbed depends on the rest of the meal
+										(haem vs non-haem, vitamin C present); log this in the Diary for a real
+										per-meal absorption estimate.
+									</span>
+								{/if}
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -175,6 +193,11 @@
 	}
 	.bars .aa-value {
 		white-space: nowrap;
+	}
+	.absorbed-note {
+		grid-column: 1 / -1;
+		font-size: 0.8em;
+		font-style: italic;
 	}
 	.bar-track {
 		background: #eee;

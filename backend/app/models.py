@@ -1,6 +1,18 @@
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, JSON, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -28,6 +40,15 @@ class User(Base):
     # to use the rest of the app, only for a personalized calorie target
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # entitlement primitive (Phase 3) — see entitlements.py. A plain string,
+    # not a DB enum: adding "educational"/"enterprise" later is just a new
+    # string value used in entitlements.py's tables, no migration needed.
+    plan: Mapped[str] = mapped_column(String, nullable=False, default="free", server_default="free")
+    # only meaningful when plan == "trial" — null for free/paid. A trial
+    # whose expiry has passed is treated as "free" by entitlements.py
+    # (see user_has_feature), not auto-downgraded in the database itself.
+    plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Food(Base):
@@ -66,7 +87,16 @@ class Food(Base):
 
 class FoodNutrient(Base):
     __tablename__ = "food_nutrients"
-    __table_args__ = (UniqueConstraint("food_id", "nutrient_key", name="uq_food_nutrient"),)
+    __table_args__ = (
+        UniqueConstraint("food_id", "nutrient_key", name="uq_food_nutrient"),
+        # Phase 5.2 technical audit: _rank_foods_by_nutrient() (gap-suggestions,
+        # meal-optimize — both diary and meal-plan versions) filters by
+        # nutrient_key and sorts by amount_per_100g descending on every call.
+        # At 222k real ingested rows this was a 137ms parallel sequential
+        # scan with no supporting index — this composite index serves that
+        # exact filter+sort directly. See docs/production-readiness-audit.md.
+        Index("ix_food_nutrients_key_amount", "nutrient_key", "amount_per_100g"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False, index=True)
@@ -189,6 +219,98 @@ class DiaryEntry(Base):
     # per-serving) rather than grams, since a recipe's total mass isn't tracked
     recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class DiarySnapshot(Base):
+    """A frozen copy of a diary day's computed nutrient breakdown, taken
+    explicitly by the user (not automatic — see docs/live-vs-snapshot-mode.md
+    for why). Immutable once created: the whole point is that Snapshot Mode
+    reproduces exactly what was computed at snapshot time, even after
+    methodology_version moves on. Days never snapshotted only ever exist in
+    Live Mode — this table does not retroactively cover diary history from
+    before this feature existed."""
+
+    __tablename__ = "diary_snapshots"
+    __table_args__ = (UniqueConstraint("user_id", "entry_date", name="uq_diary_snapshot_user_date"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    entry_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    # the DiarySummaryOut-shaped payload, as JSON, exactly as computed at
+    # snapshot time — see routers/diary.py's snapshot endpoint
+    summary_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    drv_methodology_version: Mapped[str] = mapped_column(String, nullable=False)
+    scoring_methodology_version: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ApiKey(Base):
+    """A public-API credential (Phase 3.2) — separate from the JWT session
+    auth used everywhere else in the app. Keys are created via the JWT-
+    authed /api/api-keys endpoints and then used, via the X-API-Key header,
+    against the versioned /api/v1/* public endpoints. See api_keys.py."""
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    # sha256 of the actual key — see api_keys.py::hash_api_key for why
+    # sha256 rather than bcrypt for this. The raw key is shown to the user
+    # exactly once, at creation; only its hash is ever stored.
+    key_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    # first few characters of the raw key, stored in the clear so a user
+    # can tell their keys apart in a list without the full secret being
+    # displayable again
+    key_prefix: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    quota_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=1000, server_default="1000")
+    requests_this_period: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    period_started_at: Mapped[date] = mapped_column(Date, nullable=False, default=date.today)
+
+
+class ClinicianClientLink(Base):
+    """Grants a clinician (any registered user acting as one — this app has
+    no license-verification mechanism, see docs/professional-dashboard-scope.md)
+    read access to a client's diary data, subject to the client's explicit
+    consent. Deliberately NOT a direct grant-by-email like RecipeShare —
+    unlike sharing a recipe you own, this grants access to someone else's
+    private health data, so it requires the client to accept before
+    `status` moves from "pending" to "active". Either party can revoke."""
+
+    __tablename__ = "clinician_client_links"
+    __table_args__ = (UniqueConstraint("clinician_user_id", "client_user_id", name="uq_clinician_client"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinician_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    client_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # "pending" | "active" | "revoked"
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ClinicianNote(Base):
+    """A clinician's private note about a client — never exposed to the
+    client themselves via any endpoint. Requires an active
+    ClinicianClientLink to create or read (enforced in routers/clinician.py,
+    not at the DB layer)."""
+
+    __tablename__ = "clinician_notes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    clinician_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    client_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    note_text: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
 
 
 class MealPlanEntry(Base):

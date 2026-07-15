@@ -1,9 +1,16 @@
 """Password hashing and JWT issuance/verification.
 
-Access-token-only (no refresh tokens) — this is a personal-use app, not a
-multi-tenant SaaS, so refresh-token rotation is complexity nobody's asked
-for. Tokens are long-lived (7 days) and carried via the Authorization
-header, not cookies, matching the frontend's CSR-only architecture.
+Access-token-only (no refresh tokens) — see docs/auth-model-review.md for
+the full reasoning, revisited now that commercial use is on the table.
+Short version: refresh-token rotation is complexity nobody's confirmed
+demand for yet, and this app's real revocation exposure is smaller than it
+looks because the token only ever carries identity (`sub: user_id`), never
+tier/permissions — those get checked against live DB state on every
+request (see the entitlement layer in routers), so a stale-but-unexpired
+token doesn't grant stale privileges, only continued access as that user.
+Given that, the cheap lever that actually matters is a short expiry, not a
+refresh-token system. Tokens are carried via the Authorization header, not
+cookies, matching the frontend's CSR-only architecture.
 """
 
 import os
@@ -18,9 +25,34 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
+DEV_JWT_SECRET = "dev-secret-change-me"  # never valid when APP_ENV=production — see _resolve_jwt_secret
+
+
+def _resolve_jwt_secret() -> str:
+    """JWT_SECRET must be set explicitly whenever APP_ENV=production — the
+    dev fallback below is a fixed, public string (it's right here in the
+    source), so silently using it in production would let anyone forge a
+    valid token for any user id. APP_ENV defaults to "development" so local
+    runs and the test suite don't need to set anything. See DEPLOYMENT.md
+    for the full list of required production environment variables."""
+    secret = os.environ.get("JWT_SECRET")
+    if secret is not None:
+        return secret
+    if os.environ.get("APP_ENV", "development") == "production":
+        raise RuntimeError(
+            "JWT_SECRET is not set and APP_ENV=production — refusing to start with the "
+            "public dev fallback secret. Set JWT_SECRET to a real, private value. See DEPLOYMENT.md."
+        )
+    return DEV_JWT_SECRET
+
+
+JWT_SECRET = _resolve_jwt_secret()
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY = timedelta(days=7)
+# Shortened from 7 days per docs/auth-model-review.md — there's no
+# revocation mechanism, so this is the main lever against a stolen token
+# staying valid for a long window. 24h balances that against not forcing
+# a stuck-open frontend to re-prompt login mid-session.
+JWT_EXPIRY = timedelta(hours=24)
 
 
 def hash_password(password: str) -> str:

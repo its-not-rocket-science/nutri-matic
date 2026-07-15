@@ -183,6 +183,16 @@ class UserOut(BaseModel):
     is_lactating: bool = False
     weight_kg: float | None = None
     height_cm: float | None = None
+    # entitlement primitive (Phase 3) — see entitlements.py. Not editable
+    # via ProfileUpdate: plan changes go through a future billing/admin
+    # flow, never self-service.
+    plan: str = "free"
+
+
+class EntitlementsOut(BaseModel):
+    plan: str
+    effective_plan: str
+    plan_expires_at: datetime | None = None
 
 
 class ProfileUpdate(BaseModel):
@@ -374,6 +384,19 @@ class DiarySummaryOut(BaseModel):
     protein_distribution: list[MealProteinDistributionOut]
 
 
+class DiarySnapshotOut(BaseModel):
+    """Snapshot Mode's response shape — the frozen summary plus the
+    methodology versions in effect when it was taken, so a caller can tell
+    at a glance whether today's Live Mode would compute something
+    different. See docs/live-vs-snapshot-mode.md."""
+
+    entry_date: date
+    drv_methodology_version: str
+    scoring_methodology_version: str
+    created_at: datetime
+    summary: DiarySummaryOut
+
+
 class FoodNutrientRankOut(BaseModel):
     food_id: int
     food_name: str
@@ -400,10 +423,26 @@ class OptimizationSuggestionOut(BaseModel):
     improvement: float
     calories_added: float
     improvement_per_100kcal: float | None
+    # None when no price is on file for this user for the food(s) involved
+    # — never fabricated, never defaulted to 0
+    estimated_cost: float | None
+    rationale: str
 
 
 class MealOptimizationOut(BaseModel):
     meal: Meal
+    target_nutrient_key: str
+    target_nutrient_name: str
+    suggestions: list[OptimizationSuggestionOut]
+
+
+class PlanOptimizationOut(BaseModel):
+    """Same idea as MealOptimizationOut but scoped to a whole meal-plan date
+    range rather than one day's meal — there's no single `meal` to name, so
+    this is a distinct (not reused) response shape."""
+
+    start_date: date
+    end_date: date
     target_nutrient_key: str
     target_nutrient_name: str
     suggestions: list[OptimizationSuggestionOut]
@@ -622,3 +661,76 @@ class SavedFilterPresetOut(BaseModel):
     name: str
     scope: Scope
     filters: list[NutrientFilterIn]
+
+
+class ApiKeyCreate(BaseModel):
+    name: str
+
+
+class ApiKeyOut(BaseModel):
+    id: int
+    name: str
+    key_prefix: str
+    created_at: datetime
+    revoked_at: datetime | None
+    quota_limit: int
+    requests_this_period: int
+    period_started_at: date
+
+
+class ApiKeyCreatedOut(ApiKeyOut):
+    # only present on the create response — the one and only time the raw
+    # key is ever visible; not retrievable again afterward
+    key: str
+
+
+class IronBioavailabilityRequestItem(BaseModel):
+    food_id: int
+    quantity_g: float
+
+
+class IronBioavailabilityRequest(BaseModel):
+    items: list[IronBioavailabilityRequestItem]
+
+
+class IronBioavailabilityResultOut(BaseModel):
+    heme_iron_mg: float
+    non_heme_iron_mg: float
+    vitamin_c_mg: float
+    absorbed_heme_mg: float
+    absorbed_non_heme_mg: float
+    absorbed_total_mg: float
+    non_heme_absorption_tier: str
+    iron_split_source: str
+
+
+class ClinicianInviteCreate(BaseModel):
+    client_email: str
+
+
+ClinicianLinkStatus = Literal["pending", "active", "revoked"]
+
+
+class ClinicianLinkOut(BaseModel):
+    id: int
+    clinician_email: str
+    client_email: str
+    client_user_id: int
+    status: ClinicianLinkStatus
+    created_at: datetime
+    responded_at: datetime | None
+
+
+class ClinicianNoteCreate(BaseModel):
+    note_text: str
+
+
+class ClinicianNoteOut(BaseModel):
+    id: int
+    note_text: str
+    created_at: datetime
+
+
+class ClinicianClientSummaryOut(BaseModel):
+    client_email: str
+    day: DiarySummaryOut

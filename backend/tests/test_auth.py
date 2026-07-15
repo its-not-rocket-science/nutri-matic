@@ -4,9 +4,11 @@ import jwt
 import pytest
 
 from app.auth import (
+    DEV_JWT_SECRET,
     InvalidToken,
     JWT_ALGORITHM,
     JWT_SECRET,
+    _resolve_jwt_secret,
     create_access_token,
     decode_access_token,
     hash_password,
@@ -47,3 +49,27 @@ def test_decode_rejects_wrong_secret():
     token = jwt.encode({"sub": "1", "exp": int(time.time()) + 3600}, "a-different-secret", algorithm=JWT_ALGORITHM)
     with pytest.raises(InvalidToken):
         decode_access_token(token)
+
+
+def test_resolve_jwt_secret_uses_env_value_when_set(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "a-real-secret")
+    assert _resolve_jwt_secret() == "a-real-secret"
+
+
+def test_resolve_jwt_secret_falls_back_to_dev_value_outside_production(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    monkeypatch.delenv("APP_ENV", raising=False)
+    assert _resolve_jwt_secret() == DEV_JWT_SECRET
+
+
+def test_resolve_jwt_secret_raises_in_production_without_explicit_secret(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    monkeypatch.setenv("APP_ENV", "production")
+    with pytest.raises(RuntimeError):
+        _resolve_jwt_secret()
+
+
+def test_resolve_jwt_secret_ok_in_production_with_explicit_secret(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "a-real-secret")
+    monkeypatch.setenv("APP_ENV", "production")
+    assert _resolve_jwt_secret() == "a-real-secret"

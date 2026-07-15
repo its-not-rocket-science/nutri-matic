@@ -16,10 +16,18 @@ from ..bioavailability import (
 )
 from ..database import get_db
 from ..energy import calculate_age, calculate_eer
+from ..entitlements import (
+    FREE_TIER_SNAPSHOT_LIMIT,
+    PLAN_ENTERPRISE,
+    PLAN_PAID,
+    PLAN_PROFESSIONAL,
+    effective_plan,
+)
 from ..food_chemistry import compute_meal_protein_distribution, estimate_sodium_potassium, leucine_threshold_for_age
-from ..models import DiaryEntry, Food, FoodNutrient, Recipe, User
+from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
+from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Recipe, User
 from ..nutrients import NUTRIENTS, resolve_drv
-from ..optimizer import suggest_meal_optimizations
+from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..trends import GroupBy, bucket_day_totals
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
@@ -181,8 +189,11 @@ def _compute_nutrient_gaps(
     return NutrientGaps(nutrients_out=nutrients_out, totals=totals, by_food_id=by_food_id)
 
 
-@router.get("", response_model=schemas.DiarySummaryOut)
-def get_day(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> schemas.DiarySummaryOut:
+    """The full live computation for one diary day — shared by the "Live
+    Mode" GET endpoint below and the snapshot-creation endpoint, which
+    freezes this exact output rather than recomputing its own version of
+    it. See docs/live-vs-snapshot-mode.md."""
     entries = (
         db.query(DiaryEntry)
         .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
@@ -293,6 +304,91 @@ def get_day(entry_date: date, current_user: User = Depends(get_current_user), db
     )
 
 
+@router.get("", response_model=schemas.DiarySummaryOut)
+def get_day(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Live Mode (the only mode this endpoint has ever had): always
+    recomputed from current code and data. See /snapshot for Snapshot Mode
+    — reproducing a day exactly as scored on the day it was explicitly
+    snapshotted."""
+    return _compute_day_summary(entry_date, current_user, db)
+
+
+@router.post("/snapshot", response_model=schemas.DiarySnapshotOut, status_code=201)
+def create_snapshot(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Freezes today's live computation for entry_date so it can be
+    reproduced later even after methodology_version moves on. Explicit and
+    one-shot: snapshots are never taken automatically, and once taken are
+    immutable (never silently re-taken/overwritten) — see
+    docs/live-vs-snapshot-mode.md for why. 409 if this day is already
+    snapshotted; 422 if there's nothing to snapshot (no entries that day);
+    403 if a free-plan user has reached FREE_TIER_SNAPSHOT_LIMIT (see
+    docs/product-led-growth-review.md — tied to real per-snapshot storage
+    cost, not an arbitrary lock)."""
+    existing = (
+        db.query(DiarySnapshot)
+        .filter(DiarySnapshot.user_id == current_user.id, DiarySnapshot.entry_date == entry_date)
+        .one_or_none()
+    )
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="This day already has a snapshot — snapshots are immutable")
+
+    if effective_plan(current_user) not in (PLAN_PAID, PLAN_PROFESSIONAL, PLAN_ENTERPRISE):
+        snapshot_count = db.query(DiarySnapshot).filter(DiarySnapshot.user_id == current_user.id).count()
+        if snapshot_count >= FREE_TIER_SNAPSHOT_LIMIT:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"Free accounts are limited to {FREE_TIER_SNAPSHOT_LIMIT} diary snapshots — "
+                    "upgrade to Pro for unlimited snapshots"
+                ),
+            )
+
+    summary = _compute_day_summary(entry_date, current_user, db)
+    if not summary.entries:
+        raise HTTPException(status_code=422, detail="Nothing logged this day — nothing to snapshot")
+
+    snapshot = DiarySnapshot(
+        user_id=current_user.id,
+        entry_date=entry_date,
+        summary_json=summary.model_dump(mode="json"),
+        drv_methodology_version=DRV_METHODOLOGY_VERSION,
+        scoring_methodology_version=SCORING_METHODOLOGY_VERSION,
+    )
+    db.add(snapshot)
+    db.commit()
+    db.refresh(snapshot)
+
+    return schemas.DiarySnapshotOut(
+        entry_date=snapshot.entry_date,
+        drv_methodology_version=snapshot.drv_methodology_version,
+        scoring_methodology_version=snapshot.scoring_methodology_version,
+        created_at=snapshot.created_at,
+        summary=summary,
+    )
+
+
+@router.get("/snapshot", response_model=schemas.DiarySnapshotOut | None)
+def get_snapshot(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Snapshot Mode: returns the frozen summary exactly as computed at
+    snapshot time, or None if this day was never snapshotted (it only ever
+    existed in Live Mode — see docs/live-vs-snapshot-mode.md)."""
+    snapshot = (
+        db.query(DiarySnapshot)
+        .filter(DiarySnapshot.user_id == current_user.id, DiarySnapshot.entry_date == entry_date)
+        .one_or_none()
+    )
+    if snapshot is None:
+        return None
+
+    return schemas.DiarySnapshotOut(
+        entry_date=snapshot.entry_date,
+        drv_methodology_version=snapshot.drv_methodology_version,
+        scoring_methodology_version=snapshot.scoring_methodology_version,
+        created_at=snapshot.created_at,
+        summary=schemas.DiarySummaryOut.model_validate(snapshot.summary_json),
+    )
+
+
 def _find_worst_gap(nutrients_out: list[schemas.NutrientAmountOut]) -> schemas.NutrientAmountOut | None:
     """The single lowest-%DRV nutrient for a day, excluding energy — a
     calorie target isn't a "gap" in the same sense. Shared by
@@ -362,6 +458,7 @@ def get_meal_optimization(
     entry_date: date,
     meal: str,
     limit: int = 5,
+    max_additional_cost: float | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -406,8 +503,20 @@ def get_meal_optimization(
         food for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8) if food.id not in already_in_meal
     ]
 
+    prices_by_food_id = load_prices_by_food_id(db, current_user.id)
+
     suggestions = suggest_meal_optimizations(
-        db, other_items, swappable_items, gaps.by_food_id, worst.key, worst.adult_drv or 0.0, gap_candidates, limit
+        db,
+        other_items,
+        swappable_items,
+        gaps.by_food_id,
+        worst.key,
+        worst.adult_drv or 0.0,
+        gap_candidates,
+        limit,
+        target_nutrient_name=worst.name,
+        prices_by_food_id=prices_by_food_id,
+        max_additional_cost=max_additional_cost,
     )
 
     return schemas.MealOptimizationOut(
@@ -427,6 +536,8 @@ def get_meal_optimization(
                 improvement=s.improvement,
                 calories_added=s.calories_added,
                 improvement_per_100kcal=s.improvement_per_100kcal,
+                estimated_cost=s.estimated_cost,
+                rationale=s.rationale,
             )
             for s in suggestions
         ],
@@ -476,14 +587,13 @@ def get_quick_add(limit: int = 10, current_user: User = Depends(get_current_user
     return schemas.QuickAddOut(recent=recent, frequent=frequent)
 
 
-@router.get("/trends", response_model=schemas.DiaryTrendsOut)
-def get_trends(
-    start_date: date,
-    end_date: date,
-    group_by: GroupBy = "week",
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
+def _compute_trends(
+    start_date: date, end_date: date, group_by: GroupBy, current_user: User, db: Session
+) -> schemas.DiaryTrendsOut:
+    """Shared by the Live Mode /trends endpoint below and the clinician
+    dashboard's per-client trends view (routers/clinician.py) — same
+    reasoning as _compute_day_summary: freeze nothing, just let the caller
+    supply whichever User's profile/entries to compute against."""
     entries = (
         db.query(DiaryEntry)
         .filter(
@@ -546,6 +656,17 @@ def get_trends(
         )
 
     return schemas.DiaryTrendsOut(group_by=group_by, buckets=buckets_out)
+
+
+@router.get("/trends", response_model=schemas.DiaryTrendsOut)
+def get_trends(
+    start_date: date,
+    end_date: date,
+    group_by: GroupBy = "week",
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _compute_trends(start_date, end_date, group_by, current_user, db)
 
 
 @router.delete("/{entry_id}", status_code=204)
