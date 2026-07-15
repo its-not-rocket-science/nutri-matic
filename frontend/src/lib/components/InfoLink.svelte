@@ -8,8 +8,8 @@
 	.info-link {
 		display: inline-block;
 		text-decoration: none;
-		font-size: 0.85em;
+		font-size: var(--font-size-sm);
 		margin-left: 0.3em;
-		color: #3a6ea5;
+		color: var(--color-primary);
 	}
 </style>

@@ -35,28 +35,33 @@
 			{#if unitFor(filter.key)}
 				<span class="unit">{unitFor(filter.key)}</span>
 			{/if}
-			<button type="button" onclick={() => removeRow(i)}>Remove</button>
+			<button type="button" class="btn btn-danger" onclick={() => removeRow(i)}>Remove</button>
 		</div>
 	{/each}
-	<button type="button" onclick={addRow}>+ Add filter</button>
+	<button type="button" class="btn btn-secondary" onclick={addRow}>+ Add filter</button>
 </div>
 
 <style>
 	.filter-builder {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
 	.filter-row {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--space-2);
+	}
+	.filter-row select,
+	.filter-row input {
+		width: auto;
 	}
 	.filter-row input[type='number'] {
 		width: 6rem;
 	}
 	.unit {
-		color: #666;
-		font-size: 0.9em;
+		color: var(--color-text-muted);
+		font-size: var(--font-size-sm);
 	}
 </style>

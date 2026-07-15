@@ -54,7 +54,7 @@
 	<div class="scanner-box">
 		<div class="scanner-header">
 			<h3>Scan barcode</h3>
-			<button type="button" onclick={handleClose}>&times;</button>
+			<button type="button" class="close-btn" onclick={handleClose} aria-label="Close scanner">&times;</button>
 		</div>
 
 		<video bind:this={videoEl} class="preview" muted playsinline></video>
@@ -64,11 +64,17 @@
 		{/if}
 
 		<form onsubmit={handleManualSubmit}>
-			<label>
-				Or enter the barcode manually
-				<input type="text" inputmode="numeric" bind:value={manualBarcode} placeholder="e.g. 012345678905" />
-			</label>
-			<button type="submit" disabled={!manualBarcode.trim()}>Look up</button>
+			<div class="field">
+				<label for="manual-barcode">Or enter the barcode manually</label>
+				<input
+					id="manual-barcode"
+					type="text"
+					inputmode="numeric"
+					bind:value={manualBarcode}
+					placeholder="e.g. 012345678905"
+				/>
+			</div>
+			<button type="submit" class="btn btn-primary" disabled={!manualBarcode.trim()}>Look up</button>
 		</form>
 	</div>
 </div>
@@ -84,13 +90,14 @@
 		z-index: 100;
 	}
 	.scanner-box {
-		background: white;
-		border-radius: 8px;
-		padding: 1rem;
+		background: var(--color-surface);
+		border-radius: var(--radius-md);
+		padding: var(--space-4);
 		width: min(90vw, 28rem);
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: var(--space-3);
+		box-shadow: var(--shadow-lg);
 	}
 	.scanner-header {
 		display: flex;
@@ -100,30 +107,20 @@
 	.scanner-header h3 {
 		margin: 0;
 	}
-	.scanner-header button {
+	.close-btn {
 		font-size: 1.2rem;
 		line-height: 1;
 		background: none;
 		border: none;
 		cursor: pointer;
+		color: var(--color-text);
+		min-height: 2.75rem;
+		min-width: 2.75rem;
 	}
 	.preview {
 		width: 100%;
 		max-height: 60vh;
 		background: #000;
-		border-radius: 4px;
-	}
-	.error {
-		color: #b00020;
-	}
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
+		border-radius: var(--radius-sm);
 	}
 </style>

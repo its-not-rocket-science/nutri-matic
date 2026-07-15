@@ -145,7 +145,7 @@
 {/if}
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else if !trends || trends.buckets.length === 0}
 	<p class="muted">Nothing logged in this range yet.</p>
 {:else}
@@ -242,10 +242,10 @@
 		margin-bottom: 1rem;
 	}
 	.error {
-		color: #b00020;
+		color: var(--color-danger);
 	}
 	.muted {
-		color: #666;
+		color: var(--color-text-muted);
 		font-size: 0.9em;
 	}
 	.chart {
@@ -254,28 +254,28 @@
 		height: auto;
 	}
 	.bar {
-		fill: #3a6ea5;
+		fill: var(--color-primary);
 	}
 	.reference-line {
-		stroke: #b00020;
+		stroke: var(--color-danger);
 		stroke-width: 1;
 		stroke-dasharray: 4 3;
 	}
 	.reference-label {
 		font-size: 7px;
-		fill: #b00020;
+		fill: var(--color-danger);
 	}
 	.value-label {
 		font-size: 8px;
-		fill: #333;
+		fill: var(--color-text);
 	}
 	.bucket-label {
 		font-size: 8px;
-		fill: #444;
+		fill: var(--color-text-muted);
 	}
 	.logged-days-label {
 		font-size: 7px;
-		fill: #888;
+		fill: var(--color-text-subtle);
 	}
 	.range-heading,
 	.selected-nutrient-heading {

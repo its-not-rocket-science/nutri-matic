@@ -44,16 +44,16 @@
 <p><a href="/recipes">&larr; Back to recipes</a></p>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else}
 	{#if error}
 		<p class="error">{error}</p>
 	{/if}
 
 	{#if collections.length === 0}
-		<p>No collections yet.</p>
+		<p class="muted">No collections yet.</p>
 	{:else}
-		<ul>
+		<ul class="card">
 			{#each collections as collection (collection.id)}
 				<li>
 					<a href="/collections/{collection.id}">{collection.name}</a>
@@ -63,36 +63,34 @@
 		</ul>
 	{/if}
 
-	<form onsubmit={handleCreate}>
+	<form class="create-form" onsubmit={handleCreate}>
 		<input type="text" bind:value={newName} placeholder="New collection name" required />
-		<button type="submit" disabled={creating}>{creating ? 'Creating…' : 'Create collection'}</button>
+		<button type="submit" class="btn btn-primary" disabled={creating}>
+			{creating ? 'Creating…' : 'Create collection'}
+		</button>
 	</form>
 {/if}
 
 <style>
-	.error {
-		color: #b00020;
-	}
-	.muted {
-		color: #666;
-		margin-left: 0.5rem;
-		font-size: 0.9em;
-	}
 	ul {
 		list-style: none;
 		padding: 0;
+		margin: 0;
 	}
 	li {
-		padding: 0.5rem 0;
-		border-bottom: 1px solid #eee;
+		padding: var(--space-2) 0;
+		border-bottom: 1px solid var(--color-border);
 	}
-	form {
+	li:last-child {
+		border-bottom: none;
+	}
+	.create-form {
 		display: flex;
-		gap: 0.5rem;
-		margin-top: 1.5rem;
+		gap: var(--space-2);
+		margin-top: var(--space-5);
 		max-width: 24rem;
 	}
-	form input {
+	.create-form input {
 		flex: 1;
 	}
 </style>

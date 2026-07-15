@@ -5,7 +5,7 @@
 	let { label, score }: { label: string; score: Score } = $props();
 </script>
 
-<section>
+<section class="card">
 	<h2>
 		{label}: {score.score.toFixed(1)}%
 		{#if score.digestibility_source}
@@ -38,62 +38,70 @@
 </section>
 
 <style>
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-	}
 	.badge {
 		display: inline-block;
-		font-size: 0.6em;
-		font-weight: normal;
+		font-size: var(--font-size-xs);
+		font-weight: var(--font-weight-normal);
 		text-transform: uppercase;
 		letter-spacing: 0.03em;
 		padding: 0.15em 0.5em;
-		border-radius: 999px;
+		border-radius: var(--radius-full);
 		vertical-align: middle;
-		margin-left: 0.4em;
+		margin-left: var(--space-2);
 	}
 	.badge-measured {
-		background: #dff0d8;
-		color: #2d6a2d;
+		background: var(--color-success-subtle);
+		color: var(--color-success);
 	}
 	.badge-estimated {
-		background: #fdf3d0;
-		color: #8a6d00;
+		background: var(--color-warning-subtle);
+		color: var(--color-warning);
 	}
 	.bars {
 		list-style: none;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--space-2);
 	}
 	.bars li {
 		display: grid;
-		grid-template-columns: 12rem 1fr auto;
+		grid-template-columns: 12rem 1fr 6rem;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-3);
 	}
 	.bars .aa-value {
 		white-space: nowrap;
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	@media (max-width: 30rem) {
+		.bars li {
+			grid-template-columns: 1fr auto;
+			row-gap: var(--space-1);
+		}
+		.bar-track {
+			grid-column: 1 / -1;
+		}
 	}
 	.bars li.limiting .aa-name,
 	.bars li.limiting .aa-value {
-		font-weight: bold;
-		color: #b00020;
+		font-weight: var(--font-weight-bold);
+		color: var(--color-danger);
 	}
 	.bar-track {
-		background: #eee;
-		border-radius: 4px;
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-sm);
 		height: 0.75rem;
 		overflow: hidden;
 	}
 	.bar-fill {
 		display: block;
 		height: 100%;
-		background: #3a7d44;
+		background: var(--color-success);
 	}
 	.limiting .bar-fill {
-		background: #b00020;
+		background: var(--color-danger);
 	}
 </style>

@@ -39,14 +39,16 @@
 		font-size: 1.3rem;
 		line-height: 1;
 		padding: 0.1rem;
-		color: #ccc;
+		min-width: 2.75rem;
+		min-height: 2.75rem;
+		color: var(--color-border-strong);
 	}
 	.stars button.filled {
-		color: #e0a800;
+		color: var(--color-warning);
 	}
 	.clear {
-		font-size: 0.8rem !important;
-		color: #666 !important;
-		margin-left: 0.4rem;
+		font-size: var(--font-size-xs) !important;
+		color: var(--color-text-muted) !important;
+		margin-left: var(--space-2);
 	}
 </style>

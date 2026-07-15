@@ -348,7 +348,7 @@
 {/if}
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else}
 	{#each weekDates as d, i (d)}
 		{@const dayEntries = entries.filter((e) => e.plan_date === d)}
@@ -516,7 +516,7 @@
 		</button>
 		{#if showShoppingList}
 			{#if loadingShoppingList}
-				<p>Loading…</p>
+				<p class="muted">Loading…</p>
 			{:else if shoppingList}
 				<p class="range-heading">Shopping list, {weekDates[0]} to {weekDates[6]}</p>
 				<div class="export-actions no-print">
@@ -615,10 +615,10 @@
 		margin-bottom: 1.5rem;
 	}
 	.error {
-		color: #b00020;
+		color: var(--color-danger);
 	}
 	.muted {
-		color: #666;
+		color: var(--color-text-muted);
 		font-size: 0.9em;
 		margin: 0 0.5rem;
 	}
@@ -632,7 +632,7 @@
 		text-transform: capitalize;
 		font-weight: 600;
 		font-size: 0.85em;
-		color: #444;
+		color: var(--color-text-muted);
 	}
 	.entries {
 		list-style: none;
@@ -660,7 +660,7 @@
 	.rationale {
 		margin: 0.15rem 0 0.5rem;
 		font-size: 0.85em;
-		color: #555;
+		color: var(--color-text-muted);
 	}
 	.optimize-budget {
 		display: block;
@@ -695,7 +695,7 @@
 		max-width: 28rem;
 		margin: 1.5rem 0;
 		padding: 1rem;
-		border: 1px solid #eee;
+		border: 1px solid var(--color-border);
 		border-radius: 4px;
 	}
 	label {

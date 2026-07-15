@@ -51,11 +51,11 @@
 	{/each}
 	{#if editable}
 		<form onsubmit={handleAdd}>
-			<input list="tag-options" bind:value={newTag} placeholder="Add tag…" />
+			<input list="tag-options" class="tag-input" bind:value={newTag} placeholder="Add tag…" />
 			<datalist id="tag-options">
 				{#each myTags as t (t)}<option value={t}></option>{/each}
 			</datalist>
-			<button type="submit">Add</button>
+			<button type="submit" class="btn btn-secondary">Add</button>
 		</form>
 	{/if}
 </div>
@@ -68,38 +68,40 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem;
-		margin: 0.5rem 0;
+		gap: var(--space-2);
+		margin: var(--space-2) 0;
 	}
 	.tag {
-		background: #eef;
-		color: #334;
-		border-radius: 999px;
+		background: var(--color-primary-subtle);
+		color: var(--color-primary);
+		border-radius: var(--radius-full);
 		padding: 0.15rem 0.6rem;
-		font-size: 0.85em;
+		font-size: var(--font-size-sm);
 		display: inline-flex;
 		align-items: center;
-		gap: 0.3rem;
+		gap: var(--space-1);
 	}
 	.tag button {
 		background: none;
 		border: none;
 		cursor: pointer;
-		color: #334;
+		color: inherit;
 		font-size: 1em;
 		line-height: 1;
 		padding: 0;
 	}
 	.tags form {
 		display: inline-flex;
-		gap: 0.3rem;
+		gap: var(--space-2);
 	}
-	.tags input {
-		font-size: 0.85em;
-		padding: 0.15rem 0.4rem;
+	.tag-input {
+		width: auto;
+		min-height: 0;
+		font-size: var(--font-size-sm);
+		padding: 0.15rem 0.5rem;
 	}
 	.error {
-		color: #b00020;
-		font-size: 0.9em;
+		color: var(--color-danger);
+		font-size: var(--font-size-sm);
 	}
 </style>

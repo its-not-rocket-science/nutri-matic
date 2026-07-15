@@ -67,26 +67,26 @@
 <p><a href="/">&larr; Back</a></p>
 
 {#if loading}
-	<p>Loading…</p>
+	<p class="muted">Loading…</p>
 {:else}
-	<form onsubmit={handleSubmit}>
-		<label>
-			Sex
-			<select bind:value={sex}>
+	<form class="card profile-form" onsubmit={handleSubmit}>
+		<div class="field">
+			<label for="sex">Sex</label>
+			<select id="sex" bind:value={sex}>
 				<option value={null}>Not set</option>
 				<option value="female">Female</option>
 				<option value="male">Male</option>
 			</select>
-		</label>
+		</div>
 
-		<label>
-			Birth year
-			<input type="number" min="1900" max="2026" bind:value={birthYear} />
-		</label>
+		<div class="field">
+			<label for="birth-year">Birth year</label>
+			<input id="birth-year" type="number" min="1900" max="2026" bind:value={birthYear} />
+		</div>
 
-		<label>
-			Activity level
-			<select bind:value={activityLevel}>
+		<div class="field">
+			<label for="activity-level">Activity level</label>
+			<select id="activity-level" bind:value={activityLevel}>
 				<option value={null}>Not set</option>
 				<option value="sedentary">Sedentary</option>
 				<option value="light">Lightly active</option>
@@ -94,25 +94,25 @@
 				<option value="active">Active</option>
 				<option value="very_active">Very active</option>
 			</select>
-		</label>
+		</div>
 
-		<label class="checkbox">
+		<label class="checkbox field">
 			<input type="checkbox" bind:checked={isPregnant} />
 			Pregnant
 		</label>
-		<label class="checkbox">
+		<label class="checkbox field">
 			<input type="checkbox" bind:checked={isLactating} />
 			Lactating
 		</label>
 
-		<label>
-			Weight (kg)
-			<input type="number" step="any" min="0" bind:value={weightKg} />
-		</label>
-		<label>
-			Height (cm)
-			<input type="number" step="any" min="0" bind:value={heightCm} />
-		</label>
+		<div class="field">
+			<label for="weight">Weight (kg)</label>
+			<input id="weight" type="number" step="any" min="0" bind:value={weightKg} />
+		</div>
+		<div class="field">
+			<label for="height">Height (cm)</label>
+			<input id="height" type="number" step="any" min="0" bind:value={heightCm} />
+		</div>
 
 		<p class="muted">
 			Sex and pregnancy/lactation status are used to select the right reference values when
@@ -125,38 +125,23 @@
 			<p class="error">{error}</p>
 		{/if}
 		{#if saved}
-			<p class="success">Saved.</p>
+			<p class="success-text">Saved.</p>
 		{/if}
 
-		<button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save profile'}</button>
+		<button type="submit" class="btn btn-primary" disabled={saving}>
+			{saving ? 'Saving…' : 'Save profile'}
+		</button>
 	</form>
 {/if}
 
 <style>
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		max-width: 24rem;
+	.profile-form {
+		max-width: 28rem;
 	}
-	label {
+	.checkbox {
 		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	label.checkbox {
 		flex-direction: row;
 		align-items: center;
-		gap: 0.5rem;
-	}
-	.muted {
-		color: #666;
-		font-size: 0.9em;
-	}
-	.error {
-		color: #b00020;
-	}
-	.success {
-		color: #2d6a2d;
+		gap: var(--space-2);
 	}
 </style>

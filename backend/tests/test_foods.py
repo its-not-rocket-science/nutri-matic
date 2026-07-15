@@ -99,3 +99,66 @@ def test_pdcaas_score_endpoint_includes_methodology_version(client):
     res = client.get("/api/foods/1/score?method=pdcaas")
     assert res.status_code == 200
     assert res.json()["methodology_version"] == SCORING_METHODOLOGY_VERSION
+
+
+@pytest.fixture
+def many_foods_client(client):
+    db = next(app.dependency_overrides[get_db]())
+    # id=1 "chicken" already exists from the base fixture; add 299 more
+    # so names sort predictably and a full-table scan would be obvious.
+    db.add_all(
+        [
+            Food(
+                id=100 + i,
+                name=f"food-{i:03d}",
+                protein_g_per_100g=10,
+                amino_acids=dict.fromkeys(AMINO_ACIDS, 5),
+                fdc_id=None,
+                data_type="foundation_food",
+            )
+            for i in range(299)
+        ]
+    )
+    db.commit()
+    db.close()
+    return client
+
+
+def test_list_foods_default_page_size(many_foods_client):
+    res = many_foods_client.get("/api/foods")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["total"] == 300
+    assert body["limit"] == 50
+    assert body["offset"] == 0
+    assert len(body["items"]) == 50
+    assert body["has_more"] is True
+
+
+def test_list_foods_respects_limit_and_offset(many_foods_client):
+    res = many_foods_client.get("/api/foods?limit=10&offset=5")
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["items"]) == 10
+    assert body["limit"] == 10
+    assert body["offset"] == 5
+
+
+def test_list_foods_ordering_is_by_name(many_foods_client):
+    res = many_foods_client.get("/api/foods?limit=200")
+    assert res.status_code == 200
+    names = [f["name"] for f in res.json()["items"]]
+    assert names == sorted(names)
+
+
+def test_list_foods_last_page_has_more_false(many_foods_client):
+    res = many_foods_client.get("/api/foods?limit=50&offset=250")
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body["items"]) == 50
+    assert body["has_more"] is False
+
+
+def test_list_foods_rejects_limit_over_max(many_foods_client):
+    res = many_foods_client.get("/api/foods?limit=201")
+    assert res.status_code == 422
