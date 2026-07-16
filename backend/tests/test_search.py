@@ -250,6 +250,39 @@ def test_search_foods_by_name_ranks_exact_and_prefix_first():
     assert ranked[1].name == "egg substitute"
 
 
+def test_search_foods_by_name_surfaces_generic_food_over_branded_noise(db):
+    """Regression test: branded products vastly outnumber generic
+    Foundation/SR Legacy foods in production and are brand-name-prefixed,
+    so a plain alphabetical candidate cutoff (ORDER BY name LIMIT N) can
+    starve out a generic ingredient match before relevance ranking ever
+    sees it. Enough branded "chickpea" noise here (all sorting ahead of
+    "Chickpeas..." alphabetically) to reproduce that at limit=5,
+    limit*5=25 candidate cutoff."""
+    for i in range(30):
+        db.add(
+            Food(
+                id=i + 1,
+                name=f"{i:02d} Brand CHICKPEAS",
+                protein_g_per_100g=5.0,
+                amino_acids={},
+                data_type="branded_food",
+            )
+        )
+    db.add(
+        Food(
+            id=999,
+            name="Chickpeas (garbanzo beans, bengal gram), mature seeds, raw",
+            protein_g_per_100g=20.47,
+            amino_acids={},
+            data_type="sr_legacy_food",
+        )
+    )
+    db.commit()
+
+    results = search_foods_by_name(db, "chickpeas", limit=5)
+    assert any(f.data_type == "sr_legacy_food" for f in results)
+
+
 def test_search_foods_by_name_short_query_returns_empty(db):
     make_food(db, 1, "Chicken, breast, cooked")
     db.commit()
