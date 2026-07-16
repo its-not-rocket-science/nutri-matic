@@ -3,34 +3,55 @@
    hardcoding colors/spacing/type locally. */
 
 :root {
-	/* Brand: derived from app.html's theme-color meta (#3a6ea5) so the
-	   installed PWA's OS chrome and the in-app UI use the same blue. */
-	--color-primary: #3a6ea5;
-	--color-primary-hover: #2f5a87;
-	--color-primary-active: #24486c;
-	--color-on-primary: #ffffff;
-	--color-primary-subtle: #eaf1f8;
+	/* Brand: Nutri-Matic identity spec NM-3 — a retro instrument-panel
+	   system (teal chassis, amber needle) rather than a software blue.
+	   See docs/brand-identity.md for the full rationale. app.html's
+	   theme-color meta and manifest.webmanifest both track --color-primary
+	   so the installed PWA's OS chrome matches. */
+	--color-primary: #1b4b4a;
+	--color-primary-hover: #163e3d;
+	--color-primary-active: #102e2d;
+	--color-on-primary: #f1ead9;
+	--color-primary-subtle: #e1eae9;
 
-	--color-bg: #ffffff;
-	--color-surface: #ffffff;
-	--color-surface-muted: #f5f7f9;
-	--color-border: #dde3e8;
-	--color-border-strong: #c3ccd3;
+	/* Amber is split in two: --color-accent is the bright phosphor amber for
+	   fills (button backgrounds, the logo needle, decorative gauge graphics)
+	   — measured at only 2.6:1 against parchment, so it must never be used
+	   as text/icon/outline color. --color-accent-text is the same hue
+	   deepened to 5.6:1 for anything read as text (links, focus ring, the
+	   nav wordmark's middle dot). Logos are WCAG-exempt from this, which is
+	   why the mark itself keeps the brighter value. */
+	--color-accent: #e8a33d;
+	--color-accent-hover: #d8912b;
+	--color-accent-subtle: #fbeeda;
+	--color-accent-text: #805214;
+	--color-accent-text-hover: #6b4511;
 
-	--color-text: #1a2226;
-	--color-text-muted: #5b6770;
-	--color-text-subtle: #7c8891;
+	--color-bg: #f1ead9;
+	--color-surface: #fbf7ee;
+	--color-surface-muted: #e9e0cc;
+	--color-border: #d9cdaf;
+	--color-border-strong: #b7a87e;
 
-	--color-success: #1f8a4c;
-	--color-success-subtle: #e8f5ed;
-	--color-warning: #a3690a;
-	--color-warning-subtle: #fbf1e0;
-	--color-danger: #b3261e;
-	--color-danger-subtle: #fbeceb;
+	--color-text: #2a2622;
+	--color-text-muted: #6b6252;
+	--color-text-subtle: #8a806c;
 
-	--color-focus-ring: #3a6ea5;
+	--color-success: #4c7c6e;
+	--color-success-subtle: #e3eae6;
+	--color-warning: #805214;
+	--color-warning-subtle: #fbeeda;
+	--color-danger: #a8402f;
+	--color-danger-subtle: #f3e1dc;
 
-	/* Type scale: 1.25 (major third) ratio off a 1rem base. */
+	--color-focus-ring: #805214;
+
+	/* Type scale: 1.25 (major third) ratio off a 1rem base. Futura is a
+	   genuine mid-century geometric face (real 1960s technical-equipment
+	   lineage) for headings/labels/brand; body copy stays a plain system
+	   sans deliberately — this is a data-dense UI that gets scanned, not
+	   read, so legibility beats character there. */
+	--font-display: Futura, 'Century Gothic', 'Avenir Next', 'URW Gothic', ui-sans-serif, sans-serif;
 	--font-sans:
 		system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 	--font-mono: ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
@@ -73,33 +94,95 @@
 	--layout-max-width: 64rem;
 }
 
+/* Dark mode: the instrument lit at night, not an inverted light theme —
+   graphite-green chassis, phosphor teal/amber glow. */
 @media (prefers-color-scheme: dark) {
 	:root {
-		--color-primary: #6d9bcc;
-		--color-primary-hover: #85acd6;
-		--color-primary-active: #9bbbdf;
-		--color-on-primary: #0b1720;
-		--color-primary-subtle: #16283a;
+		--color-primary: #7fc2bd;
+		--color-primary-hover: #9ad1cd;
+		--color-primary-active: #5fa8a2;
+		--color-on-primary: #12201e;
+		--color-primary-subtle: #1c2e2c;
 
-		--color-bg: #14181b;
-		--color-surface: #1b2126;
-		--color-surface-muted: #20272c;
-		--color-border: #333c42;
-		--color-border-strong: #47525a;
+		--color-accent: #f0b559;
+		--color-accent-hover: #f6cd8a;
+		--color-accent-subtle: #3a2c15;
+		--color-accent-text: #f0b559;
+		--color-accent-text-hover: #f6cd8a;
 
-		--color-text: #e7ecef;
-		--color-text-muted: #a7b1b8;
-		--color-text-subtle: #85919a;
+		--color-bg: #17211f;
+		--color-surface: #1e2b28;
+		--color-surface-muted: #24332f;
+		--color-border: #3a4b47;
+		--color-border-strong: #55716a;
 
-		--color-success: #55c485;
-		--color-success-subtle: #143324;
-		--color-warning: #e0a94a;
-		--color-warning-subtle: #3a2c11;
-		--color-danger: #ec6a62;
-		--color-danger-subtle: #3a1917;
+		--color-text: #ede4d3;
+		--color-text-muted: #a89e8a;
+		--color-text-subtle: #9e9483;
 
-		--color-focus-ring: #85acd6;
+		--color-success: #86bcae;
+		--color-success-subtle: #1e322c;
+		--color-warning: #f0b559;
+		--color-warning-subtle: #3a2c15;
+		--color-danger: #d97a68;
+		--color-danger-subtle: #3a211c;
+
+		--color-focus-ring: #f0b559;
 	}
+}
+:root[data-theme='dark'] {
+	--color-primary: #7fc2bd;
+	--color-primary-hover: #9ad1cd;
+	--color-primary-active: #5fa8a2;
+	--color-on-primary: #12201e;
+	--color-primary-subtle: #1c2e2c;
+	--color-accent: #f0b559;
+	--color-accent-hover: #f6cd8a;
+	--color-accent-subtle: #3a2c15;
+	--color-accent-text: #f0b559;
+	--color-accent-text-hover: #f6cd8a;
+	--color-bg: #17211f;
+	--color-surface: #1e2b28;
+	--color-surface-muted: #24332f;
+	--color-border: #3a4b47;
+	--color-border-strong: #55716a;
+	--color-text: #ede4d3;
+	--color-text-muted: #a89e8a;
+	--color-text-subtle: #9e9483;
+	--color-success: #86bcae;
+	--color-success-subtle: #1e322c;
+	--color-warning: #f0b559;
+	--color-warning-subtle: #3a2c15;
+	--color-danger: #d97a68;
+	--color-danger-subtle: #3a211c;
+	--color-focus-ring: #f0b559;
+}
+:root[data-theme='light'] {
+	--color-primary: #1b4b4a;
+	--color-primary-hover: #163e3d;
+	--color-primary-active: #102e2d;
+	--color-on-primary: #f1ead9;
+	--color-primary-subtle: #e1eae9;
+	--color-accent: #e8a33d;
+	--color-accent-hover: #d8912b;
+	--color-accent-subtle: #fbeeda;
+	--color-accent-text: #805214;
+	--color-accent-text-hover: #6b4511;
+	--color-bg: #f1ead9;
+	--color-surface: #fbf7ee;
+	--color-surface-muted: #e9e0cc;
+	--color-border: #d9cdaf;
+	--color-border-strong: #b7a87e;
+	--color-text: #2a2622;
+	--color-text-muted: #6b6252;
+	--color-text-subtle: #8a806c;
+	--color-success: #4c7c6e;
+	--color-success-subtle: #e3eae6;
+	--color-warning: #805214;
+	--color-warning-subtle: #fbeeda;
+	--color-danger: #a8402f;
+	--color-danger-subtle: #f3e1dc;
+	--color-focus-ring: #805214;
 }
 
 *,
@@ -119,15 +202,44 @@ body {
 	font-family: var(--font-sans);
 	font-size: var(--font-size-base);
 	line-height: var(--line-height-normal);
+	transition:
+		background-color 0.2s ease,
+		color 0.2s ease;
+}
+
+/* Motion, generally: tasteful and brief, and entirely disabled for anyone
+   who's said they don't want it — nothing here should ever be load-bearing
+   for understanding the UI, only a polish layer on top of it. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+	}
 }
 
 h1,
 h2,
 h3,
 h4 {
+	font-family: var(--font-display);
 	line-height: var(--line-height-tight);
 	font-weight: var(--font-weight-bold);
+	letter-spacing: 0.01em;
 	margin: 0 0 var(--space-4);
+}
+
+/* Short, structural, all-caps labels — nameplate-style, not prose. Applied
+   selectively (section eyebrows, badges, buttons), never to user content
+   like a recipe or food name. */
+.label-caps {
+	font-family: var(--font-display);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	font-size: var(--font-size-xs);
+	color: var(--color-text-muted);
 }
 
 h1 {
@@ -156,8 +268,24 @@ textarea {
 	color: inherit;
 }
 
+/* Safety net: a plain <button> with no .btn class would otherwise keep the
+   browser's own (theme-unaware, usually light) chrome while inheriting
+   this theme's text color — invisible white-on-white text in dark mode.
+   .btn's higher specificity overrides this cleanly wherever it's used. */
 button {
 	cursor: pointer;
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	padding: var(--space-2) var(--space-3);
+	min-height: 2.75rem;
+}
+button:hover {
+	border-color: var(--color-border-strong);
+}
+button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
 }
 
 :focus-visible {
@@ -179,6 +307,7 @@ textarea {
 	color: var(--color-text);
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius-sm);
+	transition: border-color 0.15s ease;
 }
 
 input:focus,
@@ -222,6 +351,7 @@ td {
 }
 
 th {
+	font-family: var(--font-display);
 	font-size: var(--font-size-xs);
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
@@ -247,20 +377,43 @@ tbody tr:hover {
 	gap: var(--space-2);
 	border-radius: var(--radius-sm);
 	padding: var(--space-2) var(--space-4);
+	font-family: var(--font-display);
 	font-size: var(--font-size-sm);
 	font-weight: var(--font-weight-medium);
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
 	text-decoration: none;
 	border: 1px solid transparent;
 	min-height: 2.75rem;
 	background: var(--color-surface);
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease,
+		transform 0.1s ease;
+}
+.btn:active {
+	transform: scale(0.97);
 }
 
 .btn-primary {
 	background: var(--color-primary);
 	color: var(--color-on-primary);
+	border-color: var(--color-primary);
 }
 .btn-primary:hover {
 	background: var(--color-primary-hover);
+	border-color: var(--color-primary-hover);
+}
+
+.btn-accent {
+	background: var(--color-accent);
+	color: var(--color-text);
+	border-color: var(--color-accent);
+}
+.btn-accent:hover {
+	background: var(--color-accent-hover);
+	border-color: var(--color-accent-hover);
 }
 
 .btn-secondary {
@@ -298,6 +451,57 @@ tbody tr:hover {
 
 .card + .card {
 	margin-top: var(--space-4);
+}
+
+/* Badges: provenance/confidence tags (measured vs. estimated digestibility,
+   DRV confidence tiers) used on ScoreCard, NutrientBars, and the
+   methodology page — one definition instead of three near-identical ones. */
+.badge {
+	display: inline-flex;
+	align-items: center;
+	font-family: var(--font-display);
+	font-size: var(--font-size-xs);
+	font-weight: var(--font-weight-normal);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	padding: 0.15em 0.6em;
+	border-radius: var(--radius-full);
+	white-space: nowrap;
+}
+.badge-measured {
+	background: var(--color-success-subtle);
+	color: var(--color-success);
+}
+.badge-estimated {
+	background: var(--color-warning-subtle);
+	color: var(--color-warning);
+}
+.badge-limiting {
+	background: var(--color-danger-subtle);
+	color: var(--color-danger);
+}
+.badge-info {
+	background: var(--color-primary-subtle);
+	color: var(--color-primary);
+}
+
+/* Alerts: a callout for a caveat or notice (e.g. "this reading uses an
+   estimated coefficient") — distinct from .error, which is inline
+   validation/failure text, not a boxed callout. */
+.alert {
+	border-left: 3px solid var(--color-accent-text);
+	background: var(--color-accent-subtle);
+	padding: var(--space-3) var(--space-4);
+	font-size: var(--font-size-sm);
+	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.alert-danger {
+	border-left-color: var(--color-danger);
+	background: var(--color-danger-subtle);
+}
+.alert-success {
+	border-left-color: var(--color-success);
+	background: var(--color-success-subtle);
 }
 
 /* Shared utility classes used across routes for consistent muted text and

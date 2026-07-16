@@ -106,6 +106,7 @@ export interface User {
 	is_lactating: boolean;
 	weight_kg: number | null;
 	height_cm: number | null;
+	dietary_pattern: string | null;
 }
 
 export interface ProfileUpdate {
@@ -116,6 +117,42 @@ export interface ProfileUpdate {
 	is_lactating: boolean;
 	weight_kg: number | null;
 	height_cm: number | null;
+	dietary_pattern: string | null;
+}
+
+export type DietaryConstraintCategory = 'allergy' | 'intolerance' | 'religious' | 'medical' | 'preference';
+export type DietarySeverity = 'hard_exclude' | 'avoid';
+
+export interface DietaryConstraint {
+	id: number;
+	category: DietaryConstraintCategory;
+	tag: string | null;
+	severity: DietarySeverity | null;
+	note: string | null;
+}
+
+export interface DietaryConstraintCreate {
+	category: DietaryConstraintCategory;
+	tag: string | null;
+	severity: DietarySeverity | null;
+	note: string | null;
+}
+
+export interface DietaryTag {
+	key: string;
+	label: string;
+}
+
+export interface DietaryPattern {
+	key: string;
+	label: string;
+	excludes: string[];
+}
+
+export interface DietaryVocabulary {
+	allergen_tags: DietaryTag[];
+	religious_requirements: DietaryPattern[];
+	dietary_patterns: DietaryPattern[];
 }
 
 export interface WeightLog {

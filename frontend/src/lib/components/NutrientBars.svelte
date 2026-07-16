@@ -154,7 +154,7 @@
 						<tr>
 							<td>{n.name}</td>
 							<td>
-								<span class="confidence-badge confidence-{n.drv_confidence}">
+								<span class="badge confidence-badge confidence-{n.drv_confidence}">
 									{n.drv_confidence?.replaceAll('_', ' ')}
 								</span>
 							</td>
@@ -237,11 +237,6 @@
 		margin-top: var(--space-2);
 	}
 	.confidence-badge {
-		display: inline-block;
-		font-size: var(--font-size-xs);
-		padding: 0.1em 0.5em;
-		border-radius: var(--radius-full);
-		white-space: nowrap;
 		text-transform: capitalize;
 	}
 	.confidence-live_confirmed {

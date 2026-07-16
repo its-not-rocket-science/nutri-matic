@@ -46,10 +46,17 @@
 	});
 </script>
 
+<svelte:head>
+	<title>{food ? `${food.name} — Nutri-Matic` : 'Nutri-Matic'}</title>
+	{#if food}
+		<meta name="description" content="DIAAS/PDCAAS protein quality score and micronutrient profile for {food.name}." />
+	{/if}
+</svelte:head>
+
 <p><a href="/">&larr; Back</a></p>
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else if error}
 	<p class="error">{error}</p>
 {:else if food}
@@ -114,7 +121,7 @@
 	{/if}
 
 	{#if !diaasScore && !pdcaasScore}
-		<p>No digestibility data on this food — no score can be computed.</p>
+		<p class="alert">No digestibility data on this food — no score can be computed.</p>
 	{/if}
 
 	<NutrientBars {nutrients} per="per 100g" />

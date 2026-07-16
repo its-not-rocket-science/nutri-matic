@@ -43,7 +43,7 @@
 <p><a href="/">&larr; Back</a></p>
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else}
 	<form class="card search-form" onsubmit={handleSearch}>
 		<FilterBuilder {keys} bind:filters />
@@ -60,7 +60,7 @@
 	{#if searched}
 		<h2>Results <span class="muted">({results.length}{results.length === 100 ? '+' : ''})</span></h2>
 		{#if results.length === 0}
-			<p class="muted">No foods match those filters.</p>
+			<p class="muted">No foods match those filters — try loosening a threshold or removing one.</p>
 		{:else}
 			<ul class="card">
 				{#each results as food (food.id)}

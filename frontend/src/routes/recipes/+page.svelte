@@ -91,7 +91,7 @@
 <p><a href="/recipes/new">+ New recipe</a> · <a href="/collections">Collections</a></p>
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else}
 	<p>
 		<button type="button" class="btn btn-secondary" onclick={() => (showFilters = !showFilters)}>
@@ -132,7 +132,12 @@
 
 	<h2>My recipes</h2>
 	{#if recipes.length === 0}
-		<p class="muted">No recipes match.</p>
+		<p class="muted">
+			{filters.length > 0 || tagFilter
+				? 'No recipes match — try clearing a filter.'
+				: 'No recipes yet.'}
+			<a href="/recipes/new">Create a new recipe</a>.
+		</p>
 	{:else}
 		<ul class="card">
 			{#each recipes as recipe (recipe.id)}

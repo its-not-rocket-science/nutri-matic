@@ -54,6 +54,9 @@
 	let selectedFood: Food | null = $state(null);
 	let selectedRecipe: Recipe | null = $state(null);
 	let quantity = $state<number | null>(100);
+	// svelte(state_referenced_locally): intentional — this seeds the initial
+	// value only; shiftWeek() below explicitly re-syncs planDate whenever
+	// the visible week actually changes.
 	let planDate = $state(weekDates[0]);
 	let meal: Meal = $state('breakfast');
 	let adding = $state(false);
@@ -348,14 +351,14 @@
 {/if}
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else}
 	{#each weekDates as d, i (d)}
 		{@const dayEntries = entries.filter((e) => e.plan_date === d)}
 		<section class="no-print">
 			<h3>{WEEKDAY_LABELS[i]} <span class="muted">{d}</span></h3>
 			{#if dayEntries.length === 0}
-				<p class="muted">Nothing planned.</p>
+				<p class="muted">Nothing planned — use "Add planned entry" below to fill this day in.</p>
 			{:else}
 				{#each MEALS as m (m)}
 					{@const mealEntries = dayEntries.filter((e) => e.meal === m)}
@@ -469,14 +472,20 @@
 	<section class="templates no-print">
 		<h3>Templates</h3>
 		<form onsubmit={handleSaveTemplate} class="template-save">
-			<input type="text" bind:value={templateName} placeholder="Template name (e.g. Typical week)" required />
+			<input
+				type="text"
+				bind:value={templateName}
+				placeholder="Template name (e.g. Typical week)"
+				aria-label="Template name"
+				required
+			/>
 			<button type="submit" disabled={savingTemplate}>
 				{savingTemplate ? 'Saving…' : 'Save this week as template'}
 			</button>
 		</form>
 
 		{#if templates.length === 0}
-			<p class="muted">No templates saved yet.</p>
+			<p class="muted">No templates saved yet — plan a week you like, then save it above to reuse it.</p>
 		{:else}
 			<ul class="entries">
 				{#each templates as t (t.id)}
@@ -516,7 +525,7 @@
 		</button>
 		{#if showShoppingList}
 			{#if loadingShoppingList}
-				<p class="muted">Loading…</p>
+				<p class="muted">Calibrating…</p>
 			{:else if shoppingList}
 				<p class="range-heading">Shopping list, {weekDates[0]} to {weekDates[6]}</p>
 				<div class="export-actions no-print">
@@ -524,7 +533,7 @@
 					<button type="button" onclick={handleDownloadCsv}>Download CSV</button>
 				</div>
 				{#if shoppingList.items.length === 0}
-					<p class="muted">Nothing planned this week.</p>
+					<p class="muted">Nothing planned this week yet — the shopping list fills in once you add entries above.</p>
 				{:else}
 					<ul class="entries">
 						{#each shoppingList.items as item (item.food_id)}

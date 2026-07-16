@@ -81,14 +81,14 @@
 <p><a href="/collections">&larr; Back to collections</a></p>
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else if error}
 	<p class="error">{error}</p>
 {:else if collection}
 	<h1>{collection.name}</h1>
 
 	{#if collection.recipes.length === 0}
-		<p class="muted">No recipes in this collection yet.</p>
+		<p class="muted">No recipes in this collection yet — add one from the list below.</p>
 	{:else}
 		<ul class="card">
 			{#each collection.recipes as recipe (recipe.id)}
@@ -107,7 +107,7 @@
 
 	{#if availableCandidates.length > 0}
 		<form class="add-form" onsubmit={handleAdd}>
-			<select bind:value={selectedRecipeId}>
+			<select bind:value={selectedRecipeId} aria-label="Recipe to add">
 				<option value={null}>Add a recipe…</option>
 				{#each availableCandidates as recipe (recipe.id)}
 					<option value={recipe.id}>{recipe.name}</option>

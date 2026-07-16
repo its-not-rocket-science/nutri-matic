@@ -21,17 +21,17 @@
 <div class="filter-builder">
 	{#each filters as filter, i (i)}
 		<div class="filter-row">
-			<select bind:value={filter.key}>
+			<select bind:value={filter.key} aria-label="Nutrient">
 				{#each keys as k (k.key)}
 					<option value={k.key}>{k.label}</option>
 				{/each}
 			</select>
-			<select bind:value={filter.op}>
+			<select bind:value={filter.op} aria-label="Comparison">
 				<option value="gte">&ge;</option>
 				<option value="lte">&le;</option>
 				<option value="eq">=</option>
 			</select>
-			<input type="number" step="any" bind:value={filter.value} />
+			<input type="number" step="any" bind:value={filter.value} aria-label="Value" />
 			{#if unitFor(filter.key)}
 				<span class="unit">{unitFor(filter.key)}</span>
 			{/if}

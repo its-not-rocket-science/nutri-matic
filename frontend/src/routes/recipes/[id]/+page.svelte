@@ -179,10 +179,17 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{recipe ? `${recipe.name} — Nutri-Matic` : 'Nutri-Matic'}</title>
+	{#if recipe}
+		<meta name="description" content="DIAAS/PDCAAS protein quality score and micronutrient profile for {recipe.name}." />
+	{/if}
+</svelte:head>
+
 <p class="no-print"><a href="/recipes">&larr; Back</a></p>
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else if error}
 	<p class="error">{error}</p>
 {:else if recipe}
@@ -231,7 +238,7 @@
 	{#if pdcaasScore}<ScoreCard label="PDCAAS" score={pdcaasScore} />{/if}
 
 	{#if !diaasScore && !pdcaasScore}
-		<p>No digestibility data on this recipe's ingredients — no score can be computed.</p>
+		<p class="alert">No digestibility data on this recipe's ingredients — no score can be computed.</p>
 	{/if}
 
 	<NutrientBars {nutrients} per="per serving" />
@@ -254,7 +261,13 @@
 				<p class="muted">Not shared with anyone yet.</p>
 			{/if}
 			<form class="share-form" onsubmit={handleShare}>
-				<input type="email" bind:value={shareEmail} placeholder="Share with (email)" required />
+				<input
+					type="email"
+					bind:value={shareEmail}
+					placeholder="Share with (email)"
+					aria-label="Share with (email)"
+					required
+				/>
 				<button type="submit" class="btn btn-primary" disabled={sharing}>
 					{sharing ? 'Sharing…' : 'Share'}
 				</button>
@@ -297,7 +310,7 @@
 				{/each}
 			</ul>
 		{:else}
-			<p class="muted">No comments yet.</p>
+			<p class="muted">No comments yet. Be the first to weigh in.</p>
 		{/if}
 
 		<form class="comment-form" onsubmit={handleAddComment}>

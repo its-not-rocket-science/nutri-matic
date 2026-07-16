@@ -85,6 +85,7 @@ def decode_access_token(token: str) -> int:
 
 
 _bearer = HTTPBearer()
+_optional_bearer = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
@@ -100,3 +101,21 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user
+
+
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_optional_bearer),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """For endpoints usable both signed-out and signed-in (e.g. food search)
+    where a logged-in user's dietary constraints should apply but the
+    endpoint itself doesn't require auth. Unlike get_current_user, a
+    missing/invalid/expired token here just means "anonymous", never a 401
+    — the caller gets an unfiltered result instead."""
+    if credentials is None:
+        return None
+    try:
+        user_id = decode_access_token(credentials.credentials)
+    except InvalidToken:
+        return None
+    return db.get(User, user_id)

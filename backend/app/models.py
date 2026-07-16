@@ -41,6 +41,14 @@ class User(Base):
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Phase 3 — dietary pattern is a single overriding choice (you are
+    # either vegan or you aren't), unlike allergies/religious requirements/
+    # preferences below, which are inherently multiple and live in
+    # DietaryConstraint. Nullable: not set means "no pattern declared",
+    # not "omnivore" — the two are different (a fresh signup has never
+    # said either way). See dietary_tags.py for what each pattern implies.
+    dietary_pattern: Mapped[str | None] = mapped_column(String, nullable=True)
+
     # entitlement primitive (Phase 3) — see entitlements.py. A plain string,
     # not a DB enum: adding "educational"/"enterprise" later is just a new
     # string value used in entitlements.py's tables, no migration needed.
@@ -49,6 +57,34 @@ class User(Base):
     # whose expiry has passed is treated as "free" by entitlements.py
     # (see user_has_feature), not auto-downgraded in the database itself.
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class DietaryConstraint(Base):
+    """A user's allergy, intolerance, religious requirement, or preference —
+    see dietary_tags.py for the controlled vocabulary and how each tag maps
+    to a keyword-based food match. Medical considerations and free-text
+    preferences are NOT enforced as filters (see dietary_tags.py's module
+    docstring for why) and are stored with tag=None, note=<free text>
+    instead — informational only, shown on the profile but never used to
+    exclude a food/recipe from search or the optimizer."""
+
+    __tablename__ = "dietary_constraints"
+    __table_args__ = (
+        UniqueConstraint("user_id", "category", "tag", name="uq_dietary_constraint"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    # "allergy" | "intolerance" | "religious" | "medical" | "preference"
+    category: Mapped[str] = mapped_column(String, nullable=False)
+    # a dietary_tags.py vocabulary key (e.g. "peanut", "halal") for
+    # allergy/intolerance/religious/preference rows; null for medical rows
+    # and any free-text preference not in the controlled vocabulary
+    tag: Mapped[str | None] = mapped_column(String, nullable=True)
+    # "hard_exclude" (never show/suggest) | "avoid" (soft — flagged, not
+    # hidden); null for medical/informational rows, which aren't enforced
+    severity: Mapped[str | None] = mapped_column(String, nullable=True)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Food(Base):

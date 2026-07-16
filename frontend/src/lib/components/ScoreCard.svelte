@@ -39,23 +39,8 @@
 
 <style>
 	.badge {
-		display: inline-block;
-		font-size: var(--font-size-xs);
-		font-weight: var(--font-weight-normal);
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		padding: 0.15em 0.5em;
-		border-radius: var(--radius-full);
 		vertical-align: middle;
 		margin-left: var(--space-2);
-	}
-	.badge-measured {
-		background: var(--color-success-subtle);
-		color: var(--color-success);
-	}
-	.badge-estimated {
-		background: var(--color-warning-subtle);
-		color: var(--color-warning);
 	}
 	.bars {
 		list-style: none;

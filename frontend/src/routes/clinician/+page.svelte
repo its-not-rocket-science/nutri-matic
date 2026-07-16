@@ -153,7 +153,7 @@
 {/if}
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else}
 	<form onsubmit={handleInvite} class="invite-form">
 		<h3>Invite a client</h3>
@@ -213,7 +213,7 @@
 			</label>
 
 			{#if loadingSummary}
-				<p class="muted">Loading…</p>
+				<p class="muted">Calibrating…</p>
 			{:else if summary}
 				{#if summary.day.entries.length === 0}
 					<p class="muted">Nothing logged this day.</p>

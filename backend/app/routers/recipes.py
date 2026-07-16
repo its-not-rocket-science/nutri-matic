@@ -5,6 +5,7 @@ from .. import schemas
 from ..aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
 from ..auth import get_current_user
 from ..database import get_db
+from ..dietary_filter import filter_excluded_recipes
 from ..models import (
     Food,
     FoodNutrient,
@@ -166,6 +167,7 @@ def recipe_search(
         matches = search_recipes(db, current_user.id, filters)
     except UnknownFilterKey as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    matches = filter_excluded_recipes(matches, db, current_user)
     return [_recipe_out(r, db, current_user) for r in matches[: body.limit]]
 
 

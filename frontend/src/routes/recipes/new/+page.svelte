@@ -82,7 +82,13 @@
 				{#each rows as row (row.food.id)}
 					<li>
 						<span class="food-name">{row.food.name}</span>
-						<input type="number" step="any" min="0" bind:value={row.quantity_g} />
+						<input
+							type="number"
+							step="any"
+							min="0"
+							bind:value={row.quantity_g}
+							aria-label="Quantity in grams for {row.food.name}"
+						/>
 						<span class="muted">g</span>
 						<button type="button" class="btn btn-danger" onclick={() => removeIngredient(row.food.id)}>
 							Remove

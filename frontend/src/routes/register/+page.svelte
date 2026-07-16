@@ -16,7 +16,7 @@
 			const { access_token } = await api.register(email, password);
 			auth.setToken(access_token);
 			auth.setUser(await api.me());
-			await goto('/');
+			await goto('/onboarding');
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 			submitting = false;

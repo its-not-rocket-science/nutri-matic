@@ -79,7 +79,7 @@
 {/if}
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else}
 	{#if prices.length === 0}
 		<p class="muted">No prices set yet.</p>
