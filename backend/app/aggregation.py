@@ -27,6 +27,7 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
+from .data_quality import is_implausible
 from .models import Food, FoodNutrient, Recipe, RecipeIngredient
 from .reference_patterns import AMINO_ACIDS
 
@@ -213,10 +214,18 @@ def aggregate_nutrients(
 ) -> dict[str, float]:
     """Sums amount_per_100g * quantity_g / 100 across items for each
     nutrient key, then divides by `divide_by` (servings, for a recipe;
-    1 for a diary day's raw total)."""
+    1 for a diary day's raw total).
+
+    Skips any FoodNutrient row flagged by data_quality.is_implausible —
+    a source data error (see data_quality.py) would otherwise blow out
+    the whole day's/recipe's total for that nutrient. The raw value is
+    still visible on the food's own provenance page; it's just not
+    trustworthy as an input to a sum."""
     totals: dict[str, float] = {}
     for item in items:
         for fn in food_nutrients_by_food_id.get(item.food.id, []):
+            if is_implausible(fn.nutrient_key, fn.amount_per_100g):
+                continue
             contribution = fn.amount_per_100g * item.quantity_g / 100
             totals[fn.nutrient_key] = totals.get(fn.nutrient_key, 0.0) + contribution
     if divide_by and divide_by != 1.0:

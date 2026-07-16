@@ -8,6 +8,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models import Food, FoodNutrient
 from app.reference_patterns import AMINO_ACIDS
+from app.routers.diary import _rank_foods_by_nutrient
 
 
 @pytest.fixture
@@ -226,6 +227,37 @@ def test_gap_suggestions_scoped_to_user(client):
 
     res = client.get("/api/diary/gap-suggestions?entry_date=2026-07-13", headers=auth_headers(other_token))
     assert res.json() is None
+
+
+def test_rank_foods_by_nutrient_excludes_implausible_outlier():
+    """Regression test for the Wal-Mart pie crust case: a food reporting an
+    implausible amount (thousands of times its DRV — almost certainly a
+    source data error) must never win a gap-suggestion/optimizer candidate
+    slot just because sorting by raw amount_per_100g put it first."""
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(bind=engine)
+    db = sessionmaker(bind=engine)()
+
+    normal = Food(id=1, name="normal", protein_g_per_100g=1, amino_acids=dict.fromkeys(AMINO_ACIDS, None))
+    outlier = Food(
+        id=2, name="Wal-Mart Stores, Inc. GRAHAM PIE CRUST, GRAHAM",
+        protein_g_per_100g=1, amino_acids=dict.fromkeys(AMINO_ACIDS, None),
+    )
+    db.add_all([normal, outlier])
+    db.flush()
+    db.add_all(
+        [
+            FoodNutrient(food_id=1, nutrient_key="biotin", amount_per_100g=5.0),
+            FoodNutrient(food_id=2, nutrient_key="biotin", amount_per_100g=576923.0),
+        ]
+    )
+    db.commit()
+
+    ranked = _rank_foods_by_nutrient(db, "biotin", limit=5)
+
+    assert [f.id for f, _ in ranked] == [1]
 
 
 def test_quick_add_recent_orders_by_last_logged(client):

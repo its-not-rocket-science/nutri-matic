@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .data_quality import implausibility_reason
 from .methodology import DRV_METHODOLOGY_VERSION
 from .nutrients import NutrientDef
 
@@ -69,6 +70,10 @@ class NutrientProvenanceOut(BaseModel):
     amount_per_100g: float
     drv_source: str | None
     drv_confidence: str | None
+    # see data_quality.implausibility_reason — set when this raw value is
+    # thousands of times its own DRV (almost certainly a source data error).
+    # Still shown here as-is; excluded from totals/suggestions elsewhere.
+    implausible_reason: str | None = None
 
 
 class FoodProvenanceOut(BaseModel):
@@ -116,6 +121,12 @@ class NutrientAmountOut(BaseModel):
     # the DRV matrix or resolve_drv() would alter this figure for the same
     # profile/nutrient
     drv_methodology_version: str
+    # see data_quality.implausibility_reason — set when `amount` is thousands
+    # of times its own DRV (almost certainly a source data error, e.g. a
+    # branded food's manufacturer-submitted value). Still shown as-is; this
+    # amount has already been excluded from the total/suggestion it appears
+    # in by the caller — the field is purely explanatory.
+    implausible_reason: str | None = None
 
     @classmethod
     def build(
@@ -149,6 +160,7 @@ class NutrientAmountOut(BaseModel):
                 else (nutrient_def.drv_confidence if nutrient_def.drv_source else None)
             ),
             drv_methodology_version=DRV_METHODOLOGY_VERSION,
+            implausible_reason=implausibility_reason(key, amount),
         )
 
 

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods
 from ..auth import get_current_user
+from ..data_quality import is_implausible
 from ..bioavailability import (
     IronSplit,
     estimate_calcium_phosphorus,
@@ -409,15 +410,20 @@ def _rank_foods_by_nutrient(
     /meal-optimize draw from. When current_user is given, a hard-excluded
     food (allergy/religious requirement/dietary pattern) never fills one of
     these slots — over-fetches before filtering so exclusions don't quietly
-    shrink the result below `limit`."""
+    shrink the result below `limit`.
+
+    Sorting by amount_per_100g.desc() means a data_quality-implausible
+    value (see data_quality.py) would otherwise rank first every time —
+    over-fetches for that reason too, same as the dietary-exclusion case."""
     fetch_limit = limit if current_user is None else limit * 3
     rows = (
         db.query(FoodNutrient)
         .filter(FoodNutrient.nutrient_key == nutrient_key)
         .order_by(FoodNutrient.amount_per_100g.desc())
-        .limit(fetch_limit)
+        .limit(fetch_limit * 3)
         .all()
     )
+    rows = [r for r in rows if not is_implausible(nutrient_key, r.amount_per_100g)][:fetch_limit]
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([r.food_id for r in rows])).all()}
     ranked = [(foods_by_id[r.food_id], r.amount_per_100g) for r in rows if r.food_id in foods_by_id]
     if current_user is not None:

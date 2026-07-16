@@ -147,6 +147,26 @@ def test_aggregate_nutrients_missing_row_contributes_zero():
     assert totals == {}
 
 
+def test_aggregate_nutrients_excludes_implausible_outlier_rows():
+    """Regression test for the Wal-Mart pie crust case: a branded food's
+    manufacturer-submitted biotin value (576923 mcg/100g, ~19,231x DRV) is a
+    source data error, not a real property of the food — it must not blow
+    out a diary day's or recipe's biotin total."""
+    normal_food = Food(id=1, name="normal", protein_g_per_100g=1, amino_acids={})
+    outlier_food = Food(id=2, name="Wal-Mart Stores, Inc. GRAHAM PIE CRUST, GRAHAM", protein_g_per_100g=1, amino_acids={})
+    food_nutrients = {
+        1: [FoodNutrient(food_id=1, nutrient_key="biotin", amount_per_100g=5)],
+        2: [FoodNutrient(food_id=2, nutrient_key="biotin", amount_per_100g=576923)],
+    }
+
+    totals = aggregate_nutrients(
+        [WeightedFood(normal_food, quantity_g=100), WeightedFood(outlier_food, quantity_g=100)],
+        food_nutrients,
+    )
+
+    assert totals["biotin"] == pytest.approx(5.0)
+
+
 def test_scale_recipe_ingredients_by_servings_eaten():
     # recipe makes 4 servings from 400g of food A and 200g of food B
     food_a = Food(id=1, name="a", protein_g_per_100g=1, amino_acids={})
