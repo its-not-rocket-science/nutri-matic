@@ -174,7 +174,9 @@ def get_plan_optimization(
 
     already_in_plan = {item.food.id for item in swappable_items}
     gap_candidates = [
-        food for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8) if food.id not in already_in_plan
+        food
+        for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8, current_user)
+        if food.id not in already_in_plan
     ]
 
     prices_by_food_id = load_prices_by_food_id(db, current_user.id)

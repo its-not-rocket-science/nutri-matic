@@ -44,14 +44,14 @@
 <p><a href="/recipes">&larr; Back to recipes</a></p>
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else}
 	{#if error}
 		<p class="error">{error}</p>
 	{/if}
 
 	{#if collections.length === 0}
-		<p class="muted">No collections yet.</p>
+		<p class="muted">No collections yet — name one below to start grouping recipes.</p>
 	{:else}
 		<ul class="card">
 			{#each collections as collection (collection.id)}
@@ -64,7 +64,7 @@
 	{/if}
 
 	<form class="create-form" onsubmit={handleCreate}>
-		<input type="text" bind:value={newName} placeholder="New collection name" required />
+		<input type="text" bind:value={newName} placeholder="New collection name" aria-label="New collection name" required />
 		<button type="submit" class="btn btn-primary" disabled={creating}>
 			{creating ? 'Creating…' : 'Create collection'}
 		</button>

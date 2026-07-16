@@ -191,6 +191,7 @@ class UserOut(BaseModel):
     is_lactating: bool = False
     weight_kg: float | None = None
     height_cm: float | None = None
+    dietary_pattern: str | None = None
     # entitlement primitive (Phase 3) — see entitlements.py. Not editable
     # via ProfileUpdate: plan changes go through a future billing/admin
     # flow, never self-service.
@@ -211,6 +212,49 @@ class ProfileUpdate(BaseModel):
     is_lactating: bool = False
     weight_kg: float | None = None
     height_cm: float | None = None
+    dietary_pattern: str | None = None
+
+
+class DietaryConstraintCreate(BaseModel):
+    # "allergy" | "intolerance" | "religious" | "medical" | "preference"
+    category: str
+    # a dietary_tags.TAGS/RELIGIOUS_REQUIREMENTS key; null for medical rows
+    # and free-text preferences, which are informational-only (see
+    # models.DietaryConstraint's docstring for why those aren't enforced)
+    tag: str | None = None
+    # "hard_exclude" | "avoid"; null for medical/free-text rows
+    severity: str | None = None
+    note: str | None = None
+
+
+class DietaryConstraintOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    category: str
+    tag: str | None
+    severity: str | None
+    note: str | None
+
+
+class DietaryTagOut(BaseModel):
+    key: str
+    label: str
+
+
+class DietaryPatternOut(BaseModel):
+    key: str
+    label: str
+    excludes: list[str]
+
+
+class DietaryVocabularyOut(BaseModel):
+    """The full controlled vocabulary (dietary_tags.py), so the frontend
+    never hardcodes tag keys/labels — a new tag added there shows up here
+    automatically."""
+
+    allergen_tags: list[DietaryTagOut]
+    religious_requirements: list[DietaryPatternOut]
+    dietary_patterns: list[DietaryPatternOut]
 
 
 class RecipeIngredientCreate(BaseModel):

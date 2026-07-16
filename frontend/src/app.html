@@ -6,10 +6,18 @@
 		<meta name="text-scale" content="scale" />
 		<link rel="manifest" href="/manifest.webmanifest" />
 		<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-		<meta name="theme-color" content="#3a6ea5" />
+		<meta name="theme-color" content="#1b4b4a" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 		<meta name="apple-mobile-web-app-title" content="Nutri-Matic" />
+		<script>
+			// Set the theme attribute before first paint so there's no flash of
+			// the wrong theme — theme.svelte.ts owns this after mount.
+			try {
+				var t = localStorage.getItem('nutrimatic_theme');
+				if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+			} catch (e) {}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

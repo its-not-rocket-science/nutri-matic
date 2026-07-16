@@ -145,9 +145,9 @@
 {/if}
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else if !trends || trends.buckets.length === 0}
-	<p class="muted">Nothing logged in this range yet.</p>
+	<p class="muted">Nothing logged in this range yet — <a href="/diary">log a few days in the diary</a> to see trends here.</p>
 {:else}
 	<div class="export-actions no-print">
 		<PrintButton />

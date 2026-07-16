@@ -15,6 +15,7 @@ from ..bioavailability import (
     split_food_iron,
 )
 from ..database import get_db
+from ..dietary_filter import filter_excluded_foods
 from ..energy import calculate_age, calculate_eer
 from ..entitlements import (
     FREE_TIER_SNAPSHOT_LIMIT,
@@ -400,19 +401,29 @@ def _find_worst_gap(nutrients_out: list[schemas.NutrientAmountOut]) -> schemas.N
     return min(candidates, key=lambda n: n.percent_drv)
 
 
-def _rank_foods_by_nutrient(db: Session, nutrient_key: str, limit: int) -> list[tuple[Food, float]]:
+def _rank_foods_by_nutrient(
+    db: Session, nutrient_key: str, limit: int, current_user: User | None = None
+) -> list[tuple[Food, float]]:
     """Real foods carrying the most of a given nutrient per 100g, paired
     with that amount — the candidate pool both /gap-suggestions and
-    /meal-optimize draw from."""
+    /meal-optimize draw from. When current_user is given, a hard-excluded
+    food (allergy/religious requirement/dietary pattern) never fills one of
+    these slots — over-fetches before filtering so exclusions don't quietly
+    shrink the result below `limit`."""
+    fetch_limit = limit if current_user is None else limit * 3
     rows = (
         db.query(FoodNutrient)
         .filter(FoodNutrient.nutrient_key == nutrient_key)
         .order_by(FoodNutrient.amount_per_100g.desc())
-        .limit(limit)
+        .limit(fetch_limit)
         .all()
     )
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([r.food_id for r in rows])).all()}
-    return [(foods_by_id[r.food_id], r.amount_per_100g) for r in rows if r.food_id in foods_by_id]
+    ranked = [(foods_by_id[r.food_id], r.amount_per_100g) for r in rows if r.food_id in foods_by_id]
+    if current_user is not None:
+        allowed_ids = {f.id for f in filter_excluded_foods([f for f, _ in ranked], db, current_user)}
+        ranked = [(f, amount) for f, amount in ranked if f.id in allowed_ids]
+    return ranked[:limit]
 
 
 @router.get("/gap-suggestions", response_model=schemas.GapSuggestionOut | None)
@@ -439,7 +450,7 @@ def get_gap_suggestions(
     if worst is None:
         return None
 
-    ranked_foods = _rank_foods_by_nutrient(db, worst.key, limit)
+    ranked_foods = _rank_foods_by_nutrient(db, worst.key, limit, current_user)
 
     return schemas.GapSuggestionOut(
         nutrient_key=worst.key,
@@ -500,7 +511,9 @@ def get_meal_optimization(
     # new option
     already_in_meal = {item.food.id for item in swappable_items}
     gap_candidates = [
-        food for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8) if food.id not in already_in_meal
+        food
+        for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8, current_user)
+        if food.id not in already_in_meal
     ]
 
     prices_by_food_id = load_prices_by_food_id(db, current_user.id)

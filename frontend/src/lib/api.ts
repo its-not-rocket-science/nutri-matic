@@ -14,6 +14,9 @@ import type {
 	DiarySnapshot,
 	DiarySummary,
 	DiaryTrends,
+	DietaryConstraint,
+	DietaryConstraintCreate,
+	DietaryVocabulary,
 	FilterKeysResponse,
 	FilterScope,
 	Food,
@@ -115,6 +118,7 @@ export const api = {
 
 	register: (email: string, password: string) =>
 		request<TokenResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
+	startDemo: () => request<TokenResponse>('/api/auth/demo', { method: 'POST' }),
 	login: (email: string, password: string) =>
 		request<TokenResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 	me: () => request<User>('/api/auth/me'),
@@ -122,6 +126,16 @@ export const api = {
 	getProfile: () => request<User>('/api/profile'),
 	updateProfile: (profile: ProfileUpdate) =>
 		request<User>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }),
+
+	getDietaryVocabulary: () => request<DietaryVocabulary>('/api/profile/dietary-vocabulary'),
+	listDietaryConstraints: () => request<DietaryConstraint[]>('/api/profile/dietary-constraints'),
+	createDietaryConstraint: (constraint: DietaryConstraintCreate) =>
+		request<DietaryConstraint>('/api/profile/dietary-constraints', {
+			method: 'POST',
+			body: JSON.stringify(constraint)
+		}),
+	deleteDietaryConstraint: (id: number) =>
+		request<void>(`/api/profile/dietary-constraints/${id}`, { method: 'DELETE' }),
 
 	logWeight: (entry: WeightLogCreate) =>
 		request<WeightLog>('/api/weight-logs', { method: 'POST', body: JSON.stringify(entry) }),

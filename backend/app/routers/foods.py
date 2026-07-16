@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..auth import get_optional_current_user
 from ..complement import suggest_complements
 from ..database import get_db
+from ..dietary_filter import filter_excluded_foods
 from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
@@ -84,21 +86,34 @@ def list_foods(limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
 
 
 @router.get("/search-by-name", response_model=list[schemas.FoodOut])
-def food_search_by_name(q: str, limit: int = 20, db: Session = Depends(get_db)):
+def food_search_by_name(
+    q: str,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: models.User | None = Depends(get_optional_current_user),
+):
     """Name autocomplete for logging a diary/meal-plan entry or building a
     recipe — synonym/plural-aware substring matching, ranked by relevance,
     with typo-tolerant fuzzy fallback where the database supports it. See
-    search.py's module docstring for the full design."""
-    return search_foods_by_name(db, q, limit=limit)
+    search.py's module docstring for the full design. Signed-in results
+    have any hard dietary exclusion (allergy, religious requirement,
+    dietary pattern) removed — see dietary_filter.py."""
+    results = search_foods_by_name(db, q, limit=limit)
+    return filter_excluded_foods(results, db, current_user)
 
 
 @router.post("/search", response_model=list[schemas.FoodOut])
-def food_search(body: schemas.SearchRequest, db: Session = Depends(get_db)):
+def food_search(
+    body: schemas.SearchRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User | None = Depends(get_optional_current_user),
+):
     filters = [NutrientFilter(f.key, f.op, f.value) for f in body.filters]
     try:
-        return search_foods(db, filters, limit=body.limit)
+        results = search_foods(db, filters, limit=body.limit)
     except UnknownFilterKey as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    return filter_excluded_foods(results, db, current_user)
 
 
 @router.get("/barcode/{gtin_upc}", response_model=schemas.FoodOut)
@@ -149,13 +164,14 @@ def complement_food(
     method: str = "diaas",
     pattern: str = DEFAULT_PATTERN,
     db: Session = Depends(get_db),
+    current_user: models.User | None = Depends(get_optional_current_user),
 ):
     food = db.get(models.Food, food_id)
     if food is None:
         raise HTTPException(status_code=404, detail="Food not found")
 
     result = _compute_score(food, method, pattern)
-    suggestions = suggest_complements(food, result, method, pattern, db)
+    suggestions = suggest_complements(food, result, method, pattern, db, current_user=current_user)
 
     return schemas.ComplementOut(
         original_score=result.score,

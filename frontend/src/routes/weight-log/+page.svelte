@@ -142,9 +142,9 @@
 </div>
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else if logs.length === 0}
-	<p class="muted">No weight logged in this range yet.</p>
+	<p class="muted">No weight logged in this range yet — use the form above to log your first entry.</p>
 {:else}
 	<div class="card chart-card">
 		<svg class="chart" viewBox="0 0 {CHART_WIDTH} {CHART_HEIGHT}" role="img" aria-label="Weight over time">

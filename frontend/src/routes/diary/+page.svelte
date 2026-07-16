@@ -407,6 +407,7 @@
 	<button type="button" onclick={() => shiftDay(-1)}>&larr; Prev</button>
 	<input
 		type="date"
+		aria-label="Diary date"
 		bind:value={date}
 		onchange={() => {
 			copyTargetDate = addDays(date, 1);
@@ -445,7 +446,7 @@
 {/if}
 
 {#if loading}
-	<p class="muted">Loading…</p>
+	<p class="muted">Calibrating…</p>
 {:else if summary}
 	<div class="optimize-budget no-print">
 		<label>
@@ -532,7 +533,7 @@
 	{/each}
 
 	{#if summary.entries.length === 0}
-		<p>Nothing logged for this day yet.</p>
+		<p class="muted">Nothing logged for this day yet — search for a food under any meal above to get started.</p>
 	{/if}
 
 	{#if quickAdd && (quickAdd.recent.length > 0 || quickAdd.frequent.length > 0)}

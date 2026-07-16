@@ -51,7 +51,13 @@
 	{/each}
 	{#if editable}
 		<form onsubmit={handleAdd}>
-			<input list="tag-options" class="tag-input" bind:value={newTag} placeholder="Add tag…" />
+			<input
+				list="tag-options"
+				class="tag-input"
+				bind:value={newTag}
+				placeholder="Add tag…"
+				aria-label="Add tag"
+			/>
 			<datalist id="tag-options">
 				{#each myTags as t (t)}<option value={t}></option>{/each}
 			</datalist>

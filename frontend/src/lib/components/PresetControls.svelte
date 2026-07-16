@@ -59,7 +59,7 @@
 {#if auth.isLoggedIn}
 	<div class="presets">
 		{#if presets.length > 0}
-			<select class="preset-select" bind:value={selectedId} onchange={applySelected}>
+			<select class="preset-select" bind:value={selectedId} onchange={applySelected} aria-label="Saved preset">
 				<option value={null}>Load a saved preset…</option>
 				{#each presets as p (p.id)}
 					<option value={p.id}>{p.name}</option>

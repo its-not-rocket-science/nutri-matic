@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..auth import create_access_token, get_current_user, hash_password, verify_password
 from ..database import get_db
+from ..demo_data import create_demo_account
 from ..models import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -27,6 +28,14 @@ def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
     if user is None or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     return schemas.TokenOut(access_token=create_access_token(user.id))
+
+
+@router.post("/demo", response_model=schemas.TokenOut, status_code=201)
+def start_demo(db: Session = Depends(get_db)):
+    """Creates a fresh, private, pre-seeded account and logs the caller
+    straight into it — see demo_data.py for what's seeded and why this is
+    a real per-visitor account rather than one shared login."""
+    return schemas.TokenOut(access_token=create_demo_account(db))
 
 
 @router.get("/me", response_model=schemas.UserOut)

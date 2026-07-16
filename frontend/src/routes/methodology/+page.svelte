@@ -1,3 +1,11 @@
+<svelte:head>
+	<title>Data & Methodology — Nutri-Matic</title>
+	<meta
+		name="description"
+		content="Where every number in Nutri-Matic comes from: USDA sourcing, DIAAS/PDCAAS methodology, provenance, and confidence tiers."
+	/>
+</svelte:head>
+
 <h1>Data &amp; methodology</h1>
 <p><a href="/">&larr; Back</a></p>
 
@@ -318,19 +326,5 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 		border-radius: var(--radius-sm);
 		font-size: var(--font-size-sm);
 		overflow-x: auto;
-	}
-	.badge {
-		display: inline-block;
-		font-size: var(--font-size-xs);
-		padding: 0.1em 0.5em;
-		border-radius: var(--radius-full);
-	}
-	.badge-measured {
-		background: var(--color-success-subtle);
-		color: var(--color-success);
-	}
-	.badge-estimated {
-		background: var(--color-warning-subtle);
-		color: var(--color-warning);
 	}
 </style>

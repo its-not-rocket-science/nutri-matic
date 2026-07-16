@@ -7,6 +7,7 @@
 	let password = $state('');
 	let error: string | null = $state(null);
 	let submitting = $state(false);
+	let demoLoading = $state(false);
 
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -20,6 +21,20 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 			submitting = false;
+		}
+	}
+
+	async function handleTryDemo() {
+		demoLoading = true;
+		error = null;
+		try {
+			const { access_token } = await api.startDemo();
+			auth.setToken(access_token);
+			auth.setUser(await api.me());
+			await goto('/');
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+			demoLoading = false;
 		}
 	}
 </script>
@@ -47,6 +62,12 @@
 </form>
 
 <p>No account? <a href="/register">Register</a></p>
+<p>
+	Not ready to sign up?
+	<button type="button" class="btn-plain-link" disabled={demoLoading} onclick={handleTryDemo}>
+		{demoLoading ? 'Setting up…' : 'Try the demo'}
+	</button>
+</p>
 
 <style>
 	.auth-form {
@@ -54,5 +75,12 @@
 	}
 	.auth-form .field:last-of-type {
 		margin-bottom: var(--space-4);
+	}
+	.btn-plain-link {
+		background: none;
+		border: none;
+		padding: 0;
+		color: var(--color-primary);
+		text-decoration: underline;
 	}
 </style>
