@@ -158,11 +158,23 @@
 					</thead>
 					<tbody>
 						{#each provenance.nutrients as n (n.key)}
-							<tr>
+							<tr class:implausible-row={!!n.implausible_reason}>
 								<td>{n.name}</td>
 								<td>{n.fdc_nutrient_nbr}</td>
-								<td>{n.amount_per_100g}</td>
+								<td>
+									{n.amount_per_100g.toLocaleString()}
+									{#if n.implausible_reason}
+										<span class="implausible-badge" title={n.implausible_reason}>
+											⚠ source data error suspected
+										</span>
+									{/if}
+								</td>
 							</tr>
+							{#if n.implausible_reason}
+								<tr class="implausible-row">
+									<td colspan="3" class="implausible-explainer">{n.implausible_reason}</td>
+								</tr>
+							{/if}
 						{/each}
 					</tbody>
 				</table>
@@ -213,5 +225,19 @@
 	}
 	.provenance table {
 		max-width: 40rem;
+	}
+	.implausible-row {
+		background: var(--color-danger-subtle, rgba(220, 38, 38, 0.1));
+	}
+	.implausible-badge {
+		display: inline-block;
+		margin-left: var(--space-2);
+		font-weight: var(--font-weight-bold);
+		color: var(--color-danger);
+	}
+	.implausible-explainer {
+		color: var(--color-danger);
+		font-style: italic;
+		padding-top: 0;
 	}
 </style>

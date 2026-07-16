@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..auth import get_optional_current_user
 from ..complement import suggest_complements
+from ..data_quality import implausibility_reason
 from ..database import get_db
 from ..dietary_filter import filter_excluded_foods
 from ..methodology import SCORING_METHODOLOGY_VERSION
@@ -236,6 +237,7 @@ def food_provenance(food_id: int, db: Session = Depends(get_db)):
                 amount_per_100g=row.amount_per_100g,
                 drv_source=nutrient_def.drv_source or None,
                 drv_confidence=nutrient_def.drv_confidence if nutrient_def.drv_source else None,
+                implausible_reason=implausibility_reason(row.nutrient_key, row.amount_per_100g),
             )
         )
     nutrients_out.sort(key=lambda n: n.name)

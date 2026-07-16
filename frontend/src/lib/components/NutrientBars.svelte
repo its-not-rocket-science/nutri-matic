@@ -94,36 +94,48 @@
 				</h3>
 				<ul class="bars">
 					{#each rows as n (n.key)}
-						{@const isGap = per === 'per day' && n.percent_drv !== null && n.percent_drv < 50}
-						<li class:gap={isGap} title={n.drv_source ?? undefined}>
-							<span class="aa-name">{n.name}</span>
-							<span class="bar-track">
-								{#if n.percent_drv !== null}
-									<span class="bar-fill" style="width: {Math.min(n.percent_drv, 150) / 1.5}%"></span>
-								{/if}
-							</span>
-							<span class="aa-value">
-								{n.amount < 10 ? n.amount.toFixed(2) : n.amount.toFixed(0)}
-								{n.unit}
-								{#if n.percent_drv !== null}
-									<span class="muted">({n.percent_drv.toFixed(0)}% DRV)</span>
-								{/if}
-							</span>
-							{#if n.key === 'iron'}
-								{#if absorbedIronMg !== null}
-									<span class="muted absorbed-note">
-										&asymp;{absorbedIronMg.toFixed(2)}mg actually estimated absorbed today — see
-										Bioavailability estimate below for why that's so much lower than the raw total.
+						{#if n.implausible_reason}
+							<li class="implausible">
+								<span class="aa-name">{n.name}</span>
+								<span class="implausible-warning">
+									<strong>⚠ Source data error suspected — excluded from totals &amp; suggestions</strong>
+									<span class="muted">
+										Raw value as reported: {n.amount.toLocaleString()} {n.unit} per 100g. {n.implausible_reason}
 									</span>
-								{:else}
-									<span class="muted absorbed-note">
-										Raw content — how much is actually absorbed depends on the rest of the meal
-										(haem vs non-haem, vitamin C present); log this in the Diary for a real
-										per-meal absorption estimate.
-									</span>
+								</span>
+							</li>
+						{:else}
+							{@const isGap = per === 'per day' && n.percent_drv !== null && n.percent_drv < 50}
+							<li class:gap={isGap} title={n.drv_source ?? undefined}>
+								<span class="aa-name">{n.name}</span>
+								<span class="bar-track">
+									{#if n.percent_drv !== null}
+										<span class="bar-fill" style="width: {Math.min(n.percent_drv, 150) / 1.5}%"></span>
+									{/if}
+								</span>
+								<span class="aa-value">
+									{n.amount < 10 ? n.amount.toFixed(2) : n.amount.toFixed(0)}
+									{n.unit}
+									{#if n.percent_drv !== null}
+										<span class="muted">({n.percent_drv.toFixed(0)}% DRV)</span>
+									{/if}
+								</span>
+								{#if n.key === 'iron'}
+									{#if absorbedIronMg !== null}
+										<span class="muted absorbed-note">
+											&asymp;{absorbedIronMg.toFixed(2)}mg actually estimated absorbed today — see
+											Bioavailability estimate below for why that's so much lower than the raw total.
+										</span>
+									{:else}
+										<span class="muted absorbed-note">
+											Raw content — how much is actually absorbed depends on the rest of the meal
+											(haem vs non-haem, vitamin C present); log this in the Diary for a real
+											per-meal absorption estimate.
+										</span>
+									{/if}
 								{/if}
-							{/if}
-						</li>
+							</li>
+						{/if}
 					{/each}
 				</ul>
 			</section>
@@ -194,6 +206,23 @@
 		white-space: nowrap;
 		text-align: right;
 		font-variant-numeric: tabular-nums;
+	}
+	.bars li.implausible {
+		grid-template-columns: 12rem 1fr;
+		align-items: start;
+		background: var(--color-danger-subtle, rgba(220, 38, 38, 0.1));
+		border: 1px solid var(--color-danger);
+		border-radius: var(--radius-sm);
+		padding: var(--space-2) var(--space-3);
+	}
+	.implausible-warning {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--font-size-sm);
+	}
+	.implausible-warning strong {
+		color: var(--color-danger);
 	}
 	.absorbed-note {
 		grid-column: 1 / -1;

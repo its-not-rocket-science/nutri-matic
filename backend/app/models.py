@@ -89,6 +89,19 @@ class DietaryConstraint(Base):
 
 class Food(Base):
     __tablename__ = "foods"
+    __table_args__ = (
+        # search.py's search_foods_by_name/search_foods (ILIKE '%term%') and
+        # its pg_trgm similarity() fallback, plus demo_data.py's seeding
+        # lookups, all filter on Food.name with a leading wildcard — a
+        # plain btree index can't help there. Measured on the real 1.4M-row
+        # ingested catalog: demo account creation (6 name lookups) took
+        # ~6.6s without this index; a GIN trigram index is what pg_trgm's
+        # own docs recommend for exactly this substring/similarity pattern.
+        # No-ops (falls back to a plain index) on SQLite, which the test
+        # suite uses — trigram matching there is untested by design, since
+        # search.py already gates the fuzzy path on postgresql specifically.
+        Index("ix_foods_name_trgm", "name", postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"}),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)

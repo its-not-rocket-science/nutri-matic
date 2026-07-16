@@ -67,6 +67,9 @@ export interface NutrientProvenance {
 	amount_per_100g: number;
 	drv_source: string | null;
 	drv_confidence: string | null;
+	/** set when this raw value is thousands of times its own DRV — almost
+	 *  certainly a source data error, not a real property of the food */
+	implausible_reason: string | null;
 }
 
 export interface FoodProvenance {
@@ -94,6 +97,10 @@ export interface NutrientAmount {
 	/** "live_confirmed" | "secondary_source" | "personalized_calculation" | null */
 	drv_confidence: string | null;
 	drv_methodology_version: string;
+	/** set when `amount` is thousands of times its own DRV — almost certainly
+	 *  a source data error; excluded from totals/suggestions upstream, shown
+	 *  here purely for transparency */
+	implausible_reason: string | null;
 }
 
 export interface User {
