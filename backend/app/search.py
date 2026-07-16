@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Literal
 
-from sqlalchemy import or_, text
+from sqlalchemy import case, or_, text
 from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
@@ -147,7 +147,21 @@ def search_foods_by_name(db: Session, query: str, limit: int = 20) -> list[Food]
 
     terms = expand_query_terms(query)
     conditions = [Food.name.ilike(f"%{t}%") for t in terms]
-    candidates = db.query(Food).filter(or_(*conditions)).order_by(Food.name).limit(limit * 5).all()
+    # Branded products vastly outnumber generic Foundation/SR Legacy
+    # ingredients (1.4M+ vs ~8k) and their names are brand-prefixed (e.g.
+    # "13 Foods LLC CHICKPEAS"), so a plain alphabetical candidate cutoff
+    # would starve out a generic "Chickpeas, raw" match before relevance
+    # ranking ever saw it. Surface non-branded foods first so a query like
+    # "chickpeas" finds the generic ingredient, not just whichever brands
+    # happen to sort earliest.
+    branded_last = case((Food.data_type == "branded_food", 1), else_=0)
+    candidates = (
+        db.query(Food)
+        .filter(or_(*conditions))
+        .order_by(branded_last, Food.name)
+        .limit(limit * 5)
+        .all()
+    )
     ranked = _rank_by_relevance(candidates, query, limit)
 
     if len(ranked) >= limit or db.bind is None or db.bind.dialect.name != "postgresql":
