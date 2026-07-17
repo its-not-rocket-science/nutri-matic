@@ -1,10 +1,13 @@
 import os
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+load_dotenv()
+
 DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://nutrimatic:nutrimatic@localhost:5433/nutrimatic"
+    "DATABASE_URL", "postgresql://nutrimatic:nutrimatic@localhost:5432/nutrimatic"
 )
 
 engine = create_engine(DATABASE_URL)
