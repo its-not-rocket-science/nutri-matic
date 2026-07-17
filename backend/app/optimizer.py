@@ -49,7 +49,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_nutrients
-from .models import Food, FoodNutrient, FoodPrice
+from .models import Food, FoodNutrient, FoodPrice, Recipe
 
 ADD_TRIAL_QUANTITY_G = 30.0
 CANDIDATE_SHORTLIST_SIZE = 8
@@ -68,10 +68,12 @@ def load_prices_by_food_id(db: Session, user_id: int) -> dict[int, float]:
 
 @dataclass
 class OptimizationSuggestion:
-    action: str  # "add" | "swap"
-    food_id: int
+    action: str  # "add" | "swap" | "add_recipe"
+    # food_id/quantity_g are None for "add_recipe" (recipe_id/quantity_servings
+    # are set instead) — a recipe addition isn't a single food at a gram amount
+    food_id: int | None
     food_name: str
-    quantity_g: float
+    quantity_g: float | None
     replaces_food_id: int | None
     replaces_food_name: str | None
     before_percent_drv: float
@@ -83,6 +85,8 @@ class OptimizationSuggestion:
     # for this user — never fabricated, never defaulted to 0
     estimated_cost: float | None
     rationale: str
+    recipe_id: int | None = None
+    quantity_servings: float | None = None
 
 
 def _family_key(name: str) -> str:
@@ -121,6 +125,14 @@ def _swap_cost(
     return (prices_by_food_id[new_food_id] - prices_by_food_id[old_food_id]) * quantity_g / 100
 
 
+def _recipe_add_cost(prices_by_food_id: dict[int, float] | None, items: list[WeightedFood]) -> float | None:
+    # only a total if every ingredient is priced — a partial sum would
+    # understate the real cost, same "don't fabricate" rule as elsewhere
+    if not prices_by_food_id or not all(item.food.id in prices_by_food_id for item in items):
+        return None
+    return sum(prices_by_food_id[item.food.id] * item.quantity_g / 100 for item in items)
+
+
 def _target_label(target_nutrient_name: str | None, target_nutrient_key: str) -> str:
     return target_nutrient_name or target_nutrient_key
 
@@ -137,12 +149,20 @@ def suggest_meal_optimizations(
     target_nutrient_name: str | None = None,
     prices_by_food_id: dict[int, float] | None = None,
     max_additional_cost: float | None = None,
+    recipe_gap_candidates: list[tuple[Recipe, list[WeightedFood]]] | None = None,
 ) -> list[OptimizationSuggestion]:
     """other_items: every other meal's expanded items that day, plus any
     recipe-derived items from the meal being optimized (not swap-eligible
     — swapping one ingredient inside an eaten recipe isn't this feature's
     job). swappable_items: this meal's directly-logged (non-recipe) food
     items, the only ones eligible to be swapped out.
+
+    recipe_gap_candidates: (Recipe, its ingredients expanded to 1 serving)
+    pairs, ranked by how much of the target nutrient one serving carries —
+    same idea as gap_candidates but for "add a whole recipe" rather than
+    "add 30g of one food". Simulated the same way: the recipe's real
+    ingredient list at 1 serving is folded into the trial mix, not
+    estimated from a per-serving nutrient summary alone.
 
     prices_by_food_id: real price-per-100g for the calling user's own
     FoodPrice rows (never fabricated — see module docstring). When given,
@@ -186,6 +206,44 @@ def suggest_meal_optimizations(
                     f"{before_percent:.0f}% to {after_percent:.0f}% of target — a real simulated change, "
                     f"not an estimate from this food's raw content alone."
                 ),
+            )
+        )
+
+    for recipe, recipe_items in (recipe_gap_candidates or [])[:CANDIDATE_SHORTLIST_SIZE]:
+        for item in recipe_items:
+            _ensure_nutrients_loaded(db, by_food_id, item.food.id)
+        trial_items = baseline_items + recipe_items
+        after_percent = _simulate_percent_drv(trial_items, by_food_id, target_nutrient_key, target_drv)
+        improvement = after_percent - before_percent
+        if improvement <= 0:
+            continue
+        calories_added = sum(
+            _energy_per_100g(by_food_id, item.food.id) * item.quantity_g / 100 for item in recipe_items
+        )
+        estimated_cost = _recipe_add_cost(prices_by_food_id, recipe_items)
+        if max_additional_cost is not None and estimated_cost is not None and estimated_cost > max_additional_cost:
+            continue
+        suggestions.append(
+            OptimizationSuggestion(
+                action="add_recipe",
+                food_id=None,
+                food_name=recipe.name,
+                quantity_g=None,
+                replaces_food_id=None,
+                replaces_food_name=None,
+                before_percent_drv=before_percent,
+                after_percent_drv=after_percent,
+                improvement=improvement,
+                calories_added=calories_added,
+                improvement_per_100kcal=(improvement / (calories_added / 100)) if calories_added > 0 else None,
+                estimated_cost=estimated_cost,
+                rationale=(
+                    f"Adding 1 serving of {recipe.name} raises {label} from {before_percent:.0f}% to "
+                    f"{after_percent:.0f}% of target — its real ingredient list simulated at 1 serving, "
+                    f"not estimated from a per-serving summary alone."
+                ),
+                recipe_id=recipe.id,
+                quantity_servings=1.0,
             )
         )
 

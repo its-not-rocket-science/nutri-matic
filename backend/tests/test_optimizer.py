@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.aggregation import WeightedFood
 from app.database import Base
-from app.models import Food, FoodNutrient
+from app.models import Food, FoodNutrient, Recipe
 from app.optimizer import suggest_meal_optimizations
 from app.reference_patterns import AMINO_ACIDS
 
@@ -284,3 +284,92 @@ def test_other_meals_items_unaffected_by_swap(db):
     # before: 4 (other meal) + 1 (rice white) = 5mg -> 50%; after: 4 + 2 = 6mg -> 60%
     assert swap.before_percent_drv == pytest.approx(50.0)
     assert swap.after_percent_drv == pytest.approx(60.0)
+
+
+def test_suggests_adding_a_whole_recipe(db):
+    rice = make_food(db, 1, "Rice, white, cooked", iron=1.0)
+    spinach = make_food(db, 2, "Spinach, raw", iron=6.0, energy=20)
+    recipe = Recipe(id=1, user_id=1, name="Spinach bowl", servings=2)
+    db.add(recipe)
+    db.commit()
+
+    by_food_id = {
+        1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all(),
+        2: db.query(FoodNutrient).filter(FoodNutrient.food_id == 2).all(),
+    }
+    # 1 serving = 100g spinach (200g total / 2 servings) -> +6mg iron = +60pp
+    recipe_items = [WeightedFood(spinach, 100)]
+
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[],
+        limit=5,
+        recipe_gap_candidates=[(recipe, recipe_items)],
+    )
+
+    assert len(suggestions) == 1
+    suggestion = suggestions[0]
+    assert suggestion.action == "add_recipe"
+    assert suggestion.recipe_id == recipe.id
+    assert suggestion.quantity_servings == pytest.approx(1.0)
+    assert suggestion.food_id is None
+    assert suggestion.quantity_g is None
+    assert suggestion.food_name == "Spinach bowl"
+    assert suggestion.before_percent_drv == pytest.approx(10.0)
+    assert suggestion.after_percent_drv == pytest.approx(70.0)
+    assert suggestion.calories_added == pytest.approx(20.0)  # 20kcal/100g * 100g
+    assert "Spinach bowl" in suggestion.rationale
+
+
+def test_add_recipe_cost_only_when_every_ingredient_priced(db):
+    rice = make_food(db, 1, "Rice, white, cooked", iron=1.0)
+    spinach = make_food(db, 2, "Spinach, raw", iron=6.0, energy=20)
+    garlic = make_food(db, 3, "Garlic, raw", iron=2.0, energy=10)
+    recipe = Recipe(id=1, user_id=1, name="Spinach & garlic", servings=1)
+    db.add(recipe)
+    db.commit()
+
+    by_food_id = {
+        1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all(),
+        2: db.query(FoodNutrient).filter(FoodNutrient.food_id == 2).all(),
+        3: db.query(FoodNutrient).filter(FoodNutrient.food_id == 3).all(),
+    }
+    recipe_items = [WeightedFood(spinach, 100), WeightedFood(garlic, 10)]
+
+    # only spinach priced — the whole recipe must have no fabricated cost
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[],
+        limit=5,
+        recipe_gap_candidates=[(recipe, recipe_items)],
+        prices_by_food_id={2: 0.50},
+    )
+    assert len(suggestions) == 1
+    assert suggestions[0].estimated_cost is None
+
+    # both priced — now a real total is expected
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(rice, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[],
+        limit=5,
+        recipe_gap_candidates=[(recipe, recipe_items)],
+        prices_by_food_id={2: 0.50, 3: 1.00},
+    )
+    assert len(suggestions) == 1
+    # 0.50 * 100/100 + 1.00 * 10/100 = 0.50 + 0.10
+    assert suggestions[0].estimated_cost == pytest.approx(0.60)

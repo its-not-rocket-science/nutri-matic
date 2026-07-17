@@ -10,6 +10,19 @@ from app.models import Food, FoodNutrient
 from app.reference_patterns import AMINO_ACIDS
 
 
+def _add_food(client, food_id, name, iron, energy, protein=25):
+    """Adds one more Food/FoodNutrient row to this test's isolated in-memory
+    db — kept out of the shared `client` fixture so it doesn't change the
+    candidate pool (and expected suggestion counts) for unrelated tests."""
+    db = next(app.dependency_overrides[get_db]())
+    db.add(Food(id=food_id, name=name, protein_g_per_100g=protein, amino_acids=dict.fromkeys(AMINO_ACIDS, None)))
+    db.flush()
+    db.add(FoodNutrient(food_id=food_id, nutrient_key="iron", amount_per_100g=iron))
+    db.add(FoodNutrient(food_id=food_id, nutrient_key="energy", amount_per_100g=energy))
+    db.commit()
+    db.close()
+
+
 @pytest.fixture
 def client():
     engine = create_engine(
@@ -148,6 +161,62 @@ def test_meal_optimize_none_when_meal_empty(client):
     )
     assert res.status_code == 200
     assert res.json() is None
+
+
+def test_meal_optimize_suggests_adding_a_recipe(client):
+    _add_food(client, 4, "Liver, cooked", iron=10.0, energy=130.0)
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    recipe_res = client.post(
+        "/api/recipes",
+        json={"name": "Liver bowl", "servings": 2, "ingredients": [{"food_id": 4, "quantity_g": 200}]},
+        headers=auth_headers(token),
+    )
+    recipe_id = recipe_res.json()["id"]
+
+    res = client.get(
+        "/api/diary/meal-optimize?entry_date=2026-07-13&meal=lunch", headers=auth_headers(token)
+    )
+    body = res.json()
+    add_recipe = next(s for s in body["suggestions"] if s["action"] == "add_recipe")
+    assert add_recipe["recipe_id"] == recipe_id
+    assert add_recipe["food_name"] == "Liver bowl"
+    assert add_recipe["quantity_servings"] == pytest.approx(1.0)
+    assert add_recipe["food_id"] is None
+    assert add_recipe["quantity_g"] is None
+    # 1 serving = 100g liver -> +10mg iron = the strongest single suggestion
+    assert body["suggestions"][0]["action"] == "add_recipe"
+
+
+def test_meal_optimize_recipe_suggestion_excludes_already_logged_recipe(client):
+    _add_food(client, 4, "Liver, cooked", iron=10.0, energy=130.0)
+    token = register_and_token(client, "a@example.com")
+    recipe_res = client.post(
+        "/api/recipes",
+        json={"name": "Liver bowl", "servings": 2, "ingredients": [{"food_id": 4, "quantity_g": 200}]},
+        headers=auth_headers(token),
+    )
+    recipe_id = recipe_res.json()["id"]
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "lunch", "recipe_id": recipe_id, "quantity_servings": 1},
+        headers=auth_headers(token),
+    )
+
+    res = client.get(
+        "/api/diary/meal-optimize?entry_date=2026-07-13&meal=lunch", headers=auth_headers(token)
+    )
+    body = res.json()
+    assert body is None or all(s["action"] != "add_recipe" for s in body["suggestions"])
 
 
 def test_meal_optimize_scoped_to_user(client):

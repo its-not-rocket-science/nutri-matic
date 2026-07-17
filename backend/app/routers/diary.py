@@ -2,10 +2,11 @@ from dataclasses import dataclass
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods
+from ..aggregation import WeightedFood, aggregate_nutrients, expand_entries_to_weighted_foods, scale_recipe_ingredients
 from ..auth import get_current_user
 from ..data_quality import is_implausible
 from ..bioavailability import (
@@ -16,7 +17,7 @@ from ..bioavailability import (
     split_food_iron,
 )
 from ..database import get_db
-from ..dietary_filter import filter_excluded_foods
+from ..dietary_filter import filter_excluded_foods, filter_excluded_recipes
 from ..energy import calculate_age, calculate_eer
 from ..entitlements import (
     FREE_TIER_SNAPSHOT_LIMIT,
@@ -27,7 +28,7 @@ from ..entitlements import (
 )
 from ..food_chemistry import compute_meal_protein_distribution, estimate_sodium_potassium, leucine_threshold_for_age
 from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
-from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Recipe, User
+from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, User
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..trends import GroupBy, bucket_day_totals
@@ -432,6 +433,60 @@ def _rank_foods_by_nutrient(
     return ranked[:limit]
 
 
+def _rank_recipes_by_nutrient(
+    db: Session, nutrient_key: str, limit: int, current_user: User
+) -> list[tuple[Recipe, list[WeightedFood]]]:
+    """Real recipes (the user's own, shared with them, or public) carrying
+    the most of a given nutrient per serving, paired with their ingredients
+    already expanded to 1 serving — the "add a whole recipe" counterpart to
+    _rank_foods_by_nutrient's "add one food". Ranked the same way: actually
+    simulated per-serving nutrient totals, not an estimate."""
+    shared_recipe_ids = db.query(RecipeShare.recipe_id).filter(RecipeShare.shared_with_user_id == current_user.id)
+    visible_recipes = (
+        db.query(Recipe)
+        .filter(
+            or_(
+                Recipe.user_id == current_user.id,
+                Recipe.is_public.is_(True),
+                Recipe.id.in_(shared_recipe_ids),
+            )
+        )
+        .all()
+    )
+    visible_recipes = filter_excluded_recipes(visible_recipes, db, current_user)
+    if not visible_recipes:
+        return []
+
+    ingredients_by_recipe_id: dict[int, list[RecipeIngredient]] = {}
+    for row in db.query(RecipeIngredient).filter(
+        RecipeIngredient.recipe_id.in_([r.id for r in visible_recipes])
+    ).all():
+        ingredients_by_recipe_id.setdefault(row.recipe_id, []).append(row)
+
+    all_food_ids = {i.food_id for rows in ingredients_by_recipe_id.values() for i in rows}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(all_food_ids)).all()}
+    nutrient_rows = db.query(FoodNutrient).filter(
+        FoodNutrient.food_id.in_(all_food_ids), FoodNutrient.nutrient_key == nutrient_key
+    ).all()
+    by_food_id: dict[int, list[FoodNutrient]] = {}
+    for row in nutrient_rows:
+        by_food_id.setdefault(row.food_id, []).append(row)
+
+    ranked: list[tuple[Recipe, list[WeightedFood], float]] = []
+    for recipe in visible_recipes:
+        ingredients = ingredients_by_recipe_id.get(recipe.id)
+        if not ingredients:
+            continue
+        items = scale_recipe_ingredients(ingredients, recipe.servings, 1.0, foods_by_id)
+        amount = aggregate_nutrients(items, by_food_id).get(nutrient_key, 0.0)
+        if amount <= 0:
+            continue
+        ranked.append((recipe, items, amount))
+
+    ranked.sort(key=lambda t: t[2], reverse=True)
+    return [(recipe, items) for recipe, items, _amount in ranked[:limit]]
+
+
 @router.get("/gap-suggestions", response_model=schemas.GapSuggestionOut | None)
 def get_gap_suggestions(
     entry_date: date, limit: int = 8, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
@@ -522,6 +577,13 @@ def get_meal_optimization(
         if food.id not in already_in_meal
     ]
 
+    already_logged_recipe_ids = {e.recipe_id for e in meal_recipe_entries}
+    recipe_gap_candidates = [
+        (recipe, items)
+        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user)
+        if recipe.id not in already_logged_recipe_ids
+    ]
+
     prices_by_food_id = load_prices_by_food_id(db, current_user.id)
 
     suggestions = suggest_meal_optimizations(
@@ -536,6 +598,7 @@ def get_meal_optimization(
         target_nutrient_name=worst.name,
         prices_by_food_id=prices_by_food_id,
         max_additional_cost=max_additional_cost,
+        recipe_gap_candidates=recipe_gap_candidates,
     )
 
     return schemas.MealOptimizationOut(
@@ -557,6 +620,8 @@ def get_meal_optimization(
                 improvement_per_100kcal=s.improvement_per_100kcal,
                 estimated_cost=s.estimated_cost,
                 rationale=s.rationale,
+                recipe_id=s.recipe_id,
+                quantity_servings=s.quantity_servings,
             )
             for s in suggestions
         ],
