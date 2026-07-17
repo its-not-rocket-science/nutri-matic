@@ -4,13 +4,14 @@
 	import { page } from '$app/state';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import ScoreCard from '$lib/components/ScoreCard.svelte';
 	import StarRating from '$lib/components/StarRating.svelte';
 	import TagEditor from '$lib/components/TagEditor.svelte';
 	import { downloadCsv } from '$lib/csv';
-	import type { NutrientAmount, Recipe, RecipeComment, RecipeRatingSummary, RecipeShare, Score } from '$lib/types';
+	import type { Food, NutrientAmount, Recipe, RecipeComment, RecipeRatingSummary, RecipeShare, Score } from '$lib/types';
 
 	const recipeId = Number(page.params.id);
 
@@ -26,11 +27,17 @@
 	let error: string | null = $state(null);
 	let shareError: string | null = $state(null);
 	let commentError: string | null = $state(null);
+	let editError: string | null = $state(null);
 	let loading = $state(true);
 	let deleting = $state(false);
 	let copying = $state(false);
 	let sharing = $state(false);
 	let posting = $state(false);
+	let editingDetails = $state(false);
+	let editName = $state('');
+	let editServings = $state<number | null>(null);
+	let savingDetails = $state(false);
+	let addingIngredient = $state(false);
 
 	async function loadShares() {
 		if (!recipe?.is_owner) return;
@@ -177,6 +184,63 @@
 		}
 		downloadCsv(`recipe-${recipe.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`, rows);
 	}
+
+	function startEditDetails() {
+		if (!recipe) return;
+		editName = recipe.name;
+		editServings = recipe.servings;
+		editError = null;
+		editingDetails = true;
+	}
+
+	async function handleSaveDetails(e: SubmitEvent) {
+		e.preventDefault();
+		if (!editName || editServings === null || editServings <= 0) {
+			editError = 'Name and a positive number of servings are required.';
+			return;
+		}
+		savingDetails = true;
+		editError = null;
+		try {
+			recipe = await api.updateRecipe(recipeId, { name: editName, servings: editServings });
+			editingDetails = false;
+		} catch (e) {
+			editError = e instanceof Error ? e.message : String(e);
+		} finally {
+			savingDetails = false;
+		}
+	}
+
+	async function handleAddIngredient(food: Food) {
+		editError = null;
+		addingIngredient = true;
+		try {
+			recipe = await api.addIngredient(recipeId, food.id, 100);
+		} catch (e) {
+			editError = e instanceof Error ? e.message : String(e);
+		} finally {
+			addingIngredient = false;
+		}
+	}
+
+	async function handleUpdateIngredientQuantity(ingredientId: number, quantityG: number) {
+		if (quantityG <= 0) return;
+		editError = null;
+		try {
+			recipe = await api.updateIngredient(recipeId, ingredientId, quantityG);
+		} catch (e) {
+			editError = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function handleRemoveIngredient(ingredientId: number) {
+		editError = null;
+		try {
+			recipe = await api.removeIngredient(recipeId, ingredientId);
+		} catch (e) {
+			editError = e instanceof Error ? e.message : String(e);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -193,13 +257,38 @@
 {:else if error}
 	<p class="error">{error}</p>
 {:else if recipe}
-	<h1>{recipe.name}</h1>
-	<p class="muted">
-		{recipe.servings} servings
-		{#if !recipe.is_owner}
-			· shared by {recipe.owner_email}
-		{/if}
-	</p>
+	{#if editingDetails}
+		<form class="card edit-details-form no-print" onsubmit={handleSaveDetails}>
+			<div class="field">
+				<label for="edit-name">Name</label>
+				<input id="edit-name" type="text" bind:value={editName} required />
+			</div>
+			<div class="field">
+				<label for="edit-servings">Servings</label>
+				<input id="edit-servings" type="number" step="any" min="0" bind:value={editServings} required />
+			</div>
+			{#if editError}<p class="error">{editError}</p>{/if}
+			<div class="actions">
+				<button type="submit" class="btn btn-primary" disabled={savingDetails}>
+					{savingDetails ? 'Saving…' : 'Save'}
+				</button>
+				<button type="button" class="btn btn-secondary" onclick={() => (editingDetails = false)}>Cancel</button>
+			</div>
+		</form>
+	{:else}
+		<h1>{recipe.name}</h1>
+		<p class="muted">
+			{recipe.servings} servings
+			{#if !recipe.is_owner}
+				· by {recipe.owner_email}{recipe.is_public ? ' · stock recipe' : ''}
+			{:else if recipe.is_public}
+				· stock recipe
+			{/if}
+			{#if recipe.is_owner}
+				<button type="button" class="btn btn-secondary no-print" onclick={startEditDetails}>Edit</button>
+			{/if}
+		</p>
+	{/if}
 
 	<div class="export-actions no-print">
 		<PrintButton />
@@ -226,13 +315,47 @@
 	</div>
 
 	<ul class="ingredients">
-		{#each recipe.ingredients as ingredient (ingredient.food_id)}
+		{#each recipe.ingredients as ingredient (ingredient.id)}
 			<li>
 				<a href="/foods/{ingredient.food_id}">{ingredient.food_name}</a>
-				<span class="muted">{ingredient.quantity_g}g</span>
+				{#if recipe.is_owner}
+					<input
+						type="number"
+						step="any"
+						min="0"
+						class="no-print"
+						value={ingredient.quantity_g}
+						aria-label="Quantity in grams for {ingredient.food_name}"
+						onchange={(e) =>
+							handleUpdateIngredientQuantity(ingredient.id, Number((e.target as HTMLInputElement).value))}
+					/>
+					<span class="muted no-print">g</span>
+					<span class="muted print-only">{ingredient.quantity_g}g</span>
+					<button
+						type="button"
+						class="btn btn-danger no-print"
+						onclick={() => handleRemoveIngredient(ingredient.id)}
+					>
+						Remove
+					</button>
+				{:else}
+					<span class="muted">{ingredient.quantity_g}g</span>
+				{/if}
 			</li>
 		{/each}
 	</ul>
+
+	{#if recipe.is_owner}
+		<div class="no-print add-ingredient">
+			<FoodSearchInput
+				onSelect={handleAddIngredient}
+				label="Add ingredient"
+				exclude={(food) => recipe?.ingredients.some((i) => i.food_id === food.id) ?? false}
+			/>
+			{#if addingIngredient}<span class="muted">Adding…</span>{/if}
+		</div>
+		{#if editError}<p class="error">{editError}</p>{/if}
+	{/if}
 
 	{#if diaasScore}<ScoreCard label="DIAAS" score={diaasScore} />{/if}
 	{#if pdcaasScore}<ScoreCard label="PDCAAS" score={pdcaasScore} />{/if}
@@ -333,9 +456,35 @@
 	}
 	.ingredients li {
 		padding: var(--space-1) 0;
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
 	}
 	.ingredients .muted {
 		margin-left: var(--space-2);
+	}
+	.ingredients input[type='number'] {
+		width: 5rem;
+	}
+	.print-only {
+		display: none;
+	}
+	.add-ingredient {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-4);
+	}
+	.edit-details-form {
+		max-width: 24rem;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		margin-bottom: var(--space-4);
+	}
+	.edit-details-form .actions {
+		display: flex;
+		gap: var(--space-2);
 	}
 	.sharing {
 		margin: var(--space-5) 0;
@@ -407,6 +556,9 @@
 	@media print {
 		.no-print {
 			display: none !important;
+		}
+		.print-only {
+			display: inline;
 		}
 	}
 </style>

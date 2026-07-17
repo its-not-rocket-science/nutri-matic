@@ -179,6 +179,7 @@ export interface TokenResponse {
 }
 
 export interface RecipeIngredient {
+	id: number;
 	food_id: number;
 	food_name: string;
 	quantity_g: number;
@@ -191,6 +192,7 @@ export interface Recipe {
 	ingredients: RecipeIngredient[];
 	owner_email: string;
 	is_owner: boolean;
+	is_public: boolean;
 	average_rating: number | null;
 	rating_count: number;
 	tags: string[];
@@ -200,6 +202,11 @@ export interface RecipeCreate {
 	name: string;
 	servings: number;
 	ingredients: { food_id: number; quantity_g: number }[];
+}
+
+export interface RecipeUpdate {
+	name?: string;
+	servings?: number;
 }
 
 export interface RecipeShare {
@@ -226,11 +233,17 @@ export interface Collection {
 	id: number;
 	name: string;
 	recipe_count: number;
+	owner_email: string;
+	is_owner: boolean;
+	is_public: boolean;
 }
 
 export interface CollectionDetail {
 	id: number;
 	name: string;
+	owner_email: string;
+	is_owner: boolean;
+	is_public: boolean;
 	recipes: Recipe[];
 }
 

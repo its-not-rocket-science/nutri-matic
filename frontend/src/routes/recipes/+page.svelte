@@ -9,6 +9,7 @@
 
 	let recipes: Recipe[] = $state([]);
 	let sharedRecipes: Recipe[] = $state([]);
+	let publicRecipes: Recipe[] = $state([]);
 	let filterKeys: FilterKey[] = $state([]);
 	let filters: NutrientFilterInput[] = $state([]);
 	let myTags: string[] = $state([]);
@@ -25,14 +26,16 @@
 			return;
 		}
 		try {
-			const [recipeList, shared, keys, tags] = await Promise.all([
+			const [recipeList, shared, publicList, keys, tags] = await Promise.all([
 				api.listRecipes(),
 				api.listSharedWithMe(),
+				api.listPublicRecipes(),
 				api.getFilterKeys(),
 				api.listMyTags()
 			]);
 			recipes = recipeList;
 			sharedRecipes = shared;
+			publicRecipes = publicList.filter((r) => !r.is_owner);
 			filterKeys = keys.recipe;
 			myTags = tags;
 		} catch (e) {
@@ -149,6 +152,31 @@
 							· ★ {recipe.average_rating?.toFixed(1)} ({recipe.rating_count})
 						{/if}
 					</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
+	{#if publicRecipes.length > 0}
+		<h2>Stock recipes</h2>
+		<ul class="card">
+			{#each publicRecipes as recipe (recipe.id)}
+				<li>
+					<a href="/recipes/{recipe.id}">{recipe.name}</a>
+					<span class="muted">
+						{recipe.servings} servings
+						{#if recipe.rating_count > 0}
+							· ★ {recipe.average_rating?.toFixed(1)} ({recipe.rating_count})
+						{/if}
+					</span>
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={() => handleCopy(recipe.id)}
+						disabled={copyingId === recipe.id}
+					>
+						{copyingId === recipe.id ? 'Copying…' : 'Copy to my recipes'}
+					</button>
 				</li>
 			{/each}
 		</ul>

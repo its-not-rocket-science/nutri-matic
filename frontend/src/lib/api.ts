@@ -41,6 +41,7 @@ import type {
 	RecipeCreate,
 	RecipeRatingSummary,
 	RecipeShare,
+	RecipeUpdate,
 	SavedFilterPreset,
 	SavedFilterPresetCreate,
 	Score,
@@ -145,6 +146,7 @@ export const api = {
 
 	listRecipes: (tag?: string) => request<Recipe[]>(`/api/recipes${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`),
 	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),
+	listPublicRecipes: () => request<Recipe[]>('/api/recipes/public'),
 	listMyTags: () => request<string[]>('/api/recipes/tags'),
 	addTag: (recipeId: number, tag: string) =>
 		request<Recipe>(`/api/recipes/${recipeId}/tags`, { method: 'POST', body: JSON.stringify({ tag }) }),
@@ -154,6 +156,20 @@ export const api = {
 	createRecipe: (recipe: RecipeCreate) =>
 		request<Recipe>('/api/recipes', { method: 'POST', body: JSON.stringify(recipe) }),
 	deleteRecipe: (id: number) => request<void>(`/api/recipes/${id}`, { method: 'DELETE' }),
+	updateRecipe: (id: number, body: RecipeUpdate) =>
+		request<Recipe>(`/api/recipes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+	addIngredient: (recipeId: number, foodId: number, quantityG: number) =>
+		request<Recipe>(`/api/recipes/${recipeId}/ingredients`, {
+			method: 'POST',
+			body: JSON.stringify({ food_id: foodId, quantity_g: quantityG })
+		}),
+	updateIngredient: (recipeId: number, ingredientId: number, quantityG: number) =>
+		request<Recipe>(`/api/recipes/${recipeId}/ingredients/${ingredientId}`, {
+			method: 'PATCH',
+			body: JSON.stringify({ quantity_g: quantityG })
+		}),
+	removeIngredient: (recipeId: number, ingredientId: number) =>
+		request<Recipe>(`/api/recipes/${recipeId}/ingredients/${ingredientId}`, { method: 'DELETE' }),
 	copyRecipe: (id: number) => request<Recipe>(`/api/recipes/${id}/copy`, { method: 'POST' }),
 	scoreRecipe: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/recipes/${id}/score?method=${method}`),

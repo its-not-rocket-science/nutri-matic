@@ -86,9 +86,13 @@
 	<p class="error">{error}</p>
 {:else if collection}
 	<h1>{collection.name}</h1>
+	<p class="muted">
+		{#if !collection.is_owner}by {collection.owner_email}{collection.is_public ? ' · ' : ''}{/if}
+		{#if collection.is_public}stock collection{/if}
+	</p>
 
 	{#if collection.recipes.length === 0}
-		<p class="muted">No recipes in this collection yet — add one from the list below.</p>
+		<p class="muted">No recipes in this collection yet{collection.is_owner ? ' — add one from the list below.' : '.'}</p>
 	{:else}
 		<ul class="card">
 			{#each collection.recipes as recipe (recipe.id)}
@@ -97,33 +101,37 @@
 					<span class="muted">
 						{#if !recipe.is_owner}by {recipe.owner_email} · {/if}{recipe.servings} servings
 					</span>
-					<button type="button" class="btn btn-danger" onclick={() => handleRemove(recipe.id)}>
-						Remove
-					</button>
+					{#if collection.is_owner}
+						<button type="button" class="btn btn-danger" onclick={() => handleRemove(recipe.id)}>
+							Remove
+						</button>
+					{/if}
 				</li>
 			{/each}
 		</ul>
 	{/if}
 
-	{#if availableCandidates.length > 0}
-		<form class="add-form" onsubmit={handleAdd}>
-			<select bind:value={selectedRecipeId} aria-label="Recipe to add">
-				<option value={null}>Add a recipe…</option>
-				{#each availableCandidates as recipe (recipe.id)}
-					<option value={recipe.id}>{recipe.name}</option>
-				{/each}
-			</select>
-			<button type="submit" class="btn btn-primary" disabled={adding || selectedRecipeId === null}>
-				{adding ? 'Adding…' : 'Add'}
-			</button>
-		</form>
-	{/if}
+	{#if collection.is_owner}
+		{#if availableCandidates.length > 0}
+			<form class="add-form" onsubmit={handleAdd}>
+				<select bind:value={selectedRecipeId} aria-label="Recipe to add">
+					<option value={null}>Add a recipe…</option>
+					{#each availableCandidates as recipe (recipe.id)}
+						<option value={recipe.id}>{recipe.name}</option>
+					{/each}
+				</select>
+				<button type="submit" class="btn btn-primary" disabled={adding || selectedRecipeId === null}>
+					{adding ? 'Adding…' : 'Add'}
+				</button>
+			</form>
+		{/if}
 
-	<p>
-		<button type="button" class="btn btn-danger" onclick={handleDeleteCollection} disabled={deleting}>
-			Delete collection
-		</button>
-	</p>
+		<p>
+			<button type="button" class="btn btn-danger" onclick={handleDeleteCollection} disabled={deleting}>
+				Delete collection
+			</button>
+		</p>
+	{/if}
 {/if}
 
 <style>

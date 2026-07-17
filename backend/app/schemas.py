@@ -280,8 +280,23 @@ class RecipeCreate(BaseModel):
     ingredients: list[RecipeIngredientCreate]
 
 
+class RecipeUpdate(BaseModel):
+    name: str | None = None
+    servings: float | None = None
+
+
+class RecipeIngredientAdd(BaseModel):
+    food_id: int
+    quantity_g: float
+
+
+class RecipeIngredientUpdate(BaseModel):
+    quantity_g: float
+
+
 class RecipeIngredientOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+    id: int
     food_id: int
     food_name: str
     quantity_g: float
@@ -295,6 +310,7 @@ class RecipeOut(BaseModel):
     ingredients: list[RecipeIngredientOut]
     owner_email: str
     is_owner: bool
+    is_public: bool
     average_rating: float | None
     rating_count: int
     tags: list[str]
@@ -344,11 +360,17 @@ class CollectionOut(BaseModel):
     id: int
     name: str
     recipe_count: int
+    owner_email: str
+    is_owner: bool
+    is_public: bool
 
 
 class CollectionDetailOut(BaseModel):
     id: int
     name: str
+    owner_email: str
+    is_owner: bool
+    is_public: bool
     recipes: list[RecipeOut]
 
 

@@ -170,7 +170,9 @@ def test_shared_user_can_copy_recipe_into_own_list(client):
     assert copy["is_owner"] is True
     assert copy["owner_email"] == "other@example.com"
     assert copy["name"] == "original (copy)"
-    assert copy["ingredients"] == recipe["ingredients"]
+    # same ingredients, but the copy's rows are new (different ids)
+    strip_id = lambda ingredients: [{k: v for k, v in i.items() if k != "id"} for i in ingredients]
+    assert strip_id(copy["ingredients"]) == strip_id(recipe["ingredients"])
 
     # the copy is fully independent — other user can delete their own copy
     delete_res = client.delete(f"/api/recipes/{copy['id']}", headers=auth_headers(other_token))

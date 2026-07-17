@@ -44,12 +44,16 @@ def _get_owned_recipe(recipe_id: int, current_user: User, db: Session) -> Recipe
 
 
 def _get_visible_recipe(recipe_id: int, current_user: User, db: Session) -> Recipe:
-    """For read-only operations (view, score, nutrients, copy) — owner or
-    anyone the recipe has been shared with."""
+    """For read-only operations (view, score, nutrients, copy) — owner,
+    anyone the recipe has been shared with, or anyone at all if it's public."""
     recipe = db.get(Recipe, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
-    if recipe.user_id != current_user.id and not _is_shared_with(recipe_id, current_user.id, db):
+    if (
+        recipe.user_id != current_user.id
+        and not recipe.is_public
+        and not _is_shared_with(recipe_id, current_user.id, db)
+    ):
         raise HTTPException(status_code=404, detail="Recipe not found")
     return recipe
 
@@ -78,12 +82,13 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
         servings=recipe.servings,
         ingredients=[
             schemas.RecipeIngredientOut(
-                food_id=i.food_id, food_name=foods_by_id[i.food_id].name, quantity_g=i.quantity_g
+                id=i.id, food_id=i.food_id, food_name=foods_by_id[i.food_id].name, quantity_g=i.quantity_g
             )
             for i in ingredients
         ],
         owner_email=owner.email,
         is_owner=recipe.user_id == current_user.id,
+        is_public=recipe.is_public,
         average_rating=(sum(ratings) / len(ratings)) if ratings else None,
         rating_count=len(ratings),
         tags=tags,
@@ -158,6 +163,13 @@ def list_shared_with_me(current_user: User = Depends(get_current_user), db: Sess
     return [_recipe_out(r, db, current_user) for r in recipes]
 
 
+@router.get("/public", response_model=list[schemas.RecipeOut])
+def list_public_recipes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Stock recipes — visible to everyone, not just their owner."""
+    recipes = db.query(Recipe).filter(Recipe.is_public.is_(True)).order_by(Recipe.name).all()
+    return [_recipe_out(r, db, current_user) for r in recipes]
+
+
 @router.post("/search", response_model=list[schemas.RecipeOut])
 def recipe_search(
     body: schemas.SearchRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
@@ -183,6 +195,91 @@ def delete_recipe(recipe_id: int, current_user: User = Depends(get_current_user)
     db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).delete()
     db.delete(recipe)
     db.commit()
+
+
+@router.patch("/{recipe_id}", response_model=schemas.RecipeOut)
+def update_recipe(
+    recipe_id: int,
+    body: schemas.RecipeUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    if body.name is not None:
+        if not body.name.strip():
+            raise HTTPException(status_code=422, detail="Name can't be empty")
+        recipe.name = body.name
+    if body.servings is not None:
+        if body.servings <= 0:
+            raise HTTPException(status_code=422, detail="servings must be positive")
+        recipe.servings = body.servings
+    db.commit()
+    db.refresh(recipe)
+    return _recipe_out(recipe, db, current_user)
+
+
+@router.post("/{recipe_id}/ingredients", response_model=schemas.RecipeOut, status_code=201)
+def add_ingredient(
+    recipe_id: int,
+    body: schemas.RecipeIngredientAdd,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    if body.quantity_g <= 0:
+        raise HTTPException(status_code=422, detail="quantity_g must be positive")
+    food = db.get(Food, body.food_id)
+    if food is None:
+        raise HTTPException(status_code=422, detail=f"Unknown food id: {body.food_id}")
+    exists = db.query(RecipeIngredient).filter(
+        RecipeIngredient.recipe_id == recipe.id, RecipeIngredient.food_id == body.food_id
+    ).one_or_none()
+    if exists is not None:
+        raise HTTPException(status_code=409, detail="This food is already an ingredient in this recipe")
+    db.add(RecipeIngredient(recipe_id=recipe.id, food_id=body.food_id, quantity_g=body.quantity_g))
+    db.commit()
+    db.refresh(recipe)
+    return _recipe_out(recipe, db, current_user)
+
+
+@router.patch("/{recipe_id}/ingredients/{ingredient_id}", response_model=schemas.RecipeOut)
+def update_ingredient(
+    recipe_id: int,
+    ingredient_id: int,
+    body: schemas.RecipeIngredientUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    ingredient = db.get(RecipeIngredient, ingredient_id)
+    if ingredient is None or ingredient.recipe_id != recipe.id:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    if body.quantity_g <= 0:
+        raise HTTPException(status_code=422, detail="quantity_g must be positive")
+    ingredient.quantity_g = body.quantity_g
+    db.commit()
+    db.refresh(recipe)
+    return _recipe_out(recipe, db, current_user)
+
+
+@router.delete("/{recipe_id}/ingredients/{ingredient_id}", response_model=schemas.RecipeOut)
+def remove_ingredient(
+    recipe_id: int,
+    ingredient_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    recipe = _get_owned_recipe(recipe_id, current_user, db)
+    ingredient = db.get(RecipeIngredient, ingredient_id)
+    if ingredient is None or ingredient.recipe_id != recipe.id:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    remaining = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).count()
+    if remaining <= 1:
+        raise HTTPException(status_code=422, detail="A recipe needs at least one ingredient")
+    db.delete(ingredient)
+    db.commit()
+    db.refresh(recipe)
+    return _recipe_out(recipe, db, current_user)
 
 
 @router.get("/{recipe_id}/score", response_model=schemas.ScoreOut)
