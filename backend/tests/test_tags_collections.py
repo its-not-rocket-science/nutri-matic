@@ -128,10 +128,26 @@ def test_create_and_list_collections(client):
     token = register_and_token(client, "owner@example.com")
     res = client.post("/api/collections", json={"name": "Meal Prep"}, headers=auth_headers(token))
     assert res.status_code == 201
-    assert res.json() == {"id": 1, "name": "Meal Prep", "recipe_count": 0}
+    assert res.json() == {
+        "id": 1,
+        "name": "Meal Prep",
+        "recipe_count": 0,
+        "owner_email": "owner@example.com",
+        "is_owner": True,
+        "is_public": False,
+    }
 
     listed = client.get("/api/collections", headers=auth_headers(token))
-    assert listed.json() == [{"id": 1, "name": "Meal Prep", "recipe_count": 0}]
+    assert listed.json() == [
+        {
+            "id": 1,
+            "name": "Meal Prep",
+            "recipe_count": 0,
+            "owner_email": "owner@example.com",
+            "is_owner": True,
+            "is_public": False,
+        }
+    ]
 
 
 def test_add_and_remove_recipe_from_collection(client):

@@ -162,6 +162,11 @@ class Recipe(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     servings: Mapped[float] = mapped_column(Float, nullable=False)
+    # visible to every user regardless of ownership/RecipeShare — for
+    # curated stock recipes. Still owner-only to edit/delete/add-to-collection;
+    # this only widens read access. Not settable via the API (no
+    # RecipeCreate/RecipeUpdate field for it), only ever set directly in the db.
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
 
 class RecipeIngredient(Base):
@@ -231,6 +236,10 @@ class Collection(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+    # same meaning as Recipe.is_public — visible to every user, but only
+    # the owner can rename/delete it or add/remove recipes. Not settable
+    # via the API, only ever set directly in the db.
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
 
 class CollectionRecipe(Base):

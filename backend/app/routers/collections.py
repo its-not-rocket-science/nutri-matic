@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -11,14 +12,37 @@ router = APIRouter(prefix="/api/collections", tags=["collections"])
 
 
 def _get_owned_collection(collection_id: int, current_user: User, db: Session) -> Collection:
+    """For mutating operations (rename, delete, add/remove recipes) — owner only."""
     collection = db.get(Collection, collection_id)
     if collection is None or collection.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Collection not found")
     return collection
 
 
+def _get_visible_collection(collection_id: int, current_user: User, db: Session) -> Collection:
+    """For read-only operations — owner, or anyone at all if it's public."""
+    collection = db.get(Collection, collection_id)
+    if collection is None:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    if collection.user_id != current_user.id and not collection.is_public:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    return collection
+
+
 def _recipe_count(collection_id: int, db: Session) -> int:
     return db.query(CollectionRecipe).filter(CollectionRecipe.collection_id == collection_id).count()
+
+
+def _collection_out(collection: Collection, current_user: User, db: Session) -> schemas.CollectionOut:
+    owner = db.get(User, collection.user_id)
+    return schemas.CollectionOut(
+        id=collection.id,
+        name=collection.name,
+        recipe_count=_recipe_count(collection.id, db),
+        owner_email=owner.email,
+        is_owner=collection.user_id == current_user.id,
+        is_public=collection.is_public,
+    )
 
 
 @router.post("", response_model=schemas.CollectionOut, status_code=201)
@@ -29,22 +53,25 @@ def create_collection(
     db.add(collection)
     db.commit()
     db.refresh(collection)
-    return schemas.CollectionOut(id=collection.id, name=collection.name, recipe_count=0)
+    return _collection_out(collection, current_user, db)
 
 
 @router.get("", response_model=list[schemas.CollectionOut])
 def list_collections(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    collections = db.query(Collection).filter(Collection.user_id == current_user.id).order_by(Collection.name).all()
-    return [
-        schemas.CollectionOut(id=c.id, name=c.name, recipe_count=_recipe_count(c.id, db)) for c in collections
-    ]
+    collections = (
+        db.query(Collection)
+        .filter(or_(Collection.user_id == current_user.id, Collection.is_public.is_(True)))
+        .order_by(Collection.name)
+        .all()
+    )
+    return [_collection_out(c, current_user, db) for c in collections]
 
 
 @router.get("/{collection_id}", response_model=schemas.CollectionDetailOut)
 def get_collection(
     collection_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    collection = _get_owned_collection(collection_id, current_user, db)
+    collection = _get_visible_collection(collection_id, current_user, db)
     links = db.query(CollectionRecipe).filter(CollectionRecipe.collection_id == collection.id).all()
     recipes = []
     for link in links:
@@ -55,7 +82,15 @@ def get_collection(
             # skip it rather than 404ing the whole collection
             continue
         recipes.append(_recipe_out(recipe, db, current_user))
-    return schemas.CollectionDetailOut(id=collection.id, name=collection.name, recipes=recipes)
+    owner = db.get(User, collection.user_id)
+    return schemas.CollectionDetailOut(
+        id=collection.id,
+        name=collection.name,
+        owner_email=owner.email,
+        is_owner=collection.user_id == current_user.id,
+        is_public=collection.is_public,
+        recipes=recipes,
+    )
 
 
 @router.delete("/{collection_id}", status_code=204)
