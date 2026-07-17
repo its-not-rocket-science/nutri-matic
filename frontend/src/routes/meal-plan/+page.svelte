@@ -167,7 +167,7 @@
 	}
 
 	function planSuggestionKey(s: OptimizationSuggestion): string {
-		return `${s.action}-${s.food_id}`;
+		return `${s.action}-${s.food_id ?? `recipe-${s.recipe_id}`}`;
 	}
 
 	async function handleApplyPlanSuggestion(s: OptimizationSuggestion) {
@@ -178,15 +178,24 @@
 				const replaced = entries.find((e) => e.food_id === s.replaces_food_id);
 				if (replaced) await api.deleteMealPlanEntry(replaced.id);
 			}
-			// "add" suggestions have no single natural day/meal at the plan
-			// level — they're added wherever the entry form is currently set,
-			// same date/meal picker the user already uses to log entries by hand
-			await api.addMealPlanEntry({
-				plan_date: planDate,
-				meal,
-				food_id: s.food_id,
-				quantity_g: s.quantity_g
-			});
+			// "add"/"add_recipe" suggestions have no single natural day/meal at
+			// the plan level — they're added wherever the entry form is
+			// currently set, same date/meal picker used to log entries by hand
+			if (s.action === 'add_recipe') {
+				await api.addMealPlanEntry({
+					plan_date: planDate,
+					meal,
+					recipe_id: s.recipe_id,
+					quantity_servings: s.quantity_servings
+				});
+			} else {
+				await api.addMealPlanEntry({
+					plan_date: planDate,
+					meal,
+					food_id: s.food_id,
+					quantity_g: s.quantity_g
+				});
+			}
 			await loadWeek();
 			planOptimization = await api.getPlanOptimization(weekDates[0], weekDates[6], optimizeBudget);
 		} catch (e) {
@@ -584,6 +593,8 @@
 						<li>
 							{#if s.action === 'swap'}
 								<span>Swap {s.replaces_food_name} &rarr; {s.food_name} ({s.quantity_g}g)</span>
+							{:else if s.action === 'add_recipe'}
+								<span>Add 1 serving of <a href="/recipes/{s.recipe_id}">{s.food_name}</a></span>
 							{:else}
 								<span>Add {s.quantity_g}g {s.food_name}</span>
 							{/if}

@@ -9,7 +9,7 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Recipe, User
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
-from .diary import _compute_nutrient_gaps, _find_worst_gap, _rank_foods_by_nutrient
+from .diary import _compute_nutrient_gaps, _find_worst_gap, _rank_foods_by_nutrient, _rank_recipes_by_nutrient
 
 router = APIRouter(prefix="/api/meal-plan", tags=["meal-plan"])
 
@@ -179,6 +179,13 @@ def get_plan_optimization(
         if food.id not in already_in_plan
     ]
 
+    already_planned_recipe_ids = {e.recipe_id for e in recipe_entries}
+    recipe_gap_candidates = [
+        (recipe, items)
+        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user)
+        if recipe.id not in already_planned_recipe_ids
+    ]
+
     prices_by_food_id = load_prices_by_food_id(db, current_user.id)
 
     suggestions = suggest_meal_optimizations(
@@ -193,6 +200,7 @@ def get_plan_optimization(
         target_nutrient_name=worst.name,
         prices_by_food_id=prices_by_food_id,
         max_additional_cost=max_additional_cost,
+        recipe_gap_candidates=recipe_gap_candidates,
     )
 
     return schemas.PlanOptimizationOut(
@@ -215,6 +223,8 @@ def get_plan_optimization(
                 improvement_per_100kcal=s.improvement_per_100kcal,
                 estimated_cost=s.estimated_cost,
                 rationale=s.rationale,
+                recipe_id=s.recipe_id,
+                quantity_servings=s.quantity_servings,
             )
             for s in suggestions
         ],

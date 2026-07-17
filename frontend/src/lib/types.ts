@@ -471,10 +471,11 @@ export interface GapSuggestion {
 }
 
 export interface OptimizationSuggestion {
-	action: 'add' | 'swap';
-	food_id: number;
+	action: 'add' | 'swap' | 'add_recipe';
+	/** null for "add_recipe" — recipe_id/quantity_servings are set instead */
+	food_id: number | null;
 	food_name: string;
-	quantity_g: number;
+	quantity_g: number | null;
 	replaces_food_id: number | null;
 	replaces_food_name: string | null;
 	before_percent_drv: number;
@@ -485,6 +486,8 @@ export interface OptimizationSuggestion {
 	/** null when no price is on file for the food(s) involved — never fabricated */
 	estimated_cost: number | null;
 	rationale: string;
+	recipe_id: number | null;
+	quantity_servings: number | null;
 }
 
 export interface MealOptimization {

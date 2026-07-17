@@ -259,7 +259,7 @@
 	}
 
 	function suggestionKey(m: Meal, s: OptimizationSuggestion): string {
-		return `${m}-${s.action}-${s.food_id}`;
+		return `${m}-${s.action}-${s.food_id ?? `recipe-${s.recipe_id}`}`;
 	}
 
 	async function handleApplySuggestion(m: Meal, s: OptimizationSuggestion) {
@@ -270,7 +270,16 @@
 				const replaced = summary?.entries.find((e) => e.meal === m && e.food_id === s.replaces_food_id);
 				if (replaced) await api.deleteDiaryEntry(replaced.id);
 			}
-			await api.addDiaryEntry({ entry_date: date, meal: m, food_id: s.food_id, quantity_g: s.quantity_g });
+			if (s.action === 'add_recipe') {
+				await api.addDiaryEntry({
+					entry_date: date,
+					meal: m,
+					recipe_id: s.recipe_id,
+					quantity_servings: s.quantity_servings
+				});
+			} else {
+				await api.addDiaryEntry({ entry_date: date, meal: m, food_id: s.food_id, quantity_g: s.quantity_g });
+			}
 			await loadDay();
 			await loadQuickAdd();
 			await loadGapSuggestions();
@@ -501,6 +510,10 @@
 										<li>
 											{#if s.action === 'swap'}
 												<span>Swap {s.replaces_food_name} &rarr; {s.food_name} ({s.quantity_g}g)</span>
+											{:else if s.action === 'add_recipe'}
+												<span>
+													Add 1 serving of <a href="/recipes/{s.recipe_id}">{s.food_name}</a>
+												</span>
 											{:else}
 												<span>Add {s.quantity_g}g {s.food_name}</span>
 											{/if}

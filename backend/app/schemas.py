@@ -498,10 +498,12 @@ class GapSuggestionOut(BaseModel):
 
 
 class OptimizationSuggestionOut(BaseModel):
-    action: Literal["add", "swap"]
-    food_id: int
+    action: Literal["add", "swap", "add_recipe"]
+    # food_id/quantity_g are null for "add_recipe" (recipe_id/quantity_servings
+    # are set instead) — a recipe addition isn't a single food at a gram amount
+    food_id: int | None
     food_name: str
-    quantity_g: float
+    quantity_g: float | None
     replaces_food_id: int | None
     replaces_food_name: str | None
     before_percent_drv: float
@@ -513,6 +515,8 @@ class OptimizationSuggestionOut(BaseModel):
     # — never fabricated, never defaulted to 0
     estimated_cost: float | None
     rationale: str
+    recipe_id: int | None = None
+    quantity_servings: float | None = None
 
 
 class MealOptimizationOut(BaseModel):
