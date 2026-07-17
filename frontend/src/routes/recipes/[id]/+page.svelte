@@ -18,6 +18,8 @@
 	let recipe: Recipe | null = $state(null);
 	let diaasScore: Score | null = $state(null);
 	let pdcaasScore: Score | null = $state(null);
+	let diaasUnavailableReason: string | null = $state(null);
+	let pdcaasUnavailableReason: string | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
 	let shares: RecipeShare[] = $state([]);
 	let shareEmail = $state('');
@@ -70,7 +72,9 @@
 				api.getRatings(recipeId)
 			]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
+			else diaasUnavailableReason = diaas.reason instanceof Error ? diaas.reason.message : String(diaas.reason);
 			if (pdcaas.status === 'fulfilled') pdcaasScore = pdcaas.value;
+			else pdcaasUnavailableReason = pdcaas.reason instanceof Error ? pdcaas.reason.message : String(pdcaas.reason);
 			if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
 			if (ratingResult.status === 'fulfilled') ratings = ratingResult.value;
 			await Promise.all([loadShares(), loadComments()]);
@@ -357,11 +361,15 @@
 		{#if editError}<p class="error">{editError}</p>{/if}
 	{/if}
 
-	{#if diaasScore}<ScoreCard label="DIAAS" score={diaasScore} />{/if}
-	{#if pdcaasScore}<ScoreCard label="PDCAAS" score={pdcaasScore} />{/if}
-
-	{#if !diaasScore && !pdcaasScore}
-		<p class="alert">No digestibility data on this recipe's ingredients — no score can be computed.</p>
+	{#if diaasScore}
+		<ScoreCard label="DIAAS" score={diaasScore} />
+	{:else if diaasUnavailableReason}
+		<p class="alert">DIAAS score unavailable: {diaasUnavailableReason}</p>
+	{/if}
+	{#if pdcaasScore}
+		<ScoreCard label="PDCAAS" score={pdcaasScore} />
+	{:else if pdcaasUnavailableReason}
+		<p class="alert">PDCAAS score unavailable: {pdcaasUnavailableReason}</p>
 	{/if}
 
 	<NutrientBars {nutrients} per="per serving" />

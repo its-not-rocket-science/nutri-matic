@@ -11,6 +11,8 @@
 	let food: Food | null = $state(null);
 	let diaasScore: Score | null = $state(null);
 	let pdcaasScore: Score | null = $state(null);
+	let diaasUnavailableReason: string | null = $state(null);
+	let pdcaasUnavailableReason: string | null = $state(null);
 	let diaasComplement: Complement | null = $state(null);
 	let pdcaasComplement: Complement | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
@@ -22,13 +24,19 @@
 		try {
 			food = await api.getFood(foodId);
 			const [diaas, pdcaas, nutrientResult, provenanceResult] = await Promise.allSettled([
-				food.digestibility_diaas ? api.scoreFood(foodId, 'diaas') : Promise.reject(),
-				food.digestibility_pdcaas !== null ? api.scoreFood(foodId, 'pdcaas') : Promise.reject(),
+				food.digestibility_diaas
+					? api.scoreFood(foodId, 'diaas')
+					: Promise.reject(new Error('No DIAAS digestibility data for this food.')),
+				food.digestibility_pdcaas !== null
+					? api.scoreFood(foodId, 'pdcaas')
+					: Promise.reject(new Error('No PDCAAS digestibility data for this food.')),
 				api.getNutrients(foodId),
 				api.getFoodProvenance(foodId)
 			]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
+			else diaasUnavailableReason = diaas.reason instanceof Error ? diaas.reason.message : String(diaas.reason);
 			if (pdcaas.status === 'fulfilled') pdcaasScore = pdcaas.value;
+			else pdcaasUnavailableReason = pdcaas.reason instanceof Error ? pdcaas.reason.message : String(pdcaas.reason);
 			if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
 			if (provenanceResult.status === 'fulfilled') provenance = provenanceResult.value;
 
@@ -90,6 +98,8 @@
 				</ul>
 			</section>
 		{/if}
+	{:else if diaasUnavailableReason}
+		<p class="alert">DIAAS score unavailable: {diaasUnavailableReason}</p>
 	{/if}
 	{#if pdcaasScore}
 		<ScoreCard label="PDCAAS" score={pdcaasScore} />
@@ -118,10 +128,8 @@
 				</ul>
 			</section>
 		{/if}
-	{/if}
-
-	{#if !diaasScore && !pdcaasScore}
-		<p class="alert">No digestibility data on this food — no score can be computed.</p>
+	{:else if pdcaasUnavailableReason}
+		<p class="alert">PDCAAS score unavailable: {pdcaasUnavailableReason}</p>
 	{/if}
 
 	<NutrientBars {nutrients} per="per 100g" />
