@@ -1031,5 +1031,1821 @@
       "2 tbsp fresh coriander, chopped",
       "2 slices crusty bread"
     ]
+  },
+  "cheese_and_ham_toastie": {
+    "servings": 1,
+    "ingredients": [
+      "2 slices wholemeal bread",
+      "60 g mature cheddar, grated",
+      "2 slices ham",
+      "10 g butter"
+    ]
+  },
+  "chicken_and_mushroom_pie": {
+    "servings": 4,
+    "ingredients": [
+      "500 g chicken breast, diced",
+      "200 g mushrooms, sliced",
+      "1 onion, chopped",
+      "30 g plain flour",
+      "400 ml chicken stock",
+      "100 ml single cream",
+      "1 tbsp vegetable oil",
+      "320 g shortcrust pastry",
+      "1 egg, beaten",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "toad_in_the_hole": {
+    "servings": 4,
+    "ingredients": [
+      "8 pork sausages",
+      "140 g plain flour",
+      "4 eggs",
+      "200 ml milk",
+      "2 tbsp vegetable oil",
+      "300 ml beef stock",
+      "1 tbsp plain flour",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "bangers_and_mash_with_onion_gravy": {
+    "servings": 4,
+    "ingredients": [
+      "8 pork sausages",
+      "800 g potatoes, peeled and chopped",
+      "50 g butter",
+      "100 ml milk",
+      "2 onions, sliced",
+      "300 ml beef stock",
+      "1 tbsp plain flour",
+      "1 tsp Worcestershire sauce",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "oven_baked_fish_and_chips": {
+    "servings": 2,
+    "ingredients": [
+      "2 white fish fillets",
+      "60 g breadcrumbs",
+      "30 g plain flour",
+      "1 egg, beaten",
+      "600 g potatoes, cut into chips",
+      "2 tbsp vegetable oil",
+      "1 lemon, cut into wedges",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "sweet_and_sour_chicken": {
+    "servings": 4,
+    "ingredients": [
+      "500 g chicken breast, diced",
+      "1 red pepper, chopped",
+      "1 yellow pepper, chopped",
+      "400 g tin pineapple chunks, drained",
+      "3 tbsp tomato ketchup",
+      "2 tbsp soy sauce",
+      "2 tbsp rice vinegar",
+      "1 tbsp brown sugar",
+      "1 tbsp cornflour",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "beef_stroganoff": {
+    "servings": 4,
+    "ingredients": [
+      "500 g beef sirloin, sliced thinly",
+      "1 onion, sliced",
+      "200 g mushrooms, sliced",
+      "2 cloves garlic, crushed",
+      "1 tbsp plain flour",
+      "200 ml beef stock",
+      "150 ml soured cream",
+      "1 tbsp Dijon mustard",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "chicken_kiev_with_rice": {
+    "servings": 2,
+    "ingredients": [
+      "2 chicken breasts",
+      "60 g butter",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh parsley, chopped",
+      "30 g plain flour",
+      "1 egg, beaten",
+      "60 g breadcrumbs",
+      "200 g rice, cooked"
+    ]
+  },
+  "pork_chops_with_roasted_vegetables": {
+    "servings": 2,
+    "ingredients": [
+      "2 pork chops",
+      "2 carrots, chopped",
+      "1 courgette, chopped",
+      "1 red onion, chopped",
+      "2 tbsp olive oil",
+      "1 tsp dried rosemary",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "blt_sandwich": {
+    "servings": 1,
+    "ingredients": [
+      "4 rashers bacon",
+      "2 slices wholemeal bread",
+      "2 lettuce leaves",
+      "1 tomato, sliced",
+      "1 tbsp mayonnaise"
+    ]
+  },
+  "egg_mayonnaise_sandwich": {
+    "servings": 1,
+    "ingredients": [
+      "2 eggs",
+      "1 tbsp mayonnaise",
+      "2 slices wholemeal bread",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "ham_and_cheese_sandwich": {
+    "servings": 1,
+    "ingredients": [
+      "2 slices wholemeal bread",
+      "2 slices ham",
+      "30 g mature cheddar, sliced",
+      "1 tsp mustard (optional)"
+    ]
+  },
+  "cheese_and_pickle_sandwich": {
+    "servings": 1,
+    "ingredients": [
+      "2 slices wholemeal bread",
+      "40 g mature cheddar, sliced",
+      "1 tbsp pickle"
+    ]
+  },
+  "leek_and_potato_soup": {
+    "servings": 4,
+    "ingredients": [
+      "2 leeks, sliced",
+      "500 g potatoes, peeled and chopped",
+      "1 onion, chopped",
+      "900 ml vegetable stock",
+      "100 ml single cream",
+      "1 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "chicken_noodle_soup": {
+    "servings": 4,
+    "ingredients": [
+      "300 g chicken breast, diced",
+      "1 onion, chopped",
+      "2 carrots, sliced",
+      "2 celery sticks, sliced",
+      "1 litre chicken stock",
+      "100 g dried egg noodles",
+      "2 tbsp fresh parsley, chopped",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "poached_eggs_on_toast": {
+    "servings": 1,
+    "ingredients": [
+      "2 eggs",
+      "2 slices wholemeal bread",
+      "1 tsp vinegar",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "boiled_egg_and_soldiers": {
+    "servings": 1,
+    "ingredients": [
+      "2 eggs",
+      "2 slices wholemeal bread",
+      "10 g butter"
+    ]
+  },
+  "french_toast": {
+    "servings": 1,
+    "ingredients": [
+      "2 eggs",
+      "3 tbsp milk",
+      "2 slices white bread",
+      "10 g butter",
+      "1 tsp honey (optional)"
+    ]
+  },
+  "pancakes_with_maple_syrup": {
+    "servings": 2,
+    "ingredients": [
+      "120 g plain flour",
+      "2 eggs",
+      "300 ml milk",
+      "1 tbsp vegetable oil",
+      "3 tbsp maple syrup"
+    ]
+  },
+  "bircher_muesli": {
+    "servings": 1,
+    "ingredients": [
+      "50 g rolled oats",
+      "100 ml milk",
+      "2 tbsp Greek yoghurt",
+      "1 apple, grated",
+      "1 tsp honey (optional)"
+    ]
+  },
+  "kippers_and_toast": {
+    "servings": 1,
+    "ingredients": [
+      "2 kipper fillets",
+      "2 slices wholemeal bread",
+      "10 g butter",
+      "1 lemon, cut into wedges"
+    ]
+  },
+  "breakfast_burrito": {
+    "servings": 1,
+    "ingredients": [
+      "2 eggs, beaten",
+      "1 tortilla wrap",
+      "30 g mature cheddar, grated",
+      "2 rashers bacon",
+      "2 tbsp tomato salsa",
+      "1 tsp vegetable oil"
+    ]
+  },
+  "granola_with_yoghurt": {
+    "servings": 1,
+    "ingredients": [
+      "50 g granola",
+      "150 g Greek yoghurt",
+      "50 g mixed berries"
+    ]
+  },
+  "eggy_bread_with_bacon": {
+    "servings": 1,
+    "ingredients": [
+      "2 eggs",
+      "2 slices white bread",
+      "2 rashers bacon",
+      "10 g butter"
+    ]
+  },
+  "smoked_salmon_and_scrambled_eggs": {
+    "servings": 1,
+    "ingredients": [
+      "3 eggs",
+      "2 tbsp milk",
+      "60 g smoked salmon",
+      "10 g butter",
+      "2 slices wholemeal bread",
+      "Black pepper, to taste"
+    ]
+  },
+  "butter_bean_and_spinach_stew": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins butter beans, drained",
+      "200 g spinach",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes",
+      "500 ml vegetable stock",
+      "1 tbsp olive oil",
+      "1 tsp smoked paprika",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "three_bean_salad_with_wholegrain_bread": {
+    "servings": 2,
+    "ingredients": [
+      "400 g tin kidney beans, drained",
+      "400 g tin cannellini beans, drained",
+      "400 g tin black beans, drained",
+      "0.5 red onion, finely sliced",
+      "2 tbsp olive oil",
+      "1 lemon, juice of",
+      "4 slices wholegrain bread"
+    ]
+  },
+  "peanut_noodles_with_tofu": {
+    "servings": 2,
+    "ingredients": [
+      "250 g firm tofu, cubed",
+      "200 g rice noodles, cooked",
+      "3 tbsp peanut butter",
+      "2 tbsp soy sauce",
+      "1 tbsp fresh ginger, grated",
+      "1 clove garlic, crushed",
+      "1 lime, juice of",
+      "1 carrot, grated"
+    ]
+  },
+  "seitan_and_vegetable_stir_fry": {
+    "servings": 2,
+    "ingredients": [
+      "250 g seitan, sliced",
+      "1 red pepper, sliced",
+      "150 g broccoli florets",
+      "2 cloves garlic, crushed",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil",
+      "200 g rice, cooked"
+    ]
+  },
+  "baked_eggs_with_spinach": {
+    "servings": 2,
+    "ingredients": [
+      "4 eggs",
+      "200 g spinach",
+      "400 g tin chopped tomatoes",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 tbsp olive oil",
+      "30 g feta, crumbled",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "greek_yoghurt_and_nut_bowl": {
+    "servings": 1,
+    "ingredients": [
+      "200 g Greek yoghurt",
+      "30 g mixed nuts",
+      "1 tbsp honey (optional)",
+      "50 g mixed berries"
+    ]
+  },
+  "cottage_cheese_and_fruit_bowl": {
+    "servings": 1,
+    "ingredients": [
+      "200 g cottage cheese",
+      "1 banana, sliced",
+      "50 g mixed berries"
+    ]
+  },
+  "tofu_and_broccoli_stir_fry": {
+    "servings": 2,
+    "ingredients": [
+      "300 g firm tofu, cubed",
+      "200 g broccoli florets",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil",
+      "200 g rice, cooked"
+    ]
+  },
+  "mushroom_and_lentil_shepherd_s_pie": {
+    "servings": 4,
+    "ingredients": [
+      "250 g green lentils",
+      "300 g mushrooms, chopped",
+      "1 onion, chopped",
+      "2 carrots, diced",
+      "400 g tin chopped tomatoes",
+      "500 ml vegetable stock",
+      "800 g potatoes, peeled and chopped",
+      "30 g butter",
+      "100 ml milk",
+      "1 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "bean_burgers": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins kidney beans, drained",
+      "1 onion, finely chopped",
+      "1 clove garlic, crushed",
+      "60 g breadcrumbs",
+      "1 egg",
+      "1 tsp cumin",
+      "1 tsp smoked paprika",
+      "1 tbsp vegetable oil",
+      "4 wholemeal buns"
+    ]
+  },
+  "edamame_and_quinoa_bowl": {
+    "servings": 2,
+    "ingredients": [
+      "150 g quinoa, cooked",
+      "150 g edamame beans",
+      "1 carrot, grated",
+      "0.5 cucumber, diced",
+      "2 tbsp soy sauce",
+      "1 tsp sesame oil",
+      "1 tbsp sesame seeds"
+    ]
+  },
+  "spinach_and_ricotta_cannelloni": {
+    "servings": 4,
+    "ingredients": [
+      "12 cannelloni tubes",
+      "250 g ricotta",
+      "200 g spinach, cooked and chopped",
+      "1 egg",
+      "400 g tin chopped tomatoes",
+      "2 cloves garlic, crushed",
+      "30 g parmesan, grated",
+      "1 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "three_cheese_omelette": {
+    "servings": 1,
+    "ingredients": [
+      "3 eggs",
+      "20 g mature cheddar, grated",
+      "20 g feta, crumbled",
+      "10 g parmesan, grated",
+      "10 g butter"
+    ]
+  },
+  "tofu_katsu_curry": {
+    "servings": 2,
+    "ingredients": [
+      "300 g firm tofu, sliced",
+      "60 g breadcrumbs",
+      "30 g plain flour",
+      "1 egg, beaten",
+      "1 onion, chopped",
+      "2 tsp curry powder",
+      "1 tsp turmeric",
+      "400 ml vegetable stock",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "rice_and_peas": {
+    "servings": 4,
+    "ingredients": [
+      "300 g rice, cooked",
+      "400 g tin kidney beans, drained",
+      "200 ml coconut milk",
+      "1 tsp thyme"
+    ]
+  },
+  "bubble_and_squeak": {
+    "servings": 2,
+    "ingredients": [
+      "400 g potatoes, cooked and mashed",
+      "200 g cabbage, cooked and chopped",
+      "1 onion, chopped",
+      "1 tbsp vegetable oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "corned_beef_hash": {
+    "servings": 2,
+    "ingredients": [
+      "340 g tin corned beef, diced",
+      "400 g potatoes, cooked and diced",
+      "1 onion, chopped",
+      "1 tbsp vegetable oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "split_pea_and_ham_soup": {
+    "servings": 4,
+    "ingredients": [
+      "250 g split peas",
+      "150 g ham, diced",
+      "1 onion, chopped",
+      "2 carrots, chopped",
+      "1 litre vegetable stock",
+      "1 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "cauliflower_cheese": {
+    "servings": 4,
+    "ingredients": [
+      "1 cauliflower, cut into florets",
+      "40 g butter",
+      "40 g plain flour",
+      "500 ml milk",
+      "150 g mature cheddar, grated",
+      "1 tsp mustard powder",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "potato_and_leek_soup": {
+    "servings": 4,
+    "ingredients": [
+      "2 leeks, sliced",
+      "500 g potatoes, peeled and chopped",
+      "900 ml vegetable stock",
+      "1 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "simple_omelette_and_toast": {
+    "servings": 1,
+    "ingredients": [
+      "3 eggs",
+      "10 g butter",
+      "2 slices wholemeal bread",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "baked_bean_jacket_potato_with_cheese": {
+    "servings": 2,
+    "ingredients": [
+      "2 large baking potatoes",
+      "400 g tin baked beans",
+      "60 g mature cheddar, grated",
+      "20 g butter"
+    ]
+  },
+  "vegetable_fried_rice": {
+    "servings": 2,
+    "ingredients": [
+      "300 g rice, cooked",
+      "100 g frozen peas",
+      "1 carrot, diced",
+      "2 eggs, beaten",
+      "2 spring onions, sliced",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "liver_and_onions": {
+    "servings": 2,
+    "ingredients": [
+      "300 g lamb liver, sliced",
+      "2 onions, sliced",
+      "1 tbsp plain flour",
+      "200 ml beef stock",
+      "1 tbsp vegetable oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "steak_with_roasted_red_peppers": {
+    "servings": 2,
+    "ingredients": [
+      "2 beef sirloin steaks",
+      "2 red peppers, sliced",
+      "1 tbsp olive oil",
+      "1 clove garlic, crushed",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "sardines_on_toast_with_tomato": {
+    "servings": 1,
+    "ingredients": [
+      "1 tin sardines in tomato sauce",
+      "2 slices wholemeal bread",
+      "1 tomato, sliced",
+      "Black pepper, to taste"
+    ]
+  },
+  "tofu_and_broccoli_stir_fry_with_orange": {
+    "servings": 2,
+    "ingredients": [
+      "300 g firm tofu, cubed",
+      "200 g broccoli florets",
+      "1 orange, segmented",
+      "2 cloves garlic, crushed",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil",
+      "200 g rice, cooked"
+    ]
+  },
+  "spinach_salad_with_strawberries": {
+    "servings": 2,
+    "ingredients": [
+      "150 g spinach",
+      "150 g strawberries, sliced",
+      "30 g walnuts",
+      "2 tbsp olive oil",
+      "1 tbsp balsamic vinegar"
+    ]
+  },
+  "mussels_with_tomato_and_parsley": {
+    "servings": 2,
+    "ingredients": [
+      "1 kg mussels, cleaned",
+      "400 g tin chopped tomatoes",
+      "2 cloves garlic, crushed",
+      "1 onion, chopped",
+      "100 ml white wine",
+      "2 tbsp fresh parsley, chopped",
+      "1 tbsp olive oil"
+    ]
+  },
+  "black_bean_and_pepper_tacos": {
+    "servings": 2,
+    "ingredients": [
+      "400 g tin black beans, drained",
+      "1 red pepper, sliced",
+      "1 onion, sliced",
+      "1 tsp cumin",
+      "1 tsp smoked paprika",
+      "1 tbsp vegetable oil",
+      "6 corn tortillas",
+      "1 lime, juice of"
+    ]
+  },
+  "turkey_and_spinach_meatballs": {
+    "servings": 4,
+    "ingredients": [
+      "500 g turkey mince",
+      "100 g spinach, finely chopped",
+      "1 egg",
+      "40 g breadcrumbs",
+      "1 onion, finely chopped",
+      "400 g tin chopped tomatoes",
+      "1 tbsp olive oil",
+      "1 tsp dried oregano"
+    ]
+  },
+  "unsalted_roasted_vegetables": {
+    "servings": 4,
+    "ingredients": [
+      "2 carrots, chopped",
+      "1 courgette, chopped",
+      "1 red pepper, chopped",
+      "1 red onion, chopped",
+      "2 tbsp olive oil",
+      "1 tsp dried herbes de Provence",
+      "Black pepper, to taste"
+    ]
+  },
+  "homemade_low_salt_vegetable_stock_soup": {
+    "servings": 4,
+    "ingredients": [
+      "1 onion, chopped",
+      "2 carrots, chopped",
+      "2 celery sticks, chopped",
+      "1 litre water",
+      "1 bay leaf",
+      "1 tbsp olive oil",
+      "Black pepper, to taste"
+    ]
+  },
+  "low_sodium_ginger_garlic_stir_fry": {
+    "servings": 2,
+    "ingredients": [
+      "200 g broccoli florets",
+      "1 red pepper, sliced",
+      "1 carrot, sliced",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "1 tbsp low-salt soy sauce",
+      "1 tbsp vegetable oil",
+      "200 g rice, cooked"
+    ]
+  },
+  "reduced_salt_macaroni_cheese": {
+    "servings": 4,
+    "ingredients": [
+      "350 g macaroni",
+      "40 g butter",
+      "40 g plain flour",
+      "600 ml milk",
+      "150 g mature cheddar, grated",
+      "Black pepper, to taste"
+    ]
+  },
+  "low_salt_lentil_dhal": {
+    "servings": 4,
+    "ingredients": [
+      "250 g red lentils",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "1 tsp turmeric",
+      "1 tsp cumin",
+      "700 ml water",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "unsalted_nut_and_seed_granola": {
+    "servings": 4,
+    "ingredients": [
+      "200 g rolled oats",
+      "50 g mixed nuts",
+      "30 g mixed seeds",
+      "2 tbsp honey",
+      "2 tbsp vegetable oil"
+    ]
+  },
+  "reduced_sodium_chicken_curry": {
+    "servings": 4,
+    "ingredients": [
+      "600 g chicken breast, diced",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "2 tbsp curry powder",
+      "400 g tin chopped tomatoes, no added salt",
+      "200 ml coconut milk",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "low_salt_vegetable_chilli": {
+    "servings": 4,
+    "ingredients": [
+      "400 g tin kidney beans, drained and rinsed",
+      "400 g tin chopped tomatoes, no added salt",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 red pepper, chopped",
+      "1 tbsp vegetable oil",
+      "2 tsp cumin",
+      "300 g rice, cooked"
+    ]
+  },
+  "herby_roast_chicken_dinner": {
+    "servings": 4,
+    "ingredients": [
+      "1.4 kg whole chicken",
+      "4 sprigs fresh rosemary",
+      "4 sprigs fresh thyme",
+      "3 cloves garlic",
+      "800 g potatoes, chopped",
+      "2 carrots, chopped",
+      "2 tbsp olive oil",
+      "Black pepper, to taste"
+    ]
+  },
+  "reduced_salt_tuna_pasta_bake": {
+    "servings": 4,
+    "ingredients": [
+      "350 g pasta",
+      "2 x 160 g tins tuna, drained",
+      "400 g tin chopped tomatoes, no added salt",
+      "1 onion, chopped",
+      "80 g mature cheddar, grated",
+      "1 tbsp olive oil",
+      "Black pepper, to taste"
+    ]
+  },
+  "tabbouleh": {
+    "servings": 4,
+    "ingredients": [
+      "150 g bulgur wheat, cooked",
+      "50 g fresh parsley, chopped",
+      "10 g fresh mint, chopped",
+      "3 tomatoes, diced",
+      "0.5 cucumber, diced",
+      "2 tbsp olive oil",
+      "1 lemon, juice of"
+    ]
+  },
+  "greek_style_baked_beans": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins butter beans, drained",
+      "400 g tin chopped tomatoes",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "2 tbsp olive oil",
+      "1 tsp dried oregano",
+      "30 g feta, crumbled"
+    ]
+  },
+  "aubergine_and_tomato_bake": {
+    "servings": 4,
+    "ingredients": [
+      "2 aubergines, sliced",
+      "400 g tin chopped tomatoes",
+      "2 cloves garlic, crushed",
+      "1 onion, chopped",
+      "30 g parmesan, grated",
+      "2 tbsp olive oil",
+      "1 tsp dried oregano"
+    ]
+  },
+  "lentil_and_vegetable_soup": {
+    "servings": 4,
+    "ingredients": [
+      "200 g red lentils",
+      "1 onion, chopped",
+      "2 carrots, chopped",
+      "1 courgette, chopped",
+      "400 g tin chopped tomatoes",
+      "900 ml vegetable stock",
+      "1 tbsp olive oil",
+      "1 tsp cumin"
+    ]
+  },
+  "stuffed_peppers_with_rice": {
+    "servings": 4,
+    "ingredients": [
+      "4 red peppers, halved and deseeded",
+      "250 g rice, cooked",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes",
+      "30 g feta, crumbled",
+      "1 tbsp olive oil",
+      "1 tsp dried oregano"
+    ]
+  },
+  "prawn_and_tomato_pasta": {
+    "servings": 2,
+    "ingredients": [
+      "200 g pasta",
+      "200 g raw peeled prawns",
+      "400 g tin chopped tomatoes",
+      "2 cloves garlic, crushed",
+      "1 tbsp olive oil",
+      "1 tbsp fresh parsley, chopped",
+      "Chilli flakes (optional)"
+    ]
+  },
+  "olive_and_tomato_bruschetta": {
+    "servings": 2,
+    "ingredients": [
+      "4 slices crusty bread",
+      "2 tomatoes, diced",
+      "10 black olives, sliced",
+      "1 clove garlic",
+      "2 tbsp olive oil",
+      "1 tbsp fresh basil, chopped"
+    ]
+  },
+  "mediterranean_roasted_vegetable_couscous": {
+    "servings": 4,
+    "ingredients": [
+      "200 g couscous",
+      "1 courgette, diced",
+      "1 red pepper, diced",
+      "1 red onion, diced",
+      "2 tbsp olive oil",
+      "1 lemon, juice of",
+      "2 tbsp fresh parsley, chopped"
+    ]
+  },
+  "greek_yoghurt_with_honey_and_walnuts": {
+    "servings": 1,
+    "ingredients": [
+      "200 g Greek yoghurt",
+      "1 tbsp honey",
+      "20 g walnuts"
+    ]
+  },
+  "white_bean_and_rosemary_stew": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins cannellini beans, drained",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes",
+      "500 ml vegetable stock",
+      "1 tbsp olive oil",
+      "1 sprig fresh rosemary"
+    ]
+  },
+  "butternut_squash_soup": {
+    "servings": 4,
+    "ingredients": [
+      "1 butternut squash, peeled and diced",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "900 ml vegetable stock",
+      "100 ml single cream",
+      "1 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "vegetable_and_bean_casserole": {
+    "servings": 4,
+    "ingredients": [
+      "400 g tin mixed beans, drained",
+      "1 onion, chopped",
+      "2 carrots, chopped",
+      "1 celery stick, chopped",
+      "400 g tin chopped tomatoes",
+      "300 ml vegetable stock",
+      "1 tbsp olive oil",
+      "1 tsp dried thyme"
+    ]
+  },
+  "white_bread_meal_educational_lower_nutrient_density": {
+    "servings": 2,
+    "ingredients": [
+      "4 slices white bread",
+      "20 g butter",
+      "2 tbsp jam"
+    ]
+  },
+  "wholemeal_bread_and_vegetable_meal_educational_higher_nutrient_density": {
+    "servings": 2,
+    "ingredients": [
+      "4 slices wholemeal bread",
+      "10 g butter",
+      "1 avocado",
+      "2 tomatoes, sliced"
+    ]
+  },
+  "standard_beef_mince_meal_educational_protein_quantity": {
+    "servings": 2,
+    "ingredients": [
+      "300 g beef mince (20% fat)",
+      "1 onion, chopped",
+      "400 g tin chopped tomatoes",
+      "300 g rice, cooked"
+    ]
+  },
+  "lean_beef_mince_meal_educational_protein_quantity_vs_quality": {
+    "servings": 2,
+    "ingredients": [
+      "300 g lean beef mince (5% fat)",
+      "1 onion, chopped",
+      "400 g tin chopped tomatoes",
+      "300 g rice, cooked"
+    ]
+  },
+  "chicken_caesar_salad": {
+    "servings": 2,
+    "ingredients": [
+      "2 chicken breasts, cooked and sliced",
+      "100 g romaine lettuce, chopped",
+      "30 g parmesan, shaved",
+      "40 g croutons",
+      "3 tbsp Caesar dressing"
+    ]
+  },
+  "prawn_stir_fry_with_noodles": {
+    "servings": 2,
+    "ingredients": [
+      "250 g raw peeled prawns",
+      "200 g cooked rice noodles",
+      "1 red pepper, sliced",
+      "150 g mangetout",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "beef_and_ale_pie": {
+    "servings": 4,
+    "ingredients": [
+      "700 g braising beef, diced",
+      "1 onion, chopped",
+      "2 carrots, sliced",
+      "330 ml ale",
+      "300 ml beef stock",
+      "2 tbsp plain flour",
+      "1 tbsp vegetable oil",
+      "320 g shortcrust pastry",
+      "1 egg, beaten"
+    ]
+  },
+  "turkey_dinner_with_trimmings": {
+    "servings": 6,
+    "ingredients": [
+      "2 kg turkey crown",
+      "800 g potatoes, chopped",
+      "300 g carrots, chopped",
+      "8 pork sausages",
+      "8 rashers bacon",
+      "2 tbsp olive oil",
+      "500 ml chicken stock",
+      "2 tbsp plain flour"
+    ]
+  },
+  "pea_and_ham_soup": {
+    "servings": 4,
+    "ingredients": [
+      "300 g frozen peas",
+      "150 g ham, diced",
+      "1 onion, chopped",
+      "900 ml vegetable stock",
+      "1 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "cheese_and_onion_pasty": {
+    "servings": 4,
+    "ingredients": [
+      "320 g shortcrust pastry",
+      "150 g mature cheddar, grated",
+      "1 onion, finely chopped",
+      "1 potato, diced",
+      "1 egg, beaten",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "chicken_noodle_stir_fry": {
+    "servings": 2,
+    "ingredients": [
+      "300 g chicken breast, sliced",
+      "200 g cooked egg noodles",
+      "1 carrot, sliced",
+      "100 g beansprouts",
+      "2 cloves garlic, crushed",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "fishcakes_with_peas": {
+    "servings": 4,
+    "ingredients": [
+      "500 g white fish fillets",
+      "400 g potatoes, cooked and mashed",
+      "1 tbsp fresh parsley, chopped",
+      "30 g plain flour",
+      "1 egg, beaten",
+      "60 g breadcrumbs",
+      "150 g frozen peas",
+      "2 tbsp vegetable oil"
+    ]
+  },
+  "sausage_casserole": {
+    "servings": 4,
+    "ingredients": [
+      "8 pork sausages",
+      "1 onion, chopped",
+      "2 carrots, sliced",
+      "400 g tin chopped tomatoes",
+      "300 ml beef stock",
+      "1 tbsp vegetable oil",
+      "1 tsp dried thyme"
+    ]
+  },
+  "steak_and_kidney_pudding": {
+    "servings": 4,
+    "ingredients": [
+      "500 g braising steak, diced",
+      "150 g ox kidney, diced",
+      "1 onion, chopped",
+      "2 tbsp plain flour",
+      "300 ml beef stock",
+      "225 g self-raising flour",
+      "110 g suet"
+    ]
+  },
+  "banana_and_oat_pancakes": {
+    "servings": 2,
+    "ingredients": [
+      "2 bananas, mashed",
+      "2 eggs",
+      "80 g rolled oats",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "breakfast_bagel_with_cream_cheese": {
+    "servings": 1,
+    "ingredients": [
+      "1 bagel",
+      "40 g cream cheese",
+      "0.5 cucumber, sliced"
+    ]
+  },
+  "muesli_with_milk": {
+    "servings": 1,
+    "ingredients": [
+      "50 g muesli",
+      "150 ml milk",
+      "1 tbsp mixed berries"
+    ]
+  },
+  "fruit_salad_with_yoghurt": {
+    "servings": 1,
+    "ingredients": [
+      "1 banana, sliced",
+      "1 apple, diced",
+      "50 g mixed berries",
+      "150 g Greek yoghurt"
+    ]
+  },
+  "crumpets_with_butter": {
+    "servings": 1,
+    "ingredients": [
+      "2 crumpets",
+      "15 g butter"
+    ]
+  },
+  "breakfast_rice_pudding": {
+    "servings": 2,
+    "ingredients": [
+      "100 g rice, cooked",
+      "400 ml milk",
+      "2 tbsp sugar",
+      "0.5 tsp vanilla extract"
+    ]
+  },
+  "lighter_eggs_benedict": {
+    "servings": 1,
+    "ingredients": [
+      "2 eggs",
+      "1 English muffin",
+      "2 slices ham",
+      "2 tbsp low-fat hollandaise sauce",
+      "1 tsp vinegar"
+    ]
+  },
+  "smoothie_bowl": {
+    "servings": 1,
+    "ingredients": [
+      "1 banana, frozen",
+      "100 g mixed berries, frozen",
+      "100 ml milk",
+      "1 tbsp granola"
+    ]
+  },
+  "wholemeal_toast_with_marmite_and_egg": {
+    "servings": 1,
+    "ingredients": [
+      "2 slices wholemeal bread",
+      "1 tsp marmite",
+      "1 egg",
+      "10 g butter"
+    ]
+  },
+  "falafel_and_tabbouleh_bowl": {
+    "servings": 2,
+    "ingredients": [
+      "400 g tin chickpeas, drained",
+      "1 clove garlic",
+      "1 tsp cumin",
+      "2 tbsp plain flour",
+      "2 tbsp vegetable oil",
+      "150 g bulgur wheat, cooked",
+      "2 tomatoes, diced",
+      "2 tbsp fresh parsley, chopped",
+      "1 lemon, juice of"
+    ]
+  },
+  "moong_dhal_with_rice": {
+    "servings": 4,
+    "ingredients": [
+      "250 g split moong dhal",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 tsp turmeric",
+      "1 tsp cumin",
+      "700 ml vegetable stock",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "black_eyed_bean_stew": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins black-eyed beans, drained",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes",
+      "1 red pepper, chopped",
+      "500 ml vegetable stock",
+      "1 tbsp vegetable oil",
+      "1 tsp smoked paprika"
+    ]
+  },
+  "peanut_butter_and_banana_wholemeal_sandwich": {
+    "servings": 1,
+    "ingredients": [
+      "2 slices wholemeal bread",
+      "2 tbsp peanut butter",
+      "1 banana, sliced"
+    ]
+  },
+  "hummus_falafel_and_pitta_salad_box": {
+    "servings": 2,
+    "ingredients": [
+      "400 g tin chickpeas, drained",
+      "2 tbsp tahini",
+      "1 lemon, juice of",
+      "4 falafel balls",
+      "2 wholemeal pitta breads",
+      "50 g mixed salad leaves",
+      "0.5 cucumber, sliced"
+    ]
+  },
+  "bean_and_vegetable_burrito": {
+    "servings": 2,
+    "ingredients": [
+      "400 g tin kidney beans, drained",
+      "1 red pepper, sliced",
+      "1 onion, sliced",
+      "1 tsp cumin",
+      "1 tsp smoked paprika",
+      "1 tbsp vegetable oil",
+      "2 tortilla wraps",
+      "50 g mature cheddar, grated"
+    ]
+  },
+  "chickpea_and_lentil_soup": {
+    "servings": 4,
+    "ingredients": [
+      "400 g tin chickpeas, drained",
+      "150 g red lentils",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 tsp cumin",
+      "900 ml vegetable stock",
+      "1 tbsp olive oil"
+    ]
+  },
+  "refried_bean_tacos_with_rice": {
+    "servings": 2,
+    "ingredients": [
+      "400 g tin refried beans",
+      "6 corn tortillas",
+      "300 g rice, cooked",
+      "50 g mature cheddar, grated",
+      "2 tbsp tomato salsa"
+    ]
+  },
+  "vegetarian_shepherd_s_pie_with_lentils": {
+    "servings": 4,
+    "ingredients": [
+      "250 g green lentils",
+      "1 onion, chopped",
+      "2 carrots, diced",
+      "400 g tin chopped tomatoes",
+      "500 ml vegetable stock",
+      "800 g potatoes, peeled and chopped",
+      "30 g butter",
+      "100 ml milk",
+      "80 g mature cheddar, grated"
+    ]
+  },
+  "baked_tofu_with_peanut_sauce": {
+    "servings": 2,
+    "ingredients": [
+      "300 g firm tofu, cubed",
+      "3 tbsp peanut butter",
+      "1 tbsp soy sauce",
+      "1 lime, juice of",
+      "1 tbsp vegetable oil",
+      "200 g rice, cooked"
+    ]
+  },
+  "egg_and_cheese_muffin": {
+    "servings": 1,
+    "ingredients": [
+      "1 English muffin",
+      "1 egg",
+      "20 g mature cheddar, grated",
+      "10 g butter"
+    ]
+  },
+  "spinach_and_feta_filo_parcels": {
+    "servings": 4,
+    "ingredients": [
+      "200 g spinach, cooked and chopped",
+      "150 g feta, crumbled",
+      "1 egg",
+      "6 sheets filo pastry",
+      "2 tbsp olive oil"
+    ]
+  },
+  "chickpea_omelette": {
+    "servings": 1,
+    "ingredients": [
+      "3 eggs",
+      "100 g tin chickpeas, drained and mashed",
+      "1 tsp cumin",
+      "10 g butter"
+    ]
+  },
+  "tempeh_tacos": {
+    "servings": 2,
+    "ingredients": [
+      "250 g tempeh, crumbled",
+      "1 tsp cumin",
+      "1 tsp smoked paprika",
+      "1 tbsp vegetable oil",
+      "6 corn tortillas",
+      "50 g mature cheddar, grated",
+      "2 tbsp tomato salsa"
+    ]
+  },
+  "cheese_and_bean_quesadilla": {
+    "servings": 2,
+    "ingredients": [
+      "400 g tin kidney beans, drained",
+      "100 g mature cheddar, grated",
+      "2 tortilla wraps",
+      "1 tsp vegetable oil"
+    ]
+  },
+  "vegetarian_full_breakfast": {
+    "servings": 1,
+    "ingredients": [
+      "2 vegetarian sausages",
+      "1 egg",
+      "1 tin baked beans",
+      "2 mushrooms, sliced",
+      "1 tomato, halved",
+      "1 slice wholemeal bread",
+      "1 tsp vegetable oil"
+    ]
+  },
+  "egg_and_chips": {
+    "servings": 2,
+    "ingredients": [
+      "4 eggs",
+      "600 g potatoes, cut into chips",
+      "2 tbsp vegetable oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "beans_and_toast_with_cheese": {
+    "servings": 1,
+    "ingredients": [
+      "1 tin baked beans",
+      "2 slices wholemeal bread",
+      "40 g mature cheddar, grated"
+    ]
+  },
+  "vegetable_and_lentil_curry": {
+    "servings": 4,
+    "ingredients": [
+      "200 g red lentils",
+      "1 potato, diced",
+      "1 carrot, diced",
+      "1 onion, chopped",
+      "2 tsp curry powder",
+      "400 g tin chopped tomatoes",
+      "700 ml vegetable stock",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "spaghetti_with_garlic_and_oil": {
+    "servings": 4,
+    "ingredients": [
+      "400 g spaghetti",
+      "4 cloves garlic, sliced",
+      "4 tbsp olive oil",
+      "Chilli flakes (optional)",
+      "2 tbsp fresh parsley, chopped"
+    ]
+  },
+  "tinned_soup_and_bread_roll": {
+    "servings": 1,
+    "ingredients": [
+      "1 tin vegetable soup",
+      "1 bread roll"
+    ]
+  },
+  "rice_pudding": {
+    "servings": 4,
+    "ingredients": [
+      "100 g pudding rice",
+      "600 ml milk",
+      "2 tbsp sugar",
+      "0.5 tsp vanilla extract"
+    ]
+  },
+  "potato_and_onion_frittata": {
+    "servings": 4,
+    "ingredients": [
+      "6 eggs",
+      "2 potatoes, cooked and sliced",
+      "1 onion, sliced",
+      "1 tbsp vegetable oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "corned_beef_and_potato_pie": {
+    "servings": 4,
+    "ingredients": [
+      "340 g tin corned beef, diced",
+      "600 g potatoes, peeled and chopped",
+      "1 onion, chopped",
+      "30 g butter",
+      "100 ml milk",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "pasta_with_peas_and_bacon": {
+    "servings": 4,
+    "ingredients": [
+      "350 g pasta",
+      "150 g frozen peas",
+      "4 rashers bacon, chopped",
+      "1 clove garlic, crushed",
+      "100 ml single cream",
+      "1 tbsp olive oil",
+      "30 g parmesan, grated"
+    ]
+  },
+  "store_cupboard_vegetable_fried_rice": {
+    "servings": 2,
+    "ingredients": [
+      "300 g rice, cooked",
+      "100 g frozen mixed vegetables",
+      "2 eggs, beaten",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "beef_kofta_with_tomato_salad": {
+    "servings": 2,
+    "ingredients": [
+      "400 g beef mince",
+      "1 onion, finely chopped",
+      "1 tsp cumin",
+      "1 tsp smoked paprika",
+      "2 tomatoes, diced",
+      "0.5 red onion, sliced",
+      "2 tbsp olive oil",
+      "1 lemon, juice of"
+    ]
+  },
+  "iron_fortified_cereal_with_fruit": {
+    "servings": 1,
+    "ingredients": [
+      "40 g bran flakes cereal",
+      "150 ml milk",
+      "1 orange, segmented"
+    ]
+  },
+  "spinach_and_chickpea_salad_with_orange": {
+    "servings": 2,
+    "ingredients": [
+      "150 g spinach",
+      "400 g tin chickpeas, drained",
+      "1 orange, segmented",
+      "2 tbsp olive oil",
+      "1 tbsp balsamic vinegar"
+    ]
+  },
+  "lamb_and_spinach_curry": {
+    "servings": 4,
+    "ingredients": [
+      "500 g lamb, diced",
+      "200 g spinach",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "2 tsp garam masala",
+      "400 g tin chopped tomatoes",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "prawn_and_pepper_stir_fry": {
+    "servings": 2,
+    "ingredients": [
+      "250 g raw peeled prawns",
+      "1 red pepper, sliced",
+      "1 yellow pepper, sliced",
+      "2 cloves garlic, crushed",
+      "2 tbsp soy sauce",
+      "1 tbsp vegetable oil",
+      "200 g rice, cooked"
+    ]
+  },
+  "bean_and_kale_soup": {
+    "servings": 4,
+    "ingredients": [
+      "400 g tin cannellini beans, drained",
+      "100 g kale, chopped",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes",
+      "700 ml vegetable stock",
+      "1 tbsp olive oil"
+    ]
+  },
+  "beetroot_and_lentil_salad": {
+    "servings": 2,
+    "ingredients": [
+      "250 g cooked beetroot, diced",
+      "200 g green lentils, cooked",
+      "50 g feta, crumbled",
+      "2 tbsp olive oil",
+      "1 tbsp balsamic vinegar"
+    ]
+  },
+  "watercress_and_beef_salad": {
+    "servings": 2,
+    "ingredients": [
+      "300 g beef sirloin, sliced thinly",
+      "80 g watercress",
+      "10 cherry tomatoes, halved",
+      "2 tbsp olive oil",
+      "1 tbsp balsamic vinegar"
+    ]
+  },
+  "low_salt_chicken_soup": {
+    "servings": 4,
+    "ingredients": [
+      "300 g chicken breast, diced",
+      "1 onion, chopped",
+      "2 carrots, sliced",
+      "2 celery sticks, sliced",
+      "1 litre water",
+      "1 bay leaf",
+      "Black pepper, to taste"
+    ]
+  },
+  "herb_crusted_baked_salmon": {
+    "servings": 2,
+    "ingredients": [
+      "2 salmon fillets",
+      "1 tbsp fresh parsley, chopped",
+      "1 tbsp fresh dill, chopped",
+      "1 lemon, juice of",
+      "1 tbsp olive oil",
+      "Black pepper, to taste"
+    ]
+  },
+  "reduced_salt_beef_stew": {
+    "servings": 4,
+    "ingredients": [
+      "700 g braising beef, diced",
+      "2 carrots, sliced",
+      "1 onion, chopped",
+      "2 tbsp plain flour",
+      "600 ml low-salt beef stock",
+      "1 tbsp vegetable oil",
+      "Black pepper, to taste"
+    ]
+  },
+  "low_sodium_vegetable_stir_fry": {
+    "servings": 2,
+    "ingredients": [
+      "1 red pepper, sliced",
+      "150 g broccoli florets",
+      "1 carrot, sliced",
+      "2 cloves garlic, crushed",
+      "1 tbsp low-salt soy sauce",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "unsalted_roast_potatoes_with_herbs": {
+    "servings": 4,
+    "ingredients": [
+      "1 kg potatoes, peeled and chopped",
+      "2 tbsp olive oil",
+      "1 tsp dried rosemary",
+      "Black pepper, to taste"
+    ]
+  },
+  "low_salt_fish_cakes": {
+    "servings": 4,
+    "ingredients": [
+      "500 g white fish fillets",
+      "400 g potatoes, cooked and mashed",
+      "1 tbsp fresh parsley, chopped",
+      "30 g plain flour",
+      "1 egg, beaten",
+      "60 g breadcrumbs",
+      "2 tbsp vegetable oil"
+    ]
+  },
+  "reduced_salt_chilli_con_carne": {
+    "servings": 4,
+    "ingredients": [
+      "500 g beef mince",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes, no added salt",
+      "400 g tin kidney beans, drained and rinsed",
+      "1 tbsp vegetable oil",
+      "2 tsp cumin",
+      "300 g rice, cooked"
+    ]
+  },
+  "herb_and_garlic_roast_vegetables": {
+    "servings": 4,
+    "ingredients": [
+      "2 courgettes, chopped",
+      "1 red pepper, chopped",
+      "1 red onion, chopped",
+      "3 cloves garlic",
+      "2 tbsp olive oil",
+      "1 tsp dried herbes de Provence",
+      "Black pepper, to taste"
+    ]
+  },
+  "spanish_tortilla": {
+    "servings": 4,
+    "ingredients": [
+      "6 eggs",
+      "500 g potatoes, thinly sliced",
+      "1 onion, sliced",
+      "4 tbsp olive oil",
+      "Salt and pepper, to taste"
+    ]
+  },
+  "caprese_salad": {
+    "servings": 2,
+    "ingredients": [
+      "200 g mozzarella, sliced",
+      "3 tomatoes, sliced",
+      "2 tbsp olive oil",
+      "10 fresh basil leaves"
+    ]
+  },
+  "greek_lentil_soup": {
+    "servings": 4,
+    "ingredients": [
+      "250 g green lentils",
+      "1 onion, chopped",
+      "2 carrots, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes",
+      "900 ml vegetable stock",
+      "2 tbsp olive oil",
+      "1 bay leaf"
+    ]
+  },
+  "mediterranean_baked_chicken": {
+    "servings": 4,
+    "ingredients": [
+      "4 chicken thighs",
+      "10 cherry tomatoes",
+      "10 black olives",
+      "1 red onion, sliced",
+      "2 tbsp olive oil",
+      "1 tsp dried oregano",
+      "1 lemon, juice of"
+    ]
+  },
+  "aubergine_parmigiana": {
+    "servings": 4,
+    "ingredients": [
+      "2 aubergines, sliced",
+      "400 g tin chopped tomatoes",
+      "200 g mozzarella, sliced",
+      "30 g parmesan, grated",
+      "2 cloves garlic, crushed",
+      "3 tbsp olive oil",
+      "1 tsp dried basil"
+    ]
+  },
+  "grilled_vegetable_skewers": {
+    "servings": 4,
+    "ingredients": [
+      "1 courgette, chunked",
+      "1 red pepper, chunked",
+      "1 yellow pepper, chunked",
+      "1 red onion, chunked",
+      "200 g halloumi, cubed",
+      "2 tbsp olive oil",
+      "1 tsp dried oregano"
+    ]
+  },
+  "mediterranean_prawn_skewers": {
+    "servings": 2,
+    "ingredients": [
+      "300 g raw peeled prawns",
+      "1 red pepper, chunked",
+      "1 courgette, chunked",
+      "2 tbsp olive oil",
+      "1 clove garlic, crushed",
+      "1 lemon, juice of"
+    ]
+  },
+  "chickpea_and_roasted_vegetable_traybake": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins chickpeas, drained",
+      "1 courgette, chopped",
+      "1 red pepper, chopped",
+      "1 red onion, chopped",
+      "3 tbsp olive oil",
+      "1 tsp smoked paprika",
+      "1 lemon, juice of"
+    ]
+  },
+  "pasta_puttanesca": {
+    "servings": 4,
+    "ingredients": [
+      "350 g pasta",
+      "400 g tin chopped tomatoes",
+      "2 cloves garlic, crushed",
+      "10 black olives, sliced",
+      "2 tbsp capers",
+      "2 anchovy fillets",
+      "2 tbsp olive oil",
+      "Chilli flakes (optional)"
+    ]
+  },
+  "orzo_with_tomatoes_and_feta": {
+    "servings": 4,
+    "ingredients": [
+      "300 g orzo",
+      "10 cherry tomatoes, halved",
+      "100 g feta, crumbled",
+      "2 tbsp olive oil",
+      "1 tbsp fresh basil, chopped"
+    ]
+  },
+  "chicken_and_vegetable_curry": {
+    "servings": 4,
+    "ingredients": [
+      "600 g chicken breast, diced",
+      "1 onion, chopped",
+      "2 carrots, sliced",
+      "150 g green beans",
+      "2 tsp curry powder",
+      "400 g tin chopped tomatoes",
+      "200 ml coconut milk",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "lentil_and_vegetable_dahl": {
+    "servings": 4,
+    "ingredients": [
+      "250 g red lentils",
+      "1 onion, chopped",
+      "1 carrot, diced",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "1 tsp turmeric",
+      "1 tsp cumin",
+      "700 ml vegetable stock",
+      "1 tbsp vegetable oil",
+      "300 g rice, cooked"
+    ]
+  },
+  "beef_and_bean_chilli": {
+    "servings": 4,
+    "ingredients": [
+      "500 g beef mince",
+      "400 g tin kidney beans, drained",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "400 g tin chopped tomatoes",
+      "1 tbsp vegetable oil",
+      "2 tsp cumin",
+      "1 tsp smoked paprika",
+      "300 g rice, cooked"
+    ]
+  },
+  "tomato_and_basil_soup": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins chopped tomatoes",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "500 ml vegetable stock",
+      "1 tbsp olive oil",
+      "10 fresh basil leaves",
+      "1 tsp sugar"
+    ]
+  },
+  "chickpea_and_spinach_stew": {
+    "servings": 4,
+    "ingredients": [
+      "2 x 400 g tins chickpeas, drained",
+      "200 g spinach",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "1 tbsp fresh ginger, grated",
+      "1 tsp cumin",
+      "400 g tin chopped tomatoes",
+      "500 ml vegetable stock",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "sweet_potato_and_lentil_curry": {
+    "servings": 4,
+    "ingredients": [
+      "500 g sweet potato, peeled and diced",
+      "200 g red lentils",
+      "1 onion, chopped",
+      "2 cloves garlic, crushed",
+      "2 tsp curry powder",
+      "400 g tin chopped tomatoes",
+      "400 ml vegetable stock",
+      "1 tbsp vegetable oil"
+    ]
+  },
+  "bean_and_vegetable_chilli": {
+    "servings": 4,
+    "ingredients": [
+      "400 g tin kidney beans, drained",
+      "400 g tin black beans, drained",
+      "1 onion, chopped",
+      "1 red pepper, chopped",
+      "400 g tin chopped tomatoes",
+      "1 tbsp vegetable oil",
+      "2 tsp cumin",
+      "300 g rice, cooked"
+    ]
+  },
+  "chicken_and_rice_casserole": {
+    "servings": 4,
+    "ingredients": [
+      "600 g chicken thighs",
+      "250 g rice",
+      "1 onion, chopped",
+      "2 carrots, sliced",
+      "700 ml chicken stock",
+      "1 tbsp olive oil",
+      "1 tsp dried thyme"
+    ]
   }
 }
