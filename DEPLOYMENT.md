@@ -66,6 +66,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS currency VARCHAR;
 -- null means "not set", distinct from any specific goal value)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS goal VARCHAR;
 
+-- recipes.source_url / recipes.method (optional source-link + free-text
+-- cooking instructions) — previously missing from this list entirely;
+-- found and added while migrating a real pre-existing database that had
+-- never had it applied.
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source_url VARCHAR;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS method VARCHAR;
+
 -- Stock recipe library (see docs/stock-recipes.md) — system-account
 -- ownership, per-recipe/per-ingredient provenance, and robustness ratings
 -- for the curated recipe library imported/maintained by
