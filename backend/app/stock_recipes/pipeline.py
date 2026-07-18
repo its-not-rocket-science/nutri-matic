@@ -158,7 +158,13 @@ def cmd_fetch(args) -> int:
     adapters = build_adapters(manual_recipes)
 
     cache = _load_cache(args.cache_dir)
-    targets = _filtered_candidates(cache, args, ("discovered",))
+    # "source_unavailable" is retried too, not just "discovered" — the
+    # underlying cause (e.g. a manual entry not yet authored, or a
+    # transient live-source failure) may since have been fixed, and
+    # leaving it stuck on the first failure forever would defeat --source
+    # manual being safely rerunnable after adding more manual_recipes.json
+    # entries
+    targets = _filtered_candidates(cache, args, ("discovered", "source_unavailable"))
     targets = [c for c in targets if not c["raw_ingredient_lines"]]
 
     stats = {"attempted": 0, "fetched": 0, "cache_hit": 0, "unavailable": 0}
@@ -198,6 +204,11 @@ def cmd_fetch(args) -> int:
         cand["content_fingerprint"] = raw.content_fingerprint
         cand["source_licence"] = raw.source_licence
         cand["retrieved_at"] = datetime.now(timezone.utc).isoformat()
+        # a retried candidate may have been sitting at "source_unavailable"
+        # from an earlier run — a successful fetch clears that so `parse`
+        # (which only looks at "discovered") picks it up
+        cand["stock_status"] = "discovered"
+        cand["status_reason"] = None
         stats["cache_hit" if cache_hit else "fetched"] += 1
 
     _save_cache(args.cache_dir, cache)
