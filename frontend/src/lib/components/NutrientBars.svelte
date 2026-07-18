@@ -48,11 +48,12 @@
 		return keys.map((k) => byKey.get(k)).filter((n): n is NutrientAmount => !!n);
 	}
 
-	// energy is a flagship single figure (esp. on the diary's "per day"
-	// view, where it's consumed-vs-personalized-target), not one row among
-	// many vitamin/mineral bars — shown separately, excluded from the
-	// generic groups below.
+	// energy and protein are flagship single figures (esp. on the diary's
+	// "per day" view, where they're consumed-vs-personalized-target), not
+	// one row among many vitamin/mineral bars — shown separately, excluded
+	// from the generic groups below (neither appears in NUTRIENT_GROUPS).
 	const energy = $derived(nutrients.find((n) => n.key === 'energy'));
+	const protein = $derived(nutrients.find((n) => n.key === 'protein'));
 
 	const omega3to6Ratio = $derived.by(() => {
 		const byKey = new Map(nutrients.map((n) => [n.key, n.amount]));
@@ -64,7 +65,7 @@
 </script>
 
 {#if energy}
-	<div class="energy" title={energy.drv_source ?? undefined}>
+	<div class="headline-nutrient" title={energy.drv_source ?? undefined}>
 		<strong>{energy.amount.toFixed(0)} kcal</strong>
 		<span class="muted">{per}</span>
 		{#if energy.adult_drv !== null}
@@ -73,6 +74,20 @@
 			</span>
 		{:else if per === 'per day'}
 			<span class="muted">— set weight, height, sex, birth year &amp; activity level in your profile for a target</span>
+		{/if}
+	</div>
+{/if}
+
+{#if protein}
+	<div class="headline-nutrient" title={protein.drv_source ?? undefined}>
+		<strong>{protein.amount.toFixed(1)}g protein</strong>
+		<span class="muted">{per}</span>
+		{#if protein.adult_drv !== null}
+			<span class="muted">
+				of {protein.adult_drv.toFixed(0)}g target ({protein.percent_drv?.toFixed(0)}%)
+			</span>
+		{:else if per === 'per day'}
+			<span class="muted">— set weight, birth year &amp; activity level in your profile for a target</span>
 		{/if}
 	</div>
 {/if}
@@ -180,7 +195,7 @@
 {/if}
 
 <style>
-	.energy {
+	.headline-nutrient {
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-2);

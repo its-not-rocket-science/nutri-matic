@@ -77,6 +77,10 @@ NUTRIENTS: dict[str, NutrientDef] = {
     # target (Mifflin-St Jeor BMR x activity multiplier); the diary
     # endpoint uses that instead of resolve_drv() for this key specifically.
     "energy": NutrientDef("Energy", "kcal", "208", _drv(0, 0), "no flat DRV — see energy.py"),
+    # No flat DRV here either — same reasoning as energy above. Personalized
+    # by bodyweight and activity level (protein_requirement.py); the diary
+    # and recipe endpoints use that instead of resolve_drv() for this key.
+    "protein": NutrientDef("Protein", "g", "203", _drv(0, 0), "no flat DRV — see protein_requirement.py"),
     # --- fat-soluble vitamins ---
     "vitamin_a": NutrientDef(
         "Vitamin A (RAE)", "mcg", "320",

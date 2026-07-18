@@ -164,6 +164,36 @@ def test_absorbed_protein_percent_drv_with_complete_profile(client):
     assert absorbed["pdcaas_percent_drv"] == pytest.approx(25.0 * 0.92 / 56.0 * 100)
 
 
+def test_day_summary_nutrients_includes_personalized_protein_target(client):
+    token = register_and_token(client, "a@example.com")
+    client.put(
+        "/api/profile",
+        json={
+            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
+            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
+        },
+        headers=auth_headers(token),
+    )
+
+    db = next(app.dependency_overrides[get_db]())
+    db.add(FoodNutrient(food_id=1, nutrient_key="protein", amount_per_100g=26.0))  # matches beef's protein_g_per_100g
+    db.commit()
+    db.close()
+
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-20", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary?entry_date=2026-07-20", headers=auth_headers(token))
+    protein = next(n for n in res.json()["nutrients"] if n["key"] == "protein")
+    assert protein["amount"] == pytest.approx(26.0)
+    assert protein["adult_drv"] == pytest.approx(56.0)  # sedentary, 70kg: 0.8 * 70
+    assert protein["percent_drv"] == pytest.approx(26.0 / 56.0 * 100)
+    assert protein["drv_confidence"] == "personalized_calculation"
+
+
 def test_day_summary_omits_iron_bioavailability_for_meals_with_no_iron(client):
     token = register_and_token(client, "a@example.com")
     no_iron_food_id = client.post(

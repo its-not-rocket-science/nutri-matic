@@ -19,6 +19,7 @@ from ..models import (
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..nutrients import NUTRIENTS, resolve_drv
+from ..protein_requirement import calculate_protein_target_g
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
 from ..search import NutrientFilter, UnknownFilterKey, search_recipes
@@ -337,11 +338,25 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
 
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
     totals = aggregate_nutrients(items, by_food_id, divide_by=recipe.servings)
+    protein_target = calculate_protein_target_g(current_user)
 
     out = []
     for key, amount in totals.items():
         nutrient_def = NUTRIENTS.get(key)
         if nutrient_def is None:
+            continue
+        # protein's target is a personalized bodyweight/activity-level
+        # calculation, not a sex/life-stage table lookup — resolve_drv()
+        # correctly returns None for it (see nutrients.py), so it's handled
+        # separately here, same as diary.py's day/trend endpoints
+        if key == "protein":
+            out.append(
+                schemas.NutrientAmountOut.build(
+                    key, nutrient_def, amount, protein_target,
+                    drv_source="Personalized target: bodyweight x activity-level protein factor (see protein_requirement.py)",
+                    drv_confidence="personalized_calculation",
+                )
+            )
             continue
         drv = resolve_drv(key, profile)
         out.append(schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv))
