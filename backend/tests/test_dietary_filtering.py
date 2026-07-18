@@ -138,6 +138,97 @@ def test_vegan_pattern_excludes_meat_not_plant_foods(client):
     assert "Almond butter" in names2
 
 
+def test_search_flags_avoid_severity_instead_of_hiding_it(client):
+    token = register_and_token(client, "a@example.com")
+    res = client.post(
+        "/api/profile/dietary-constraints",
+        json={"category": "intolerance", "tag": "tree_nut", "severity": "avoid", "note": None},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 201
+
+    res = client.get("/api/foods/search-by-name?q=almond", headers=auth_headers(token))
+    assert res.status_code == 200
+    almond = next(f for f in res.json() if f["name"] == "Almond butter")
+    # shown, not hidden — "avoid" is a soft flag, not an exclusion
+    assert almond["dietary_status"] is not None
+    assert almond["dietary_status"]["status"] == "avoid"
+    assert "Tree nuts" in almond["dietary_status"]["reasons"]
+
+
+def test_search_flags_unknown_for_low_confidence_no_match(client):
+    """A food with no data_type set (same bucket as a branded product with
+    no structured ingredient data) that doesn't match any active constraint
+    by name is "unknown", never silently "ok" — see dietary_tags.py."""
+    token = register_and_token(client, "a@example.com")
+    add_peanut_allergy(client, token)
+
+    res = client.get("/api/foods/search-by-name?q=almond", headers=auth_headers(token))
+    assert res.status_code == 200
+    almond = next(f for f in res.json() if f["name"] == "Almond butter")
+    assert almond["dietary_status"] is not None
+    assert almond["dietary_status"]["status"] == "unknown"
+    assert almond["dietary_status"]["confidence"] == "low"
+
+
+def test_search_no_dietary_status_when_ok(client):
+    """A Foundation/SR-Legacy-confidence food (high-confidence match) with no
+    matching constraint at all gets no dietary_status — the frontend renders
+    no badge rather than an explicit "ok" one, same as filter_excluded_foods
+    never flagging a fully-clear result. Unlike the fixture's other foods
+    (no data_type set — same low-confidence bucket as a branded product),
+    this one is added with data_type="foundation_food" specifically to
+    exercise the high-confidence "no match -> genuinely ok" path."""
+    db = next(app.dependency_overrides[get_db]())
+    db.add(
+        Food(
+            id=4, name="Chicken breast, cooked", protein_g_per_100g=31,
+            amino_acids=dict.fromkeys(AMINO_ACIDS, 18), data_type="foundation_food",
+        )
+    )
+    db.commit()
+    db.close()
+
+    token = register_and_token(client, "a@example.com")
+    add_peanut_allergy(client, token)
+
+    res = client.get("/api/foods/search-by-name?q=chicken", headers=auth_headers(token))
+    assert res.status_code == 200
+    chicken = next(f for f in res.json() if f["name"] == "Chicken breast, cooked")
+    assert chicken["dietary_status"] is None
+
+
+def test_search_no_dietary_status_for_anonymous_or_no_constraints(client):
+    res = client.get("/api/foods/search-by-name?q=almond")
+    almond = next(f for f in res.json() if f["name"] == "Almond butter")
+    assert almond["dietary_status"] is None
+
+    token = register_and_token(client, "a@example.com")
+    res2 = client.get("/api/foods/search-by-name?q=almond", headers=auth_headers(token))
+    almond2 = next(f for f in res2.json() if f["name"] == "Almond butter")
+    assert almond2["dietary_status"] is None
+
+
+def test_recipe_search_flags_worst_status_across_ingredients(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/profile/dietary-constraints",
+        json={"category": "intolerance", "tag": "tree_nut", "severity": "avoid", "note": None},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/recipes",
+        json={"name": "Almond snack", "servings": 1, "ingredients": [{"food_id": 2, "quantity_g": 30}]},
+        headers=auth_headers(token),
+    )
+
+    res = client.post("/api/recipes/search", json={"filters": [], "limit": 20}, headers=auth_headers(token))
+    assert res.status_code == 200
+    recipe = next(r for r in res.json() if r["name"] == "Almond snack")
+    assert recipe["dietary_status"] is not None
+    assert recipe["dietary_status"]["status"] == "avoid"
+
+
 def test_recipe_search_excludes_recipe_with_hard_excluded_ingredient(client):
     token = register_and_token(client, "a@example.com")
     add_peanut_allergy(client, token)

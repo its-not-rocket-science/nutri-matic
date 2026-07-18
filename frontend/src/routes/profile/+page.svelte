@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { browserDefaultCurrency, CURRENCY_OPTIONS } from '$lib/currency';
+	import { GOAL_OPTIONS, type Goal } from '$lib/goals';
 	import type { DietaryConstraint, DietaryVocabulary, User } from '$lib/types';
 
 	let sex: User['sex'] = $state(null);
@@ -15,6 +16,7 @@
 	let heightCm: number | null = $state(null);
 	let dietaryPattern: string | null = $state(null);
 	let currency: string | null = $state(null);
+	let goal: Goal | null = $state(null);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -79,6 +81,7 @@
 			heightCm = profile.height_cm;
 			dietaryPattern = profile.dietary_pattern;
 			currency = profile.currency;
+			goal = profile.goal as Goal | null;
 			vocabulary = vocab;
 			await loadConstraints();
 		} catch (e) {
@@ -103,7 +106,8 @@
 				weight_kg: weightKg,
 				height_cm: heightCm,
 				dietary_pattern: dietaryPattern,
-				currency
+				currency,
+				goal
 			});
 			auth.setUser(updated);
 			saved = true;
@@ -275,6 +279,20 @@
 				Used for food prices, shopping list totals, and the optimiser's cost estimates. Left on
 				"Auto", it follows whatever currency your browser's language/region setting implies —
 				override it here if that's wrong for you.
+			</p>
+		</div>
+
+		<div class="field">
+			<label for="goal">Main goal</label>
+			<select id="goal" bind:value={goal}>
+				<option value={null}>Not set</option>
+				{#each GOAL_OPTIONS as g (g.value)}
+					<option value={g.value}>{g.label}</option>
+				{/each}
+			</select>
+			<p class="muted field-note">
+				Picked during onboarding — tailors the dashboard's emphasis. Change it any time as your
+				focus shifts.
 			</p>
 		</div>
 

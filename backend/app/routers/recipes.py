@@ -5,7 +5,7 @@ from .. import schemas
 from ..aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
 from ..auth import get_current_user
 from ..database import get_db
-from ..dietary_filter import filter_excluded_recipes
+from ..dietary_filter import filter_excluded_recipes, recipes_dietary_status
 from ..models import (
     Food,
     FoodNutrient,
@@ -182,7 +182,19 @@ def recipe_search(
     except UnknownFilterKey as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     matches = filter_excluded_recipes(matches, db, current_user)
-    return [_recipe_out(r, db, current_user) for r in matches[: body.limit]]
+    matches = matches[: body.limit]
+    status_by_id = recipes_dietary_status(matches, db, current_user)
+    out = []
+    for r in matches:
+        recipe_out = _recipe_out(r, db, current_user)
+        suitability = status_by_id.get(r.id)
+        recipe_out.dietary_status = (
+            schemas.DietaryStatusOut(status=suitability.status, confidence=suitability.confidence, reasons=suitability.reasons)
+            if suitability is not None
+            else None
+        )
+        out.append(recipe_out)
+    return out
 
 
 @router.get("/{recipe_id}", response_model=schemas.RecipeOut)

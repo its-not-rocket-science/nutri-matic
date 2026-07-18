@@ -10,6 +10,15 @@ export interface AminoAcidProfile {
 	valine: number;
 }
 
+/** Display-only — never "excluded" (those are dropped before display, not
+ * badged). Only present on search/discovery results for a signed-in user
+ * with dietary constraints; absent (null) elsewhere. See dietary_filter.py. */
+export interface DietaryStatus {
+	status: 'avoid' | 'unknown';
+	confidence: 'high' | 'low';
+	reasons: string[];
+}
+
 export interface Food {
 	id: number;
 	name: string;
@@ -18,6 +27,7 @@ export interface Food {
 	digestibility_diaas: AminoAcidProfile | null;
 	digestibility_pdcaas: number | null;
 	gtin_upc: string | null;
+	dietary_status?: DietaryStatus | null;
 }
 
 export interface FoodList {
@@ -116,6 +126,8 @@ export interface User {
 	dietary_pattern: string | null;
 	/** ISO 4217 code, or null to use the browser locale's implied currency */
 	currency: string | null;
+	/** onboarding's step-1 pick — null if never set */
+	goal: string | null;
 }
 
 export interface ProfileUpdate {
@@ -128,6 +140,7 @@ export interface ProfileUpdate {
 	height_cm: number | null;
 	dietary_pattern: string | null;
 	currency?: string | null;
+	goal?: string | null;
 }
 
 export type DietaryConstraintCategory = 'allergy' | 'intolerance' | 'religious' | 'medical' | 'preference';
@@ -199,6 +212,7 @@ export interface Recipe {
 	average_rating: number | null;
 	rating_count: number;
 	tags: string[];
+	dietary_status?: DietaryStatus | null;
 }
 
 export interface RecipeCreate {

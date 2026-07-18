@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
+	import { GOAL_MESSAGES, GOAL_OPTIONS, type Goal } from '$lib/goals';
 	import type { DietaryVocabulary, Food, Meal, MealOptimization, User } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -20,9 +21,10 @@
 	const STEP_LABELS = ['Goal', 'Profile', 'Dietary requirements', 'First meal', 'First optimisation'];
 	let step = $state(1);
 
-	// Step 1 — goal (not persisted; just personalizes the closing message)
-	type Goal = 'protein_quality' | 'nutrient_gaps' | 'budget' | 'exploring';
+	// Step 1 — goal, persisted immediately on continue (see savingGoal below)
+	// so it survives even if the user abandons the wizard right after this
 	let goal: Goal | null = $state(null);
+	let savingGoal = $state(false);
 
 	// Step 2 — profile basics
 	let sex: User['sex'] = $state(null);
@@ -54,13 +56,6 @@
 
 	const todayIso = toIsoDate(new Date());
 
-	const goalMessage: Record<Goal, string> = {
-		protein_quality: "You're set up to track DIAAS/PDCAAS on everything you log — check the score on your first meal below.",
-		nutrient_gaps: "Your dashboard will always lead with today's biggest nutrient gap and a real food to close it.",
-		budget: 'Add prices under Food Prices any time — the meal-plan optimiser will factor real cost into every suggestion.',
-		exploring: 'Have a look around — nothing here is locked behind a purchase, and every number traces back to its source.'
-	};
-
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
@@ -68,6 +63,32 @@
 		}
 		vocabulary = await api.getDietaryVocabulary();
 	});
+
+	async function saveGoalStep() {
+		if (!goal) return;
+		savingGoal = true;
+		try {
+			const updated = await api.updateProfile({
+				sex: null,
+				birth_year: null,
+				activity_level: null,
+				is_pregnant: false,
+				is_lactating: false,
+				weight_kg: null,
+				height_cm: null,
+				dietary_pattern: null,
+				goal
+			});
+			auth.setUser(updated);
+		} catch {
+			// non-fatal — the goal just personalizes the dashboard/closing
+			// message, and can still be set later from the profile page, so
+			// don't block the rest of onboarding over a failed save here
+		} finally {
+			savingGoal = false;
+			step = 2;
+		}
+	}
 
 	async function saveProfileStep() {
 		savingProfile = true;
@@ -81,7 +102,8 @@
 				is_lactating: false,
 				weight_kg: weightKg,
 				height_cm: heightCm,
-				dietary_pattern: null
+				dietary_pattern: null,
+				goal
 			});
 			auth.setUser(updated);
 			step = 3;
@@ -104,7 +126,8 @@
 				is_lactating: false,
 				weight_kg: weightKg,
 				height_cm: heightCm,
-				dietary_pattern: dietaryPattern
+				dietary_pattern: dietaryPattern,
+				goal
 			});
 			auth.setUser(updated);
 			if (allergyTag) {
@@ -168,20 +191,20 @@
 			counter. Five quick steps, then straight to your dashboard.
 		</p>
 		<div class="card goal-grid">
-			{#each [['protein_quality', 'Track protein quality'], ['nutrient_gaps', 'Close nutrient gaps'], ['budget', 'Plan meals on a budget'], ['exploring', 'Just exploring']] as [key, label] (key)}
+			{#each GOAL_OPTIONS as { value, label } (value)}
 				<button
 					type="button"
 					class="btn goal-option"
-					class:selected={goal === key}
-					onclick={() => (goal = key as Goal)}
+					class:selected={goal === value}
+					onclick={() => (goal = value)}
 				>
 					{label}
 				</button>
 			{/each}
 		</div>
 		<div class="wizard-actions">
-			<button type="button" class="btn btn-primary" disabled={!goal} onclick={() => (step = 2)}>
-				Continue
+			<button type="button" class="btn btn-primary" disabled={!goal || savingGoal} onclick={saveGoalStep}>
+				{savingGoal ? 'Saving…' : 'Continue'}
 			</button>
 		</div>
 	{:else if step === 2}
@@ -306,7 +329,7 @@
 	{:else if step === 5}
 		<h1>Nicely done.</h1>
 		{#if goal}
-			<p class="muted">{goalMessage[goal]}</p>
+			<p class="muted">{GOAL_MESSAGES[goal]}</p>
 		{/if}
 		<div class="card">
 			<p class="label-caps">Highest-impact recommendation</p>

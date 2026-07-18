@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { formatCurrency } from '$lib/currency';
+	import { GOAL_MESSAGES, type Goal } from '$lib/goals';
 	import type {
 		DiarySummary,
 		Food,
@@ -137,6 +138,10 @@
 
 {#if auth.isLoggedIn}
 	<h1>Nutri-Matic</h1>
+
+	{#if auth.user?.goal}
+		<p class="muted goal-banner">{GOAL_MESSAGES[auth.user.goal as Goal]}</p>
+	{/if}
 
 	<div class="quick-actions">
 		<a class="btn btn-primary" href="/foods/new">+ Add a food</a>
@@ -400,6 +405,9 @@
 {/if}
 
 <style>
+	.goal-banner {
+		margin: 0 0 var(--space-4);
+	}
 	.quick-actions {
 		display: flex;
 		flex-wrap: wrap;

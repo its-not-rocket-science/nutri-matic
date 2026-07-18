@@ -50,7 +50,21 @@
 {:else if results.length > 0}
 	<ul class="search-results card">
 		{#each results as food (food.id)}
-			<li><button type="button" class="btn-plain" onclick={() => handleSelect(food)}>{food.name}</button></li>
+			<li>
+				<button type="button" class="btn-plain" onclick={() => handleSelect(food)}>
+					<span>{food.name}</span>
+					{#if food.dietary_status}
+						<span
+							class="badge {food.dietary_status.status === 'avoid' ? 'badge-estimated' : 'badge-info'}"
+							title={food.dietary_status.reasons.length > 0
+								? food.dietary_status.reasons.join(', ')
+								: 'No name match against your dietary constraints, but low confidence in this food’s data — not confirmed safe'}
+						>
+							{food.dietary_status.status === 'avoid' ? 'Avoid' : 'Unknown suitability'}
+						</span>
+					{/if}
+				</button>
+			</li>
 		{/each}
 	</ul>
 {/if}
@@ -65,6 +79,10 @@
 	}
 	.btn-plain {
 		width: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
 		text-align: left;
 		background: none;
 		border: none;

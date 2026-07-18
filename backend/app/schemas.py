@@ -37,9 +37,22 @@ class FoodCreate(BaseModel):
     gtin_upc: str | None = None
 
 
+class DietaryStatusOut(BaseModel):
+    """Display-only — see dietary_filter.py's module docstring. Never
+    "excluded": excluded items are dropped before display, not badged."""
+
+    status: Literal["avoid", "unknown"]
+    confidence: Literal["high", "low"]
+    reasons: list[str]
+
+
 class FoodOut(FoodCreate):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    # only set on search/discovery results for a signed-in user with dietary
+    # constraints — see dietary_filter.py. Absent (null) elsewhere, not a
+    # claim that the food's been checked and is safe.
+    dietary_status: DietaryStatusOut | None = None
 
 
 class FoodListOut(BaseModel):
@@ -206,6 +219,9 @@ class UserOut(BaseModel):
     dietary_pattern: str | None = None
     # ISO 4217 code, or null to use the browser locale's implied currency
     currency: str | None = None
+    # onboarding's step-1 pick — null if never set (skipped onboarding, or a
+    # pre-this-feature account)
+    goal: str | None = None
     # entitlement primitive (Phase 3) — see entitlements.py. Not editable
     # via ProfileUpdate: plan changes go through a future billing/admin
     # flow, never self-service.
@@ -227,6 +243,7 @@ class ProfileUpdate(BaseModel):
     weight_kg: float | None = None
     height_cm: float | None = None
     dietary_pattern: str | None = None
+    goal: str | None = None
     currency: str | None = None
 
 
@@ -317,6 +334,10 @@ class RecipeOut(BaseModel):
     average_rating: float | None
     rating_count: int
     tags: list[str]
+    # only set on recipe search/discovery results for a signed-in user with
+    # dietary constraints — see dietary_filter.py. Worst status across the
+    # recipe's ingredients; absent (null) elsewhere.
+    dietary_status: DietaryStatusOut | None = None
 
 
 class RecipeShareCreate(BaseModel):

@@ -142,6 +142,12 @@
 
 <h1>Clinician dashboard</h1>
 <p><a href="/">&larr; Back</a></p>
+<p class="disclaimer">
+	<strong>Nutrition analysis, not medical advice.</strong> Everything below — DIAAS/PDCAAS, nutrient
+	gaps, bioavailability estimates — is a computed analysis of logged food, not a diagnosis, and not
+	a substitute for clinical judgement, lab values, or a full patient history. Use it as one input
+	alongside your own assessment, not in place of it.
+</p>
 <p class="muted">
 	Manage clients who've explicitly granted you access to their nutrition data. This app has no
 	license-verification mechanism — "clinician" here means any account a client has chosen to
@@ -240,6 +246,16 @@
 {/if}
 
 <style>
+	.disclaimer {
+		max-width: 40rem;
+		padding: var(--space-3) var(--space-4);
+		margin: var(--space-3) 0;
+		background: var(--color-warning-subtle);
+		color: var(--color-text);
+		border: 1px solid var(--color-warning);
+		border-radius: var(--radius-sm);
+		font-size: 0.9em;
+	}
 	.error {
 		color: var(--color-danger);
 	}
