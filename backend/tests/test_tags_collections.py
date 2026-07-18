@@ -135,6 +135,7 @@ def test_create_and_list_collections(client):
         "owner_email": "owner@example.com",
         "is_owner": True,
         "is_public": False,
+        "is_stock": False,
     }
 
     listed = client.get("/api/collections", headers=auth_headers(token))
@@ -146,6 +147,7 @@ def test_create_and_list_collections(client):
             "owner_email": "owner@example.com",
             "is_owner": True,
             "is_public": False,
+            "is_stock": False,
         }
     ]
 

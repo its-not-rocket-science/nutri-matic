@@ -25,7 +25,12 @@ def register(body: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.TokenOut)
 def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).one_or_none()
-    if user is None or not verify_password(body.password, user.password_hash):
+    # is_system accounts (the stock-recipe library's owner — see
+    # models.User.is_system) are never a valid login target, regardless of
+    # password: nobody is meant to know that password (it's a random value
+    # generated once at bootstrap, same pattern as demo_data.py), but this
+    # is a second, explicit layer rather than relying on secrecy alone.
+    if user is None or user.is_system or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     return schemas.TokenOut(access_token=create_access_token(user.id))
 

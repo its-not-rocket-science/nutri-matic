@@ -16,6 +16,7 @@ from ..models import (
     RecipeRating,
     RecipeShare,
     RecipeTag,
+    RobustnessResult,
     User,
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
@@ -102,6 +103,11 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
         tags=tags,
         source_url=recipe.source_url,
         method=recipe.method,
+        is_stock=owner.is_system,
+        source_name=recipe.source_name,
+        match_coverage_lines=recipe.match_coverage_lines,
+        match_coverage_mass=recipe.match_coverage_mass,
+        unresolved_ingredients=recipe.unresolved_ingredients or [],
     )
 
 
@@ -450,6 +456,26 @@ def recipe_absorbed_protein(
         pdcaas_percent_drv=(
             pdcaas_absorbed_g / target_g * 100 if pdcaas_absorbed_g is not None and target_g else None
         ),
+    )
+
+
+@router.get("/{recipe_id}/robustness", response_model=schemas.RobustnessOut | None)
+def recipe_robustness(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """A stock recipe's nutritional-robustness analysis — see
+    stock_recipes/robustness.py. None for a recipe that's never been
+    analysed (e.g. any ordinary user-created recipe)."""
+    _get_visible_recipe(recipe_id, current_user, db)
+    result = db.query(RobustnessResult).filter(RobustnessResult.recipe_id == recipe_id).one_or_none()
+    if result is None:
+        return None
+    return schemas.RobustnessOut(
+        model_version=result.model_version,
+        computed_at=result.computed_at,
+        simulation_count=result.simulation_count,
+        random_seed=result.random_seed,
+        metrics={key: schemas.RobustnessMetricOut(**value) for key, value in result.metrics.items()},
+        overall_rating=result.overall_rating,
+        overall_explanation=result.overall_explanation,
     )
 
 
