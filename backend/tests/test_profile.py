@@ -271,3 +271,27 @@ def test_delete_dietary_constraint_scoped_to_owner(client):
 
     res_ok = client.delete(f"/api/profile/dietary-constraints/{created['id']}", headers=auth_headers(token_a))
     assert res_ok.status_code == 204
+
+
+def test_update_profile_accepts_weight_loss_goal(client):
+    token = register_and_token(client, "a@example.com")
+    payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        "goal": "weight_loss",
+    }
+    res = client.put("/api/profile", json=payload, headers=auth_headers(token))
+    assert res.status_code == 200
+    assert res.json()["goal"] == "weight_loss"
+
+
+def test_update_profile_accepts_visceral_fat_reduction_goal(client):
+    token = register_and_token(client, "a@example.com")
+    payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        "goal": "visceral_fat_reduction",
+    }
+    res = client.put("/api/profile", json=payload, headers=auth_headers(token))
+    assert res.status_code == 200
+    assert res.json()["goal"] == "visceral_fat_reduction"

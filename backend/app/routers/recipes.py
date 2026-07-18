@@ -6,6 +6,7 @@ from ..aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrien
 from ..auth import get_current_user
 from ..database import get_db
 from ..dietary_filter import filter_excluded_recipes, recipes_dietary_status
+from ..energy_goal import calculate_energy_target
 from ..models import (
     Food,
     FoodNutrient,
@@ -376,16 +377,33 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
     totals = aggregate_nutrients(items, by_food_id, divide_by=recipe.servings)
     protein_target = calculate_protein_target_g(current_user)
+    energy_result = calculate_energy_target(current_user)
+    energy_target, energy_goal_adjusted = energy_result if energy_result is not None else (None, False)
 
     out = []
     for key, amount in totals.items():
         nutrient_def = NUTRIENTS.get(key)
         if nutrient_def is None:
             continue
-        # protein's target is a personalized bodyweight/activity-level
-        # calculation, not a sex/life-stage table lookup — resolve_drv()
-        # correctly returns None for it (see nutrients.py), so it's handled
-        # separately here, same as diary.py's day/trend endpoints
+        # energy's/protein's targets are personalized calculations, not a
+        # sex/life-stage table lookup — resolve_drv() correctly returns None
+        # for them (see nutrients.py), so they're handled separately here,
+        # same as diary.py's day/trend endpoints
+        if key == "energy":
+            out.append(
+                schemas.NutrientAmountOut.build(
+                    key, nutrient_def, amount, energy_target,
+                    drv_source=(
+                        "Personalized target: Mifflin-St Jeor BMR x activity level, minus a weight-loss-goal "
+                        "calorie deficit (see energy_goal.py) — see the note on this page for what that means"
+                        if energy_goal_adjusted
+                        else "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
+                    ),
+                    drv_confidence="personalized_calculation",
+                    goal_adjusted=energy_goal_adjusted,
+                )
+            )
+            continue
         if key == "protein":
             out.append(
                 schemas.NutrientAmountOut.build(

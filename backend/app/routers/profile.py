@@ -11,8 +11,13 @@ router = APIRouter(prefix="/api/profile", tags=["profile"])
 
 VALID_CATEGORIES = {"allergy", "intolerance", "religious", "medical", "preference"}
 VALID_SEVERITIES = {"hard_exclude", "avoid"}
-# must match the frontend's onboarding Goal type (onboarding/+page.svelte)
-VALID_GOALS = {"protein_quality", "nutrient_gaps", "budget", "exploring"}
+# must match the frontend's shared Goal type (lib/goals.ts). weight_loss/
+# visceral_fat_reduction additionally drive a real calculation — see
+# energy_goal.py's WEIGHT_LOSS_GOALS — the other four are purely UI framing.
+VALID_GOALS = {
+    "protein_quality", "nutrient_gaps", "budget", "exploring",
+    "weight_loss", "visceral_fat_reduction",
+}
 
 
 @router.get("", response_model=schemas.UserOut)

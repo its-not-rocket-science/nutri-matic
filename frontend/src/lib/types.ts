@@ -111,6 +111,9 @@ export interface NutrientAmount {
 	 *  a source data error; excluded from totals/suggestions upstream, shown
 	 *  here purely for transparency */
 	implausible_reason: string | null;
+	/** true only for the "energy" row when adult_drv reflects a weight-loss
+	 *  goal's calorie deficit rather than plain maintenance EER */
+	goal_adjusted?: boolean;
 }
 
 export interface User {
@@ -477,6 +480,7 @@ export interface TrendNutrient {
 	drv_source: string | null;
 	drv_confidence: string | null;
 	drv_methodology_version: string;
+	goal_adjusted?: boolean;
 }
 
 export interface TrendBucket {

@@ -322,3 +322,60 @@ def test_update_recipe_omitting_source_url_leaves_it_unchanged(client):
     res = client.patch(f"/api/recipes/{recipe['id']}", json={"name": "renamed"}, headers=auth_headers(token))
     assert res.status_code == 200
     assert res.json()["source_url"] == "https://example.com/foo"
+
+
+def _add_energy_row(client, food_id, amount_per_100g):
+    db = next(app.dependency_overrides[get_db]())
+    db.add(FoodNutrient(food_id=food_id, nutrient_key="energy", amount_per_100g=amount_per_100g))
+    db.commit()
+    db.close()
+
+
+def test_recipe_nutrients_energy_reflects_weight_loss_goal(client):
+    _add_energy_row(client, 1, 200.0)
+    token = register_and_token(client, "a@example.com")
+    client.put(
+        "/api/profile",
+        json={
+            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
+            "is_pregnant": False, "is_lactating": False, "weight_kg": 90, "height_cm": 180,
+            "goal": "weight_loss",
+        },
+        headers=auth_headers(token),
+    )
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "energy test", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/nutrients", headers=auth_headers(token))
+    assert res.status_code == 200
+    energy = next(n for n in res.json() if n["key"] == "energy")
+    assert energy["goal_adjusted"] is True
+    assert "deficit" in energy["drv_source"].lower()
+    # sedentary, 90kg, age 36: EER = (10*90 + 6.25*180 - 5*36 + 5) * 1.2
+    eer = (10 * 90 + 6.25 * 180 - 5 * 36 + 5) * 1.2
+    assert energy["adult_drv"] == pytest.approx(eer * 0.85)
+
+
+def test_recipe_nutrients_energy_unadjusted_without_weight_loss_goal(client):
+    _add_energy_row(client, 1, 200.0)
+    token = register_and_token(client, "a@example.com")
+    client.put(
+        "/api/profile",
+        json={
+            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
+            "is_pregnant": False, "is_lactating": False, "weight_kg": 90, "height_cm": 180,
+        },
+        headers=auth_headers(token),
+    )
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "energy test", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/nutrients", headers=auth_headers(token))
+    energy = next(n for n in res.json() if n["key"] == "energy")
+    assert energy["goal_adjusted"] is False
