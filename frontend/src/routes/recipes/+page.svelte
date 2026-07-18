@@ -152,6 +152,16 @@
 							· ★ {recipe.average_rating?.toFixed(1)} ({recipe.rating_count})
 						{/if}
 					</span>
+					{#if recipe.dietary_status}
+						<span
+							class="badge {recipe.dietary_status.status === 'avoid' ? 'badge-estimated' : 'badge-info'}"
+							title={recipe.dietary_status.reasons.length > 0
+								? recipe.dietary_status.reasons.join(', ')
+								: 'Low confidence in an ingredient’s data — not confirmed safe'}
+						>
+							{recipe.dietary_status.status === 'avoid' ? 'Avoid' : 'Unknown suitability'}
+						</span>
+					{/if}
 				</li>
 			{/each}
 		</ul>

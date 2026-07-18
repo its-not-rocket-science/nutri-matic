@@ -56,6 +56,14 @@ class User(Base):
     # the browser is the only thing that actually knows the user's locale.
     currency: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # onboarding's step-1 pick ("protein_quality" | "nutrient_gaps" | "budget"
+    # | "exploring") — persisted so it can personalize the dashboard/
+    # recommendations beyond onboarding's own closing message, and so it's
+    # editable later rather than a one-time-only signal. Null means never
+    # set (skipped onboarding, or a pre-this-feature account), not any
+    # specific goal.
+    goal: Mapped[str | None] = mapped_column(String, nullable=True)
+
     # entitlement primitive (Phase 3) — see entitlements.py. A plain string,
     # not a DB enum: adding "educational"/"enterprise" later is just a new
     # string value used in entitlements.py's tables, no migration needed.

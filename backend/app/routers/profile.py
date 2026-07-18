@@ -11,6 +11,8 @@ router = APIRouter(prefix="/api/profile", tags=["profile"])
 
 VALID_CATEGORIES = {"allergy", "intolerance", "religious", "medical", "preference"}
 VALID_SEVERITIES = {"hard_exclude", "avoid"}
+# must match the frontend's onboarding Goal type (onboarding/+page.svelte)
+VALID_GOALS = {"protein_quality", "nutrient_gaps", "budget", "exploring"}
 
 
 @router.get("", response_model=schemas.UserOut)
@@ -28,6 +30,8 @@ def update_profile(
         raise HTTPException(status_code=422, detail=f"Unknown dietary_pattern: {body.dietary_pattern}")
     if body.currency is not None and (len(body.currency) != 3 or not body.currency.isalpha()):
         raise HTTPException(status_code=422, detail="currency must be a 3-letter ISO 4217 code (e.g. USD, GBP)")
+    if body.goal is not None and body.goal not in VALID_GOALS:
+        raise HTTPException(status_code=422, detail=f"goal must be one of {sorted(VALID_GOALS)}")
 
     current_user.sex = body.sex
     current_user.birth_year = body.birth_year
@@ -38,6 +42,7 @@ def update_profile(
     current_user.height_cm = body.height_cm
     current_user.dietary_pattern = body.dietary_pattern
     current_user.currency = body.currency.upper() if body.currency is not None else None
+    current_user.goal = body.goal
     db.commit()
     db.refresh(current_user)
     return current_user

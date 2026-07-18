@@ -159,6 +159,43 @@ def test_update_profile_clears_currency_back_to_browser_default(client):
     assert res.json()["currency"] is None
 
 
+def test_update_profile_sets_goal(client):
+    token = register_and_token(client, "a@example.com")
+    payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        "goal": "protein_quality",
+    }
+    res = client.put("/api/profile", json=payload, headers=auth_headers(token))
+    assert res.status_code == 200
+    assert res.json()["goal"] == "protein_quality"
+
+    res2 = client.get("/api/profile", headers=auth_headers(token))
+    assert res2.json()["goal"] == "protein_quality"
+
+
+def test_update_profile_rejects_unknown_goal(client):
+    token = register_and_token(client, "a@example.com")
+    payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        "goal": "world_domination",
+    }
+    res = client.put("/api/profile", json=payload, headers=auth_headers(token))
+    assert res.status_code == 422
+
+
+def test_update_profile_can_change_goal_later(client):
+    token = register_and_token(client, "a@example.com")
+    base_payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+    }
+    client.put("/api/profile", json={**base_payload, "goal": "exploring"}, headers=auth_headers(token))
+    res = client.put("/api/profile", json={**base_payload, "goal": "budget"}, headers=auth_headers(token))
+    assert res.json()["goal"] == "budget"
+
+
 def test_get_dietary_vocabulary_no_auth_required(client):
     res = client.get("/api/profile/dietary-vocabulary")
     assert res.status_code == 200
