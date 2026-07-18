@@ -19,6 +19,7 @@ from ..models import (
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..nutrients import NUTRIENTS, resolve_drv
+from ..protein_absorption import compute_absorbed_protein
 from ..protein_requirement import calculate_protein_target_g
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
@@ -362,6 +363,40 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
         out.append(schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv))
     out.sort(key=lambda n: n.name)
     return out
+
+
+@router.get("/{recipe_id}/absorbed-protein", response_model=schemas.AbsorbedProteinOut | None)
+def recipe_absorbed_protein(
+    recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Per-serving counterpart to the diary day summary's absorbed_protein —
+    same DIAAS/PDCAAS-weighted total, scaled to one serving of this recipe
+    instead of a whole day's entries. Returns None if the recipe has no
+    protein-contributing ingredients."""
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
+    items = _weighted_foods(recipe, db)
+
+    absorbed = compute_absorbed_protein(aggregate_amino_acids(items))
+    if absorbed is None:
+        return None
+
+    target_g = calculate_protein_target_g(current_user)
+    total_protein_g = absorbed.total_protein_g / recipe.servings
+    diaas_absorbed_g = absorbed.diaas_absorbed_g / recipe.servings if absorbed.diaas_absorbed_g is not None else None
+    pdcaas_absorbed_g = (
+        absorbed.pdcaas_absorbed_g / recipe.servings if absorbed.pdcaas_absorbed_g is not None else None
+    )
+
+    return schemas.AbsorbedProteinOut(
+        total_protein_g=total_protein_g,
+        diaas_absorbed_g=diaas_absorbed_g,
+        pdcaas_absorbed_g=pdcaas_absorbed_g,
+        target_g=target_g,
+        diaas_percent_drv=(diaas_absorbed_g / target_g * 100) if diaas_absorbed_g is not None and target_g else None,
+        pdcaas_percent_drv=(
+            pdcaas_absorbed_g / target_g * 100 if pdcaas_absorbed_g is not None and target_g else None
+        ),
+    )
 
 
 @router.get("/{recipe_id}/shares", response_model=list[schemas.RecipeShareOut])

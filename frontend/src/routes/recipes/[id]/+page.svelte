@@ -11,7 +11,16 @@
 	import StarRating from '$lib/components/StarRating.svelte';
 	import TagEditor from '$lib/components/TagEditor.svelte';
 	import { downloadCsv } from '$lib/csv';
-	import type { Food, NutrientAmount, Recipe, RecipeComment, RecipeRatingSummary, RecipeShare, Score } from '$lib/types';
+	import type {
+		AbsorbedProtein,
+		Food,
+		NutrientAmount,
+		Recipe,
+		RecipeComment,
+		RecipeRatingSummary,
+		RecipeShare,
+		Score
+	} from '$lib/types';
 
 	const recipeId = Number(page.params.id);
 
@@ -20,7 +29,9 @@
 	let pdcaasScore: Score | null = $state(null);
 	let diaasUnavailableReason: string | null = $state(null);
 	let pdcaasUnavailableReason: string | null = $state(null);
+	let absorbedProtein: AbsorbedProtein | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
+	const totalProtein = $derived(nutrients.find((n) => n.key === 'protein') ?? null);
 	let shares: RecipeShare[] = $state([]);
 	let shareEmail = $state('');
 	let ratings: RecipeRatingSummary | null = $state(null);
@@ -65,10 +76,11 @@
 		}
 		try {
 			recipe = await api.getRecipe(recipeId);
-			const [diaas, pdcaas, nutrientResult, ratingResult] = await Promise.allSettled([
+			const [diaas, pdcaas, nutrientResult, absorbedResult, ratingResult] = await Promise.allSettled([
 				api.scoreRecipe(recipeId, 'diaas'),
 				api.scoreRecipe(recipeId, 'pdcaas'),
 				api.getRecipeNutrients(recipeId),
+				api.getRecipeAbsorbedProtein(recipeId),
 				api.getRatings(recipeId)
 			]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
@@ -76,6 +88,7 @@
 			if (pdcaas.status === 'fulfilled') pdcaasScore = pdcaas.value;
 			else pdcaasUnavailableReason = pdcaas.reason instanceof Error ? pdcaas.reason.message : String(pdcaas.reason);
 			if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
+			if (absorbedResult.status === 'fulfilled') absorbedProtein = absorbedResult.value;
 			if (ratingResult.status === 'fulfilled') ratings = ratingResult.value;
 			await Promise.all([loadShares(), loadComments()]);
 		} catch (e) {
@@ -361,16 +374,55 @@
 		{#if editError}<p class="error">{editError}</p>{/if}
 	{/if}
 
-	{#if diaasScore}
-		<ScoreCard label="DIAAS" score={diaasScore} />
-	{:else if diaasUnavailableReason}
-		<p class="alert">DIAAS score unavailable: {diaasUnavailableReason}</p>
-	{/if}
-	{#if pdcaasScore}
-		<ScoreCard label="PDCAAS" score={pdcaasScore} />
-	{:else if pdcaasUnavailableReason}
-		<p class="alert">PDCAAS score unavailable: {pdcaasUnavailableReason}</p>
-	{/if}
+	<section class="proteins card">
+		<h2>Protein</h2>
+		{#if totalProtein}
+			<p class="protein-line">
+				<strong>Total: {totalProtein.amount.toFixed(1)}g</strong>
+				{#if totalProtein.percent_drv !== null}
+					<span class="muted">({totalProtein.percent_drv.toFixed(0)}% of daily target)</span>
+				{/if}
+			</p>
+		{/if}
+		{#if absorbedProtein && (absorbedProtein.diaas_absorbed_g !== null || absorbedProtein.pdcaas_absorbed_g !== null)}
+			<p class="protein-line">
+				<strong>Absorbed:</strong>
+				{#if absorbedProtein.diaas_absorbed_g !== null}
+					<span>
+						DIAAS {absorbedProtein.diaas_absorbed_g.toFixed(1)}g
+						{#if absorbedProtein.diaas_percent_drv !== null}
+							<span class="muted">({absorbedProtein.diaas_percent_drv.toFixed(0)}%)</span>
+						{/if}
+					</span>
+				{/if}
+				{#if absorbedProtein.pdcaas_absorbed_g !== null}
+					<span>
+						PDCAAS {absorbedProtein.pdcaas_absorbed_g.toFixed(1)}g
+						{#if absorbedProtein.pdcaas_percent_drv !== null}
+							<span class="muted">({absorbedProtein.pdcaas_percent_drv.toFixed(0)}%)</span>
+						{/if}
+					</span>
+				{/if}
+			</p>
+		{/if}
+
+		{#if diaasScore}
+			<details class="score-details">
+				<summary>DIAAS breakdown ({diaasScore.score.toFixed(1)}%)</summary>
+				<ScoreCard label="DIAAS" score={diaasScore} />
+			</details>
+		{:else if diaasUnavailableReason}
+			<p class="alert">DIAAS score unavailable: {diaasUnavailableReason}</p>
+		{/if}
+		{#if pdcaasScore}
+			<details class="score-details">
+				<summary>PDCAAS breakdown ({pdcaasScore.score.toFixed(1)}%)</summary>
+				<ScoreCard label="PDCAAS" score={pdcaasScore} />
+			</details>
+		{:else if pdcaasUnavailableReason}
+			<p class="alert">PDCAAS score unavailable: {pdcaasUnavailableReason}</p>
+		{/if}
+	</section>
 
 	<NutrientBars {nutrients} per="per serving" />
 
@@ -493,6 +545,27 @@
 	.edit-details-form .actions {
 		display: flex;
 		gap: var(--space-2);
+	}
+	.proteins {
+		margin: var(--space-4) 0;
+		max-width: 32rem;
+	}
+	.proteins h2 {
+		margin-top: 0;
+	}
+	.protein-line {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--space-2);
+		margin: var(--space-1) 0;
+	}
+	.score-details {
+		margin-top: var(--space-3);
+	}
+	.score-details summary {
+		cursor: pointer;
+		font-weight: var(--font-weight-medium);
 	}
 	.sharing {
 		margin: var(--space-5) 0;
