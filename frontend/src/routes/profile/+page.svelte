@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import { browserDefaultCurrency, CURRENCY_OPTIONS } from '$lib/currency';
 	import type { DietaryConstraint, DietaryVocabulary, User } from '$lib/types';
 
 	let sex: User['sex'] = $state(null);
@@ -13,6 +14,7 @@
 	let weightKg: number | null = $state(null);
 	let heightCm: number | null = $state(null);
 	let dietaryPattern: string | null = $state(null);
+	let currency: string | null = $state(null);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -76,6 +78,7 @@
 			weightKg = profile.weight_kg;
 			heightCm = profile.height_cm;
 			dietaryPattern = profile.dietary_pattern;
+			currency = profile.currency;
 			vocabulary = vocab;
 			await loadConstraints();
 		} catch (e) {
@@ -99,7 +102,8 @@
 				is_lactating: isLactating,
 				weight_kg: weightKg,
 				height_cm: heightCm,
-				dietary_pattern: dietaryPattern
+				dietary_pattern: dietaryPattern,
+				currency
 			});
 			auth.setUser(updated);
 			saved = true;
@@ -258,6 +262,21 @@
 			level together are used to calculate your daily calorie target (Mifflin-St Jeor) — all five
 			are needed for that; anything missing just means no calorie target shows up.
 		</p>
+
+		<div class="field">
+			<label for="currency">Currency</label>
+			<select id="currency" bind:value={currency}>
+				<option value={null}>Auto — match my browser ({browserDefaultCurrency()})</option>
+				{#each CURRENCY_OPTIONS as c (c.code)}
+					<option value={c.code}>{c.label}</option>
+				{/each}
+			</select>
+			<p class="muted field-note">
+				Used for food prices, shopping list totals, and the optimiser's cost estimates. Left on
+				"Auto", it follows whatever currency your browser's language/region setting implies —
+				override it here if that's wrong for you.
+			</p>
+		</div>
 
 		{#if vocabulary}
 			<div class="field">

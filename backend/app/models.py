@@ -49,6 +49,13 @@ class User(Base):
     # said either way). See dietary_tags.py for what each pattern implies.
     dietary_pattern: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # ISO 4217 code (e.g. "USD", "GBP"). Null means "not set" — the
+    # frontend defaults to whatever the user's browser locale implies in
+    # that case, only falling back to this column when they've explicitly
+    # overridden it in their profile. Never guessed/defaulted server-side:
+    # the browser is the only thing that actually knows the user's locale.
+    currency: Mapped[str | None] = mapped_column(String, nullable=True)
+
     # entitlement primitive (Phase 3) — see entitlements.py. A plain string,
     # not a DB enum: adding "educational"/"enterprise" later is just a new
     # string value used in entitlements.py's tables, no migration needed.

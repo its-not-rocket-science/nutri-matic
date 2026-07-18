@@ -204,6 +204,8 @@ class UserOut(BaseModel):
     weight_kg: float | None = None
     height_cm: float | None = None
     dietary_pattern: str | None = None
+    # ISO 4217 code, or null to use the browser locale's implied currency
+    currency: str | None = None
     # entitlement primitive (Phase 3) — see entitlements.py. Not editable
     # via ProfileUpdate: plan changes go through a future billing/admin
     # flow, never self-service.
@@ -225,6 +227,7 @@ class ProfileUpdate(BaseModel):
     weight_kg: float | None = None
     height_cm: float | None = None
     dietary_pattern: str | None = None
+    currency: str | None = None
 
 
 class DietaryConstraintCreate(BaseModel):

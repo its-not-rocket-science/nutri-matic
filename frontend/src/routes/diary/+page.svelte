@@ -8,6 +8,7 @@
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
+	import { formatCurrency } from '$lib/currency';
 	import type {
 		DiaryMealTemplate,
 		DiarySnapshot,
@@ -522,7 +523,7 @@
 												({s.improvement >= 0 ? '+' : ''}{s.improvement.toFixed(1)}pp{s.calories_added
 													? `, +${s.calories_added.toFixed(0)}kcal`
 													: ''}{s.estimated_cost !== null
-													? `, ${s.estimated_cost >= 0 ? '+' : ''}$${s.estimated_cost.toFixed(2)}`
+													? `, ${s.estimated_cost >= 0 ? '+' : ''}${formatCurrency(s.estimated_cost, auth.user?.currency)}`
 													: ''})
 											</span>
 											<button

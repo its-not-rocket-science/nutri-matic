@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import { formatCurrency } from '$lib/currency';
 	import type {
 		DiarySummary,
 		Food,
@@ -210,6 +211,8 @@
 							{#if topSuggestion.action === 'swap'}
 								Swap <strong>{topSuggestion.replaces_food_name}</strong> &rarr;
 								<strong>{topSuggestion.food_name}</strong> ({topSuggestion.quantity_g}g)
+							{:else if topSuggestion.action === 'add_recipe'}
+								Add 1 serving of <strong>{topSuggestion.food_name}</strong>
 							{:else}
 								Add <strong>{topSuggestion.quantity_g}g {topSuggestion.food_name}</strong>
 							{/if}
@@ -217,7 +220,10 @@
 						<p class="muted">
 							{topSuggestion.before_percent_drv.toFixed(0)}% &rarr; {topSuggestion.after_percent_drv.toFixed(0)}%
 							{#if topSuggestion.estimated_cost !== null}
-								&middot; {topSuggestion.estimated_cost >= 0 ? '+' : ''}${topSuggestion.estimated_cost.toFixed(2)}
+								&middot; {topSuggestion.estimated_cost >= 0 ? '+' : ''}{formatCurrency(
+									topSuggestion.estimated_cost,
+									auth.user?.currency
+								)}
 							{/if}
 						</p>
 					{:else}
@@ -259,7 +265,7 @@
 					<h3>This week's grocery budget</h3>
 					{#if weekShoppingList}
 						<p class="budget-total">
-							Estimated total: <strong>${weekShoppingList.total_cost.toFixed(2)}</strong>
+							Estimated total: <strong>{formatCurrency(weekShoppingList.total_cost, auth.user?.currency)}</strong>
 						</p>
 						{#if weekShoppingList.items_missing_price > 0}
 							<p class="muted">

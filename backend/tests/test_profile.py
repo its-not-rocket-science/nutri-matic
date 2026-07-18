@@ -120,6 +120,45 @@ def test_update_profile_rejects_unknown_dietary_pattern(client):
     assert res.status_code == 422
 
 
+def test_update_profile_sets_currency(client):
+    token = register_and_token(client, "a@example.com")
+    payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        "currency": "gbp",  # lowercase input, normalized to uppercase
+    }
+    res = client.put("/api/profile", json=payload, headers=auth_headers(token))
+    assert res.status_code == 200
+    assert res.json()["currency"] == "GBP"
+
+    res2 = client.get("/api/profile", headers=auth_headers(token))
+    assert res2.json()["currency"] == "GBP"
+
+
+def test_update_profile_rejects_malformed_currency(client):
+    token = register_and_token(client, "a@example.com")
+    payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        "currency": "US$",
+    }
+    res = client.put("/api/profile", json=payload, headers=auth_headers(token))
+    assert res.status_code == 422
+
+
+def test_update_profile_clears_currency_back_to_browser_default(client):
+    """Sending currency: null clears an explicit preference — the frontend
+    then falls back to the browser locale's implied currency."""
+    token = register_and_token(client, "a@example.com")
+    base_payload = {
+        "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+    }
+    client.put("/api/profile", json={**base_payload, "currency": "JPY"}, headers=auth_headers(token))
+    res = client.put("/api/profile", json={**base_payload, "currency": None}, headers=auth_headers(token))
+    assert res.json()["currency"] is None
+
+
 def test_get_dietary_vocabulary_no_auth_required(client):
     res = client.get("/api/profile/dietary-vocabulary")
     assert res.status_code == 200
