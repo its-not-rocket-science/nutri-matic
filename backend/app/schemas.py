@@ -140,6 +140,11 @@ class NutrientAmountOut(BaseModel):
     # amount has already been excluded from the total/suggestion it appears
     # in by the caller — the field is purely explanatory.
     implausible_reason: str | None = None
+    # True only for the "energy" row when the target reflects a weight-loss
+    # goal's calorie deficit (see energy_goal.py) rather than plain
+    # maintenance EER — the frontend shows a visible note (not just a
+    # tooltip) whenever this is set, so the deficit is never applied silently
+    goal_adjusted: bool = False
 
     @classmethod
     def build(
@@ -151,14 +156,15 @@ class NutrientAmountOut(BaseModel):
         *,
         drv_source: str | None = None,
         drv_confidence: str | None = None,
+        goal_adjusted: bool = False,
     ) -> "NutrientAmountOut":
         """Shared shaping logic for the four call sites that turn a
         (nutrient_def, amount, drv) triple into this schema — food/recipe
         nutrients endpoints and the diary day/trends endpoints. Callers with
-        a personalized override (currently just diary's "energy" nutrient,
-        whose source/confidence describe a BMR calculation rather than a
-        table lookup) pass drv_source/drv_confidence explicitly; everyone
-        else gets them straight from nutrient_def."""
+        a personalized override (currently just diary's/recipes' "energy"
+        nutrient, whose source/confidence describe a BMR calculation rather
+        than a table lookup) pass drv_source/drv_confidence explicitly;
+        everyone else gets them straight from nutrient_def."""
         return cls(
             key=key,
             name=nutrient_def.name,
@@ -174,6 +180,7 @@ class NutrientAmountOut(BaseModel):
             ),
             drv_methodology_version=DRV_METHODOLOGY_VERSION,
             implausible_reason=implausibility_reason(key, amount),
+            goal_adjusted=goal_adjusted,
         )
 
 
@@ -709,6 +716,7 @@ class TrendNutrientOut(BaseModel):
     drv_source: str | None
     drv_confidence: str | None
     drv_methodology_version: str
+    goal_adjusted: bool = False
 
     @classmethod
     def build(
@@ -720,6 +728,7 @@ class TrendNutrientOut(BaseModel):
         *,
         drv_source: str | None = None,
         drv_confidence: str | None = None,
+        goal_adjusted: bool = False,
     ) -> "TrendNutrientOut":
         """See NutrientAmountOut.build — same shaping logic, different
         field names (avg_amount/avg_percent_drv) for the trends endpoint."""
@@ -737,6 +746,7 @@ class TrendNutrientOut(BaseModel):
                 else (nutrient_def.drv_confidence if nutrient_def.drv_source else None)
             ),
             drv_methodology_version=DRV_METHODOLOGY_VERSION,
+            goal_adjusted=goal_adjusted,
         )
 
 

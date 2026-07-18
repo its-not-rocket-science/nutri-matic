@@ -92,7 +92,13 @@ modelled — this section is the short version.
   Requirements** — the constants behind the diary's simplified per-meal iron absorption estimate
   (see the spinach example above).
 - **ESPGHAN** calcium:phosphorus ratio guidance, for the diary's day-level Ca:P context.
-- **Mifflin-St Jeor** BMR equation, for personalized daily energy targets.
+- **Mifflin-St Jeor** BMR equation, for personalized daily energy targets. If your profile goal is
+  set to weight loss (or visceral fat reduction, which uses the identical calculation), that target
+  becomes a deficit — 15% below maintenance (10% for adults 65+, a smaller deficit given the higher
+  risk of losing lean mass alongside fat), floored at 1,200/1,500 kcal (women/men) per commonly-cited
+  NIH/NHLBI-style minimums, never applied during pregnancy/lactation. Always shown with a visible
+  note, never silently applied — see the in-app methodology page's "Weight-loss calorie target"
+  section for full sourcing.
 - **`methodology_version`** — every score and DRV comparison the API returns is stamped with a
   version (see `backend/app/methodology.py`). Nutri-Matic recomputes everything live from current
   code and data rather than freezing historical results, so this stamp is how a change in

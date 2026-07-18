@@ -24,7 +24,8 @@ from ..bioavailability import (
 )
 from ..database import get_db
 from ..dietary_filter import filter_excluded_foods, filter_excluded_recipes
-from ..energy import calculate_age, calculate_eer
+from ..energy import calculate_age
+from ..energy_goal import calculate_energy_target
 from ..entitlements import (
     FREE_TIER_SNAPSHOT_LIMIT,
     PLAN_ENTERPRISE,
@@ -52,15 +53,24 @@ MEALS = ("breakfast", "lunch", "dinner", "snack")
 # protein's target is likewise personalized (bodyweight x activity level,
 # see protein_requirement.py) rather than a table lookup, same treatment.
 _ENERGY_DRV_SOURCE = "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
+_ENERGY_DEFICIT_DRV_SOURCE = (
+    "Personalized target: Mifflin-St Jeor BMR x activity level, minus a weight-loss-goal "
+    "calorie deficit (see energy_goal.py) — see the note on this page for what that means"
+)
 _ENERGY_DRV_CONFIDENCE = "personalized_calculation"
 _PROTEIN_DRV_SOURCE = "Personalized target: bodyweight x activity-level protein factor (see protein_requirement.py)"
 _PROTEIN_DRV_CONFIDENCE = "personalized_calculation"
 
 
-def _nutrient_amount_out(key: str, nutrient_def, amount: float, drv: float | None) -> schemas.NutrientAmountOut:
+def _nutrient_amount_out(
+    key: str, nutrient_def, amount: float, drv: float | None, *, goal_adjusted: bool = False
+) -> schemas.NutrientAmountOut:
     if key == "energy":
         return schemas.NutrientAmountOut.build(
-            key, nutrient_def, amount, drv, drv_source=_ENERGY_DRV_SOURCE, drv_confidence=_ENERGY_DRV_CONFIDENCE
+            key, nutrient_def, amount, drv,
+            drv_source=_ENERGY_DEFICIT_DRV_SOURCE if goal_adjusted else _ENERGY_DRV_SOURCE,
+            drv_confidence=_ENERGY_DRV_CONFIDENCE,
+            goal_adjusted=goal_adjusted,
         )
     if key == "protein":
         return schemas.NutrientAmountOut.build(
@@ -69,10 +79,15 @@ def _nutrient_amount_out(key: str, nutrient_def, amount: float, drv: float | Non
     return schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv)
 
 
-def _trend_nutrient_out(key: str, nutrient_def, avg_amount: float, drv: float | None) -> schemas.TrendNutrientOut:
+def _trend_nutrient_out(
+    key: str, nutrient_def, avg_amount: float, drv: float | None, *, goal_adjusted: bool = False
+) -> schemas.TrendNutrientOut:
     if key == "energy":
         return schemas.TrendNutrientOut.build(
-            key, nutrient_def, avg_amount, drv, drv_source=_ENERGY_DRV_SOURCE, drv_confidence=_ENERGY_DRV_CONFIDENCE
+            key, nutrient_def, avg_amount, drv,
+            drv_source=_ENERGY_DEFICIT_DRV_SOURCE if goal_adjusted else _ENERGY_DRV_SOURCE,
+            drv_confidence=_ENERGY_DRV_CONFIDENCE,
+            goal_adjusted=goal_adjusted,
         )
     if key == "protein":
         return schemas.TrendNutrientOut.build(
@@ -196,7 +211,8 @@ def _compute_nutrient_gaps(
 
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
     totals = aggregate_nutrients(items, by_food_id)  # divide_by=1 — this is a day total, not per-serving
-    eer = calculate_eer(current_user)
+    energy_result = calculate_energy_target(current_user)
+    energy_target, energy_goal_adjusted = energy_result if energy_result is not None else (None, False)
     protein_target = calculate_protein_target_g(current_user)
 
     nutrients_out = []
@@ -208,11 +224,11 @@ def _compute_nutrient_gaps(
         # sex/life-stage table lookup — resolve_drv() correctly returns None
         # for them (see nutrients.py), so they're handled separately here
         if key == "energy":
-            drv = eer
-        elif key == "protein":
-            drv = protein_target
-        else:
-            drv = resolve_drv(key, profile)
+            nutrients_out.append(
+                _nutrient_amount_out(key, nutrient_def, amount, energy_target, goal_adjusted=energy_goal_adjusted)
+            )
+            continue
+        drv = protein_target if key == "protein" else resolve_drv(key, profile)
         nutrients_out.append(_nutrient_amount_out(key, nutrient_def, amount, drv))
     nutrients_out.sort(key=lambda n: n.name)
     return NutrientGaps(nutrients_out=nutrients_out, totals=totals, by_food_id=by_food_id)
@@ -758,7 +774,8 @@ def _compute_trends(
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
-    eer = calculate_eer(current_user)
+    energy_result = calculate_energy_target(current_user)
+    energy_target, energy_goal_adjusted = energy_result if energy_result is not None else (None, False)
     protein_target = calculate_protein_target_g(current_user)
 
     # expand every day up front so the FoodNutrient lookup below can run once
@@ -789,11 +806,13 @@ def _compute_trends(
             if nutrient_def is None:
                 continue
             if key == "energy":
-                drv = eer
-            elif key == "protein":
-                drv = protein_target
-            else:
-                drv = resolve_drv(key, profile)
+                nutrients_out.append(
+                    _trend_nutrient_out(
+                        key, nutrient_def, avg_amount, energy_target, goal_adjusted=energy_goal_adjusted
+                    )
+                )
+                continue
+            drv = protein_target if key == "protein" else resolve_drv(key, profile)
             nutrients_out.append(_trend_nutrient_out(key, nutrient_def, avg_amount, drv))
         nutrients_out.sort(key=lambda n: n.name)
         buckets_out.append(

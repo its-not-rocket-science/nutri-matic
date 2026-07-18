@@ -65,30 +65,41 @@
 </script>
 
 {#if energy}
-	<div class="headline-nutrient" title={energy.drv_source ?? undefined}>
-		<strong>{energy.amount.toFixed(0)} kcal</strong>
-		<span class="muted">{per}</span>
-		{#if energy.adult_drv !== null}
-			<span class="muted">
-				of {energy.adult_drv.toFixed(0)} kcal target ({energy.percent_drv?.toFixed(0)}%)
-			</span>
-		{:else if per === 'per day'}
-			<span class="muted">— set weight, height, sex, birth year &amp; activity level in your profile for a target</span>
+	<div class="headline-nutrient-block">
+		<div class="headline-nutrient" title={energy.drv_source ?? undefined}>
+			<strong>{energy.amount.toFixed(0)} kcal</strong>
+			<span class="muted">{per}</span>
+			{#if energy.adult_drv !== null}
+				<span class="muted">
+					of {energy.adult_drv.toFixed(0)} kcal target ({energy.percent_drv?.toFixed(0)}%)
+				</span>
+			{:else if per === 'per day'}
+				<span class="muted">— set weight, height, sex, birth year &amp; activity level in your profile for a target</span>
+			{/if}
+		</div>
+		{#if energy.goal_adjusted}
+			<p class="alert goal-note">
+				⚠ This target reflects a calorie deficit for your weight-loss goal, not plain maintenance
+				calories — <a href="/methodology#weight-loss-target">see how it's calculated</a>. Change your
+				goal in your <a href="/profile">profile</a> if that's not what you want to see here.
+			</p>
 		{/if}
 	</div>
 {/if}
 
 {#if protein}
-	<div class="headline-nutrient" title={protein.drv_source ?? undefined}>
-		<strong>{protein.amount.toFixed(1)}g protein</strong>
-		<span class="muted">{per}</span>
-		{#if protein.adult_drv !== null}
-			<span class="muted">
-				of {protein.adult_drv.toFixed(0)}g target ({protein.percent_drv?.toFixed(0)}%)
-			</span>
-		{:else if per === 'per day'}
-			<span class="muted">— set weight, birth year &amp; activity level in your profile for a target</span>
-		{/if}
+	<div class="headline-nutrient-block">
+		<div class="headline-nutrient" title={protein.drv_source ?? undefined}>
+			<strong>{protein.amount.toFixed(1)}g protein</strong>
+			<span class="muted">{per}</span>
+			{#if protein.adult_drv !== null}
+				<span class="muted">
+					of {protein.adult_drv.toFixed(0)}g target ({protein.percent_drv?.toFixed(0)}%)
+				</span>
+			{:else if per === 'per day'}
+				<span class="muted">— set weight, birth year &amp; activity level in your profile for a target</span>
+			{/if}
+		</div>
 	</div>
 {/if}
 
@@ -195,14 +206,20 @@
 {/if}
 
 <style>
+	.headline-nutrient-block {
+		margin-bottom: var(--space-4);
+	}
 	.headline-nutrient {
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-2);
 		flex-wrap: wrap;
-		margin-bottom: var(--space-4);
 		font-size: var(--font-size-md);
 		font-variant-numeric: tabular-nums;
+	}
+	.goal-note {
+		margin: var(--space-2) 0 0;
+		font-size: var(--font-size-sm);
 	}
 	.bars {
 		list-style: none;

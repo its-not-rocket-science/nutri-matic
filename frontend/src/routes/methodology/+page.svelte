@@ -245,6 +245,60 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 	</p>
 </section>
 
+<section id="weight-loss-target">
+	<h2>Weight-loss calorie target</h2>
+	<p>
+		If your profile goal is set to <strong>"Lose weight"</strong> or <strong>"Reduce visceral
+		fat"</strong>, recipe and diary calorie targets switch from plain maintenance EER (above) to a
+		deficit target — shown with a visible note wherever it appears, never applied silently.
+	</p>
+	<ul>
+		<li>
+			<strong>Deficit size:</strong> 15% below EER for adults, reduced to 10% for adults 65+. Older
+			adults restricting calories are at greater risk of losing lean mass alongside fat — a concern
+			well documented in geriatric nutrition literature (e.g. Villareal et al. 2011, <em>New England
+			Journal of Medicine</em>, on combined diet-and-exercise weight-loss interventions in older
+			adults) — so a smaller, more conservative deficit is used.
+		</li>
+		<li>
+			<strong>Where 15% comes from:</strong> not a single official number from one governing body —
+			it sits inside the commonly-reproduced "moderate, sustainable" ~10-20% range used across
+			mainstream sports-nutrition/dietetics guidance for general (non-athlete, non-clinical) fat
+			loss. More conservative than 20-25%+ (typically recommended only under direct supervision),
+			and often smaller than the popular "500kcal/day" rule of thumb, which is itself a
+			<em>larger</em> percentage for anyone below-average maintenance calories, since it's a flat
+			number rather than a %. Treat 15%/10% as a reasonable, safety-conscious default, not a
+			clinical prescription — nothing in this app can know if a larger or smaller deficit is
+			actually right for you.
+		</li>
+		<li>
+			<strong>Safety floor:</strong> the target never goes below 1,200 kcal/day (women) or 1,500
+			kcal/day (men) — minimums commonly reproduced in NIH/NHLBI-style guidance and widely echoed by
+			registered-dietitian sources as the point below which unsupervised dieting risks
+			micronutrient inadequacy. Whichever number — the % deficit or the floor — is higher wins, so
+			the floor only ever raises the target back up, never lowers it further.
+		</li>
+		<li>
+			<strong>Pregnancy/lactation:</strong> never deficit-adjusted, regardless of goal — active
+			calorie restriction during pregnancy or lactation isn't generally considered safe without
+			direct clinical supervision, so these profiles always see plain EER (which already includes
+			the flat pregnancy/lactation increments above).
+		</li>
+		<li>
+			<strong>"Reduce visceral fat" uses the exact same calculation as "Lose weight".</strong>
+			Visceral fat responds to the same overall energy-deficit mechanism as fat anywhere else in
+			the body — there's no established way to calorie-target one fat depot over another, and
+			inventing a different number for it would be exactly the fabricated precision this app avoids
+			everywhere else.
+		</li>
+	</ul>
+	<p class="muted">
+		This is a default, not a recommendation tailored to you — if you have a specific medical
+		reason to eat more or less than this, or a condition where calorie restriction isn't
+		appropriate, talk to a doctor or registered dietitian rather than relying on this figure.
+	</p>
+</section>
+
 <section id="food-chemistry">
 	<h2>Sodium:potassium ratio, leucine threshold, protein distribution, absorbed protein</h2>
 	<p>
