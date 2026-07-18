@@ -65,6 +65,34 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS currency VARCHAR;
 -- users.goal (Phase 4 — onboarding goal, used to personalize the dashboard;
 -- null means "not set", distinct from any specific goal value)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS goal VARCHAR;
+
+-- Stock recipe library (see docs/stock-recipes.md) — system-account
+-- ownership, per-recipe/per-ingredient provenance, and robustness ratings
+-- for the curated recipe library imported/maintained by
+-- `python -m app.stock_recipes`.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS import_slug VARCHAR;
+CREATE UNIQUE INDEX IF NOT EXISTS ix_recipes_import_slug ON recipes (import_slug);
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source_name VARCHAR;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS source_licence VARCHAR;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS retrieved_at TIMESTAMPTZ;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS parser_version VARCHAR;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS content_fingerprint VARCHAR;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS stock_status VARCHAR;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS match_coverage_lines DOUBLE PRECISION;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS match_coverage_mass DOUBLE PRECISION;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS unresolved_ingredients JSON;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS educational_note VARCHAR;
+
+ALTER TABLE collection_recipes ADD COLUMN IF NOT EXISTS assignment_source VARCHAR;
+ALTER TABLE collection_recipes ADD COLUMN IF NOT EXISTS assignment_confidence DOUBLE PRECISION;
+ALTER TABLE collection_recipes ADD COLUMN IF NOT EXISTS assignment_reason VARCHAR;
+ALTER TABLE collection_recipes ADD COLUMN IF NOT EXISTS approval_status VARCHAR NOT NULL DEFAULT 'approved';
+
+-- recipe_ingredient_provenance / robustness_results are brand new tables —
+-- Base.metadata.create_all() creates those automatically on next backend
+-- startup, same as any other new table. No ALTER TABLE needed for them.
 ```
 
 ## What's deliberately not covered here

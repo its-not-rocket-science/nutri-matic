@@ -218,6 +218,11 @@ export interface Recipe {
 	dietary_status?: DietaryStatus | null;
 	source_url: string | null;
 	method: string | null;
+	is_stock: boolean;
+	source_name: string | null;
+	match_coverage_lines: number | null;
+	match_coverage_mass: number | null;
+	unresolved_ingredients: string[];
 }
 
 export interface RecipeCreate {
@@ -262,6 +267,7 @@ export interface Collection {
 	owner_email: string;
 	is_owner: boolean;
 	is_public: boolean;
+	is_stock: boolean;
 }
 
 export interface CollectionDetail {
@@ -270,6 +276,7 @@ export interface CollectionDetail {
 	owner_email: string;
 	is_owner: boolean;
 	is_public: boolean;
+	is_stock: boolean;
 	recipes: Recipe[];
 }
 
@@ -355,6 +362,35 @@ export interface AbsorbedProtein {
 	target_g: number | null;
 	diaas_percent_drv: number | null;
 	pdcaas_percent_drv: number | null;
+}
+
+export interface RobustnessMetric {
+	baseline: number | null;
+	median: number | null;
+	p10: number | null;
+	p90: number | null;
+	cv: number | null;
+	threshold: number | null;
+	prob_above_threshold: number | null;
+	top_influential: { ingredient: string; impact: number }[];
+	optional_sensitivity: number | null;
+	unmatched_uncertainty_note: string | null;
+	display_rating: number | null;
+	explanation: string;
+	not_calculated_reason: string | null;
+}
+
+/** A stock recipe's nutritional-robustness analysis — how stable its
+ * calculated nutrition is under plausible ingredient-quantity variation.
+ * NOT a health score or a suitability judgement — see docs/stock-recipes.md. */
+export interface Robustness {
+	model_version: string;
+	computed_at: string;
+	simulation_count: number;
+	random_seed: number;
+	metrics: Record<string, RobustnessMetric>;
+	overall_rating: number | null;
+	overall_explanation: string;
 }
 
 export interface DiarySummary {

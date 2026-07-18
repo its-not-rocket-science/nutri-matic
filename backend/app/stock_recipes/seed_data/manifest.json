@@ -1,0 +1,3896 @@
+[
+  {
+    "slug": "spaghetti_bolognese",
+    "name": "Spaghetti Bolognese",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/spaghetti-bolognese/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "chilli_con_carne",
+    "name": "Chilli Con Carne",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals",
+      "iron_focused_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/chilli-con-carne/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "chicken_tikka_masala",
+    "name": "Chicken Tikka Masala",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/chicken-tikka-masala-curry/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "shepherd_s_pie",
+    "name": "Shepherd's Pie",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals",
+      "iron_focused_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/shepherds-pie/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "cottage_pie",
+    "name": "Cottage Pie",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/cottage-pie/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "tuna_pasta_bake",
+    "name": "Tuna Pasta Bake",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/tuna-pasta-bake/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "chicken_fajitas",
+    "name": "Chicken Fajitas",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/chicken-fajitas/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "lasagne",
+    "name": "Lasagne",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "fetch",
+    "source_name": "schema_org",
+    "source_url": "https://pinchofnom.com/recipes/lasagne/",
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "fish_pie",
+    "name": "Fish Pie",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "sausage_and_mash",
+    "name": "Sausage and Mash",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "vegetable_stir_fry",
+    "name": "Vegetable Stir-Fry",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "baked_potato_with_cheese_and_beans",
+    "name": "Baked Potato with Cheese and Beans",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "tomato_soup_with_crusty_bread",
+    "name": "Tomato Soup with Crusty Bread",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "cheese_and_ham_toastie",
+    "name": "Cheese and Ham Toastie",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chicken_and_mushroom_pie",
+    "name": "Chicken and Mushroom Pie",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beef_stew_and_dumplings",
+    "name": "Beef Stew and Dumplings",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "toad_in_the_hole",
+    "name": "Toad in the Hole",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "bangers_and_mash_with_onion_gravy",
+    "name": "Bangers and Mash with Onion Gravy",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chicken_curry_and_rice",
+    "name": "Chicken Curry and Rice",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "macaroni_cheese",
+    "name": "Macaroni Cheese",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "oven_baked_fish_and_chips",
+    "name": "Oven-Baked Fish and Chips",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "sweet_and_sour_chicken",
+    "name": "Sweet and Sour Chicken",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beef_stroganoff",
+    "name": "Beef Stroganoff",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chicken_kiev_with_rice",
+    "name": "Chicken Kiev with Rice",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "pork_chops_with_roasted_vegetables",
+    "name": "Pork Chops with Roasted Vegetables",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "vegetable_curry",
+    "name": "Vegetable Curry",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "blt_sandwich",
+    "name": "BLT Sandwich",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "egg_mayonnaise_sandwich",
+    "name": "Egg Mayonnaise Sandwich",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "ham_and_cheese_sandwich",
+    "name": "Ham and Cheese Sandwich",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "cheese_and_pickle_sandwich",
+    "name": "Cheese and Pickle Sandwich",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "leek_and_potato_soup",
+    "name": "Leek and Potato Soup",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chicken_noodle_soup",
+    "name": "Chicken Noodle Soup",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "porridge_with_milk",
+    "name": "Porridge with Milk",
+    "collections": [
+      "breakfasts",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "overnight_oats_with_berries",
+    "name": "Overnight Oats with Berries",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "scrambled_eggs_on_toast",
+    "name": "Scrambled Eggs on Toast",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "beans_on_toast",
+    "name": "Beans on Toast",
+    "collections": [
+      "breakfasts",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "yoghurt_with_fruit_and_seeds",
+    "name": "Yoghurt with Fruit and Seeds",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "cereal_with_milk",
+    "name": "Cereal with Milk",
+    "collections": [
+      "breakfasts",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "avocado_toast",
+    "name": "Avocado Toast",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "full_english_breakfast",
+    "name": "Full English Breakfast",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "vegetarian_breakfast",
+    "name": "Vegetarian Breakfast",
+    "collections": [
+      "breakfasts",
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "breakfast_smoothie",
+    "name": "Breakfast Smoothie",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "poached_eggs_on_toast",
+    "name": "Poached Eggs on Toast",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "boiled_egg_and_soldiers",
+    "name": "Boiled Egg and Soldiers",
+    "collections": [
+      "breakfasts",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "french_toast",
+    "name": "French Toast",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "pancakes_with_maple_syrup",
+    "name": "Pancakes with Maple Syrup",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "bircher_muesli",
+    "name": "Bircher Muesli",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "peanut_butter_on_toast",
+    "name": "Peanut Butter on Toast",
+    "collections": [
+      "breakfasts",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "kippers_and_toast",
+    "name": "Kippers and Toast",
+    "collections": [
+      "breakfasts",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "breakfast_burrito",
+    "name": "Breakfast Burrito",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "granola_with_yoghurt",
+    "name": "Granola with Yoghurt",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "eggy_bread_with_bacon",
+    "name": "Eggy Bread with Bacon",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "smoked_salmon_and_scrambled_eggs",
+    "name": "Smoked Salmon and Scrambled Eggs",
+    "collections": [
+      "breakfasts",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "rice_and_beans",
+    "name": "Rice and Beans",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "red_lentil_dhal_with_rice",
+    "name": "Red Lentil Dhal with Rice",
+    "collections": [
+      "plant_protein_complementarity",
+      "iron_focused_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "hummus_and_wholemeal_pitta",
+    "name": "Hummus and Wholemeal Pitta",
+    "collections": [
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "bean_chilli",
+    "name": "Bean Chilli",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "chickpea_curry",
+    "name": "Chickpea Curry",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "tofu_stir_fry",
+    "name": "Tofu Stir-Fry",
+    "collections": [
+      "plant_protein_complementarity",
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "peanut_stew",
+    "name": "Peanut Stew",
+    "collections": [
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "lentil_and_grain_salad",
+    "name": "Lentil and Grain Salad",
+    "collections": [
+      "plant_protein_complementarity",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "split_pea_soup",
+    "name": "Split-Pea Soup",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "mixed_bean_casserole",
+    "name": "Mixed-Bean Casserole",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "falafel_wrap",
+    "name": "Falafel Wrap",
+    "collections": [
+      "plant_protein_complementarity",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "black_bean_and_rice_bowl",
+    "name": "Black Bean and Rice Bowl",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "butter_bean_and_spinach_stew",
+    "name": "Butter Bean and Spinach Stew",
+    "collections": [
+      "plant_protein_complementarity",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "three_bean_salad_with_wholegrain_bread",
+    "name": "Three-Bean Salad with Wholegrain Bread",
+    "collections": [
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chana_masala_with_rice",
+    "name": "Chana Masala with Rice",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "peanut_noodles_with_tofu",
+    "name": "Peanut Noodles with Tofu",
+    "collections": [
+      "plant_protein_complementarity",
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "tofu_scramble",
+    "name": "Tofu Scramble",
+    "collections": [
+      "high_protein_vegetarian",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "tempeh_stir_fry",
+    "name": "Tempeh Stir-Fry",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "seitan_and_vegetable_stir_fry",
+    "name": "Seitan and Vegetable Stir-Fry",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "egg_fried_rice",
+    "name": "Egg Fried Rice",
+    "collections": [
+      "high_protein_vegetarian",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "paneer_curry",
+    "name": "Paneer Curry",
+    "collections": [
+      "high_protein_vegetarian",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "halloumi_salad",
+    "name": "Halloumi Salad",
+    "collections": [
+      "high_protein_vegetarian",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "quinoa_and_chickpea_salad",
+    "name": "Quinoa and Chickpea Salad",
+    "collections": [
+      "high_protein_vegetarian",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "baked_eggs_with_spinach",
+    "name": "Baked Eggs with Spinach",
+    "collections": [
+      "high_protein_vegetarian",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "lentil_bolognese",
+    "name": "Lentil Bolognese",
+    "collections": [
+      "high_protein_vegetarian",
+      "plant_protein_complementarity",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "vegetarian_chilli_with_kidney_beans",
+    "name": "Vegetarian Chilli with Kidney Beans",
+    "collections": [
+      "high_protein_vegetarian",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "greek_yoghurt_and_nut_bowl",
+    "name": "Greek Yoghurt and Nut Bowl",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "cottage_cheese_and_fruit_bowl",
+    "name": "Cottage Cheese and Fruit Bowl",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "tofu_and_broccoli_stir_fry",
+    "name": "Tofu and Broccoli Stir-Fry",
+    "collections": [
+      "high_protein_vegetarian",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "mushroom_and_lentil_shepherd_s_pie",
+    "name": "Mushroom and Lentil Shepherd's Pie",
+    "collections": [
+      "high_protein_vegetarian",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chickpea_and_spinach_curry",
+    "name": "Chickpea and Spinach Curry",
+    "collections": [
+      "high_protein_vegetarian",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "bean_burgers",
+    "name": "Bean Burgers",
+    "collections": [
+      "high_protein_vegetarian",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "edamame_and_quinoa_bowl",
+    "name": "Edamame and Quinoa Bowl",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "spinach_and_ricotta_cannelloni",
+    "name": "Spinach and Ricotta Cannelloni",
+    "collections": [
+      "high_protein_vegetarian",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "three_cheese_omelette",
+    "name": "Three-Cheese Omelette",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "tofu_katsu_curry",
+    "name": "Tofu Katsu Curry",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "jacket_potato_with_beans",
+    "name": "Jacket Potato with Beans",
+    "collections": [
+      "budget_meals",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "lentil_soup",
+    "name": "Lentil Soup",
+    "collections": [
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "pasta_with_tomato_sauce",
+    "name": "Pasta with Tomato Sauce",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "vegetable_soup",
+    "name": "Vegetable Soup",
+    "collections": [
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "cheese_on_toast",
+    "name": "Cheese on Toast",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "rice_and_peas",
+    "name": "Rice and Peas",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "bubble_and_squeak",
+    "name": "Bubble and Squeak",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "corned_beef_hash",
+    "name": "Corned Beef Hash",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "split_pea_and_ham_soup",
+    "name": "Split-Pea and Ham Soup",
+    "collections": [
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "cauliflower_cheese",
+    "name": "Cauliflower Cheese",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "potato_and_leek_soup",
+    "name": "Potato and Leek Soup",
+    "collections": [
+      "budget_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beans_and_rice_bowl",
+    "name": "Beans and Rice Bowl",
+    "collections": [
+      "budget_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "tinned_tomato_pasta_bake",
+    "name": "Tinned Tomato Pasta Bake",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "simple_omelette_and_toast",
+    "name": "Simple Omelette and Toast",
+    "collections": [
+      "budget_meals",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "baked_bean_jacket_potato_with_cheese",
+    "name": "Baked Bean Jacket Potato with Cheese",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "vegetable_fried_rice",
+    "name": "Vegetable Fried Rice",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beef_and_red_pepper_stir_fry",
+    "name": "Beef and Red Pepper Stir-Fry",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": "vitamin C from red pepper alongside haem iron from beef"
+  },
+  {
+    "slug": "spinach_and_lentil_curry_with_lemon",
+    "name": "Spinach and Lentil Curry with Lemon",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": "lemon juice as a non-haem iron absorption enhancer"
+  },
+  {
+    "slug": "chickpea_and_red_pepper_salad",
+    "name": "Chickpea and Red Pepper Salad",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "liver_and_onions",
+    "name": "Liver and Onions",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": "very high haem iron; a traditional but less commonly eaten dish today"
+  },
+  {
+    "slug": "beef_chilli_with_tomatoes_and_peppers",
+    "name": "Beef Chilli with Tomatoes and Peppers",
+    "collections": [
+      "iron_focused_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "lentil_dhal_with_tomato_and_coriander",
+    "name": "Lentil Dhal with Tomato and Coriander",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "steak_with_roasted_red_peppers",
+    "name": "Steak with Roasted Red Peppers",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "sardines_on_toast_with_tomato",
+    "name": "Sardines on Toast with Tomato",
+    "collections": [
+      "iron_focused_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "tofu_and_broccoli_stir_fry_with_orange",
+    "name": "Tofu and Broccoli Stir-Fry with Orange",
+    "collections": [
+      "iron_focused_meals",
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": "orange segments for non-haem iron absorption"
+  },
+  {
+    "slug": "kidney_bean_and_pepper_chilli",
+    "name": "Kidney Bean and Pepper Chilli",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "spinach_salad_with_strawberries",
+    "name": "Spinach Salad with Strawberries",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beef_and_broccoli_stir_fry",
+    "name": "Beef and Broccoli Stir-Fry",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "mussels_with_tomato_and_parsley",
+    "name": "Mussels with Tomato and Parsley",
+    "collections": [
+      "iron_focused_meals",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "black_bean_and_pepper_tacos",
+    "name": "Black Bean and Pepper Tacos",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "turkey_and_spinach_meatballs",
+    "name": "Turkey and Spinach Meatballs",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "low_salt_tomato_pasta_sauce",
+    "name": "Low-Salt Tomato Pasta Sauce",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": "no specific numeric sodium-reduction claim without dated price/label data"
+  },
+  {
+    "slug": "reduced_salt_vegetable_soup",
+    "name": "Reduced-Salt Vegetable Soup",
+    "collections": [
+      "lower_sodium_alternatives",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "herb_roasted_chicken",
+    "name": "Herb-Roasted Chicken",
+    "collections": [
+      "lower_sodium_alternatives",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": "no added salt; seasoned with herbs and lemon instead"
+  },
+  {
+    "slug": "low_sodium_bean_chilli",
+    "name": "Low-Sodium Bean Chilli",
+    "collections": [
+      "lower_sodium_alternatives",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "unsalted_roasted_vegetables",
+    "name": "Unsalted Roasted Vegetables",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "reduced_salt_shepherd_s_pie",
+    "name": "Reduced-Salt Shepherd's Pie",
+    "collections": [
+      "lower_sodium_alternatives",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "homemade_low_salt_vegetable_stock_soup",
+    "name": "Homemade Low-Salt Vegetable Stock Soup",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "low_sodium_ginger_garlic_stir_fry",
+    "name": "Low-Sodium Ginger Garlic Stir-Fry",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "herb_and_lemon_baked_fish",
+    "name": "Herb and Lemon Baked Fish",
+    "collections": [
+      "lower_sodium_alternatives",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "reduced_salt_macaroni_cheese",
+    "name": "Reduced-Salt Macaroni Cheese",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "low_salt_lentil_dhal",
+    "name": "Low-Salt Lentil Dhal",
+    "collections": [
+      "lower_sodium_alternatives",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "unsalted_nut_and_seed_granola",
+    "name": "Unsalted Nut and Seed Granola",
+    "collections": [
+      "lower_sodium_alternatives",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "reduced_sodium_chicken_curry",
+    "name": "Reduced-Sodium Chicken Curry",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "low_salt_vegetable_chilli",
+    "name": "Low-Salt Vegetable Chilli",
+    "collections": [
+      "lower_sodium_alternatives",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "herby_roast_chicken_dinner",
+    "name": "Herby Roast Chicken Dinner",
+    "collections": [
+      "lower_sodium_alternatives",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "reduced_salt_tuna_pasta_bake",
+    "name": "Reduced-Salt Tuna Pasta Bake",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "greek_salad",
+    "name": "Greek Salad",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "chicken_souvlaki_with_pitta",
+    "name": "Chicken Souvlaki with Pitta",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "ratatouille",
+    "name": "Ratatouille",
+    "collections": [
+      "mediterranean_style_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "mediterranean_chickpea_salad",
+    "name": "Mediterranean Chickpea Salad",
+    "collections": [
+      "mediterranean_style_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "baked_feta_with_tomatoes",
+    "name": "Baked Feta with Tomatoes",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "grilled_fish_with_olive_oil_and_lemon",
+    "name": "Grilled Fish with Olive Oil and Lemon",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "mediterranean_vegetable_pasta",
+    "name": "Mediterranean Vegetable Pasta",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "hummus_and_falafel_plate",
+    "name": "Hummus and Falafel Plate",
+    "collections": [
+      "mediterranean_style_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "tabbouleh",
+    "name": "Tabbouleh",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "greek_style_baked_beans",
+    "name": "Greek-Style Baked Beans",
+    "collections": [
+      "mediterranean_style_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "aubergine_and_tomato_bake",
+    "name": "Aubergine and Tomato Bake",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "mediterranean_tuna_salad",
+    "name": "Mediterranean Tuna Salad",
+    "collections": [
+      "mediterranean_style_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "lentil_and_vegetable_soup",
+    "name": "Lentil and Vegetable Soup",
+    "collections": [
+      "mediterranean_style_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "stuffed_peppers_with_rice",
+    "name": "Stuffed Peppers with Rice",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "prawn_and_tomato_pasta",
+    "name": "Prawn and Tomato Pasta",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "olive_and_tomato_bruschetta",
+    "name": "Olive and Tomato Bruschetta",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "mediterranean_roasted_vegetable_couscous",
+    "name": "Mediterranean Roasted Vegetable Couscous",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "greek_yoghurt_with_honey_and_walnuts",
+    "name": "Greek Yoghurt with Honey and Walnuts",
+    "collections": [
+      "mediterranean_style_meals",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "white_bean_and_rosemary_stew",
+    "name": "White Bean and Rosemary Stew",
+    "collections": [
+      "mediterranean_style_meals",
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "grilled_chicken_with_mediterranean_vegetables",
+    "name": "Grilled Chicken with Mediterranean Vegetables",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "meatballs_in_tomato_sauce",
+    "name": "Meatballs in Tomato Sauce",
+    "collections": [
+      "batch_cooking_meals",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "minestrone_soup",
+    "name": "Minestrone Soup",
+    "collections": [
+      "batch_cooking_meals",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "tomato_and_lentil_soup",
+    "name": "Tomato and Lentil Soup",
+    "collections": [
+      "batch_cooking_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "butternut_squash_soup",
+    "name": "Butternut Squash Soup",
+    "collections": [
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "turkey_chilli",
+    "name": "Turkey Chilli",
+    "collections": [
+      "batch_cooking_meals",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "vegetable_and_bean_casserole",
+    "name": "Vegetable and Bean Casserole",
+    "collections": [
+      "batch_cooking_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "rice_alone_educational_protein_baseline",
+    "name": "Rice Alone (Educational: Protein Baseline)",
+    "collections": [
+      "educational_comparisons"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Baseline for comparison with 'Rice and Beans (Educational: Complementary Protein)' \u2014 illustrates a limited amino-acid profile eaten alone.",
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "rice_and_beans_educational_complementary_protein",
+    "name": "Rice and Beans (Educational: Complementary Protein)",
+    "collections": [
+      "educational_comparisons",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Pairs with 'Rice Alone' \u2014 same staple, illustrating protein-quality improvement from a complementary legume.",
+    "priority": 1,
+    "notes": null
+  },
+  {
+    "slug": "lentil_dhal_without_vitamin_c_educational_iron_baseline",
+    "name": "Lentil Dhal Without Vitamin C (Educational: Iron Baseline)",
+    "collections": [
+      "educational_comparisons"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Baseline non-haem-iron meal with no notable vitamin C source, for comparison with the lemon-pepper variant.",
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "lentil_dhal_with_lemon_and_pepper_educational_enhanced_iron_absorption",
+    "name": "Lentil Dhal With Lemon and Pepper (Educational: Enhanced Iron Absorption)",
+    "collections": [
+      "educational_comparisons",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Same base dhal as the baseline variant, with lemon juice and red pepper added as vitamin C sources \u2014 illustrates the enhanced non-haem-iron absorption tier modelled in bioavailability.py.",
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "white_bread_meal_educational_lower_nutrient_density",
+    "name": "White Bread Meal (Educational: Lower Nutrient Density)",
+    "collections": [
+      "educational_comparisons"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Similar-energy comparison with the wholemeal variant below \u2014 illustrates that energy content alone doesn't indicate nutrient density.",
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "wholemeal_bread_and_vegetable_meal_educational_higher_nutrient_density",
+    "name": "Wholemeal Bread and Vegetable Meal (Educational: Higher Nutrient Density)",
+    "collections": [
+      "educational_comparisons"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Similar-energy comparison with the white-bread variant above \u2014 same approximate calories, more fibre/micronutrients.",
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "standard_beef_mince_meal_educational_protein_quantity",
+    "name": "Standard Beef Mince Meal (Educational: Protein Quantity)",
+    "collections": [
+      "educational_comparisons"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Baseline standard-fat mince meal for comparing raw protein quantity against absorbed-protein figures.",
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "lean_beef_mince_meal_educational_protein_quantity_vs_quality",
+    "name": "Lean Beef Mince Meal (Educational: Protein Quantity vs Quality)",
+    "collections": [
+      "educational_comparisons"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": "Same dish as the standard-fat variant with leaner mince \u2014 illustrates that swapping fat content changes protein density without changing amino-acid quality.",
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chicken_caesar_salad",
+    "name": "Chicken Caesar Salad",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "prawn_stir_fry_with_noodles",
+    "name": "Prawn Stir-Fry with Noodles",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beef_and_ale_pie",
+    "name": "Beef and Ale Pie",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "turkey_dinner_with_trimmings",
+    "name": "Turkey Dinner with Trimmings",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "pea_and_ham_soup",
+    "name": "Pea and Ham Soup",
+    "collections": [
+      "everyday_uk_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "cheese_and_onion_pasty",
+    "name": "Cheese and Onion Pasty",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "chicken_noodle_stir_fry",
+    "name": "Chicken Noodle Stir-Fry",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "fishcakes_with_peas",
+    "name": "Fishcakes with Peas",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "sausage_casserole",
+    "name": "Sausage Casserole",
+    "collections": [
+      "everyday_uk_meals",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "steak_and_kidney_pudding",
+    "name": "Steak and Kidney Pudding",
+    "collections": [
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "banana_and_oat_pancakes",
+    "name": "Banana and Oat Pancakes",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "shakshuka",
+    "name": "Shakshuka",
+    "collections": [
+      "breakfasts",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 2,
+    "notes": null
+  },
+  {
+    "slug": "breakfast_bagel_with_cream_cheese",
+    "name": "Breakfast Bagel with Cream Cheese",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "muesli_with_milk",
+    "name": "Muesli with Milk",
+    "collections": [
+      "breakfasts",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "fruit_salad_with_yoghurt",
+    "name": "Fruit Salad with Yoghurt",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "crumpets_with_butter",
+    "name": "Crumpets with Butter",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "breakfast_rice_pudding",
+    "name": "Breakfast Rice Pudding",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "lighter_eggs_benedict",
+    "name": "Lighter Eggs Benedict",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "smoothie_bowl",
+    "name": "Smoothie Bowl",
+    "collections": [
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "wholemeal_toast_with_marmite_and_egg",
+    "name": "Wholemeal Toast with Marmite and Egg",
+    "collections": [
+      "breakfasts",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "falafel_and_tabbouleh_bowl",
+    "name": "Falafel and Tabbouleh Bowl",
+    "collections": [
+      "plant_protein_complementarity",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "moong_dhal_with_rice",
+    "name": "Moong Dhal with Rice",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "black_eyed_bean_stew",
+    "name": "Black-Eyed Bean Stew",
+    "collections": [
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "peanut_butter_and_banana_wholemeal_sandwich",
+    "name": "Peanut Butter and Banana Wholemeal Sandwich",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "hummus_falafel_and_pitta_salad_box",
+    "name": "Hummus, Falafel and Pitta Salad Box",
+    "collections": [
+      "plant_protein_complementarity",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "bean_and_vegetable_burrito",
+    "name": "Bean and Vegetable Burrito",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chickpea_and_lentil_soup",
+    "name": "Chickpea and Lentil Soup",
+    "collections": [
+      "plant_protein_complementarity",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "refried_bean_tacos_with_rice",
+    "name": "Refried Bean Tacos with Rice",
+    "collections": [
+      "plant_protein_complementarity",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "vegetarian_shepherd_s_pie_with_lentils",
+    "name": "Vegetarian Shepherd's Pie with Lentils",
+    "collections": [
+      "high_protein_vegetarian",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "baked_tofu_with_peanut_sauce",
+    "name": "Baked Tofu with Peanut Sauce",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "egg_and_cheese_muffin",
+    "name": "Egg and Cheese Muffin",
+    "collections": [
+      "high_protein_vegetarian",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "spinach_and_feta_filo_parcels",
+    "name": "Spinach and Feta Filo Parcels",
+    "collections": [
+      "high_protein_vegetarian",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "chickpea_omelette",
+    "name": "Chickpea Omelette",
+    "collections": [
+      "high_protein_vegetarian",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "tempeh_tacos",
+    "name": "Tempeh Tacos",
+    "collections": [
+      "high_protein_vegetarian"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "cheese_and_bean_quesadilla",
+    "name": "Cheese and Bean Quesadilla",
+    "collections": [
+      "high_protein_vegetarian",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "vegetarian_full_breakfast",
+    "name": "Vegetarian Full Breakfast",
+    "collections": [
+      "high_protein_vegetarian",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "egg_and_chips",
+    "name": "Egg and Chips",
+    "collections": [
+      "budget_meals",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beans_and_toast_with_cheese",
+    "name": "Beans and Toast with Cheese",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "vegetable_and_lentil_curry",
+    "name": "Vegetable and Lentil Curry",
+    "collections": [
+      "budget_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "spaghetti_with_garlic_and_oil",
+    "name": "Spaghetti with Garlic and Oil",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "tinned_soup_and_bread_roll",
+    "name": "Tinned Soup and Bread Roll",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "rice_pudding",
+    "name": "Rice Pudding",
+    "collections": [
+      "budget_meals",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "potato_and_onion_frittata",
+    "name": "Potato and Onion Frittata",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "corned_beef_and_potato_pie",
+    "name": "Corned Beef and Potato Pie",
+    "collections": [
+      "budget_meals",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "pasta_with_peas_and_bacon",
+    "name": "Pasta with Peas and Bacon",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "store_cupboard_vegetable_fried_rice",
+    "name": "Store-Cupboard Vegetable Fried Rice",
+    "collections": [
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beef_kofta_with_tomato_salad",
+    "name": "Beef Kofta with Tomato Salad",
+    "collections": [
+      "iron_focused_meals",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "iron_fortified_cereal_with_fruit",
+    "name": "Iron-Fortified Cereal with Fruit",
+    "collections": [
+      "iron_focused_meals",
+      "breakfasts"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": "vitamin C from fresh fruit alongside a fortified breakfast cereal"
+  },
+  {
+    "slug": "spinach_and_chickpea_salad_with_orange",
+    "name": "Spinach and Chickpea Salad with Orange",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "lamb_and_spinach_curry",
+    "name": "Lamb and Spinach Curry",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "prawn_and_pepper_stir_fry",
+    "name": "Prawn and Pepper Stir-Fry",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "bean_and_kale_soup",
+    "name": "Bean and Kale Soup",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beetroot_and_lentil_salad",
+    "name": "Beetroot and Lentil Salad",
+    "collections": [
+      "iron_focused_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "watercress_and_beef_salad",
+    "name": "Watercress and Beef Salad",
+    "collections": [
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "low_salt_chicken_soup",
+    "name": "Low-Salt Chicken Soup",
+    "collections": [
+      "lower_sodium_alternatives",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "herb_crusted_baked_salmon",
+    "name": "Herb-Crusted Baked Salmon",
+    "collections": [
+      "lower_sodium_alternatives",
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "reduced_salt_beef_stew",
+    "name": "Reduced-Salt Beef Stew",
+    "collections": [
+      "lower_sodium_alternatives",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "low_sodium_vegetable_stir_fry",
+    "name": "Low-Sodium Vegetable Stir-Fry",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "unsalted_roast_potatoes_with_herbs",
+    "name": "Unsalted Roast Potatoes with Herbs",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "low_salt_fish_cakes",
+    "name": "Low-Salt Fish Cakes",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "reduced_salt_chilli_con_carne",
+    "name": "Reduced-Salt Chilli Con Carne",
+    "collections": [
+      "lower_sodium_alternatives",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "herb_and_garlic_roast_vegetables",
+    "name": "Herb and Garlic Roast Vegetables",
+    "collections": [
+      "lower_sodium_alternatives"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "spanish_tortilla",
+    "name": "Spanish Tortilla",
+    "collections": [
+      "mediterranean_style_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "caprese_salad",
+    "name": "Caprese Salad",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "greek_lentil_soup",
+    "name": "Greek Lentil Soup",
+    "collections": [
+      "mediterranean_style_meals",
+      "plant_protein_complementarity",
+      "batch_cooking_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "mediterranean_baked_chicken",
+    "name": "Mediterranean Baked Chicken",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "aubergine_parmigiana",
+    "name": "Aubergine Parmigiana",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "grilled_vegetable_skewers",
+    "name": "Grilled Vegetable Skewers",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "mediterranean_prawn_skewers",
+    "name": "Mediterranean Prawn Skewers",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "chickpea_and_roasted_vegetable_traybake",
+    "name": "Chickpea and Roasted Vegetable Traybake",
+    "collections": [
+      "mediterranean_style_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "pasta_puttanesca",
+    "name": "Pasta Puttanesca",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 4,
+    "notes": null
+  },
+  {
+    "slug": "orzo_with_tomatoes_and_feta",
+    "name": "Orzo with Tomatoes and Feta",
+    "collections": [
+      "mediterranean_style_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chicken_and_vegetable_curry",
+    "name": "Chicken and Vegetable Curry",
+    "collections": [
+      "batch_cooking_meals",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "lentil_and_vegetable_dahl",
+    "name": "Lentil and Vegetable Dahl",
+    "collections": [
+      "batch_cooking_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "beef_and_bean_chilli",
+    "name": "Beef and Bean Chilli",
+    "collections": [
+      "batch_cooking_meals",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "tomato_and_basil_soup",
+    "name": "Tomato and Basil Soup",
+    "collections": [
+      "batch_cooking_meals",
+      "budget_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chickpea_and_spinach_stew",
+    "name": "Chickpea and Spinach Stew",
+    "collections": [
+      "batch_cooking_meals",
+      "plant_protein_complementarity",
+      "iron_focused_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "sweet_potato_and_lentil_curry",
+    "name": "Sweet Potato and Lentil Curry",
+    "collections": [
+      "batch_cooking_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "bean_and_vegetable_chilli",
+    "name": "Bean and Vegetable Chilli",
+    "collections": [
+      "batch_cooking_meals",
+      "plant_protein_complementarity"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  },
+  {
+    "slug": "chicken_and_rice_casserole",
+    "name": "Chicken and Rice Casserole",
+    "collections": [
+      "batch_cooking_meals",
+      "everyday_uk_meals"
+    ],
+    "source": "manual",
+    "source_name": null,
+    "source_url": null,
+    "discovery_query": null,
+    "dietary_characteristics": [],
+    "educational_note": null,
+    "priority": 3,
+    "notes": null
+  }
+]

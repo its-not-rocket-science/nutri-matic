@@ -19,6 +19,7 @@
 		RecipeComment,
 		RecipeRatingSummary,
 		RecipeShare,
+		Robustness,
 		Score
 	} from '$lib/types';
 
@@ -30,6 +31,7 @@
 	let diaasUnavailableReason: string | null = $state(null);
 	let pdcaasUnavailableReason: string | null = $state(null);
 	let absorbedProtein: AbsorbedProtein | null = $state(null);
+	let robustness: Robustness | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
 	const totalProtein = $derived(nutrients.find((n) => n.key === 'protein') ?? null);
 	let shares: RecipeShare[] = $state([]);
@@ -78,13 +80,15 @@
 		}
 		try {
 			recipe = await api.getRecipe(recipeId);
-			const [diaas, pdcaas, nutrientResult, absorbedResult, ratingResult] = await Promise.allSettled([
-				api.scoreRecipe(recipeId, 'diaas'),
-				api.scoreRecipe(recipeId, 'pdcaas'),
-				api.getRecipeNutrients(recipeId),
-				api.getRecipeAbsorbedProtein(recipeId),
-				api.getRatings(recipeId)
-			]);
+			const [diaas, pdcaas, nutrientResult, absorbedResult, ratingResult, robustnessResult] =
+				await Promise.allSettled([
+					api.scoreRecipe(recipeId, 'diaas'),
+					api.scoreRecipe(recipeId, 'pdcaas'),
+					api.getRecipeNutrients(recipeId),
+					api.getRecipeAbsorbedProtein(recipeId),
+					api.getRatings(recipeId),
+					api.getRecipeRobustness(recipeId)
+				]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
 			else diaasUnavailableReason = diaas.reason instanceof Error ? diaas.reason.message : String(diaas.reason);
 			if (pdcaas.status === 'fulfilled') pdcaasScore = pdcaas.value;
@@ -92,6 +96,7 @@
 			if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
 			if (absorbedResult.status === 'fulfilled') absorbedProtein = absorbedResult.value;
 			if (ratingResult.status === 'fulfilled') ratings = ratingResult.value;
+			if (robustnessResult.status === 'fulfilled') robustness = robustnessResult.value;
 			await Promise.all([loadShares(), loadComments()]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -336,6 +341,19 @@
 				Source: <a href={recipe.source_url} target="_blank" rel="noopener noreferrer">{recipe.source_url}</a>
 			</p>
 		{/if}
+		{#if recipe.is_stock && (recipe.unresolved_ingredients.length > 0 || (recipe.match_coverage_lines ?? 1) < 1)}
+			<p class="alert data-quality-warning">
+				Data quality: {recipe.unresolved_ingredients.length} ingredient line{recipe.unresolved_ingredients
+					.length === 1
+					? ''
+					: 's'} from the original source couldn't be confidently matched to a food and
+				{recipe.unresolved_ingredients.length === 1 ? 'is' : 'are'} excluded from the analysis below{#if recipe.match_coverage_lines !== null}
+					&nbsp;({Math.round(recipe.match_coverage_lines * 100)}% of ingredient lines matched){/if}.
+				{#if recipe.unresolved_ingredients.length > 0}
+					<span class="unresolved-list">Unmatched: {recipe.unresolved_ingredients.join('; ')}</span>
+				{/if}
+			</p>
+		{/if}
 		{#if recipe.method}
 			<details class="method-details">
 				<summary>Method</summary>
@@ -460,6 +478,35 @@
 			<p class="alert">PDCAAS score unavailable: {pdcaasUnavailableReason}</p>
 		{/if}
 	</section>
+
+	{#if robustness}
+		<section class="card robustness">
+			<h2>Nutritional robustness</h2>
+			<p class="muted robustness-caveat">
+				How stable this recipe's calculated nutrition is when ingredient quantities vary within
+				realistic uncertainty — not a health score, and not a claim about the source recipe itself.
+			</p>
+			<p class="robustness-overall">
+				<strong>Overall: {robustness.overall_rating !== null ? `${robustness.overall_rating}/5` : 'not rated'}</strong>
+			</p>
+			<p>{robustness.overall_explanation}</p>
+			<details class="score-details">
+				<summary>Per-nutrient breakdown</summary>
+				<ul class="robustness-metrics">
+					{#each Object.entries(robustness.metrics) as [key, metric] (key)}
+						<li>
+							<strong>{key.replaceAll('_', ' ')}:</strong>
+							{metric.display_rating !== null ? `${metric.display_rating}/5` : 'not calculated'}
+							<br />
+							<span class="muted">
+								{metric.not_calculated_reason ?? metric.explanation}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</details>
+		</section>
+	{/if}
 
 	<NutrientBars {nutrients} per="per serving" />
 
@@ -603,6 +650,35 @@
 	.score-details summary {
 		cursor: pointer;
 		font-weight: var(--font-weight-medium);
+	}
+	.data-quality-warning {
+		max-width: 32rem;
+	}
+	.unresolved-list {
+		display: block;
+		font-size: 0.85em;
+	}
+	.robustness {
+		margin: var(--space-4) 0;
+		max-width: 32rem;
+	}
+	.robustness h2 {
+		margin-top: 0;
+	}
+	.robustness-caveat {
+		font-size: 0.85em;
+	}
+	.robustness-overall {
+		margin-bottom: var(--space-1);
+	}
+	.robustness-metrics {
+		list-style: none;
+		padding: 0;
+		margin: var(--space-2) 0 0;
+	}
+	.robustness-metrics li {
+		padding: var(--space-1) 0;
+		text-transform: capitalize;
 	}
 	.method-details {
 		margin: var(--space-3) 0;

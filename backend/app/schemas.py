@@ -76,6 +76,44 @@ class ScoreOut(BaseModel):
     methodology_version: str
 
 
+class RobustnessMetricOut(BaseModel):
+    """One metric's Monte Carlo robustness result — see
+    stock_recipes/robustness.py. baseline/display_rating/explanation are
+    always present when the metric could be calculated at all;
+    not_calculated_reason is set (and every numeric field null) when it
+    couldn't — never a fabricated rating."""
+
+    baseline: float | None = None
+    median: float | None = None
+    p10: float | None = None
+    p90: float | None = None
+    cv: float | None = None
+    threshold: float | None = None
+    prob_above_threshold: float | None = None
+    top_influential: list[dict] = []
+    optional_sensitivity: float | None = None
+    unmatched_uncertainty_note: str | None = None
+    display_rating: int | None = None
+    explanation: str = ""
+    not_calculated_reason: str | None = None
+
+
+class RobustnessOut(BaseModel):
+    """A stock recipe's current robustness analysis (models.RobustnessResult)
+    — describes how stable this recipe's calculated nutrition is under
+    plausible ingredient-quantity variation. NOT a health score, a
+    suitability judgement, or a claim about the source recipe's own
+    reliability — see docs/stock-recipes.md."""
+
+    model_version: str
+    computed_at: datetime
+    simulation_count: int
+    random_seed: int
+    metrics: dict[str, RobustnessMetricOut]
+    overall_rating: int | None
+    overall_explanation: str
+
+
 class NutrientProvenanceOut(BaseModel):
     key: str
     name: str
@@ -352,6 +390,17 @@ class RecipeOut(BaseModel):
     # both optional — see models.Recipe
     source_url: str | None = None
     method: str | None = None
+    # curated-stock-library fields (stock_recipes/) — all null/false for an
+    # ordinary user-created recipe, which never touches these.
+    # True only for a recipe owned by the is_system account — distinct from
+    # is_public, which a community "share" feature could someday also set.
+    is_stock: bool = False
+    source_name: str | None = None
+    match_coverage_lines: float | None = None
+    match_coverage_mass: float | None = None
+    # raw ingredient lines the importer couldn't match to a food — shown as
+    # a data-quality warning; empty for a non-stock recipe.
+    unresolved_ingredients: list[str] = []
 
 
 class RecipeShareCreate(BaseModel):
@@ -401,6 +450,7 @@ class CollectionOut(BaseModel):
     owner_email: str
     is_owner: bool
     is_public: bool
+    is_stock: bool = False
 
 
 class CollectionDetailOut(BaseModel):
@@ -409,6 +459,7 @@ class CollectionDetailOut(BaseModel):
     owner_email: str
     is_owner: bool
     is_public: bool
+    is_stock: bool = False
     recipes: list[RecipeOut]
 
 

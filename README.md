@@ -243,6 +243,25 @@ score):
 python -m app.seed_manual_foods
 ```
 
+**5. (Optional) Populate the curated stock recipe library** — a set of
+recipes visible to every user, organised into collections, with computed
+nutrition and robustness ratings:
+
+```bash
+python -m app.stock_recipes discover
+python -m app.stock_recipes fetch
+python -m app.stock_recipes parse
+python -m app.stock_recipes match
+python -m app.stock_recipes analyse
+python -m app.stock_recipes review-export
+# review .stock_recipe_cache/review.csv, then:
+python -m app.stock_recipes import-approved
+```
+
+See [docs/stock-recipes.md](docs/stock-recipes.md) for what each stage
+does, how sourcing/copyright boundaries work, and what the robustness
+ratings mean.
+
 ### First-run checklist
 
 After the steps above, confirm the app actually has data before assuming something's broken:

@@ -42,6 +42,7 @@ def _collection_out(collection: Collection, current_user: User, db: Session) -> 
         owner_email=owner.email,
         is_owner=collection.user_id == current_user.id,
         is_public=collection.is_public,
+        is_stock=owner.is_system,
     )
 
 
@@ -89,6 +90,7 @@ def get_collection(
         owner_email=owner.email,
         is_owner=collection.user_id == current_user.id,
         is_public=collection.is_public,
+        is_stock=owner.is_system,
         recipes=recipes,
     )
 

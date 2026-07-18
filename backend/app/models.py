@@ -73,6 +73,17 @@ class User(Base):
     # (see user_has_feature), not auto-downgraded in the database itself.
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # the stock-recipe library's system account (see stock_recipes/pipeline.py)
+    # is a real User row with this flag set, so ownership of a curated recipe
+    # goes through the same user_id FK / owner-only-mutation checks every
+    # other recipe uses — no hard-coded user id special case anywhere. Nobody
+    # can authenticate as this account: it's created with an unknown random
+    # password (same pattern as demo_data.py) AND routers/auth.py::login
+    # refuses is_system users outright as a second, explicit layer. Not
+    # settable via the API, only ever set directly in the db — same
+    # convention as Recipe.is_public/Collection.is_public below.
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+
 
 class DietaryConstraint(Base):
     """A user's allergy, intolerance, religious requirement, or preference —
@@ -189,6 +200,55 @@ class Recipe(Base):
     source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     method: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # --- stock-recipe provenance (stock_recipes/pipeline.py) ---
+    # all nullable: only ever populated for is_system-owned recipes. A
+    # user-created recipe leaves every one of these null forever.
+    #
+    # human-readable source name ("Pinch of Nom", "manual") — distinct from
+    # source_url above, which is the specific page/attribution link shown
+    # to end users; source_name is the adapter identity used for dedup and
+    # for the excluded/included-sources report.
+    # stock_recipes/manifest.py's ManifestEntry.slug — the authoritative
+    # idempotency key for import-approved (prefer this over guessing from
+    # source_url/title: a manual entry may have no source_url at all, and
+    # titles aren't guaranteed unique). Unique among system-owned recipes;
+    # null for every ordinary user-created recipe.
+    import_slug: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
+    source_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    # licence the source recipe was published under, where declared (e.g.
+    # "CC-BY-SA-3.0") — null means "no licence found", not "public domain".
+    source_licence: Mapped[str | None] = mapped_column(String, nullable=True)
+    retrieved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # version stamp of stock_recipes/ingredient_parser.py at import time, so
+    # a parser fix can identify which imported recipes were parsed with the
+    # old logic and should be re-run through `refresh`.
+    parser_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    # hash of the source's raw ingredient/serving data as of retrieved_at —
+    # `refresh` recomputes this on every re-fetch; a change signals the
+    # source recipe itself changed and should be flagged for review rather
+    # than silently re-imported.
+    content_fingerprint: Mapped[str | None] = mapped_column(String, nullable=True)
+    # "discovered" | "parsed" | "matched" | "needs_review" | "approved" |
+    # "rejected" | "imported" | "source_unavailable" — the pipeline stage
+    # workflow (prompt section 4). Only ever set/read by stock_recipes/;
+    # nothing in the ordinary recipe API cares about it.
+    stock_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    # ingredient-match coverage at import time — proportion of ingredient
+    # *lines* successfully matched to a Food, and proportion of ingredient
+    # *mass* successfully matched (more meaningful where conversion data
+    # permits it — see stock_recipes/food_matching.py). Both 0-1.
+    match_coverage_lines: Mapped[float | None] = mapped_column(Float, nullable=True)
+    match_coverage_mass: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # raw ingredient lines that stock_recipes/food_matching.py could not
+    # resolve to any Food — kept for transparency even though they never
+    # become RecipeIngredient rows (so the recipe's nutrition analysis is
+    # honestly incomplete, not silently short by an unlisted ingredient).
+    unresolved_ingredients: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # free-text label shown on "Educational Comparisons" collection members
+    # (prompt section 2) — e.g. "rice alone, for comparison with rice+beans".
+    # Null for every other stock recipe.
+    educational_note: Mapped[str | None] = mapped_column(String, nullable=True)
+
 
 class RecipeIngredient(Base):
     __tablename__ = "recipe_ingredients"
@@ -197,6 +257,60 @@ class RecipeIngredient(Base):
     recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
     food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False)
     quantity_g: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class RecipeIngredientProvenance(Base):
+    """Optional 1:1 supplement to a RecipeIngredient, populated only for
+    stock-recipe ingredients imported via stock_recipes/ — everything
+    section 5/6 of the stock-recipe spec wants tracked about how a
+    RecipeIngredient's food_id/quantity_g were derived from a source's raw
+    ingredient line. A plain user-built RecipeIngredient has no row here at
+    all (not "empty", genuinely absent) — kept as a separate table rather
+    than columns on RecipeIngredient so every existing user-recipe code
+    path is completely untouched by this feature."""
+
+    __tablename__ = "recipe_ingredient_provenance"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipe_ingredient_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("recipe_ingredients.id"), nullable=False, unique=True, index=True
+    )
+    # exactly as it appeared in the source ("2 tbsp tomato puree", "1 large
+    # onion (peeled and finely diced)") — never reconstructed from the
+    # parsed fields, so provenance survives even if the parser improves.
+    raw_text: Mapped[str] = mapped_column(String, nullable=False)
+    # both null for an unspecified amount ("salt to taste") — never invented.
+    # Equal when the line gave a single amount rather than a range.
+    quantity_min: Mapped[float | None] = mapped_column(Float, nullable=True)
+    quantity_max: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # midpoint of min/max, in `unit` — what unit_conversion.py actually
+    # converted to quantity_g. Null alongside quantity_min/max.
+    normalised_quantity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    unit: Mapped[str | None] = mapped_column(String, nullable=True)
+    # free text describing prep ("peeled and finely diced"), stripped out of
+    # the ingredient name before food matching ran against it.
+    prep_note: Mapped[str | None] = mapped_column(String, nullable=True)
+    optional_flag: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # ingredient-list section heading ("For the sauce", "To serve"), null if
+    # the source had no sections.
+    section: Mapped[str | None] = mapped_column(String, nullable=True)
+    # ingredient_parser.py's confidence in raw_text -> (quantity, unit, name)
+    # (0-1) — low for anything it had to guess at (e.g. an unrecognised unit).
+    parsing_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # "alias" | "canonical" | "exact_name" | "fuzzy" | "manual_review" —
+    # which tier of food_matching.py's priority order resolved this
+    # ingredient. Null if unresolved (see Recipe.unresolved_ingredients).
+    match_method: Mapped[str | None] = mapped_column(String, nullable=True)
+    match_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # other candidate foods food_matching.py considered, most to least likely
+    # — [{"food_id": int, "name": str, "score": float}, ...]. Informational,
+    # for the review file; never auto-applied.
+    match_candidates: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    manually_approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # unit_conversion.py's working, when `unit` wasn't already grams/kg —
+    # e.g. {"unit_weight_g": 60, "source": "density_table", "confidence": "low"}.
+    # Null when the source line was already in grams/kg (no assumption made).
+    conversion_assumptions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class RecipeShare(Base):
@@ -273,6 +387,55 @@ class CollectionRecipe(Base):
     # recipe shared with you can be filed into your own collection too,
     # same as it can be copied; unlike copying, this doesn't clone anything
     recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+
+    # --- stock-collection assignment metadata (prompt section 11) ---
+    # all null for an ordinary user filing their own recipe into their own
+    # collection via the API — only stock_recipes/pipeline.py ever sets
+    # these, for a system-owned collection's membership rows.
+    # "manual" | "source_supplied" | "computed"
+    assignment_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    assignment_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    assignment_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    # "approved" | "pending" | "rejected" — defaults to "approved" so every
+    # existing/ordinary personal-collection membership (added straight
+    # through the API, never through this workflow) is unaffected.
+    approval_status: Mapped[str] = mapped_column(String, nullable=False, default="approved", server_default="approved")
+
+
+class RobustnessResult(Base):
+    """A recipe's current nutritional-robustness analysis — see
+    stock_recipes/robustness.py for the Monte Carlo simulation that
+    produces this, and prompt sections 9/10 for what a robustness rating
+    is and (importantly) isn't. One row per recipe (latest result only;
+    `analyse`/`refresh` upsert it rather than keeping history) — the model
+    version and simulation parameters are stored precisely so a stale
+    result can always be identified and recomputed, not because past
+    results themselves need to be retained."""
+
+    __tablename__ = "robustness_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, unique=True, index=True)
+    # stock_recipes/robustness.py's ROBUSTNESS_MODEL_VERSION at analysis time
+    model_version: Mapped[str] = mapped_column(String, nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    simulation_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    random_seed: Mapped[int] = mapped_column(Integer, nullable=False)
+    # keyed by metric ("protein", "absorbed_protein_diaas",
+    # "absorbed_protein_pdcaas", "protein_quality_diaas",
+    # "protein_quality_pdcaas", "iron", "calcium", "fibre", "sodium"); each
+    # value is {baseline, median, p10, p90, cv, prob_above_threshold,
+    # threshold, top_influential: [{ingredient, impact}], optional_sensitivity,
+    # unmatched_uncertainty_note, display_rating: 1-5|null, explanation,
+    # not_calculated_reason: str|null}. A metric this app has no validated
+    # model for (e.g. anything phytate/oxalate-dependent) is present with
+    # display_rating=null and a not_calculated_reason, never a fabricated
+    # score — see robustness.py's module docstring.
+    metrics: Mapped[dict] = mapped_column(JSON, nullable=False)
+    overall_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    overall_explanation: Mapped[str] = mapped_column(String, nullable=False)
 
 
 class DiaryEntry(Base):

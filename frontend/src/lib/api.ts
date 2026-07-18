@@ -43,6 +43,7 @@ import type {
 	RecipeRatingSummary,
 	RecipeShare,
 	RecipeUpdate,
+	Robustness,
 	SavedFilterPreset,
 	SavedFilterPresetCreate,
 	Score,
@@ -176,6 +177,7 @@ export const api = {
 		request<Score>(`/api/recipes/${id}/score?method=${method}`),
 	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(`/api/recipes/${id}/nutrients`),
 	getRecipeAbsorbedProtein: (id: number) => request<AbsorbedProtein | null>(`/api/recipes/${id}/absorbed-protein`),
+	getRecipeRobustness: (id: number) => request<Robustness | null>(`/api/recipes/${id}/robustness`),
 
 	listShares: (recipeId: number) => request<RecipeShare[]>(`/api/recipes/${recipeId}/shares`),
 	createShare: (recipeId: number, email: string) =>
