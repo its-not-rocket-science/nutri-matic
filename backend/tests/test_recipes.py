@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
-from app.models import Food
+from app.models import Food, FoodNutrient
 from app.reference_patterns import AMINO_ACIDS
 
 
@@ -63,6 +63,56 @@ def register_and_token(client, email, password="password123"):
 
 def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+def _add_protein_row(client, food_id, amount_per_100g):
+    """Adds a protein FoodNutrient row to this test's isolated in-memory db —
+    kept out of the shared fixture so it doesn't affect unrelated tests."""
+    db = next(app.dependency_overrides[get_db]())
+    db.add(FoodNutrient(food_id=food_id, nutrient_key="protein", amount_per_100g=amount_per_100g))
+    db.commit()
+    db.close()
+
+
+def test_recipe_nutrients_includes_personalized_protein_target(client):
+    _add_protein_row(client, 1, 20.0)
+    token = register_and_token(client, "a@example.com")
+    client.put(
+        "/api/profile",
+        json={
+            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
+            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
+        },
+        headers=auth_headers(token),
+    )
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "protein test", "servings": 2, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/nutrients", headers=auth_headers(token))
+    assert res.status_code == 200
+    protein = next(n for n in res.json() if n["key"] == "protein")
+    assert protein["amount"] == pytest.approx(20.0)  # 200g @ 20g/100g / 2 servings
+    assert protein["adult_drv"] == pytest.approx(56.0)  # sedentary, 70kg: 0.8 * 70
+    assert protein["percent_drv"] == pytest.approx(20.0 / 56.0 * 100)
+    assert protein["drv_confidence"] == "personalized_calculation"
+
+
+def test_recipe_nutrients_protein_target_null_when_profile_incomplete(client):
+    _add_protein_row(client, 1, 20.0)
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "protein test", "servings": 2, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/nutrients", headers=auth_headers(token))
+    protein = next(n for n in res.json() if n["key"] == "protein")
+    assert protein["adult_drv"] is None
+    assert protein["percent_drv"] is None
 
 
 def test_recipe_score_all_measured_ingredients_reports_measured(client):

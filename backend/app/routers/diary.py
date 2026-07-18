@@ -48,15 +48,23 @@ MEALS = ("breakfast", "lunch", "dinner", "snack")
 # energy's target is a personalized BMR+activity calculation, not a
 # sex/life-stage table lookup — resolve_drv() correctly returns None for it
 # (see nutrients.py), so day-total and trend-bucket nutrient rows both need
-# to override the source/confidence text on that one nutrient specifically
+# to override the source/confidence text on that one nutrient specifically.
+# protein's target is likewise personalized (bodyweight x activity level,
+# see protein_requirement.py) rather than a table lookup, same treatment.
 _ENERGY_DRV_SOURCE = "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
 _ENERGY_DRV_CONFIDENCE = "personalized_calculation"
+_PROTEIN_DRV_SOURCE = "Personalized target: bodyweight x activity-level protein factor (see protein_requirement.py)"
+_PROTEIN_DRV_CONFIDENCE = "personalized_calculation"
 
 
 def _nutrient_amount_out(key: str, nutrient_def, amount: float, drv: float | None) -> schemas.NutrientAmountOut:
     if key == "energy":
         return schemas.NutrientAmountOut.build(
             key, nutrient_def, amount, drv, drv_source=_ENERGY_DRV_SOURCE, drv_confidence=_ENERGY_DRV_CONFIDENCE
+        )
+    if key == "protein":
+        return schemas.NutrientAmountOut.build(
+            key, nutrient_def, amount, drv, drv_source=_PROTEIN_DRV_SOURCE, drv_confidence=_PROTEIN_DRV_CONFIDENCE
         )
     return schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv)
 
@@ -65,6 +73,10 @@ def _trend_nutrient_out(key: str, nutrient_def, avg_amount: float, drv: float | 
     if key == "energy":
         return schemas.TrendNutrientOut.build(
             key, nutrient_def, avg_amount, drv, drv_source=_ENERGY_DRV_SOURCE, drv_confidence=_ENERGY_DRV_CONFIDENCE
+        )
+    if key == "protein":
+        return schemas.TrendNutrientOut.build(
+            key, nutrient_def, avg_amount, drv, drv_source=_PROTEIN_DRV_SOURCE, drv_confidence=_PROTEIN_DRV_CONFIDENCE
         )
     return schemas.TrendNutrientOut.build(key, nutrient_def, avg_amount, drv)
 
@@ -185,16 +197,22 @@ def _compute_nutrient_gaps(
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
     totals = aggregate_nutrients(items, by_food_id)  # divide_by=1 — this is a day total, not per-serving
     eer = calculate_eer(current_user)
+    protein_target = calculate_protein_target_g(current_user)
 
     nutrients_out = []
     for key, amount in totals.items():
         nutrient_def = NUTRIENTS.get(key)
         if nutrient_def is None:
             continue
-        # energy's target is a personalized BMR+activity calculation, not a
+        # energy/protein targets are personalized calculations, not a
         # sex/life-stage table lookup — resolve_drv() correctly returns None
-        # for it (see nutrients.py), so it's handled separately here
-        drv = eer if key == "energy" else resolve_drv(key, profile)
+        # for them (see nutrients.py), so they're handled separately here
+        if key == "energy":
+            drv = eer
+        elif key == "protein":
+            drv = protein_target
+        else:
+            drv = resolve_drv(key, profile)
         nutrients_out.append(_nutrient_amount_out(key, nutrient_def, amount, drv))
     nutrients_out.sort(key=lambda n: n.name)
     return NutrientGaps(nutrients_out=nutrients_out, totals=totals, by_food_id=by_food_id)
@@ -741,6 +759,7 @@ def _compute_trends(
 
     profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
     eer = calculate_eer(current_user)
+    protein_target = calculate_protein_target_g(current_user)
 
     # expand every day up front so the FoodNutrient lookup below can run once
     # for the whole date range's food set, instead of once per day (which,
@@ -769,7 +788,12 @@ def _compute_trends(
             nutrient_def = NUTRIENTS.get(key)
             if nutrient_def is None:
                 continue
-            drv = eer if key == "energy" else resolve_drv(key, profile)
+            if key == "energy":
+                drv = eer
+            elif key == "protein":
+                drv = protein_target
+            else:
+                drv = resolve_drv(key, profile)
             nutrients_out.append(_trend_nutrient_out(key, nutrient_def, avg_amount, drv))
         nutrients_out.sort(key=lambda n: n.name)
         buckets_out.append(
