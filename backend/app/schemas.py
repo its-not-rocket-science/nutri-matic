@@ -298,11 +298,15 @@ class RecipeCreate(BaseModel):
     name: str
     servings: float
     ingredients: list[RecipeIngredientCreate]
+    source_url: str | None = None
+    method: str | None = None
 
 
 class RecipeUpdate(BaseModel):
     name: str | None = None
     servings: float | None = None
+    source_url: str | None = None
+    method: str | None = None
 
 
 class RecipeIngredientAdd(BaseModel):
@@ -338,6 +342,9 @@ class RecipeOut(BaseModel):
     # dietary constraints — see dietary_filter.py. Worst status across the
     # recipe's ingredients; absent (null) elsewhere.
     dietary_status: DietaryStatusOut | None = None
+    # both optional — see models.Recipe
+    source_url: str | None = None
+    method: str | None = None
 
 
 class RecipeShareCreate(BaseModel):

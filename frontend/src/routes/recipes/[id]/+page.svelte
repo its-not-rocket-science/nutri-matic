@@ -49,6 +49,8 @@
 	let editingDetails = $state(false);
 	let editName = $state('');
 	let editServings = $state<number | null>(null);
+	let editSourceUrl = $state('');
+	let editMethod = $state('');
 	let savingDetails = $state(false);
 	let addingIngredient = $state(false);
 
@@ -206,6 +208,8 @@
 		if (!recipe) return;
 		editName = recipe.name;
 		editServings = recipe.servings;
+		editSourceUrl = recipe.source_url ?? '';
+		editMethod = recipe.method ?? '';
 		editError = null;
 		editingDetails = true;
 	}
@@ -216,10 +220,20 @@
 			editError = 'Name and a positive number of servings are required.';
 			return;
 		}
+		const trimmedUrl = editSourceUrl.trim();
+		if (trimmedUrl && !trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+			editError = 'Source URL must start with http:// or https://';
+			return;
+		}
 		savingDetails = true;
 		editError = null;
 		try {
-			recipe = await api.updateRecipe(recipeId, { name: editName, servings: editServings });
+			recipe = await api.updateRecipe(recipeId, {
+				name: editName,
+				servings: editServings,
+				source_url: trimmedUrl || null,
+				method: editMethod.trim() || null
+			});
 			editingDetails = false;
 		} catch (e) {
 			editError = e instanceof Error ? e.message : String(e);
@@ -284,6 +298,18 @@
 				<label for="edit-servings">Servings</label>
 				<input id="edit-servings" type="number" step="any" min="0" bind:value={editServings} required />
 			</div>
+			<div class="field">
+				<label for="edit-source-url">Source URL (optional)</label>
+				<input id="edit-source-url" type="url" bind:value={editSourceUrl} placeholder="https://…" />
+			</div>
+			<details class="method-details">
+				<summary>Method (optional)</summary>
+				<div class="field">
+					<label for="edit-method">Cooking instructions</label>
+					<textarea id="edit-method" bind:value={editMethod} rows="6" placeholder="Optional step-by-step method…"
+					></textarea>
+				</div>
+			</details>
 			{#if editError}<p class="error">{editError}</p>{/if}
 			<div class="actions">
 				<button type="submit" class="btn btn-primary" disabled={savingDetails}>
@@ -305,6 +331,17 @@
 				<button type="button" class="btn btn-secondary no-print" onclick={startEditDetails}>Edit</button>
 			{/if}
 		</p>
+		{#if recipe.source_url}
+			<p class="muted">
+				Source: <a href={recipe.source_url} target="_blank" rel="noopener noreferrer">{recipe.source_url}</a>
+			</p>
+		{/if}
+		{#if recipe.method}
+			<details class="method-details">
+				<summary>Method</summary>
+				<p class="method-text">{recipe.method}</p>
+			</details>
+		{/if}
 	{/if}
 
 	<div class="export-actions no-print">
@@ -567,6 +604,22 @@
 		cursor: pointer;
 		font-weight: var(--font-weight-medium);
 	}
+	.method-details {
+		margin: var(--space-3) 0;
+		max-width: 32rem;
+	}
+	.method-details summary {
+		cursor: pointer;
+		font-weight: var(--font-weight-medium);
+	}
+	.method-text {
+		white-space: pre-wrap;
+		margin: var(--space-2) 0 0;
+	}
+	.method-details textarea {
+		font-family: inherit;
+		resize: vertical;
+	}
 	.sharing {
 		margin: var(--space-5) 0;
 		max-width: 24rem;
@@ -640,6 +693,14 @@
 		}
 		.print-only {
 			display: inline;
+		}
+		/* method is worth having on a printed recipe to cook from — force it
+		   open regardless of whether it was expanded on screen */
+		.method-details summary {
+			display: none;
+		}
+		.method-details > :not(summary) {
+			display: block !important;
 		}
 	}
 </style>
