@@ -246,9 +246,9 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 </section>
 
 <section id="food-chemistry">
-	<h2>Sodium:potassium ratio, leucine threshold, protein distribution</h2>
+	<h2>Sodium:potassium ratio, leucine threshold, protein distribution, absorbed protein</h2>
 	<p>
-		Three more diary checks, each computed from data already tracked rather than anything new:
+		Four more diary checks, each computed from data already tracked rather than anything new:
 	</p>
 	<ul>
 		<li>
@@ -270,6 +270,19 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 			than once, rather than concentrated into a single meal (research, e.g. Mamerow et al. 2014,
 			associates even distribution with better muscle protein synthesis than the same daily total
 			skewed into one meal).
+		</li>
+		<li>
+			<strong>Total absorbed protein</strong> — the day's total protein weighted by DIAAS/PDCAAS
+			digestibility, i.e. how much actually gets absorbed rather than the raw "protein on the
+			label" figure. DIAAS uses the digestibility of whichever amino acid is limiting that day's
+			mix (the one that governs protein synthesis capacity); PDCAAS already reduces to one overall
+			coefficient. Either is left blank if that method's digestibility data is incomplete for the
+			day's foods — never guessed. Compared against a personalized daily target: body weight ×
+			an activity-level figure (0.8g/kg sedentary up to 1.6g/kg very active — commonly reproduced
+			sports-nutrition ranges, not one official table), with a 1.0g/kg floor for healthy adults 65+
+			(PROT-AGE Study Group, Bauer et al. 2013 — countering age-related anabolic resistance) and a
+			flat +6g/+11g increment for pregnancy/lactation (UK COMA/SACN). Needs weight, birth year, and
+			activity level set in your profile; otherwise shown without a %.
 		</li>
 	</ul>
 	<p class="muted">

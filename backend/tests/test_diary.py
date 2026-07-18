@@ -99,6 +99,71 @@ def test_day_summary_includes_iron_bioavailability_and_calcium_phosphorus(client
     assert cp["phosphorus_mg"] == pytest.approx(234.0)
 
 
+def test_day_summary_includes_absorbed_protein_total(client):
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-20", "meal": "breakfast", "food_id": 1, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary?entry_date=2026-07-20", headers=auth_headers(token))
+    absorbed = res.json()["absorbed_protein"]
+    assert absorbed is not None
+    assert absorbed["total_protein_g"] == pytest.approx(26.0)  # 100g beef @ 26g/100g
+    # fixture's beef has no digestibility_diaas/pdcaas set
+    assert absorbed["diaas_absorbed_g"] is None
+    assert absorbed["pdcaas_absorbed_g"] is None
+    # profile incomplete (no weight/birth_year/activity_level set)
+    assert absorbed["target_g"] is None
+    assert absorbed["diaas_percent_drv"] is None
+    assert absorbed["pdcaas_percent_drv"] is None
+
+
+def test_absorbed_protein_none_when_nothing_logged(client):
+    token = register_and_token(client, "a@example.com")
+    res = client.get("/api/diary?entry_date=2026-07-20", headers=auth_headers(token))
+    assert res.json()["absorbed_protein"] is None
+
+
+def test_absorbed_protein_percent_drv_with_complete_profile(client):
+    token = register_and_token(client, "a@example.com")
+    client.put(
+        "/api/profile",
+        json={
+            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
+            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
+        },
+        headers=auth_headers(token),
+    )
+
+    db = next(app.dependency_overrides[get_db]())
+    chicken = Food(
+        id=3, name="Chicken, cooked", protein_g_per_100g=25,
+        amino_acids=dict.fromkeys(AMINO_ACIDS, 20),
+        digestibility_diaas=dict.fromkeys(AMINO_ACIDS, 0.9),
+        digestibility_pdcaas=0.92,
+    )
+    db.add(chicken)
+    db.commit()
+    db.close()
+
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-20", "meal": "lunch", "food_id": 3, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/diary?entry_date=2026-07-20", headers=auth_headers(token))
+    absorbed = res.json()["absorbed_protein"]
+    assert absorbed["total_protein_g"] == pytest.approx(25.0)
+    assert absorbed["diaas_absorbed_g"] == pytest.approx(25.0 * 0.9)
+    assert absorbed["pdcaas_absorbed_g"] == pytest.approx(25.0 * 0.92)
+    assert absorbed["target_g"] == pytest.approx(56.0)  # sedentary, 70kg: 0.8 * 70
+    assert absorbed["diaas_percent_drv"] == pytest.approx(25.0 * 0.9 / 56.0 * 100)
+    assert absorbed["pdcaas_percent_drv"] == pytest.approx(25.0 * 0.92 / 56.0 * 100)
+
+
 def test_day_summary_omits_iron_bioavailability_for_meals_with_no_iron(client):
     token = register_and_token(client, "a@example.com")
     no_iron_food_id = client.post(
