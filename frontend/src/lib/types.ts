@@ -114,6 +114,8 @@ export interface User {
 	weight_kg: number | null;
 	height_cm: number | null;
 	dietary_pattern: string | null;
+	/** ISO 4217 code, or null to use the browser locale's implied currency */
+	currency: string | null;
 }
 
 export interface ProfileUpdate {
@@ -125,6 +127,7 @@ export interface ProfileUpdate {
 	weight_kg: number | null;
 	height_cm: number | null;
 	dietary_pattern: string | null;
+	currency?: string | null;
 }
 
 export type DietaryConstraintCategory = 'allergy' | 'intolerance' | 'religious' | 'medical' | 'preference';

@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
+	import { currencySymbol, formatCurrency } from '$lib/currency';
 	import type { Food, FoodPrice } from '$lib/types';
 
 	let prices: FoodPrice[] = $state([]);
@@ -89,8 +90,8 @@
 				<li>
 					<a href="/foods/{price.food_id}">{price.food_name}</a>
 					<span class="muted">
-						${price.package_price.toFixed(2)} / {price.package_quantity_g}g
-						(${price.price_per_100g.toFixed(2)} per 100g)
+						{formatCurrency(price.package_price, auth.user?.currency)} / {price.package_quantity_g}g
+						({formatCurrency(price.price_per_100g, auth.user?.currency)} per 100g)
 					</span>
 					<button type="button" class="btn btn-danger" onclick={() => handleDelete(price.food_id)}>
 						Remove
@@ -118,7 +119,7 @@
 		{/if}
 
 		<div class="field">
-			<label for="package-price">Package price ($)</label>
+			<label for="package-price">Package price ({currencySymbol(auth.user?.currency)})</label>
 			<input id="package-price" type="number" step="any" min="0" bind:value={packagePrice} required />
 		</div>
 

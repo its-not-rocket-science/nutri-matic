@@ -7,6 +7,7 @@
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
+	import { formatCurrency } from '$lib/currency';
 	import type {
 		Food,
 		Meal,
@@ -550,7 +551,7 @@
 								<a href="/foods/{item.food_id}">{item.food_name}</a>
 								<span class="muted">{Math.round(item.quantity_g)}g</span>
 								{#if item.estimated_cost !== null}
-									<span class="cost">${item.estimated_cost.toFixed(2)}</span>
+									<span class="cost">{formatCurrency(item.estimated_cost, auth.user?.currency)}</span>
 								{:else}
 									<span class="muted no-price">no price set</span>
 								{/if}
@@ -558,7 +559,7 @@
 						{/each}
 					</ul>
 					<p class="total">
-						Estimated total: <strong>${shoppingList.total_cost.toFixed(2)}</strong>
+						Estimated total: <strong>{formatCurrency(shoppingList.total_cost, auth.user?.currency)}</strong>
 						{#if shoppingList.items_missing_price > 0}
 							<span class="muted">
 								({shoppingList.items_missing_price} item{shoppingList.items_missing_price === 1 ? '' : 's'}
@@ -603,7 +604,7 @@
 								({s.improvement >= 0 ? '+' : ''}{s.improvement.toFixed(1)}pp{s.calories_added
 									? `, +${s.calories_added.toFixed(0)}kcal`
 									: ''}{s.estimated_cost !== null
-									? `, ${s.estimated_cost >= 0 ? '+' : ''}$${s.estimated_cost.toFixed(2)}`
+									? `, ${s.estimated_cost >= 0 ? '+' : ''}${formatCurrency(s.estimated_cost, auth.user?.currency)}`
 									: ''})
 							</span>
 							<button
