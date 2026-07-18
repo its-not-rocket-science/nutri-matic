@@ -181,12 +181,91 @@ npm install
 npm run dev
 ```
 
-Food data isn't bundled — ingest a USDA FoodData Central export yourself:
+### Food data (required — the app has zero foods until you do this)
+
+Nothing is bundled or seeded automatically. `Base.metadata.create_all()` creates the empty
+tables on first startup, but `foods`/`food_nutrients` stay empty until you explicitly ingest a
+real USDA export — skip this and every search, recipe, and score endpoint just has nothing to
+work with (no error, just empty results).
+
+**1. Download a USDA FoodData Central export** from the
+[FDC "Download Datasets" page](https://fdc.nal.usda.gov/download-datasets.html). Three datasets
+exist; you don't need all three:
+
+| Dataset | Zipped size | Rows ingested | Needed for |
+|---|---|---|---|
+| Foundation Foods | ~3MB | ~400 | Core whole foods with a full amino acid panel — start here |
+| SR Legacy | ~6MB | ~7,500 | The bulk of generic/whole-food coverage (onions, chicken breast, rice, etc.) |
+| Branded Foods | **several GB zipped**, ~2 million rows | most of it | Barcode scanning (`gtin_upc`) and packaged/branded products specifically |
+
+Foundation + SR Legacy together take seconds to download and a few minutes to ingest — enough
+for a fully working dev instance (recipes, scoring, search, diary) without touching Branded at
+all. Only add Branded Foods if you need barcode scanning or branded-product search — budget real
+time and disk for it (multi-GB download, tens of minutes to ingest, and a proportionally larger
+`food_nutrients` table) and do it last.
+
+**2. Ingest whichever datasets you downloaded** (each `--dir` points at one unzipped dataset
+folder; pass as many as you want in one run):
 
 ```bash
 cd backend
-python -m app.ingest_fdc --dir path/to/FoodData_Central_foundation_food_csv_...
+python -m app.ingest_fdc \
+  --dir path/to/FoodData_Central_foundation_food_csv_2025-04-24 \
+  --dir path/to/FoodData_Central_sr_legacy_food_csv_2018-04
 ```
+
+Only foods with a usable protein value are kept (amino acid scoring needs it) — the command
+prints a per-dataset summary (`considered`/`skipped_no_protein`/`inserted`) so you can see this
+happened. Foods it skips for that reason (mainly pure fats/oils/sugars/salt) aren't a bug; see
+the next step.
+
+**3. Backfill digestibility coefficients** (DIAAS/PDCAAS scores are null for every food until
+this runs — it's a separate step from ingestion on purpose, so the reference table in
+`digestibility_reference.py` can be revised and re-applied without re-ingesting):
+
+```bash
+python -m app.assign_digestibility
+```
+
+**4. (Optional) Seed pure-fat foods** — oils/ghee have no protein, so step 2 always skips them
+(by design: amino acid scoring needs a protein value, and fabricating one would misrepresent the
+food). If you want recipes with realistic calorie counts for dishes that use oil/butter/ghee,
+add a small set of hand-entered pure-fat foods (protein 0, so they never affect any DIAAS/PDCAAS
+score):
+
+```bash
+python -m app.seed_manual_foods
+```
+
+### First-run checklist
+
+After the steps above, confirm the app actually has data before assuming something's broken:
+
+```bash
+curl http://localhost:8000/api/foods/search-by-name?q=chicken
+```
+
+If that returns `[]`, the ingestion step above didn't run against the database the app is
+actually pointed at — check `DATABASE_URL` (backend loads `backend/.env` automatically; there's
+no default fallback to a specific port, so a mismatched port here is the most common cause) and
+re-run step 2.
+
+### Troubleshooting
+
+- **Empty search results / "Food not found" everywhere, no errors in the logs** — almost always
+  step 2 (ingestion) hasn't been run against the database the app is actually using. Check
+  `DATABASE_URL` first, not the app code.
+- **DIAAS/PDCAAS always show "no digestibility data" / null** — step 3 (`assign_digestibility`)
+  hasn't been run yet, or hasn't been re-run since you last edited `digestibility_reference.py`.
+  It's idempotent and safe to re-run any time.
+- **`ALTER TABLE`/column-not-found errors on an existing database** — this project has no
+  migration framework; `Base.metadata.create_all()` only creates tables that don't exist yet, it
+  never alters existing ones. See [DEPLOYMENT.md](DEPLOYMENT.md)'s "Manual migrations" section for
+  every `ALTER TABLE` needed to bring an existing database up to date with the current schema.
+- **Postgres connection refused** — most commonly the Postgres service/container simply isn't
+  running, or `DATABASE_URL`'s port doesn't match what Postgres is actually listening on
+  (`docker-compose.yml`'s default and a locally-installed Postgres's default port frequently
+  differ — check both rather than assuming).
 
 Deploying beyond your own machine (real `JWT_SECRET`, CORS origins, etc.)? See
 [DEPLOYMENT.md](DEPLOYMENT.md). Contributing code? See [CONTRIBUTING.md](CONTRIBUTING.md), which
@@ -206,7 +285,7 @@ also covers running the test suite and CI checks locally.
 
 Actively developed. All core modules described above — protein quality, micronutrients,
 bioavailability, diet-level analysis, meal optimisation, meal planning, and the
-transparency/provenance layer — are built and tested (256 backend tests, run in CI against a real
+transparency/provenance layer — are built and tested (392 backend tests, run in CI against a real
 Postgres instance on every push — see `.github/workflows/ci.yml`). Contributions and data
 corrections welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
