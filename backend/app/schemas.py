@@ -446,6 +446,20 @@ class MealProteinDistributionOut(BaseModel):
     meets_leucine_threshold: bool
 
 
+class AbsorbedProteinOut(BaseModel):
+    total_protein_g: float
+    # null if that method's digestibility data is incomplete for the day's
+    # ingredient mix — never a guessed/averaged fallback (see
+    # protein_absorption.py)
+    diaas_absorbed_g: float | None
+    pdcaas_absorbed_g: float | None
+    # null if the profile is incomplete (see protein_requirement.py) —
+    # weight, birth year, and activity level are all required
+    target_g: float | None
+    diaas_percent_drv: float | None
+    pdcaas_percent_drv: float | None
+
+
 class QuickAddItemOut(BaseModel):
     food_id: int | None
     food_name: str | None
@@ -471,6 +485,7 @@ class DiarySummaryOut(BaseModel):
     calcium_phosphorus: CalciumPhosphorusOut | None
     sodium_potassium: SodiumPotassiumOut | None
     protein_distribution: list[MealProteinDistributionOut]
+    absorbed_protein: AbsorbedProteinOut | None
 
 
 class DiarySnapshotOut(BaseModel):

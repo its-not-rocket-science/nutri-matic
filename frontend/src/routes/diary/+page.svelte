@@ -778,9 +778,55 @@
 		</section>
 	{/if}
 
-	{#if summary.sodium_potassium || summary.protein_distribution.length > 0}
+	{#if summary.sodium_potassium || summary.protein_distribution.length > 0 || summary.absorbed_protein}
 		<section class="food-chemistry">
 			<h3>Food chemistry <a class="no-print" href="/methodology#food-chemistry">ⓘ</a></h3>
+
+			{#if summary.absorbed_protein}
+				<div class="absorbed-protein">
+					<strong>Total absorbed protein</strong>
+					<span class="muted">{summary.absorbed_protein.total_protein_g.toFixed(0)}g protein logged today</span>
+					<ul class="entries">
+						{#if summary.absorbed_protein.diaas_absorbed_g !== null}
+							<li>
+								<span class="meal-label">DIAAS</span>
+								<span>
+									{summary.absorbed_protein.diaas_absorbed_g.toFixed(1)}g absorbed
+									{#if summary.absorbed_protein.target_g !== null}
+										<span class="muted">
+											of {summary.absorbed_protein.target_g.toFixed(0)}g target
+											({summary.absorbed_protein.diaas_percent_drv?.toFixed(0)}%)
+										</span>
+									{/if}
+								</span>
+							</li>
+						{/if}
+						{#if summary.absorbed_protein.pdcaas_absorbed_g !== null}
+							<li>
+								<span class="meal-label">PDCAAS</span>
+								<span>
+									{summary.absorbed_protein.pdcaas_absorbed_g.toFixed(1)}g absorbed
+									{#if summary.absorbed_protein.target_g !== null}
+										<span class="muted">
+											of {summary.absorbed_protein.target_g.toFixed(0)}g target
+											({summary.absorbed_protein.pdcaas_percent_drv?.toFixed(0)}%)
+										</span>
+									{/if}
+								</span>
+							</li>
+						{/if}
+					</ul>
+					{#if summary.absorbed_protein.diaas_absorbed_g === null && summary.absorbed_protein.pdcaas_absorbed_g === null}
+						<p class="muted">No digestibility data for today's foods — no absorbed figure can be computed.</p>
+					{/if}
+					{#if summary.absorbed_protein.target_g === null}
+						<p class="muted">
+							Set weight, birth year, and activity level in your <a href="/profile">profile</a> for a
+							personalized target.
+						</p>
+					{/if}
+				</div>
+			{/if}
 
 			{#if summary.sodium_potassium}
 				<div class="sodium-potassium">
@@ -901,6 +947,12 @@
 	.sodium-potassium {
 		margin-bottom: 0.75rem;
 	}
+	.absorbed-protein {
+		margin-bottom: 0.75rem;
+		padding-bottom: 0.75rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+	.absorbed-protein .entries li,
 	.protein-distribution .entries li {
 		display: flex;
 		align-items: center;

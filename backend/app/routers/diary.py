@@ -6,7 +6,13 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..aggregation import WeightedFood, aggregate_nutrients, expand_entries_to_weighted_foods, scale_recipe_ingredients
+from ..aggregation import (
+    WeightedFood,
+    aggregate_amino_acids,
+    aggregate_nutrients,
+    expand_entries_to_weighted_foods,
+    scale_recipe_ingredients,
+)
 from ..auth import get_current_user
 from ..data_quality import is_implausible
 from ..bioavailability import (
@@ -31,6 +37,8 @@ from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
 from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, User
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
+from ..protein_absorption import compute_absorbed_protein
+from ..protein_requirement import calculate_protein_target_g
 from ..trends import GroupBy, bucket_day_totals
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
@@ -213,6 +221,30 @@ def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> s
     gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
     nutrients_out, totals, by_food_id = gaps.nutrients_out, gaps.totals, gaps.by_food_id
 
+    day_items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
+    absorbed = compute_absorbed_protein(aggregate_amino_acids(day_items))
+    target_g = calculate_protein_target_g(current_user)
+    absorbed_protein_out = (
+        schemas.AbsorbedProteinOut(
+            total_protein_g=absorbed.total_protein_g,
+            diaas_absorbed_g=absorbed.diaas_absorbed_g,
+            pdcaas_absorbed_g=absorbed.pdcaas_absorbed_g,
+            target_g=target_g,
+            diaas_percent_drv=(
+                absorbed.diaas_absorbed_g / target_g * 100
+                if absorbed.diaas_absorbed_g is not None and target_g
+                else None
+            ),
+            pdcaas_percent_drv=(
+                absorbed.pdcaas_absorbed_g / target_g * 100
+                if absorbed.pdcaas_absorbed_g is not None and target_g
+                else None
+            ),
+        )
+        if absorbed is not None
+        else None
+    )
+
     leucine_threshold_g = leucine_threshold_for_age(calculate_age(current_user))
 
     iron_out: list[schemas.MealIronBioavailabilityOut] = []
@@ -304,6 +336,7 @@ def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> s
         calcium_phosphorus=calcium_phosphorus,
         sodium_potassium=sodium_potassium,
         protein_distribution=protein_distribution_out,
+        absorbed_protein=absorbed_protein_out,
     )
 
 

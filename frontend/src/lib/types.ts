@@ -323,6 +323,17 @@ export interface MealProteinDistribution {
 	meets_leucine_threshold: boolean;
 }
 
+export interface AbsorbedProtein {
+	total_protein_g: number;
+	/** null if that method's digestibility data is incomplete for the day's mix */
+	diaas_absorbed_g: number | null;
+	pdcaas_absorbed_g: number | null;
+	/** null if the profile is incomplete (weight, birth year, activity level) */
+	target_g: number | null;
+	diaas_percent_drv: number | null;
+	pdcaas_percent_drv: number | null;
+}
+
 export interface DiarySummary {
 	entries: DiaryEntry[];
 	nutrients: NutrientAmount[];
@@ -330,6 +341,7 @@ export interface DiarySummary {
 	calcium_phosphorus: CalciumPhosphorus | null;
 	sodium_potassium: SodiumPotassium | null;
 	protein_distribution: MealProteinDistribution[];
+	absorbed_protein: AbsorbedProtein | null;
 }
 
 export interface DiarySnapshot {
