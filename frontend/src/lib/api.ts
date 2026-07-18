@@ -1,6 +1,7 @@
 import { goto } from '$app/navigation';
 import { auth } from './auth.svelte';
 import type {
+	AbsorbedProtein,
 	ClinicianClientSummary,
 	ClinicianLink,
 	ClinicianNote,
@@ -174,6 +175,7 @@ export const api = {
 	scoreRecipe: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/recipes/${id}/score?method=${method}`),
 	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(`/api/recipes/${id}/nutrients`),
+	getRecipeAbsorbedProtein: (id: number) => request<AbsorbedProtein | null>(`/api/recipes/${id}/absorbed-protein`),
 
 	listShares: (recipeId: number) => request<RecipeShare[]>(`/api/recipes/${recipeId}/shares`),
 	createShare: (recipeId: number, email: string) =>

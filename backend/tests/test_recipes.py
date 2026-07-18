@@ -175,3 +175,32 @@ def test_create_recipe_rejects_unknown_food_id(client):
     )
     assert res.status_code == 422
     assert "9999" in res.json()["detail"]
+
+
+def test_recipe_absorbed_protein_per_serving(client):
+    token = register_and_token(client, "a@example.com")
+    client.put(
+        "/api/profile",
+        json={
+            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
+            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
+        },
+        headers=auth_headers(token),
+    )
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "absorbed test", "servings": 2, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/absorbed-protein", headers=auth_headers(token))
+    assert res.status_code == 200
+    body = res.json()
+    # 200g @ 20g/100g protein = 40g total, / 2 servings = 20g/serving
+    assert body["total_protein_g"] == pytest.approx(20.0)
+    # food id=1 ("measured") has uniform 0.9 digestibility for both methods
+    assert body["diaas_absorbed_g"] == pytest.approx(18.0)
+    assert body["pdcaas_absorbed_g"] == pytest.approx(18.0)
+    assert body["target_g"] == pytest.approx(56.0)  # sedentary, 70kg: 0.8 * 70
+    assert body["diaas_percent_drv"] == pytest.approx(18.0 / 56.0 * 100)
+    assert body["pdcaas_percent_drv"] == pytest.approx(18.0 / 56.0 * 100)
