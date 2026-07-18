@@ -72,6 +72,11 @@ def _rating_summary(recipe_id: int, user_id: int, db: Session) -> schemas.Recipe
     )
 
 
+def _validate_source_url(source_url: str | None) -> None:
+    if source_url is not None and not (source_url.startswith("http://") or source_url.startswith("https://")):
+        raise HTTPException(status_code=422, detail="source_url must start with http:// or https://")
+
+
 def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.RecipeOut:
     ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).all()
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([i.food_id for i in ingredients])).all()}
@@ -94,6 +99,8 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
         average_rating=(sum(ratings) / len(ratings)) if ratings else None,
         rating_count=len(ratings),
         tags=tags,
+        source_url=recipe.source_url,
+        method=recipe.method,
     )
 
 
@@ -111,6 +118,7 @@ def create_recipe(
         raise HTTPException(status_code=422, detail="A recipe needs at least one ingredient")
     if body.servings <= 0:
         raise HTTPException(status_code=422, detail="servings must be positive")
+    _validate_source_url(body.source_url)
 
     food_ids = {i.food_id for i in body.ingredients}
     found = db.query(Food.id).filter(Food.id.in_(food_ids)).all()
@@ -118,7 +126,13 @@ def create_recipe(
     if missing:
         raise HTTPException(status_code=422, detail=f"Unknown food id(s): {sorted(missing)}")
 
-    recipe = Recipe(user_id=current_user.id, name=body.name, servings=body.servings)
+    recipe = Recipe(
+        user_id=current_user.id,
+        name=body.name,
+        servings=body.servings,
+        source_url=body.source_url,
+        method=body.method,
+    )
     db.add(recipe)
     db.flush()
     for ingredient in body.ingredients:
@@ -227,6 +241,16 @@ def update_recipe(
         if body.servings <= 0:
             raise HTTPException(status_code=422, detail="servings must be positive")
         recipe.servings = body.servings
+    # source_url/method are optional metadata (unlike name/servings, which
+    # are required and so can't meaningfully be "cleared") — distinguish
+    # "omitted" (leave alone) from "explicitly null" (clear it) via
+    # model_fields_set, rather than treating both as "leave alone"
+    if "source_url" in body.model_fields_set:
+        if body.source_url is not None:
+            _validate_source_url(body.source_url)
+        recipe.source_url = body.source_url
+    if "method" in body.model_fields_set:
+        recipe.method = body.method
     db.commit()
     db.refresh(recipe)
     return _recipe_out(recipe, db, current_user)

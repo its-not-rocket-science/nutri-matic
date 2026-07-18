@@ -204,3 +204,121 @@ def test_recipe_absorbed_protein_per_serving(client):
     assert body["target_g"] == pytest.approx(56.0)  # sedentary, 70kg: 0.8 * 70
     assert body["diaas_percent_drv"] == pytest.approx(18.0 / 56.0 * 100)
     assert body["pdcaas_percent_drv"] == pytest.approx(18.0 / 56.0 * 100)
+
+
+def test_create_recipe_with_source_url_and_method(client):
+    token = register_and_token(client, "a@example.com")
+    res = client.post(
+        "/api/recipes",
+        json={
+            "name": "with source",
+            "servings": 2,
+            "ingredients": [{"food_id": 1, "quantity_g": 100}],
+            "source_url": "https://example.com/recipe",
+            "method": "Mix everything together and bake at 180C for 20 minutes.",
+        },
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["source_url"] == "https://example.com/recipe"
+    assert body["method"] == "Mix everything together and bake at 180C for 20 minutes."
+
+
+def test_create_recipe_source_url_and_method_default_null(client):
+    token = register_and_token(client, "a@example.com")
+    res = client.post(
+        "/api/recipes",
+        json={"name": "no extras", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["source_url"] is None
+    assert body["method"] is None
+
+
+def test_create_recipe_rejects_malformed_source_url(client):
+    token = register_and_token(client, "a@example.com")
+    res = client.post(
+        "/api/recipes",
+        json={
+            "name": "bad url",
+            "servings": 1,
+            "ingredients": [{"food_id": 1, "quantity_g": 100}],
+            "source_url": "not-a-url",
+        },
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 422
+
+
+def test_update_recipe_sets_source_url_and_method(client):
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "editable", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.patch(
+        f"/api/recipes/{recipe['id']}",
+        json={"source_url": "https://example.com/foo", "method": "Boil it."},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["source_url"] == "https://example.com/foo"
+    assert body["method"] == "Boil it."
+
+
+def test_update_recipe_rejects_malformed_source_url(client):
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "editable", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.patch(
+        f"/api/recipes/{recipe['id']}", json={"source_url": "ftp://nope"}, headers=auth_headers(token)
+    )
+    assert res.status_code == 422
+
+
+def test_update_recipe_can_clear_source_url_and_method(client):
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={
+            "name": "editable", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}],
+            "source_url": "https://example.com/foo", "method": "Boil it.",
+        },
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.patch(
+        f"/api/recipes/{recipe['id']}",
+        json={"source_url": None, "method": None},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["source_url"] is None
+    assert body["method"] is None
+
+
+def test_update_recipe_omitting_source_url_leaves_it_unchanged(client):
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={
+            "name": "editable", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}],
+            "source_url": "https://example.com/foo",
+        },
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.patch(f"/api/recipes/{recipe['id']}", json={"name": "renamed"}, headers=auth_headers(token))
+    assert res.status_code == 200
+    assert res.json()["source_url"] == "https://example.com/foo"

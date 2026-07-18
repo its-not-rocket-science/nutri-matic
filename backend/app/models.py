@@ -182,6 +182,12 @@ class Recipe(Base):
     # this only widens read access. Not settable via the API (no
     # RecipeCreate/RecipeUpdate field for it), only ever set directly in the db.
     is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # both optional — a recipe built directly in-app has neither. source_url
+    # is where the recipe came from (if anywhere); method is free-text
+    # cooking instructions, shown collapsed by default on the recipe page
+    # since ingredients/scoring are this app's focus, not step-by-step prep.
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    method: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class RecipeIngredient(Base):

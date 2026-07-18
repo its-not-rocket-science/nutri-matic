@@ -13,6 +13,8 @@
 
 	let name = $state('');
 	let servings = $state<number | null>(1);
+	let sourceUrl = $state('');
+	let method = $state('');
 	let rows: IngredientRow[] = $state([]);
 	let error: string | null = $state(null);
 	let submitting = $state(false);
@@ -45,13 +47,20 @@
 			error = 'Add at least one ingredient.';
 			return;
 		}
+		const trimmedUrl = sourceUrl.trim();
+		if (trimmedUrl && !trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+			error = 'Source URL must start with http:// or https://';
+			return;
+		}
 
 		submitting = true;
 		try {
 			const recipe = await api.createRecipe({
 				name,
 				servings,
-				ingredients: rows.map((r) => ({ food_id: r.food.id, quantity_g: r.quantity_g }))
+				ingredients: rows.map((r) => ({ food_id: r.food.id, quantity_g: r.quantity_g })),
+				source_url: trimmedUrl || null,
+				method: method.trim() || null
 			});
 			await goto(`/recipes/${recipe.id}`);
 		} catch (e) {
@@ -73,6 +82,24 @@
 		<label for="recipe-servings">Servings</label>
 		<input id="recipe-servings" type="number" step="any" min="0" bind:value={servings} required />
 	</div>
+	<div class="field">
+		<label for="recipe-source-url">Source URL (optional)</label>
+		<input
+			id="recipe-source-url"
+			type="url"
+			bind:value={sourceUrl}
+			placeholder="https://…"
+		/>
+	</div>
+
+	<details class="method-details">
+		<summary>Method (optional)</summary>
+		<div class="field">
+			<label for="recipe-method">Cooking instructions</label>
+			<textarea id="recipe-method" bind:value={method} rows="6" placeholder="Optional step-by-step method…"
+			></textarea>
+		</div>
+	</details>
 
 	<fieldset>
 		<legend>Ingredients</legend>
@@ -126,6 +153,23 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
+	}
+	.method-details {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: var(--space-3) var(--space-4);
+		margin: 0 0 var(--space-4);
+	}
+	.method-details summary {
+		cursor: pointer;
+		font-weight: var(--font-weight-medium);
+	}
+	.method-details .field {
+		margin-top: var(--space-3);
+	}
+	.method-details textarea {
+		font-family: inherit;
+		resize: vertical;
 	}
 	legend {
 		font-size: var(--font-size-sm);

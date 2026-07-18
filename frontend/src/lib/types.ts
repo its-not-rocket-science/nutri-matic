@@ -213,17 +213,23 @@ export interface Recipe {
 	rating_count: number;
 	tags: string[];
 	dietary_status?: DietaryStatus | null;
+	source_url: string | null;
+	method: string | null;
 }
 
 export interface RecipeCreate {
 	name: string;
 	servings: number;
 	ingredients: { food_id: number; quantity_g: number }[];
+	source_url?: string | null;
+	method?: string | null;
 }
 
 export interface RecipeUpdate {
 	name?: string;
 	servings?: number;
+	source_url?: string | null;
+	method?: string | null;
 }
 
 export interface RecipeShare {
