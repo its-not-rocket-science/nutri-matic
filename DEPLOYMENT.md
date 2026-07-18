@@ -52,6 +52,19 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
 -- 222k-row table for the gap-suggestions/meal-optimize query path)
 CREATE INDEX IF NOT EXISTS ix_food_nutrients_key_amount
     ON food_nutrients (nutrient_key, amount_per_100g);
+
+-- recipes.is_public / collections.is_public (Phase 4 stock-recipe feature —
+-- visible to every user regardless of ownership, still owner-only to edit)
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- users.currency (Phase 4 — ISO 4217 code overriding the browser locale's
+-- implied currency for price/cost displays; null means "follow the browser")
+ALTER TABLE users ADD COLUMN IF NOT EXISTS currency VARCHAR;
+
+-- users.goal (Phase 4 — onboarding goal, used to personalize the dashboard;
+-- null means "not set", distinct from any specific goal value)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS goal VARCHAR;
 ```
 
 ## What's deliberately not covered here
