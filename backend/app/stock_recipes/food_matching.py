@@ -160,7 +160,16 @@ def _word_and_search(db: Session, phrase: str, limit: int = 5) -> list[Food]:
 
     def rank(food: Food) -> tuple:
         first_segment = food.name.split(",")[0].strip().lower()
-        first_segment_matches = first_segment not in word_set  # False (0) sorts first
+        # "starts with a query word" rather than "equals a query word" —
+        # otherwise "Tomato products, canned, paste..." (first segment
+        # "tomato products") loses this tiebreak to "Tomato, paste..."
+        # (first segment "tomato") purely because "tomato products" != any
+        # single query word, even though "tomato products" obviously still
+        # starts with "tomato". Found starving out a complete-amino-acid
+        # duplicate of tomato paste in favour of an incomplete one.
+        first_segment_matches = not any(
+            first_segment == w or first_segment.startswith(w + " ") for w in word_set
+        )  # False (0) sorts first
         return (
             food.data_type == "branded_food", first_segment_matches, _lacks_amino_acids(food),
             len(food.name), food.name,
