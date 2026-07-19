@@ -148,6 +148,26 @@ MEASURED_PDCAAS: list[tuple[tuple[str, ...], tuple[str, ...], float, str]] = [
     ),
 ]
 
+# (prefixes, coefficient) — same idea as CATEGORY_FALLBACK below (broad,
+# "estimated" tier, not citable to a specific study), but prefix-anchored
+# like MEASURED_PDCAAS rather than bare-substring. A plain substring
+# ("butter" anywhere in the name) is unsafe here: it also matches
+# "Butterfinger Bar", "Butterscotch", "Butterbur" (a plant), margarine
+# spreads, and peanut/almond/cocoa butter — none of which are dairy
+# butter. Checked before CATEGORY_FALLBACK_SUBSTRING, first match wins.
+#
+# Coefficients extend existing precedent rather than introduce new
+# methodology: 0.95 already covers every other dairy category here
+# (milk/cheese/cream/yogurt) and butter's residual protein is the same
+# casein/whey; 0.80 already covers several individually-named spices
+# (cumin, turmeric, paprika, curry) as "general plant food" — this just
+# widens that same bucket to the FDC "Spices," category as a whole
+# instead of naming each one.
+CATEGORY_FALLBACK_PREFIX: list[tuple[tuple[str, ...], float]] = [
+    (("butter,",), 0.95),
+    (("spices,",), 0.80),
+]
+
 # (keyword, coefficient) — broad category fallback, "estimated" tier.
 # Checked only after the MEASURED_* tier finds no match, in order, first
 # match wins.
@@ -249,6 +269,9 @@ CATEGORY_FALLBACK: list[tuple[str, float]] = [
 
 
 def _category_fallback(name: str) -> tuple[float, str] | None:
+    for prefixes, coefficient in CATEGORY_FALLBACK_PREFIX:
+        if any(name.startswith(p) for p in prefixes):
+            return coefficient, "estimated"
     for keyword, coefficient in CATEGORY_FALLBACK:
         if keyword in name:
             return coefficient, "estimated"

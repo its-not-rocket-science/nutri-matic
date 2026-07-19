@@ -69,3 +69,42 @@ def test_pdcaas_category_fallback_for_unmeasured_food():
 
 def test_pdcaas_returns_none_for_no_match():
     assert lookup_pdcaas("Water, tap") is None
+
+
+def test_dairy_butter_gets_dairy_coefficient():
+    for name in ["Butter, salted", "Butter, without salt", "Butter, light, stick, with salt"]:
+        coeff, source = lookup_pdcaas(name)
+        assert (coeff, source) == (0.95, "estimated")
+        diaas_coeffs, diaas_source = lookup_diaas(name)
+        assert (diaas_coeffs, diaas_source) == (0.95, "estimated")
+
+
+def test_butter_prefix_excludes_non_dairy_lookalikes():
+    """The prefix anchor ("butter," at the start of the name) is what
+    keeps this from misfiring — none of these actually start with it, even
+    though a bare "butter" substring would have matched every one of them
+    (the bug this rule was written to avoid)."""
+    assert not "candies, nestle, butterfinger bar".startswith("butter,")
+    assert not "candies, butterscotch".startswith("butter,")
+    assert not "butterbur, raw".startswith("butter,")
+    assert not "margarine-like, butter-margarine blend, 80% fat, stick, without salt".startswith("butter,")
+    assert not "peanut butter, smooth style, with salt".startswith("butter,")
+    assert not "almond butter, creamy".startswith("butter,")
+
+    # and they resolve through their own correct path, not the dairy one
+    assert lookup_pdcaas("Peanut butter, smooth style, with salt")[0] == 0.80  # "peanut" category fallback
+    # NB: "Almond butter, creamy" is a separate, pre-existing quirk, not
+    # this rule's doing — "creamy" contains "cream" (0.95, dairy),
+    # matched before "almond" (0.80) reorders the fallback list. Noted,
+    # not fixed here — out of scope for the butter/spices prefix change.
+    assert lookup_pdcaas("Almond butter, unsalted")[0] == 0.80  # "almond" category fallback
+    assert lookup_pdcaas("Butterbur, raw") is None  # no rule matches at all — no fabricated value
+    assert lookup_pdcaas("Candies, butterscotch") is None
+
+
+def test_spices_prefix_gets_general_plant_coefficient():
+    for name in ["Spices, oregano, dried", "Spices, basil, dried", "Spices, rosemary, dried", "Spices, bay leaf"]:
+        coeff, source = lookup_pdcaas(name)
+        assert (coeff, source) == (0.80, "estimated")
+        diaas_coeffs, diaas_source = lookup_diaas(name)
+        assert (diaas_coeffs, diaas_source) == (0.80, "estimated")

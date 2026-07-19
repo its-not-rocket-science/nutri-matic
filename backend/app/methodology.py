@@ -26,5 +26,5 @@ meaningfully move most users' numbers, MINOR for a scoped correction
 (e.g. one nutrient's DRV), PATCH for a non-substantive fix (e.g. rounding).
 """
 
-SCORING_METHODOLOGY_VERSION = "1.0.0"
+SCORING_METHODOLOGY_VERSION = "1.1.0"
 DRV_METHODOLOGY_VERSION = "1.0.0"

@@ -134,6 +134,9 @@ ALIASES: dict[str, str] = {
     "mixed salad leaves": "lettuce raw",
     "salad leaves": "lettuce raw",
     "herbes de provence": "spices thyme dried",
+    # "mustard powder" was resolving to "Gravy, mushroom, dry, powder" (no
+    # amino acid data at all, blocking DIAAS/PDCAAS for the whole recipe)
+    "mustard powder": "spices mustard seed ground",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
