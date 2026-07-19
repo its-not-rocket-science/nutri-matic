@@ -108,6 +108,16 @@ _UNIT_TOKEN_RE = re.compile(rf"^({_UNIT_ALIAS_ALT})\b\.?\s*", re.IGNORECASE)
 # chopped tomatoes") — total mass is n * each-pack-size, not n alone
 _MULTIPACK_RE = re.compile(rf"^\s*(\d+)\s*[x×]\s*({_NUM})\s*", re.IGNORECASE)
 
+# the same idea without an "x" ("1  400g tin kidney beans...", seen in
+# real fetched recipes) — deliberately much narrower than the "x" form:
+# the second number must be a plain integer/decimal (not a fraction, which
+# would make "1 1/2 cups" ambiguous with this) glued with NO space to the
+# unit ("400g", never "400 g"), since that's what actually distinguishes
+# "one 400g tin" from a genuine two-number phrase
+_IMPLICIT_MULTIPACK_RE = re.compile(
+    rf"^\s*(\d+)\s+(\d+(?:\.\d+)?)({_UNIT_ALIAS_ALT})\b\.?\s*", re.IGNORECASE
+)
+
 # a dual metric/imperial annotation immediately after the primary unit
 # ("400g/14oz can...") — the imperial equivalent is discarded, the metric
 # quantity+unit already captured is kept as the source of truth
@@ -223,7 +233,18 @@ def parse_ingredient_line(raw: str, section: str | None = None) -> ParsedIngredi
     quantity_min = quantity_max = None
     unit: str | None = None
 
-    multipack_match = _MULTIPACK_RE.match(text)
+    implicit_match = _IMPLICIT_MULTIPACK_RE.match(text)
+    if implicit_match:
+        try:
+            count = _parse_number(implicit_match.group(1))
+            each = _parse_number(implicit_match.group(2))
+            quantity_min = quantity_max = count * each
+            unit = _ALIAS_TO_UNIT[implicit_match.group(3).lower()]
+            text = text[implicit_match.end():].strip()
+        except (ValueError, ZeroDivisionError):
+            quantity_min = quantity_max = None
+
+    multipack_match = None if quantity_min is not None else _MULTIPACK_RE.match(text)
     if multipack_match:
         remainder = text[multipack_match.end():]
         unit_match = _UNIT_TOKEN_RE.match(remainder)

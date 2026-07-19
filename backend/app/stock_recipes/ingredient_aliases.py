@@ -105,6 +105,20 @@ ALIASES: dict[str, str] = {
     "worcestershire sauce": "worcestershire sauce",
     "soy sauce": "soy sauce",
     "fish sauce": "fish sauce",
+    # found matching real branded products instead of the generic
+    # ingredient while running the real pipeline against a full FDC catalog
+    "black olives": "olives ripe canned",
+    "olives": "olives ripe canned",
+    "salt": "salt table",
+    "salt and pepper": "salt table",
+    "black pepper": "spices pepper black",
+    "pepper": "spices pepper black",
+    "chilli flakes": "spices pepper red or cayenne",
+    "bagel": "bagels plain",
+    "bread roll": "bread white",
+    "pitta": "bread pita",
+    "cauliflower": "cauliflower raw",
+    "butternut squash": "squash butternut raw",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
