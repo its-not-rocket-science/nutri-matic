@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from ..dietary_tags import match_confidence as _data_type_confidence
 from ..models import Food
+from ..reference_patterns import AMINO_ACIDS
 from ..search import search_foods_by_name
 from .ingredient_aliases import ALIASES, REVIEWED_FALLBACKS
 
@@ -113,6 +114,19 @@ def _candidates_from(foods: list[Food]) -> list[MatchCandidate]:
     ]
 
 
+def _lacks_amino_acids(food: Food) -> bool:
+    """True if this food's amino acid panel is incomplete. Used as a
+    matching tiebreaker: the same food commonly exists twice in FDC (once
+    from Foundation Foods, once from SR Legacy — e.g. "Garlic, raw" —
+    with only one of the two actually carrying amino acid data), and
+    without this, ranking-by-name-alone picks whichever happens to sort
+    first, silently blocking DIAAS/PDCAAS for every recipe that lands on
+    the incomplete one even though the complete duplicate is sitting
+    right there in the same database (found affecting ~180 recipes
+    across just three ingredients: garlic, celery, crushed tomatoes)."""
+    return any(food.amino_acids.get(aa) is None for aa in AMINO_ACIDS)
+
+
 def _word_and_search(db: Session, phrase: str, limit: int = 5) -> list[Food]:
     """Every word in `phrase` must appear somewhere in Food.name — used for
     ALIASES/REVIEWED_FALLBACKS' curated multi-word search phrases, which
@@ -147,7 +161,10 @@ def _word_and_search(db: Session, phrase: str, limit: int = 5) -> list[Food]:
     def rank(food: Food) -> tuple:
         first_segment = food.name.split(",")[0].strip().lower()
         first_segment_matches = first_segment not in word_set  # False (0) sorts first
-        return (food.data_type == "branded_food", first_segment_matches, len(food.name), food.name)
+        return (
+            food.data_type == "branded_food", first_segment_matches, _lacks_amino_acids(food),
+            len(food.name), food.name,
+        )
 
     return sorted(candidates, key=rank)[:limit]
 
@@ -156,8 +173,9 @@ def _canonical_lookup(db: Session, normalised: str) -> Food | None:
     """A deterministic (non-fuzzy) Food.name match: the normalised
     ingredient name as either the whole name or the first comma-separated
     segment of a USDA-style name ("onions raw" -> "Onions, raw..."). Prefers
-    Foundation/SR Legacy over branded, then the shortest (most generic)
-    matching name."""
+    Foundation/SR Legacy over branded, then a complete amino acid profile
+    over an incomplete one (see _lacks_amino_acids), then the shortest
+    (most generic) matching name."""
     candidates = (
         db.query(Food)
         .filter(Food.name.ilike(f"{normalised}%") | Food.name.ilike(f"{normalised},%"))
@@ -165,7 +183,7 @@ def _canonical_lookup(db: Session, normalised: str) -> Food | None:
     )
     if not candidates:
         return None
-    candidates.sort(key=lambda f: (f.data_type == "branded_food", len(f.name)))
+    candidates.sort(key=lambda f: (f.data_type == "branded_food", _lacks_amino_acids(f), len(f.name)))
     return candidates[0]
 
 
