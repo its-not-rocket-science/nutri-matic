@@ -282,17 +282,28 @@ def cmd_match(args) -> int:
 
 
 def _match_candidate(db: Session, cand: dict, min_coverage: float) -> None:
+    """A line with no stated quantity at all ("Salt, to taste") can never
+    become a RecipeIngredient (quantity_g is required) regardless of how
+    well its name matches a Food — that's an inherent property of the
+    source line, not a matching failure. Coverage and
+    Recipe.unresolved_ingredients are about matching quality, so those
+    quantity-less lines are tracked (still visible in cand["matches"] for
+    review-file transparency) but excluded from both — otherwise every
+    recipe with "salt and pepper to taste" would be needlessly penalised,
+    and coverage would say nothing about actual match quality."""
     parsed_ingredients = [ParsedIngredient(**p) for p in cand["parsed_ingredients"]]
     match_rows: list[dict] = []
     resolutions: list[tuple[bool, float | None]] = []
     unresolved_lines: list[str] = []
 
     for parsed in parsed_ingredients:
+        quantity_stated = parsed.normalised_quantity is not None
         match: MatchResult = match_ingredient(db, parsed.name)
         row: dict[str, Any] = {
             "raw_text": parsed.raw_text,
             "name": parsed.name,
             "optional": parsed.optional,
+            "quantity_stated": quantity_stated,
             "method": match.method,
             "confidence": match.confidence,
             "candidates": [asdict(c) for c in match.candidates],
@@ -305,7 +316,7 @@ def _match_candidate(db: Session, cand: dict, min_coverage: float) -> None:
         }
 
         grams = None
-        if match.food is not None and parsed.normalised_quantity is not None:
+        if match.food is not None and quantity_stated:
             conversion = convert(parsed.normalised_quantity, parsed.unit, parsed.name)
             if conversion is not None:
                 grams = conversion.grams
@@ -314,9 +325,10 @@ def _match_candidate(db: Session, cand: dict, min_coverage: float) -> None:
                 row["conversion_assumptions"] = conversion.assumptions
 
         row["resolved"] = match.food is not None and grams is not None
-        if not row["resolved"]:
-            unresolved_lines.append(parsed.raw_text)
-        resolutions.append((row["resolved"], grams))
+        if quantity_stated:
+            if not row["resolved"]:
+                unresolved_lines.append(parsed.raw_text)
+            resolutions.append((row["resolved"], grams))
         match_rows.append(row)
 
     coverage = compute_coverage(resolutions)
@@ -326,7 +338,9 @@ def _match_candidate(db: Session, cand: dict, min_coverage: float) -> None:
     cand["unresolved_ingredients"] = unresolved_lines
 
     reasons = []
-    if coverage.line_coverage < min_coverage:
+    if not resolutions:
+        reasons.append("no ingredient line has a stated quantity")
+    elif coverage.line_coverage < min_coverage:
         reasons.append(f"ingredient-line match coverage {coverage.line_coverage:.0%} below the {min_coverage:.0%} threshold")
     if not cand.get("servings") or cand["servings"] <= 0:
         reasons.append("missing or non-positive serving count")
@@ -334,7 +348,7 @@ def _match_candidate(db: Session, cand: dict, min_coverage: float) -> None:
     if total_mass < 50:
         reasons.append(f"implausibly low total resolved ingredient mass ({total_mass:.0f}g)")
 
-    if not any(r[0] for r in resolutions):
+    if resolutions and not any(r[0] for r in resolutions):
         cand["stock_status"] = "rejected"
         cand["status_reason"] = "no ingredient could be matched to any food"
     elif reasons:

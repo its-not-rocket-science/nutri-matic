@@ -96,6 +96,42 @@ INGREDIENT_UNIT_WEIGHTS: dict[tuple[str, str | None], float] = {
     ("sweetcorn", "tin"): 300.0,
     ("butter", "knob"): 15.0,
     ("ginger", "knob"): 15.0,
+    # found missing while running the real pipeline against a full FDC
+    # catalog — these all matched a real Food fine but had no bare-count
+    # weight to convert to grams
+    ("leek", None): 150.0,
+    ("cucumber", None): 300.0,
+    ("bagel", None): 90.0,
+    ("crumpet", None): 45.0,
+    ("bread roll", None): 60.0,
+    ("pitta", None): 65.0,
+    ("falafel", None): 20.0,
+    ("lettuce leaf", None): 10.0,
+    ("chicken thigh", None): 120.0,
+    ("beef sirloin steak", None): 200.0,
+    ("sirloin steak", None): 200.0,
+    ("salmon fillet", None): 150.0,
+    ("white fish fillet", None): 150.0,
+    ("fish fillet", None): 150.0,
+    ("pork chop", None): 180.0,
+    ("vegetarian sausage", None): 55.0,
+    ("sausage", None): 55.0,
+    ("mushroom", None): 15.0,
+    ("rasher", None): 25.0,
+    ("tortilla wrap", None): 55.0,
+    ("tortilla", None): 55.0,
+    ("butternut squash", None): 1000.0,
+    ("cauliflower", None): 600.0,
+    ("orange", None): 130.0,
+    ("olive", None): 4.0,
+    ("anchovy fillet", None): 4.0,
+    ("english muffin", None): 60.0,
+    ("muffin", None): 60.0,
+    # the unit ends up folded into the name rather than parsed separately
+    # for "N garlic cloves" (unit-noun after the ingredient, not before —
+    # the parser only strips a *leading* unit token)
+    ("garlic cloves", None): 5.0,
+    ("stock pot", None): 24.0,  # concentrated jelly stock pot (e.g. Knorr), not a stock cube
 }
 
 # generic fallbacks when no ingredient-specific figure above applies —
