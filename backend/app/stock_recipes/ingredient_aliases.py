@@ -141,6 +141,7 @@ ALIASES: dict[str, str] = {
     # "mustard powder" was resolving to "Gravy, mushroom, dry, powder" (no
     # amino acid data at all, blocking DIAAS/PDCAAS for the whole recipe)
     "mustard powder": "spices mustard seed ground",
+    "cherry tomatoes": "tomatoes red ripe raw",  # was matching "Tomatoes, crushed, canned" (!)
     # Phase 2 "Category A" — real branded/wrong-category mismatches found
     # against the real live database, each recovering a generic entry
     # with a complete amino acid profile that was already sitting in the
