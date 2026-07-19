@@ -8,4 +8,4 @@ build/
 dist/
 .DS_Store
 .coverage
-.stock_recipe_cache/
+.stock_recipe_cache*/
