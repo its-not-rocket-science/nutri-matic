@@ -87,14 +87,14 @@
       "everyday_uk_meals",
       "budget_meals"
     ],
-    "source": "fetch",
-    "source_name": "schema_org",
+    "source": "manual",
+    "source_name": null,
     "source_url": "https://pinchofnom.com/recipes/tuna-pasta-bake/",
     "discovery_query": null,
     "dietary_characteristics": [],
     "educational_note": null,
     "priority": 1,
-    "notes": null
+    "notes": "source page JSON-LD has no recipeIngredient/recipeYield/recipeInstructions (verified live) - source_url kept as attribution-only link"
   },
   {
     "slug": "chicken_fajitas",

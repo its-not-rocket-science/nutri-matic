@@ -2847,5 +2847,20 @@
       "1 tbsp olive oil",
       "1 tsp dried thyme"
     ]
+  },
+  "tuna_pasta_bake": {
+    "servings": 4,
+    "ingredients": [
+      "350 g pasta",
+      "2 x 160 g tins tuna, drained",
+      "200 g sweetcorn",
+      "100 g spinach",
+      "40 g butter",
+      "40 g plain flour",
+      "600 ml milk",
+      "120 g mature cheddar, grated",
+      "1 tsp mustard powder",
+      "Salt and pepper, to taste"
+    ]
   }
 }
