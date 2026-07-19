@@ -147,6 +147,19 @@ ALIASES: dict[str, str] = {
     "rolled oats": "oats",  # "Oats, whole grain, rolled, old fashioned" (fuzzy tier's pick) has no amino acid data
     "red peppers": "peppers sweet red raw",  # was resolving to an incomplete duplicate; this name has full amino acid data
     "baking potatoes": "potatoes flesh and skin raw",  # "Potatoes, raw, skin" (fuzzy pick) has no amino acid data
+    # bare "egg"/"eggs" was a serious mismatch, not just an amino acid gap:
+    # "egg" (canonical tier) resolved to "Eggnog" and "eggs" resolved to
+    # "Eggs, Grade A, Large, egg yolk" (yolk-only nutrition for a whole-egg
+    # ingredient) — found while chasing the highest-impact remaining
+    # DIAAS/PDCAAS blocker (24 recipes on the yolk mismatch alone)
+    "egg": "egg whole raw fresh",
+    "eggs": "egg whole raw fresh",
+    "large egg": "egg whole raw fresh",
+    "large eggs": "egg whole raw fresh",
+    "egg whites": "egg white raw fresh",
+    "egg white": "egg white raw fresh",
+    "egg yolks": "egg yolk raw fresh",  # must outrank the bare "egg" pattern below, or "egg yolks" wrongly matches whole egg
+    "egg yolk": "egg yolk raw fresh",
     # Phase 2 "Category A" — real branded/wrong-category mismatches found
     # against the real live database, each recovering a generic entry
     # with a complete amino acid profile that was already sitting in the
