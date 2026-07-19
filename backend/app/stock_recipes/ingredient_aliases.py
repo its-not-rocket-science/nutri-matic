@@ -137,6 +137,24 @@ ALIASES: dict[str, str] = {
     # "mustard powder" was resolving to "Gravy, mushroom, dry, powder" (no
     # amino acid data at all, blocking DIAAS/PDCAAS for the whole recipe)
     "mustard powder": "spices mustard seed ground",
+    # Phase 2 "Category A" — real branded/wrong-category mismatches found
+    # against the real live database, each recovering a generic entry
+    # with a complete amino acid profile that was already sitting in the
+    # database, unused, in favour of a branded or flatly wrong product:
+    "vegetable stock": "soup vegetable broth",  # was "Soup, SWANSON, vegetable broth"
+    "soy sauce": "soy sauce wheat shoyu",  # was "Sauce, peanut, made from peanut butter, water, soy sauce"
+    "green beans": "beans snap green raw",  # was a toddler babyfood product
+    "crusty bread": "bread french vienna toasted",  # was "Bread, cheese" (unrelated)
+    "granola": "cereals granola homemade",  # was a chocolate-coated granola BAR, not the cereal
+    "firm tofu": "tofu raw firm calcium sulfate",  # was a specific branded product
+    "braising steak": "beef chuck raw",  # was "Sauce, steak, tomato based" (!)
+    "sardines in tomato sauce": "sardine pacific tomato sauce",  # was the same wrong steak sauce
+    "english muffin": "muffins english plain enriched",
+    # no dedicated "garam masala" entry exists in this database at all —
+    # curry powder is the closest available spice-blend proxy (both are
+    # broad Indian spice mixes), a documented approximation rather than
+    # the completely unrelated branded soup this was resolving to before
+    "garam masala": "spices curry powder",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
