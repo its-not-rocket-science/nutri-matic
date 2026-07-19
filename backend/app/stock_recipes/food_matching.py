@@ -121,7 +121,16 @@ def _word_and_search(db: Session, phrase: str, limit: int = 5) -> list[Food]:
     meat..."). A single-substring ILIKE (what search_foods_by_name does,
     correctly, for a free-text user query) would never match that; ANDing
     each word's own ILIKE does. Non-branded foods are preferred, same
-    reasoning as search.py's own branded_last ordering."""
+    reasoning as search.py's own branded_last ordering.
+
+    Ranking beyond that is NOT plain alphabetical — that let "olive oil"
+    match "Mayonnaise, reduced fat, with olive oil" ahead of the actual
+    "Oil, olive" entry purely because "Mayonnaise" sorts before "Oil"
+    (found affecting 86 imported recipes). USDA-style names put the true
+    category first ("Oil, olive..."), so a candidate whose *first*
+    comma-segment is itself one of the query words is almost always the
+    right generic match; a query word merely appearing later in the name
+    (like "...with olive oil") is a much weaker signal."""
     words = [w for w in phrase.strip().split() if w]
     if not words:
         return []
@@ -129,7 +138,18 @@ def _word_and_search(db: Session, phrase: str, limit: int = 5) -> list[Food]:
     for word in words:
         query = query.filter(Food.name.ilike(f"%{word}%"))
     branded_last = case((Food.data_type == "branded_food", 1), else_=0)
-    return query.order_by(branded_last, Food.name).limit(limit).all()
+    # fetch a wider pool than `limit` so the Python-side re-rank below has
+    # something to work with beyond whatever the DB's default tiebreak picked
+    candidates = query.order_by(branded_last, Food.name).limit(max(limit * 8, 40)).all()
+
+    word_set = {w.lower() for w in words}
+
+    def rank(food: Food) -> tuple:
+        first_segment = food.name.split(",")[0].strip().lower()
+        first_segment_matches = first_segment not in word_set  # False (0) sorts first
+        return (food.data_type == "branded_food", first_segment_matches, len(food.name), food.name)
+
+    return sorted(candidates, key=rank)[:limit]
 
 
 def _canonical_lookup(db: Session, normalised: str) -> Food | None:

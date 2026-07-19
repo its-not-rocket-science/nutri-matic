@@ -124,6 +124,16 @@ ALIASES: dict[str, str] = {
     # any of these recipes mean) — affected 26 imported recipes when found
     # running the real pipeline
     "milk": "milk whole milkfat",
+    # more real fuzzy-tier mismatches found the same way — a bare "lemon"
+    # (not juice) was resolving to "Lemon peel, raw"; "courgette" to a
+    # frozen/unprepared zucchini; "mixed salad leaves" to a foraged wild
+    # plant ("Fireweed, leaves, raw"); "herbes de Provence" (not in this
+    # catalog as a blend at all) to a dried mushroom ("Pepeao, dried")
+    "lemon": "lemons raw without peel",
+    "courgette": "squash summer zucchini raw",
+    "mixed salad leaves": "lettuce raw",
+    "salad leaves": "lettuce raw",
+    "herbes de provence": "spices thyme dried",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
