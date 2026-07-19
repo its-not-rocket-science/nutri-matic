@@ -265,6 +265,28 @@ CATEGORY_FALLBACK: list[tuple[str, float]] = [
     ("berries", 0.80),
     ("grape", 0.80),
     ("melon", 0.80),
+    # found missing while checking the real live database's remaining
+    # DIAAS/PDCAAS gaps — same "general plant food" tier as the entries
+    # just above, just omitted from the original list rather than a new
+    # category being invented
+    ("celery", 0.80),
+    ("cucumber", 0.80),
+    ("squash", 0.80),
+    ("zucchini", 0.80),
+    ("courgette", 0.80),
+    ("olive", 0.80),
+    ("watercress", 0.80),
+    ("rutabaga", 0.80),
+    ("rosemary", 0.80),
+    ("basil", 0.80),
+    ("dill", 0.80),
+    ("lemon", 0.80),
+    ("lime", 0.80),
+    # honey is a trace-protein edge case (0.3g/100g) rather than a real
+    # "food category" the way the others above are, but it's a natural
+    # product with the same coarse-estimate rationale, not a manufactured
+    # ingredient — included for consistency rather than left as a gap
+    ("honey", 0.80),
 ]
 
 

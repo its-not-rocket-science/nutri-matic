@@ -71,6 +71,18 @@ def test_pdcaas_returns_none_for_no_match():
     assert lookup_pdcaas("Water, tap") is None
 
 
+def test_newly_added_general_plant_food_keywords():
+    """Found missing while checking real remaining DIAAS/PDCAAS gaps —
+    same 0.80 "general plant food" tier the file already used for
+    carrot/broccoli/spinach, just omitted from the original list."""
+    for name in [
+        "Celery, raw", "Cucumber, peeled, raw", "Squash, summer, zucchini, includes skin, raw",
+        "Olives, ripe, canned (small-extra large)", "Watercress, raw", "Rutabaga, peeled, raw",
+        "Rosemary, fresh", "Basil, fresh", "Lemons, raw, without peel", "Lime juice, raw", "Honey",
+    ]:
+        assert lookup_pdcaas(name) == (0.80, "estimated"), name
+
+
 def test_dairy_butter_gets_dairy_coefficient():
     for name in ["Butter, salted", "Butter, without salt", "Butter, light, stick, with salt"]:
         coeff, source = lookup_pdcaas(name)
