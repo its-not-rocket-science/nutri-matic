@@ -40,6 +40,26 @@ def test_exact_alias_match(db):
     assert result.confidence == 0.95
 
 
+def test_prefers_duplicate_with_complete_amino_acid_profile(db):
+    """The real-world case this guards: the same food commonly exists
+    twice in FDC (a Foundation Foods entry and an SR Legacy entry — e.g.
+    "Garlic, raw"), and only one of the two actually has amino acid data.
+    Found blocking DIAAS/PDCAAS on ~180 imported recipes because ranking
+    only considered name length/alphabetical order, not data
+    completeness."""
+    complete = {a: 40.0 for a in AMINO_ACIDS}
+    incomplete = dict.fromkeys(AMINO_ACIDS)
+
+    # incomplete entry added first / lower id, so a naive tiebreak would pick it
+    db.add(Food(name="Celery, raw", protein_g_per_100g=0.5, amino_acids=incomplete, data_type="foundation_food"))
+    db.add(Food(name="Celery, raw", protein_g_per_100g=0.5, amino_acids=complete, data_type="sr_legacy_food"))
+    db.commit()
+
+    result = match_ingredient(db, "celery")
+    assert result.method == "canonical"
+    assert all(v is not None for v in result.food.amino_acids.values())
+
+
 def test_alias_matches_within_a_longer_ingredient_phrase(db):
     result = match_ingredient(db, "5% lean beef mince")
     assert result.method == "alias"
