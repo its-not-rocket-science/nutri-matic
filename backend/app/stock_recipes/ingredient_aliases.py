@@ -119,6 +119,11 @@ ALIASES: dict[str, str] = {
     "pitta": "bread pita",
     "cauliflower": "cauliflower raw",
     "butternut squash": "squash butternut raw",
+    # bare "milk" was resolving to "Milk, sheep, fluid" (canonical tier's
+    # shortest-non-branded-name tiebreak, not wrong exactly, just not what
+    # any of these recipes mean) — affected 26 imported recipes when found
+    # running the real pipeline
+    "milk": "milk whole milkfat",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
