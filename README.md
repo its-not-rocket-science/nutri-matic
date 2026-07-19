@@ -243,7 +243,18 @@ score):
 python -m app.seed_manual_foods
 ```
 
-**5. (Optional) Populate the curated stock recipe library** — a set of
+**5. (Optional) Patch amino acid data FDC genuinely doesn't publish for a
+few common foods** — a handful of ordinary Foundation/SR Legacy entries
+(e.g. red onions) have no amino acid panel anywhere in FDC's own data.
+Where a real peer-reviewed source exists, `app/patch_amino_acid_data.py`
+adds it — see that module for the full citation and derivation per food.
+Never overwrites a food that already has any amino acid data:
+
+```bash
+python -m app.patch_amino_acid_data
+```
+
+**6. (Optional) Populate the curated stock recipe library** — a set of
 recipes visible to every user, organised into collections, with computed
 nutrition and robustness ratings:
 
