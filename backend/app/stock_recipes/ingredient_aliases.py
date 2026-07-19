@@ -67,7 +67,7 @@ ALIASES: dict[str, str] = {
     "chicken thigh": "chicken thigh raw",
     "mixed beans": "beans mixed canned",
     "kidney beans": "kidney beans canned",
-    "cannellini beans": "cannellini beans canned",
+    "cannellini beans": "beans white mature seeds canned",  # "Beans, cannellini, canned..." (fuzzy pick) has no amino acid data; white kidney beans are the same bean, complete data already in DB
     "butter beans": "lima beans canned",
     "black beans": "black beans canned",
     "curry powder": "curry powder",
@@ -144,6 +144,9 @@ ALIASES: dict[str, str] = {
     "cherry tomatoes": "tomatoes red ripe raw",  # was matching "Tomatoes, crushed, canned" (!)
     "beef sirloin steaks": "beef top sirloin steak raw",
     "beef sirloin": "beef top sirloin steak raw",
+    "rolled oats": "oats",  # "Oats, whole grain, rolled, old fashioned" (fuzzy tier's pick) has no amino acid data
+    "red peppers": "peppers sweet red raw",  # was resolving to an incomplete duplicate; this name has full amino acid data
+    "baking potatoes": "potatoes flesh and skin raw",  # "Potatoes, raw, skin" (fuzzy pick) has no amino acid data
     # Phase 2 "Category A" — real branded/wrong-category mismatches found
     # against the real live database, each recovering a generic entry
     # with a complete amino acid profile that was already sitting in the
