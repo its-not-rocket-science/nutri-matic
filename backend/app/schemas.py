@@ -63,6 +63,12 @@ class FoodListOut(BaseModel):
     has_more: bool
 
 
+class ExcludedIngredientOut(BaseModel):
+    food_id: int
+    name: str
+    protein_g: float
+
+
 class ScoreOut(BaseModel):
     method: str
     pattern_used: str
@@ -74,6 +80,15 @@ class ScoreOut(BaseModel):
     # to the scoring formula or reference patterns would alter this score
     # for the same input data
     methodology_version: str
+    # coverage_fraction < 1.0 / is_partial True means this score was computed
+    # from only the ingredients with complete amino acid + digestibility
+    # data — see aggregation.compute_protein_quality_with_coverage.
+    # excluded_ingredients lists exactly what was left out and how much
+    # protein it represents. coverage_fraction is 1.0 and the list is empty
+    # whenever every ingredient had complete data.
+    coverage_fraction: float = 1.0
+    is_partial: bool = False
+    excluded_ingredients: list[ExcludedIngredientOut] = []
 
 
 class RobustnessMetricOut(BaseModel):
@@ -96,6 +111,12 @@ class RobustnessMetricOut(BaseModel):
     display_rating: int | None = None
     explanation: str = ""
     not_calculated_reason: str | None = None
+    # only meaningful for protein_quality_diaas/pdcaas and
+    # absorbed_protein_diaas/pdcaas — see
+    # aggregation.compute_protein_quality_with_coverage. None/empty for
+    # every other metric.
+    coverage_fraction: float | None = None
+    excluded_foods: list[dict] = []
 
 
 class RobustnessOut(BaseModel):
@@ -544,6 +565,11 @@ class AbsorbedProteinOut(BaseModel):
     target_g: float | None
     diaas_percent_drv: float | None
     pdcaas_percent_drv: float | None
+    # < 1.0 means the corresponding *_absorbed_g was computed from only the
+    # ingredients with complete data for that method — null whenever the
+    # corresponding *_absorbed_g is itself null (nothing to qualify)
+    diaas_coverage_fraction: float | None = None
+    pdcaas_coverage_fraction: float | None = None
 
 
 class QuickAddItemOut(BaseModel):

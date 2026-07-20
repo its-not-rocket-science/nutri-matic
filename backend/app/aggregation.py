@@ -12,6 +12,13 @@ existing compute_diaas/compute_pdcaas machinery already refuses to score
 an incomplete profile, and that's the right behavior here too: a wrong
 DIAAS number is worse than an honest "can't be scored."
 
+compute_protein_quality_with_coverage() below is the deliberate exception:
+given the same all-or-nothing risk, it scores from just the ingredients
+that DO have complete data, excluding the rest, and reports exactly what
+was excluded and what fraction of the recipe's protein that represents —
+still refusing outright below a minimum coverage bar, but no longer letting
+one obscure spice null an otherwise well-covered recipe.
+
 Vitamin/mineral/fibre/fat totals are handled differently and more
 permissively: a missing FoodNutrient row for an ingredient just
 contributes zero for that nutrient, rather than making the whole mixture
@@ -22,14 +29,15 @@ feature unusable for the very common case of one ingredient lacking full
 micronutrient data.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from sqlalchemy.orm import Session
 
 from .data_quality import is_implausible
 from .models import Food, FoodNutrient, Recipe, RecipeIngredient
-from .reference_patterns import AMINO_ACIDS
+from .reference_patterns import AMINO_ACIDS, DEFAULT_PATTERN
+from .scoring import IncompleteAminoAcidProfile, ScoreResult, UnknownReferencePattern, compute_diaas, compute_pdcaas
 
 
 @dataclass
@@ -206,6 +214,121 @@ def aggregate_amino_acids(items: list[WeightedFood]) -> AminoAcidAggregate:
         digestibility_pdcaas_source=(
             ("measured" if pdcaas_all_measured else "estimated") if any_pdcaas_contributor else None
         ),
+    )
+
+
+DEFAULT_MINIMUM_PROTEIN_QUALITY_COVERAGE = 0.75
+
+
+def _is_usable_for_diaas(food: Food) -> bool:
+    """Whether this single food, on its own, has everything compute_diaas
+    needs — a complete 9-key amino acid profile AND a complete per-amino-acid
+    DIAAS digestibility coefficient for every one of those keys."""
+    if any(food.amino_acids.get(aa) is None for aa in AMINO_ACIDS):
+        return False
+    if food.digestibility_diaas is None:
+        return False
+    return all(food.digestibility_diaas.get(aa) is not None for aa in AMINO_ACIDS)
+
+
+def _is_usable_for_pdcaas(food: Food) -> bool:
+    """Whether this single food has a complete amino acid profile and an
+    overall PDCAAS digestibility coefficient."""
+    return (
+        all(food.amino_acids.get(aa) is not None for aa in AMINO_ACIDS)
+        and food.digestibility_pdcaas is not None
+    )
+
+
+@dataclass
+class ProteinQualityResult:
+    """Result of scoring DIAAS/PDCAAS using only the ingredients that have
+    complete data for that method, when the full ingredient set doesn't.
+    coverage_fraction is 1.0 and excluded_foods is empty whenever every
+    protein-contributing ingredient had complete data — this is a strict
+    superset of the old all-or-nothing result, not a separate code path for
+    the common case."""
+
+    score: ScoreResult | None
+    coverage_fraction: float
+    covered_protein_g: float
+    total_protein_g: float
+    excluded_foods: list[dict] = field(default_factory=list)
+    digestibility_source: str | None = None
+    # the aggregate computed over just the usable subset — exposed so a
+    # caller needing more than the score itself (e.g. protein_absorption.py,
+    # which needs the limiting amino acid's own digestibility coefficient)
+    # doesn't have to redo the partitioning/aggregation.
+    aggregate: AminoAcidAggregate | None = None
+
+
+def compute_protein_quality_with_coverage(
+    items: list[WeightedFood],
+    method: str,
+    pattern: str = DEFAULT_PATTERN,
+    minimum_coverage: float = DEFAULT_MINIMUM_PROTEIN_QUALITY_COVERAGE,
+) -> ProteinQualityResult:
+    """Computes DIAAS ("diaas") or PDCAAS ("pdcaas") from just the
+    ingredients with complete data for that method, excluding the rest —
+    rather than aggregate_amino_acids' all-or-nothing behavior refusing the
+    whole recipe over one incomplete ingredient. Below minimum_coverage
+    (default 75%, matching stock_recipes/pipeline.py's own match-coverage
+    bar) the excluded protein is judged too large a share to trust a partial
+    number, and score stays None — same honest "can't be scored" as before,
+    just with a higher bar.
+
+    excluded_foods lists what's missing, so a caller can tell the user
+    exactly which ingredients still need amino acid data, not just that the
+    score is partial."""
+    is_usable = _is_usable_for_diaas if method == "diaas" else _is_usable_for_pdcaas
+
+    usable_items: list[WeightedFood] = []
+    excluded_by_food_id: dict[int, dict] = {}
+    total_protein_g = 0.0
+
+    for item in items:
+        protein_g = item.food.protein_g_per_100g * item.quantity_g / 100
+        if protein_g <= 0:
+            continue
+        total_protein_g += protein_g
+        if is_usable(item.food):
+            usable_items.append(item)
+        else:
+            existing = excluded_by_food_id.get(item.food.id)
+            if existing is None:
+                excluded_by_food_id[item.food.id] = {
+                    "food_id": item.food.id, "name": item.food.name, "protein_g": protein_g,
+                }
+            else:
+                existing["protein_g"] += protein_g
+
+    covered_protein_g = total_protein_g - sum(f["protein_g"] for f in excluded_by_food_id.values())
+    coverage_fraction = (covered_protein_g / total_protein_g) if total_protein_g > 0 else 0.0
+    excluded_foods = sorted(excluded_by_food_id.values(), key=lambda f: -f["protein_g"])
+
+    aggregate = aggregate_amino_acids(usable_items)
+    digestibility_source = (
+        aggregate.digestibility_diaas_source if method == "diaas" else aggregate.digestibility_pdcaas_source
+    )
+
+    score: ScoreResult | None = None
+    if coverage_fraction >= minimum_coverage:
+        try:
+            if method == "diaas" and aggregate.digestibility_diaas is not None:
+                score = compute_diaas(aggregate.amino_acids, aggregate.digestibility_diaas, pattern)
+            elif method == "pdcaas" and aggregate.digestibility_pdcaas is not None:
+                score = compute_pdcaas(aggregate.amino_acids, aggregate.digestibility_pdcaas, pattern)
+        except (IncompleteAminoAcidProfile, UnknownReferencePattern):
+            score = None
+
+    return ProteinQualityResult(
+        score=score,
+        coverage_fraction=coverage_fraction,
+        covered_protein_g=covered_protein_g,
+        total_protein_g=total_protein_g,
+        excluded_foods=excluded_foods,
+        digestibility_source=digestibility_source,
+        aggregate=aggregate,
     )
 
 

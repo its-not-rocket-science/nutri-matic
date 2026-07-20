@@ -29,12 +29,18 @@ import random
 import statistics
 from dataclasses import dataclass, field
 
-from ..aggregation import AminoAcidAggregate, WeightedFood, aggregate_amino_acids, aggregate_nutrients
+from ..aggregation import (
+    DEFAULT_MINIMUM_PROTEIN_QUALITY_COVERAGE,
+    AminoAcidAggregate,
+    WeightedFood,
+    aggregate_amino_acids,
+    aggregate_nutrients,
+    compute_protein_quality_with_coverage,
+)
 from ..bioavailability import estimate_meal_iron_absorption, is_meat_fish_poultry, split_food_iron
 from ..models import Food, FoodNutrient
-from ..protein_absorption import compute_absorbed_protein
+from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..reference_patterns import DEFAULT_PATTERN
-from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
 
 ROBUSTNESS_MODEL_VERSION = "1.0.0"
 DEFAULT_SIMULATION_COUNT = 200
@@ -95,6 +101,13 @@ class MetricResult:
     display_rating: int | None = None
     explanation: str = ""
     not_calculated_reason: str | None = None
+    # only meaningful for protein_quality_diaas/pdcaas and
+    # absorbed_protein_diaas/pdcaas — see
+    # aggregation.compute_protein_quality_with_coverage. coverage_fraction
+    # is 1.0 and excluded_foods empty when every protein-contributing
+    # ingredient had complete data; None/empty for every other metric.
+    coverage_fraction: float | None = None
+    excluded_foods: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -107,35 +120,32 @@ class RobustnessAnalysis:
     overall_explanation: str
 
 
-def _score_safe(method, amino_acids, digestibility, pattern) -> float | None:
-    try:
-        if method == "diaas":
-            if digestibility is None:
-                return None
-            return compute_diaas(amino_acids, digestibility, pattern).score
-        if digestibility is None:
-            return None
-        return compute_pdcaas(amino_acids, digestibility, pattern).score
-    except (IncompleteAminoAcidProfile, UnknownReferencePattern):
-        return None
-
-
 def _compute_draw_metrics(
     items: list[WeightedFood],
     nutrients_by_food_id: dict[int, list[FoodNutrient]],
     servings: float,
     pattern: str,
 ) -> dict[str, float | None]:
+    """Note: protein_quality_diaas/pdcaas and absorbed_protein_diaas/pdcaas
+    are each computed from just the ingredients with complete data for that
+    method (compute_protein_quality_with_coverage /
+    compute_absorbed_protein_with_coverage) rather than the old
+    all-or-nothing aggregate — which foods qualify doesn't change between
+    draws (only their simulated quantities do), so this naturally produces
+    the same usable subset every time; run_robustness separately captures
+    the baseline coverage_fraction/excluded_foods once for reporting."""
     aggregate: AminoAcidAggregate = aggregate_amino_acids(items)
     totals = aggregate_nutrients(items, nutrients_by_food_id, divide_by=servings)
-    absorbed = compute_absorbed_protein(aggregate, pattern)
+    absorbed = compute_absorbed_protein_with_coverage(items, pattern)
+    diaas_quality = compute_protein_quality_with_coverage(items, "diaas", pattern)
+    pdcaas_quality = compute_protein_quality_with_coverage(items, "pdcaas", pattern)
 
     values: dict[str, float | None] = {
         "protein": (aggregate.total_protein_g / servings) if aggregate.total_protein_g > 0 else None,
         "absorbed_protein_diaas": (absorbed.diaas_absorbed_g / servings) if absorbed and absorbed.diaas_absorbed_g is not None else None,
         "absorbed_protein_pdcaas": (absorbed.pdcaas_absorbed_g / servings) if absorbed and absorbed.pdcaas_absorbed_g is not None else None,
-        "protein_quality_diaas": _score_safe("diaas", aggregate.amino_acids, aggregate.digestibility_diaas, pattern),
-        "protein_quality_pdcaas": _score_safe("pdcaas", aggregate.amino_acids, aggregate.digestibility_pdcaas, pattern),
+        "protein_quality_diaas": diaas_quality.score.score if diaas_quality.score is not None else None,
+        "protein_quality_pdcaas": pdcaas_quality.score.score if pdcaas_quality.score is not None else None,
         "calcium": totals.get("calcium"),
         "fibre": totals.get("fiber_total"),
         "sodium": totals.get("sodium"),
@@ -228,6 +238,41 @@ def _explain(metric_key: str, result: MetricResult) -> str:
     if result.unmatched_uncertainty_note:
         text += f" {result.unmatched_uncertainty_note}"
     return text
+
+
+def _patch_protein_quality_coverage(
+    metrics: dict[str, MetricResult], baseline_items: list[WeightedFood], pattern: str
+) -> None:
+    """Attaches coverage_fraction/excluded_foods (see
+    aggregation.compute_protein_quality_with_coverage) to the four
+    protein-quality-dependent metrics, computed once from the recipe's
+    baseline (unperturbed) ingredients — which foods are usable doesn't
+    change draw to draw, only their simulated quantities do. When a metric
+    wasn't calculated specifically because coverage fell short of the
+    minimum bar (not because there was no data at all), replaces the
+    generic not_calculated_reason with one naming the actual shortfall."""
+    diaas_quality = compute_protein_quality_with_coverage(baseline_items, "diaas", pattern)
+    pdcaas_quality = compute_protein_quality_with_coverage(baseline_items, "pdcaas", pattern)
+
+    for key, quality in (
+        ("protein_quality_diaas", diaas_quality),
+        ("absorbed_protein_diaas", diaas_quality),
+        ("protein_quality_pdcaas", pdcaas_quality),
+        ("absorbed_protein_pdcaas", pdcaas_quality),
+    ):
+        result = metrics[key]
+        result.coverage_fraction = quality.coverage_fraction
+        result.excluded_foods = quality.excluded_foods
+        if (
+            result.not_calculated_reason is not None
+            and quality.score is None
+            and 0 < quality.coverage_fraction < DEFAULT_MINIMUM_PROTEIN_QUALITY_COVERAGE
+        ):
+            result.not_calculated_reason = (
+                f"less than {DEFAULT_MINIMUM_PROTEIN_QUALITY_COVERAGE:.0%} of this recipe's protein is from "
+                f"ingredients with amino acid data ({quality.coverage_fraction:.0%} covered)"
+            )
+            result.explanation = _explain(key, result)
 
 
 def run_robustness(
@@ -324,6 +369,8 @@ def run_robustness(
         )
         result.explanation = _explain(key, result)
         metrics[key] = result
+
+    _patch_protein_quality_coverage(metrics, baseline_items, pattern)
 
     overall_rating, overall_explanation = _overall(metrics)
 

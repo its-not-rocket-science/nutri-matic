@@ -1,8 +1,15 @@
 import pytest
 
-from app.aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients, scale_recipe_ingredients
+from app.aggregation import (
+    WeightedFood,
+    aggregate_amino_acids,
+    aggregate_nutrients,
+    compute_protein_quality_with_coverage,
+    scale_recipe_ingredients,
+)
 from app.models import Food, FoodNutrient, RecipeIngredient
 from app.reference_patterns import AMINO_ACIDS
+from app.scoring import compute_diaas, compute_pdcaas
 
 
 def make_food(
@@ -184,6 +191,100 @@ def test_scale_recipe_ingredients_by_servings_eaten():
     by_food_id = {w.food.id: w.quantity_g for w in weighted}
     assert by_food_id[1] == pytest.approx(400 * 0.375)
     assert by_food_id[2] == pytest.approx(200 * 0.375)
+
+
+def test_protein_quality_coverage_full_data_matches_direct_scoring():
+    """When every ingredient has complete data, the coverage-aware path must
+    reduce to exactly the old all-or-nothing result: coverage_fraction 1.0,
+    no exclusions, same score compute_diaas/compute_pdcaas would give
+    directly."""
+    food_a = make_food(1, protein_g_per_100g=10, aa_value=10, diaas_value=0.9, pdcaas_value=0.85)
+    food_b = make_food(2, protein_g_per_100g=5, aa_value=30, diaas_value=0.8, pdcaas_value=0.7)
+    items = [WeightedFood(food_a, quantity_g=200), WeightedFood(food_b, quantity_g=100)]
+
+    aggregate = aggregate_amino_acids(items)
+    expected_diaas = compute_diaas(aggregate.amino_acids, aggregate.digestibility_diaas)
+    expected_pdcaas = compute_pdcaas(aggregate.amino_acids, aggregate.digestibility_pdcaas)
+
+    diaas_result = compute_protein_quality_with_coverage(items, "diaas")
+    pdcaas_result = compute_protein_quality_with_coverage(items, "pdcaas")
+
+    assert diaas_result.coverage_fraction == 1.0
+    assert diaas_result.excluded_foods == []
+    assert diaas_result.score.score == pytest.approx(expected_diaas.score)
+
+    assert pdcaas_result.coverage_fraction == 1.0
+    assert pdcaas_result.excluded_foods == []
+    assert pdcaas_result.score.score == pytest.approx(expected_pdcaas.score)
+
+
+def test_protein_quality_coverage_excludes_incomplete_ingredient_above_threshold():
+    """One ingredient with no amino acid data at all, contributing a minor
+    share of protein, should be excluded rather than nulling the whole
+    score — this is the actual fix for the "recipes we can't score" problem:
+    a real partial score computed from what IS known, not a refusal."""
+    good_a = make_food(1, protein_g_per_100g=20, aa_value=10, diaas_value=0.9, pdcaas_value=0.85)
+    good_b = make_food(2, protein_g_per_100g=20, aa_value=15, diaas_value=0.85, pdcaas_value=0.8)
+    incomplete = Food(
+        id=3, name="mystery spice", protein_g_per_100g=2,
+        amino_acids=dict.fromkeys(AMINO_ACIDS, None), digestibility_diaas=None, digestibility_pdcaas=None,
+    )
+    items = [
+        WeightedFood(good_a, quantity_g=100),   # 20g protein
+        WeightedFood(good_b, quantity_g=100),   # 20g protein
+        WeightedFood(incomplete, quantity_g=50),  # 1g protein -- small enough to stay above 75% coverage
+    ]
+
+    result = compute_protein_quality_with_coverage(items, "pdcaas")
+
+    assert result.total_protein_g == pytest.approx(41.0)
+    assert result.covered_protein_g == pytest.approx(40.0)
+    assert result.coverage_fraction == pytest.approx(40.0 / 41.0)
+    assert result.score is not None
+    assert result.excluded_foods == [{"food_id": 3, "name": "mystery spice", "protein_g": pytest.approx(1.0)}]
+
+    # the score must match computing directly over just the two good foods
+    usable_only = compute_protein_quality_with_coverage(items[:2], "pdcaas")
+    assert result.score.score == pytest.approx(usable_only.score.score)
+
+
+def test_protein_quality_coverage_below_threshold_refuses_to_score():
+    """When the incomplete ingredient dominates protein contribution, the
+    partial number would be too thin to trust -- stays None, same 'honest
+    can't be scored' as the old all-or-nothing behavior, just with excluded
+    foods/coverage now visible instead of a blank refusal."""
+    good = make_food(1, protein_g_per_100g=10, aa_value=10, diaas_value=0.9, pdcaas_value=0.85)
+    incomplete = Food(
+        id=2, name="mystery stock", protein_g_per_100g=10,
+        amino_acids=dict.fromkeys(AMINO_ACIDS, None), digestibility_diaas=None, digestibility_pdcaas=None,
+    )
+    items = [WeightedFood(good, quantity_g=100), WeightedFood(incomplete, quantity_g=100)]  # 50/50 protein split
+
+    result = compute_protein_quality_with_coverage(items, "pdcaas")
+
+    assert result.coverage_fraction == pytest.approx(0.5)
+    assert result.score is None
+    assert result.excluded_foods == [{"food_id": 2, "name": "mystery stock", "protein_g": pytest.approx(10.0)}]
+
+
+def test_protein_quality_coverage_zero_usable_ingredients():
+    incomplete = Food(
+        id=1, name="mystery", protein_g_per_100g=10,
+        amino_acids=dict.fromkeys(AMINO_ACIDS, None), digestibility_diaas=None, digestibility_pdcaas=None,
+    )
+    result = compute_protein_quality_with_coverage([WeightedFood(incomplete, quantity_g=100)], "diaas")
+    assert result.score is None
+    assert result.coverage_fraction == 0.0
+    assert result.excluded_foods[0]["food_id"] == 1
+
+
+def test_protein_quality_coverage_no_protein_contributors_at_all():
+    zero_protein_food = make_food(1, protein_g_per_100g=0, aa_value=10, diaas_value=0.9, pdcaas_value=0.85)
+    result = compute_protein_quality_with_coverage([WeightedFood(zero_protein_food, quantity_g=100)], "diaas")
+    assert result.score is None
+    assert result.coverage_fraction == 0.0
+    assert result.total_protein_g == 0.0
+    assert result.excluded_foods == []  # zero-protein foods are never "excluded" -- they were never a scoring input
 
 
 def test_diary_day_combines_direct_food_and_recipe_entries():

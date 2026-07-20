@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..aggregation import (
     WeightedFood,
-    aggregate_amino_acids,
     aggregate_nutrients,
     expand_entries_to_weighted_foods,
     scale_recipe_ingredients,
@@ -38,7 +37,7 @@ from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
 from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, User
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
-from ..protein_absorption import compute_absorbed_protein
+from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
 from ..trends import GroupBy, bucket_day_totals
 
@@ -256,7 +255,7 @@ def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> s
     nutrients_out, totals, by_food_id = gaps.nutrients_out, gaps.totals, gaps.by_food_id
 
     day_items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
-    absorbed = compute_absorbed_protein(aggregate_amino_acids(day_items))
+    absorbed = compute_absorbed_protein_with_coverage(day_items)
     target_g = calculate_protein_target_g(current_user)
     absorbed_protein_out = (
         schemas.AbsorbedProteinOut(
@@ -274,6 +273,8 @@ def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> s
                 if absorbed.pdcaas_absorbed_g is not None and target_g
                 else None
             ),
+            diaas_coverage_fraction=absorbed.diaas_coverage_fraction,
+            pdcaas_coverage_fraction=absorbed.pdcaas_coverage_fraction,
         )
         if absorbed is not None
         else None

@@ -48,7 +48,15 @@ def client():
         digestibility_pdcaas=0.8,
         digestibility_pdcaas_source="estimated",
     )
-    db.add_all([measured, estimated])
+    no_amino_acid_data = Food(
+        id=3,
+        name="no amino acid data food",
+        protein_g_per_100g=20,
+        amino_acids=dict.fromkeys(AMINO_ACIDS, None),
+        digestibility_diaas=None,
+        digestibility_pdcaas=None,
+    )
+    db.add_all([measured, estimated, no_amino_acid_data])
     db.commit()
     db.close()
 
@@ -148,6 +156,71 @@ def test_recipe_score_mixed_ingredients_reports_estimated(client):
     assert res_pdcaas.json()["digestibility_source"] == "estimated"
 
 
+def test_recipe_score_full_coverage_reports_no_exclusions(client):
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "measured-only", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/score?method=diaas", headers=auth_headers(token))
+    assert res.status_code == 200
+    body = res.json()
+    assert body["coverage_fraction"] == pytest.approx(1.0)
+    assert body["is_partial"] is False
+    assert body["excluded_ingredients"] == []
+
+
+def test_recipe_score_excludes_minor_incomplete_ingredient_above_threshold(client):
+    """A recipe where a small-protein-contribution ingredient has no amino
+    acid data at all should still get a real (partial) score computed from
+    the rest, rather than a blanket refusal -- the actual fix for "recipes
+    we can't score"."""
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={
+            "name": "mostly covered",
+            "servings": 1,
+            # food 1: 300g @ 20g/100g = 60g protein (has data)
+            # food 3: 50g @ 20g/100g = 10g protein (no amino acid data)
+            # coverage = 60/70 = ~86%, above the 75% bar
+            "ingredients": [{"food_id": 1, "quantity_g": 300}, {"food_id": 3, "quantity_g": 50}],
+        },
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/score?method=pdcaas", headers=auth_headers(token))
+    assert res.status_code == 200
+    body = res.json()
+    assert body["is_partial"] is True
+    assert body["coverage_fraction"] == pytest.approx(60.0 / 70.0)
+    assert body["excluded_ingredients"] == [
+        {"food_id": 3, "name": "no amino acid data food", "protein_g": pytest.approx(10.0)}
+    ]
+
+
+def test_recipe_score_below_coverage_threshold_still_refuses(client):
+    """When the incomplete ingredient is too large a share of the recipe's
+    protein, the partial number would be too thin to trust -- same 422
+    refusal as before, just with a coverage-shortfall-specific message."""
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={
+            "name": "half covered",
+            "servings": 1,
+            "ingredients": [{"food_id": 1, "quantity_g": 100}, {"food_id": 3, "quantity_g": 100}],
+        },
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/score?method=pdcaas", headers=auth_headers(token))
+    assert res.status_code == 422
+    assert "insufficient ingredient coverage" in res.json()["detail"]
+
+
 def test_create_recipe_rejects_empty_ingredients(client):
     token = register_and_token(client, "a@example.com")
     res = client.post(
@@ -204,6 +277,35 @@ def test_recipe_absorbed_protein_per_serving(client):
     assert body["target_g"] == pytest.approx(56.0)  # sedentary, 70kg: 0.8 * 70
     assert body["diaas_percent_drv"] == pytest.approx(18.0 / 56.0 * 100)
     assert body["pdcaas_percent_drv"] == pytest.approx(18.0 / 56.0 * 100)
+
+
+def test_recipe_absorbed_protein_partial_coverage(client):
+    """When one ingredient has no amino acid data, absorbed protein grams
+    are computed from just the covered protein (not the full total) --
+    applying a digestibility coefficient derived from a subset to protein
+    outside that subset would overstate confidence never actually
+    measured."""
+    token = register_and_token(client, "a@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={
+            "name": "partial absorbed test",
+            "servings": 1,
+            # food 1: 300g @ 20g/100g = 60g protein (0.9 digestibility, both methods)
+            # food 3: 50g @ 20g/100g = 10g protein (no amino acid data)
+            "ingredients": [{"food_id": 1, "quantity_g": 300}, {"food_id": 3, "quantity_g": 50}],
+        },
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/absorbed-protein", headers=auth_headers(token))
+    assert res.status_code == 200
+    body = res.json()
+    assert body["total_protein_g"] == pytest.approx(70.0)  # true full total, informational
+    assert body["diaas_absorbed_g"] == pytest.approx(60.0 * 0.9)  # from covered protein only
+    assert body["pdcaas_absorbed_g"] == pytest.approx(60.0 * 0.9)
+    assert body["diaas_coverage_fraction"] == pytest.approx(60.0 / 70.0)
+    assert body["pdcaas_coverage_fraction"] == pytest.approx(60.0 / 70.0)
 
 
 def test_create_recipe_with_source_url_and_method(client):

@@ -17,6 +17,13 @@
 				>{score.digestibility_source}</span
 			>
 		{/if}
+		{#if score.is_partial}
+			<span
+				class="badge badge-info"
+				title="Some ingredients lack amino acid data and were excluded from this score"
+				>partial — {(score.coverage_fraction * 100).toFixed(0)}% coverage</span
+			>
+		{/if}
 		<InfoLink href="/methodology#protein-quality" label="How DIAAS/PDCAAS scores are computed" />
 	</h2>
 	<p class="muted">
@@ -24,6 +31,14 @@
 			>{AMINO_ACID_LABELS[score.limiting_amino_acid as keyof typeof AMINO_ACID_LABELS]}</strong
 		>
 	</p>
+	{#if score.is_partial}
+		<p class="muted partial-note">
+			Computed from ingredients with complete amino acid data only. Excluded ({(
+				(1 - score.coverage_fraction) *
+				100
+			).toFixed(0)}% of protein): {score.excluded_ingredients.map((i) => i.name).join(', ')}.
+		</p>
+	{/if}
 	<ul class="bars">
 		{#each Object.entries(score.per_aa_ratios) as [aa, ratio] (aa)}
 			<li class:limiting={aa === score.limiting_amino_acid}>
@@ -41,6 +56,9 @@
 	.badge {
 		vertical-align: middle;
 		margin-left: var(--space-2);
+	}
+	.partial-note {
+		margin-top: 0;
 	}
 	.bars {
 		list-style: none;

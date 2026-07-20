@@ -46,6 +46,12 @@ export interface FoodCreate {
 	digestibility_pdcaas: number | null;
 }
 
+export interface ExcludedIngredient {
+	food_id: number;
+	name: string;
+	protein_g: number;
+}
+
 export interface Score {
 	method: 'diaas' | 'pdcaas';
 	pattern_used: string;
@@ -54,6 +60,13 @@ export interface Score {
 	per_aa_ratios: Record<string, number>;
 	digestibility_source: 'measured' | 'estimated' | null;
 	methodology_version: string;
+	// coverage_fraction < 1.0 / is_partial true means this score was
+	// computed from only the ingredients with complete amino acid +
+	// digestibility data -- see backend aggregation.py's
+	// compute_protein_quality_with_coverage.
+	coverage_fraction: number;
+	is_partial: boolean;
+	excluded_ingredients: ExcludedIngredient[];
 }
 
 export interface ComplementSuggestion {
@@ -362,6 +375,11 @@ export interface AbsorbedProtein {
 	target_g: number | null;
 	diaas_percent_drv: number | null;
 	pdcaas_percent_drv: number | null;
+	/** < 1.0 means diaas/pdcaas_absorbed_g came from only the ingredients with
+	 * complete data for that method; null whenever the corresponding
+	 * *_absorbed_g is itself null */
+	diaas_coverage_fraction: number | null;
+	pdcaas_coverage_fraction: number | null;
 }
 
 export interface RobustnessMetric {
@@ -378,6 +396,10 @@ export interface RobustnessMetric {
 	display_rating: number | null;
 	explanation: string;
 	not_calculated_reason: string | null;
+	/** only meaningful for protein_quality_diaas/pdcaas and
+	 * absorbed_protein_diaas/pdcaas -- null/empty for every other metric */
+	coverage_fraction: number | null;
+	excluded_foods: { food_id: number; name: string; protein_g: number }[];
 }
 
 /** A stock recipe's nutritional-robustness analysis — how stable its
