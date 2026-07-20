@@ -448,6 +448,11 @@
 						{#if absorbedProtein.diaas_percent_drv !== null}
 							<span class="muted">({absorbedProtein.diaas_percent_drv.toFixed(0)}%)</span>
 						{/if}
+						{#if absorbedProtein.diaas_coverage_fraction !== null && absorbedProtein.diaas_coverage_fraction < 1}
+							<span class="badge badge-info" title="Some ingredients lack amino acid data and were excluded"
+								>partial — {(absorbedProtein.diaas_coverage_fraction * 100).toFixed(0)}% coverage</span
+							>
+						{/if}
 					</span>
 				{/if}
 				{#if absorbedProtein.pdcaas_absorbed_g !== null}
@@ -455,6 +460,11 @@
 						PDCAAS {absorbedProtein.pdcaas_absorbed_g.toFixed(1)}g
 						{#if absorbedProtein.pdcaas_percent_drv !== null}
 							<span class="muted">({absorbedProtein.pdcaas_percent_drv.toFixed(0)}%)</span>
+						{/if}
+						{#if absorbedProtein.pdcaas_coverage_fraction !== null && absorbedProtein.pdcaas_coverage_fraction < 1}
+							<span class="badge badge-info" title="Some ingredients lack amino acid data and were excluded"
+								>partial — {(absorbedProtein.pdcaas_coverage_fraction * 100).toFixed(0)}% coverage</span
+							>
 						{/if}
 					</span>
 				{/if}
@@ -497,10 +507,21 @@
 						<li>
 							<strong>{key.replaceAll('_', ' ')}:</strong>
 							{metric.display_rating !== null ? `${metric.display_rating}/5` : 'not calculated'}
+							{#if metric.not_calculated_reason === null && metric.coverage_fraction !== null && metric.coverage_fraction < 1}
+								<span
+									class="badge badge-info"
+									title="Some ingredients lack amino acid data and were excluded from this metric"
+									>partial — {(metric.coverage_fraction * 100).toFixed(0)}% coverage</span
+								>
+							{/if}
 							<br />
 							<span class="muted">
 								{metric.not_calculated_reason ?? metric.explanation}
 							</span>
+							{#if metric.excluded_foods.length > 0}
+								<br />
+								<span class="muted">Excluded: {metric.excluded_foods.map((f) => f.name).join(', ')}</span>
+							{/if}
 						</li>
 					{/each}
 				</ul>

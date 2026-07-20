@@ -35,6 +35,20 @@ def _food(session, name, protein=10.0, **kwargs):
     return food
 
 
+def _complete_food(session, name, protein):
+    """A food with a full amino acid profile and digestibility data for
+    both methods -- unlike _food(), which deliberately leaves both null."""
+    food = Food(
+        name=name, protein_g_per_100g=protein, data_type="foundation_food",
+        amino_acids=dict.fromkeys(AMINO_ACIDS, 40.0),
+        digestibility_diaas=dict.fromkeys(AMINO_ACIDS, 0.9), digestibility_diaas_source="measured",
+        digestibility_pdcaas=0.9, digestibility_pdcaas_source="measured",
+    )
+    session.add(food)
+    session.flush()
+    return food
+
+
 def _nutrients_by_food_id(session, *foods):
     result = {}
     for f in foods:
@@ -200,6 +214,61 @@ def test_no_digestibility_data_reports_not_calculated(db):
     result = run_robustness(ingredients, 1, nutrients, 0.0, simulation_count=50, random_seed=42)
     assert result.metrics["protein_quality_diaas"].not_calculated_reason is not None
     assert result.metrics["protein_quality_diaas"].display_rating is None
+    assert result.metrics["protein_quality_diaas"].coverage_fraction == 0.0
+
+
+def test_minor_incomplete_ingredient_still_reports_partial_protein_quality(db):
+    """A dominant, complete-data ingredient plus a minor incomplete one
+    should now get a real (partial) protein-quality rating rather than
+    the old blanket not_calculated -- the actual fix for "recipes we
+    can't score"."""
+    good = _complete_food(db, "Complete Data Food", protein=20.0)
+    mystery = _food(db, "Mystery Spice", protein=2.0)  # no amino acid data at all
+    db.commit()
+
+    # good: 300g @ 20g/100g = 60g protein; mystery: 50g @ 2g/100g = 1g protein
+    # coverage = 60/61 ~= 98%, well above the 75% bar
+    ingredients = [
+        RobustnessIngredientInput(good, 300.0, estimate_bound_fraction("exact", 1.0), False),
+        RobustnessIngredientInput(mystery, 50.0, estimate_bound_fraction("exact", 1.0), False),
+    ]
+    nutrients = _nutrients_by_food_id(db, good, mystery)
+
+    result = run_robustness(ingredients, 1, nutrients, 0.0, simulation_count=100, random_seed=42)
+
+    diaas = result.metrics["protein_quality_diaas"]
+    assert diaas.not_calculated_reason is None
+    assert diaas.baseline is not None
+    assert diaas.coverage_fraction == pytest.approx(60.0 / 61.0)
+    assert diaas.excluded_foods == [{"food_id": mystery.id, "name": "Mystery Spice", "protein_g": pytest.approx(1.0)}]
+
+    absorbed = result.metrics["absorbed_protein_diaas"]
+    assert absorbed.not_calculated_reason is None
+    assert absorbed.coverage_fraction == pytest.approx(60.0 / 61.0)
+
+
+def test_majority_incomplete_ingredient_names_coverage_shortfall(db):
+    """When the incomplete ingredient is too large a protein share, the
+    metric still refuses to score -- but the reason now names the actual
+    coverage shortfall instead of a generic 'no data' message."""
+    good = _complete_food(db, "Complete Data Food", protein=10.0)
+    mystery = _food(db, "Mystery Stock", protein=10.0)  # no amino acid data at all
+    db.commit()
+
+    # 50/50 protein split -- well below the 75% coverage bar
+    ingredients = [
+        RobustnessIngredientInput(good, 100.0, estimate_bound_fraction("exact", 1.0), False),
+        RobustnessIngredientInput(mystery, 100.0, estimate_bound_fraction("exact", 1.0), False),
+    ]
+    nutrients = _nutrients_by_food_id(db, good, mystery)
+
+    result = run_robustness(ingredients, 1, nutrients, 0.0, simulation_count=100, random_seed=42)
+
+    diaas = result.metrics["protein_quality_diaas"]
+    assert diaas.not_calculated_reason is not None
+    assert "75%" in diaas.not_calculated_reason
+    assert diaas.coverage_fraction == pytest.approx(0.5)
+    assert diaas.excluded_foods == [{"food_id": mystery.id, "name": "Mystery Stock", "protein_g": pytest.approx(10.0)}]
 
 
 def test_model_version_recorded(db):

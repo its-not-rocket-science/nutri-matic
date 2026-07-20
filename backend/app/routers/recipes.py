@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
+from ..aggregation import WeightedFood, aggregate_nutrients, compute_protein_quality_with_coverage
 from ..auth import get_current_user
 from ..database import get_db
 from ..dietary_filter import filter_excluded_recipes, recipes_dietary_status
@@ -21,10 +21,10 @@ from ..models import (
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..nutrients import NUTRIENTS, resolve_drv
-from ..protein_absorption import compute_absorbed_protein
+from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
 from ..reference_patterns import DEFAULT_PATTERN
-from ..scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
+from ..scoring import UnknownReferencePattern
 from ..search import NutrientFilter, UnknownFilterKey, search_recipes
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
@@ -335,37 +335,38 @@ def score_recipe(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    recipe = _get_visible_recipe(recipe_id, current_user, db)
-    aggregate = aggregate_amino_acids(_weighted_foods(recipe, db))
+    if method not in ("diaas", "pdcaas"):
+        raise HTTPException(status_code=422, detail="method must be 'diaas' or 'pdcaas'")
 
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
     try:
-        if method == "diaas":
-            if aggregate.digestibility_diaas is None:
-                raise HTTPException(
-                    status_code=422, detail="Recipe has no per-amino-acid digestibility data for DIAAS"
-                )
-            result = compute_diaas(aggregate.amino_acids, aggregate.digestibility_diaas, pattern)
-        elif method == "pdcaas":
-            if aggregate.digestibility_pdcaas is None:
-                raise HTTPException(
-                    status_code=422, detail="Recipe has no overall digestibility data for PDCAAS"
-                )
-            result = compute_pdcaas(aggregate.amino_acids, aggregate.digestibility_pdcaas, pattern)
-        else:
-            raise HTTPException(status_code=422, detail="method must be 'diaas' or 'pdcaas'")
-    except (UnknownReferencePattern, IncompleteAminoAcidProfile) as e:
+        quality = compute_protein_quality_with_coverage(_weighted_foods(recipe, db), method, pattern)
+    except UnknownReferencePattern as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+    if quality.score is None:
+        detail = (
+            f"Recipe has insufficient ingredient coverage to calculate {method.upper()} "
+            f"(only {quality.coverage_fraction:.0%} of protein-contributing ingredients have "
+            "amino acid data)"
+            if quality.total_protein_g > 0
+            else f"Recipe has no protein-contributing ingredients with amino acid data for {method.upper()}"
+        )
+        raise HTTPException(status_code=422, detail=detail)
 
     return schemas.ScoreOut(
         method=method,
-        pattern_used=result.pattern_used,
-        score=result.score,
-        limiting_amino_acid=result.limiting_amino_acid,
-        per_aa_ratios=result.per_aa_ratios,
-        digestibility_source=(
-            aggregate.digestibility_diaas_source if method == "diaas" else aggregate.digestibility_pdcaas_source
-        ),
+        pattern_used=quality.score.pattern_used,
+        score=quality.score.score,
+        limiting_amino_acid=quality.score.limiting_amino_acid,
+        per_aa_ratios=quality.score.per_aa_ratios,
+        digestibility_source=quality.digestibility_source,
         methodology_version=SCORING_METHODOLOGY_VERSION,
+        coverage_fraction=quality.coverage_fraction,
+        is_partial=quality.coverage_fraction < 1.0,
+        excluded_ingredients=[
+            schemas.ExcludedIngredientOut(**f) for f in quality.excluded_foods
+        ],
     )
 
 
@@ -436,7 +437,7 @@ def recipe_absorbed_protein(
     recipe = _get_visible_recipe(recipe_id, current_user, db)
     items = _weighted_foods(recipe, db)
 
-    absorbed = compute_absorbed_protein(aggregate_amino_acids(items))
+    absorbed = compute_absorbed_protein_with_coverage(items)
     if absorbed is None:
         return None
 
@@ -456,6 +457,8 @@ def recipe_absorbed_protein(
         pdcaas_percent_drv=(
             pdcaas_absorbed_g / target_g * 100 if pdcaas_absorbed_g is not None and target_g else None
         ),
+        diaas_coverage_fraction=absorbed.diaas_coverage_fraction,
+        pdcaas_coverage_fraction=absorbed.pdcaas_coverage_fraction,
     )
 
 
