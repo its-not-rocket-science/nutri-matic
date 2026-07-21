@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..auth import get_optional_current_user
+from ..auth import get_optional_owned_profile
 from ..complement import suggest_complements
 from ..data_quality import implausibility_reason
 from ..database import get_db
@@ -87,14 +87,14 @@ def list_foods(limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
 
 
 def _with_dietary_status(
-    foods: list[models.Food], db: Session, current_user: models.User | None
+    foods: list[models.Food], db: Session, profile: models.Profile | None
 ) -> list[models.Food]:
     """Excluded items are already gone by this point (filter_excluded_foods
     ran first) — this only flags the "avoid"/"unknown" ones that remain,
     so a signed-in user never sees them presented identically to a fully
     "ok" result. Sets a plain instance attribute (not a mapped column) that
     FoodOut.dietary_status reads via from_attributes; never persisted."""
-    status_by_id = foods_dietary_status(foods, db, current_user)
+    status_by_id = foods_dietary_status(foods, db, profile)
     for food in foods:
         suitability = status_by_id.get(food.id)
         food.dietary_status = (
@@ -112,7 +112,7 @@ def food_search_by_name(
     q: str,
     limit: int = 20,
     db: Session = Depends(get_db),
-    current_user: models.User | None = Depends(get_optional_current_user),
+    profile: models.Profile | None = Depends(get_optional_owned_profile),
 ):
     """Name autocomplete for logging a diary/meal-plan entry or building a
     recipe — synonym/plural-aware substring matching, ranked by relevance,
@@ -121,23 +121,23 @@ def food_search_by_name(
     have any hard dietary exclusion (allergy, religious requirement,
     dietary pattern) removed — see dietary_filter.py."""
     results = search_foods_by_name(db, q, limit=limit)
-    results = filter_excluded_foods(results, db, current_user)
-    return _with_dietary_status(results, db, current_user)
+    results = filter_excluded_foods(results, db, profile)
+    return _with_dietary_status(results, db, profile)
 
 
 @router.post("/search", response_model=list[schemas.FoodOut])
 def food_search(
     body: schemas.SearchRequest,
     db: Session = Depends(get_db),
-    current_user: models.User | None = Depends(get_optional_current_user),
+    profile: models.Profile | None = Depends(get_optional_owned_profile),
 ):
     filters = [NutrientFilter(f.key, f.op, f.value) for f in body.filters]
     try:
         results = search_foods(db, filters, limit=body.limit)
     except UnknownFilterKey as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    results = filter_excluded_foods(results, db, current_user)
-    return _with_dietary_status(results, db, current_user)
+    results = filter_excluded_foods(results, db, profile)
+    return _with_dietary_status(results, db, profile)
 
 
 @router.get("/barcode/{gtin_upc}", response_model=schemas.FoodOut)
@@ -188,14 +188,14 @@ def complement_food(
     method: str = "diaas",
     pattern: str = DEFAULT_PATTERN,
     db: Session = Depends(get_db),
-    current_user: models.User | None = Depends(get_optional_current_user),
+    profile: models.Profile | None = Depends(get_optional_owned_profile),
 ):
     food = db.get(models.Food, food_id)
     if food is None:
         raise HTTPException(status_code=404, detail="Food not found")
 
     result = _compute_score(food, method, pattern)
-    suggestions = suggest_complements(food, result, method, pattern, db, current_user=current_user)
+    suggestions = suggest_complements(food, result, method, pattern, db, profile=profile)
 
     return schemas.ComplementOut(
         original_score=result.score,

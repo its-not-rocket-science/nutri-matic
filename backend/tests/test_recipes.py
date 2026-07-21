@@ -82,16 +82,26 @@ def _add_protein_row(client, food_id, amount_per_100g):
     db.close()
 
 
+def set_owner_bio(client, token, **fields):
+    """Sets bio fields on the caller's owner profile — bio/dietary fields
+    moved from the account (/api/profile) to per-individual profiles
+    (/api/profiles/{id}) with the household-profiles feature."""
+    profiles = client.get("/api/profiles", headers=auth_headers(token)).json()
+    owner = next(p for p in profiles if p["is_account_owner"])
+    payload = {
+        "name": owner["name"], "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        **fields,
+    }
+    return client.put(f"/api/profiles/{owner['id']}", json=payload, headers=auth_headers(token))
+
+
 def test_recipe_nutrients_includes_personalized_protein_target(client):
     _add_protein_row(client, 1, 20.0)
     token = register_and_token(client, "a@example.com")
-    client.put(
-        "/api/profile",
-        json={
-            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
-            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
-        },
-        headers=auth_headers(token),
+    set_owner_bio(
+        client, token,
+        sex="male", birth_year=1990, activity_level="sedentary", weight_kg=70, height_cm=175,
     )
     recipe = client.post(
         "/api/recipes",
@@ -252,13 +262,9 @@ def test_create_recipe_rejects_unknown_food_id(client):
 
 def test_recipe_absorbed_protein_per_serving(client):
     token = register_and_token(client, "a@example.com")
-    client.put(
-        "/api/profile",
-        json={
-            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
-            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
-        },
-        headers=auth_headers(token),
+    set_owner_bio(
+        client, token,
+        sex="male", birth_year=1990, activity_level="sedentary", weight_kg=70, height_cm=175,
     )
     recipe = client.post(
         "/api/recipes",
@@ -436,14 +442,10 @@ def _add_energy_row(client, food_id, amount_per_100g):
 def test_recipe_nutrients_energy_reflects_weight_loss_goal(client):
     _add_energy_row(client, 1, 200.0)
     token = register_and_token(client, "a@example.com")
-    client.put(
-        "/api/profile",
-        json={
-            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
-            "is_pregnant": False, "is_lactating": False, "weight_kg": 90, "height_cm": 180,
-            "goal": "weight_loss",
-        },
-        headers=auth_headers(token),
+    set_owner_bio(
+        client, token,
+        sex="male", birth_year=1990, activity_level="sedentary", weight_kg=90, height_cm=180,
+        goal="weight_loss",
     )
     recipe = client.post(
         "/api/recipes",
@@ -464,13 +466,9 @@ def test_recipe_nutrients_energy_reflects_weight_loss_goal(client):
 def test_recipe_nutrients_energy_unadjusted_without_weight_loss_goal(client):
     _add_energy_row(client, 1, 200.0)
     token = register_and_token(client, "a@example.com")
-    client.put(
-        "/api/profile",
-        json={
-            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
-            "is_pregnant": False, "is_lactating": False, "weight_kg": 90, "height_cm": 180,
-        },
-        headers=auth_headers(token),
+    set_owner_bio(
+        client, token,
+        sex="male", birth_year=1990, activity_level="sedentary", weight_kg=90, height_cm=180,
     )
     recipe = client.post(
         "/api/recipes",

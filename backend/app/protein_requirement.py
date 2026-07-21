@@ -33,7 +33,7 @@ COMA/SACN protein RNI increments, not trimester/month-specific.
 
 from .energy import calculate_age
 from .food_chemistry import OLDER_ADULT_AGE_THRESHOLD
-from .models import User
+from .models import Profile
 
 PROTEIN_G_PER_KG_BY_ACTIVITY = {
     "sedentary": 0.8,
@@ -51,20 +51,20 @@ PROTEIN_PREGNANCY_INCREMENT_G = 6
 PROTEIN_LACTATION_INCREMENT_G = 11
 
 
-def calculate_protein_target_g(user: User, *, current_year: int | None = None) -> float | None:
+def calculate_protein_target_g(profile: Profile, *, current_year: int | None = None) -> float | None:
     """None if the profile is incomplete — weight, birth year, and
     activity level are all required inputs."""
-    if None in (user.weight_kg, user.birth_year, user.activity_level):
+    if None in (profile.weight_kg, profile.birth_year, profile.activity_level):
         return None
 
-    age = calculate_age(user, current_year=current_year)
-    g_per_kg = PROTEIN_G_PER_KG_BY_ACTIVITY[user.activity_level]
+    age = calculate_age(profile, current_year=current_year)
+    g_per_kg = PROTEIN_G_PER_KG_BY_ACTIVITY[profile.activity_level]
     if age is not None and age >= OLDER_ADULT_AGE_THRESHOLD:
         g_per_kg = max(g_per_kg, OLDER_ADULT_PROTEIN_G_PER_KG_FLOOR)
 
-    target = g_per_kg * user.weight_kg
-    if user.is_pregnant:
+    target = g_per_kg * profile.weight_kg
+    if profile.is_pregnant:
         target += PROTEIN_PREGNANCY_INCREMENT_G
-    if user.is_lactating:
+    if profile.is_lactating:
         target += PROTEIN_LACTATION_INCREMENT_G
     return target

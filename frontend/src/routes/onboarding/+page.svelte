@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import { GOAL_MESSAGES, GOAL_OPTIONS, type Goal } from '$lib/goals';
-	import type { DietaryVocabulary, Food, Meal, MealOptimization, User } from '$lib/types';
+	import type { DietaryVocabulary, Food, Meal, MealOptimization, Profile } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
@@ -27,9 +28,10 @@
 	let savingGoal = $state(false);
 
 	// Step 2 — profile basics
-	let sex: User['sex'] = $state(null);
+	let ownerProfile: Profile | null = $state(null);
+	let sex: Profile['sex'] = $state(null);
 	let birthYear: number | null = $state(null);
-	let activityLevel: User['activity_level'] = $state(null);
+	let activityLevel: Profile['activity_level'] = $state(null);
 	let weightKg: number | null = $state(null);
 	let heightCm: number | null = $state(null);
 	let savingProfile = $state(false);
@@ -61,14 +63,18 @@
 			await goto('/login');
 			return;
 		}
-		vocabulary = await api.getDietaryVocabulary();
+		const [profiles, vocab] = await Promise.all([api.listProfiles(), api.getDietaryVocabulary()]);
+		activeProfile.setProfiles(profiles);
+		ownerProfile = profiles.find((p) => p.is_account_owner) ?? profiles[0] ?? null;
+		vocabulary = vocab;
 	});
 
 	async function saveGoalStep() {
-		if (!goal) return;
+		if (!goal || !ownerProfile) return;
 		savingGoal = true;
 		try {
-			const updated = await api.updateProfile({
+			ownerProfile = await api.updateProfile(ownerProfile.id, {
+				name: ownerProfile.name,
 				sex: null,
 				birth_year: null,
 				activity_level: null,
@@ -79,7 +85,6 @@
 				dietary_pattern: null,
 				goal
 			});
-			auth.setUser(updated);
 		} catch {
 			// non-fatal — the goal just personalizes the dashboard/closing
 			// message, and can still be set later from the profile page, so
@@ -91,10 +96,12 @@
 	}
 
 	async function saveProfileStep() {
+		if (!ownerProfile) return;
 		savingProfile = true;
 		profileError = null;
 		try {
-			const updated = await api.updateProfile({
+			ownerProfile = await api.updateProfile(ownerProfile.id, {
+				name: ownerProfile.name,
 				sex,
 				birth_year: birthYear,
 				activity_level: activityLevel,
@@ -105,7 +112,6 @@
 				dietary_pattern: null,
 				goal
 			});
-			auth.setUser(updated);
 			step = 3;
 		} catch (e) {
 			profileError = e instanceof Error ? e.message : String(e);
@@ -115,10 +121,12 @@
 	}
 
 	async function saveDietaryStep() {
+		if (!ownerProfile) return;
 		savingDietary = true;
 		dietaryError = null;
 		try {
-			const updated = await api.updateProfile({
+			ownerProfile = await api.updateProfile(ownerProfile.id, {
+				name: ownerProfile.name,
 				sex,
 				birth_year: birthYear,
 				activity_level: activityLevel,
@@ -129,9 +137,8 @@
 				dietary_pattern: dietaryPattern,
 				goal
 			});
-			auth.setUser(updated);
 			if (allergyTag) {
-				await api.createDietaryConstraint({
+				await api.createDietaryConstraint(ownerProfile.id, {
 					category: 'allergy',
 					tag: allergyTag,
 					severity: 'hard_exclude',

@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 
 from .. import schemas
 from ..aggregation import aggregate_food_grams, expand_entries_to_weighted_foods
-from ..auth import get_current_user
+from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
-from ..models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Recipe, User
+from ..models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Profile, Recipe, User
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from .diary import _compute_nutrient_gaps, _find_worst_gap, _rank_foods_by_nutrient, _rank_recipes_by_nutrient
 
@@ -41,12 +41,16 @@ def _validate_food_or_recipe(food_id: int | None, recipe_id: int | None, current
 
 @router.post("", response_model=schemas.MealPlanEntryOut, status_code=201)
 def create_entry(
-    body: schemas.MealPlanEntryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    body: schemas.MealPlanEntryCreate,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     _validate_food_or_recipe(body.food_id, body.recipe_id, current_user, db)
 
     entry = MealPlanEntry(
         user_id=current_user.id,
+        profile_id=profile.id,
         plan_date=body.plan_date,
         meal=body.meal,
         food_id=body.food_id,
@@ -63,11 +67,16 @@ def create_entry(
     return _entry_out(entry, foods_by_id, recipes_by_id)
 
 
-def _entries_in_range(start_date: date, end_date: date, current_user: User, db: Session) -> list[MealPlanEntry]:
+def _entries_in_range(
+    start_date: date, end_date: date, profile: Profile, db: Session, profile_ids: list[int] | None = None
+) -> list[MealPlanEntry]:
+    """profile_ids overrides the single-profile filter when given — used by
+    the shopping-list endpoint to union several household members' planned
+    meals into one combined list."""
     return (
         db.query(MealPlanEntry)
         .filter(
-            MealPlanEntry.user_id == current_user.id,
+            MealPlanEntry.profile_id.in_(profile_ids) if profile_ids is not None else MealPlanEntry.profile_id == profile.id,
             MealPlanEntry.plan_date >= start_date,
             MealPlanEntry.plan_date <= end_date,
         )
@@ -77,9 +86,12 @@ def _entries_in_range(start_date: date, end_date: date, current_user: User, db: 
 
 @router.get("", response_model=list[schemas.MealPlanEntryOut])
 def list_entries(
-    start_date: date, end_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    start_date: date,
+    end_date: date,
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
-    entries = _entries_in_range(start_date, end_date, current_user, db)
+    entries = _entries_in_range(start_date, end_date, profile, db)
 
     food_ids = {e.food_id for e in entries if e.food_id is not None}
     recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
@@ -91,9 +103,33 @@ def list_entries(
 
 @router.get("/shopping-list", response_model=schemas.ShoppingListOut)
 def get_shopping_list(
-    start_date: date, end_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    start_date: date,
+    end_date: date,
+    profile_ids: str | None = None,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
-    entries = _entries_in_range(start_date, end_date, current_user, db)
+    """Combined shopping list for one or more household profiles over a
+    date range — pass profile_ids as a comma-separated list (e.g.
+    "1,3,4") to plan for the whole family at once; defaults to just the
+    caller's own profile. Every profile_id must belong to the caller's
+    account (same ownership check as get_owned_profile), or the whole
+    request 404s rather than silently dropping an invalid id."""
+    resolved_profile_ids: list[int] | None = None
+    if profile_ids is not None:
+        try:
+            requested_ids = [int(p) for p in profile_ids.split(",") if p.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail="profile_ids must be a comma-separated list of integers")
+        owned_ids = {
+            p.id for p in db.query(Profile).filter(Profile.user_id == current_user.id).all()
+        }
+        if not set(requested_ids) <= owned_ids:
+            raise HTTPException(status_code=404, detail="One or more profile_ids not found")
+        resolved_profile_ids = requested_ids
+
+    entries = _entries_in_range(start_date, end_date, profile, db, profile_ids=resolved_profile_ids)
 
     food_ids = {e.food_id for e in entries if e.food_id is not None}
     recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
@@ -142,6 +178,7 @@ def get_plan_optimization(
     limit: int = 5,
     max_additional_cost: float | None = None,
     current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
     """Week-level counterpart to the diary's /meal-optimize: real, simulated
@@ -152,7 +189,7 @@ def get_plan_optimization(
     recipe-derived items are fixed (same reasoning as the diary: swapping
     one ingredient inside a planned recipe isn't this feature's job).
     Returns None if the range has no entries, or there's no gap to target."""
-    entries = _entries_in_range(start_date, end_date, current_user, db)
+    entries = _entries_in_range(start_date, end_date, profile, db)
     if not entries:
         return None
 
@@ -161,7 +198,7 @@ def get_plan_optimization(
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
-    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
+    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, profile, db)
     worst = _find_worst_gap(gaps.nutrients_out)
     if worst is None:
         return None
@@ -175,14 +212,14 @@ def get_plan_optimization(
     already_in_plan = {item.food.id for item in swappable_items}
     gap_candidates = [
         food
-        for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8, current_user)
+        for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8, profile)
         if food.id not in already_in_plan
     ]
 
     already_planned_recipe_ids = {e.recipe_id for e in recipe_entries}
     recipe_gap_candidates = [
         (recipe, items)
-        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user)
+        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
         if recipe.id not in already_planned_recipe_ids
     ]
 
@@ -232,22 +269,28 @@ def get_plan_optimization(
 
 
 @router.delete("/{entry_id}", status_code=204)
-def delete_entry(entry_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_entry(entry_id: int, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
     entry = db.get(MealPlanEntry, entry_id)
-    if entry is None or entry.user_id != current_user.id:
+    if entry is None or entry.profile_id != profile.id:
         raise HTTPException(status_code=404, detail="Meal plan entry not found")
     db.delete(entry)
     db.commit()
 
 
 @router.post("/{entry_id}/mark-eaten", response_model=schemas.DiaryEntryOut, status_code=201)
-def mark_eaten(entry_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def mark_eaten(
+    entry_id: int,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
     entry = db.get(MealPlanEntry, entry_id)
-    if entry is None or entry.user_id != current_user.id:
+    if entry is None or entry.profile_id != profile.id:
         raise HTTPException(status_code=404, detail="Meal plan entry not found")
 
     diary_entry = DiaryEntry(
         user_id=current_user.id,
+        profile_id=profile.id,
         entry_date=entry.plan_date,
         meal=entry.meal,
         food_id=entry.food_id,

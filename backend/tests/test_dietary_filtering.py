@@ -67,9 +67,14 @@ def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def owner_profile_id(client, token):
+    profiles = client.get("/api/profiles", headers=auth_headers(token)).json()
+    return next(p for p in profiles if p["is_account_owner"])["id"]
+
+
 def add_peanut_allergy(client, token):
     res = client.post(
-        "/api/profile/dietary-constraints",
+        f"/api/profiles/{owner_profile_id(client, token)}/dietary-constraints",
         json={"category": "allergy", "tag": "peanut", "severity": "hard_exclude", "note": None},
         headers=auth_headers(token),
     )
@@ -119,10 +124,11 @@ def test_nutrient_search_excludes_hard_allergen(client):
 def test_vegan_pattern_excludes_meat_not_plant_foods(client):
     token = register_and_token(client, "a@example.com")
 
+    owner_id = owner_profile_id(client, token)
     client.put(
-        "/api/profile",
+        f"/api/profiles/{owner_id}",
         json={
-            "sex": None, "birth_year": None, "activity_level": None,
+            "name": "Me", "sex": None, "birth_year": None, "activity_level": None,
             "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
             "dietary_pattern": "vegan",
         },
@@ -141,7 +147,7 @@ def test_vegan_pattern_excludes_meat_not_plant_foods(client):
 def test_search_flags_avoid_severity_instead_of_hiding_it(client):
     token = register_and_token(client, "a@example.com")
     res = client.post(
-        "/api/profile/dietary-constraints",
+        f"/api/profiles/{owner_profile_id(client, token)}/dietary-constraints",
         json={"category": "intolerance", "tag": "tree_nut", "severity": "avoid", "note": None},
         headers=auth_headers(token),
     )
@@ -212,7 +218,7 @@ def test_search_no_dietary_status_for_anonymous_or_no_constraints(client):
 def test_recipe_search_flags_worst_status_across_ingredients(client):
     token = register_and_token(client, "a@example.com")
     client.post(
-        "/api/profile/dietary-constraints",
+        f"/api/profiles/{owner_profile_id(client, token)}/dietary-constraints",
         json={"category": "intolerance", "tag": "tree_nut", "severity": "avoid", "note": None},
         headers=auth_headers(token),
     )

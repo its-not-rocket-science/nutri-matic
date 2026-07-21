@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 
@@ -17,6 +18,7 @@
 			const { access_token } = await api.login(email, password);
 			auth.setToken(access_token);
 			auth.setUser(await api.me());
+			activeProfile.setProfiles(await api.listProfiles());
 			await goto('/');
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -31,6 +33,7 @@
 			const { access_token } = await api.startDemo();
 			auth.setToken(access_token);
 			auth.setUser(await api.me());
+			activeProfile.setProfiles(await api.listProfiles());
 			await goto('/');
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);

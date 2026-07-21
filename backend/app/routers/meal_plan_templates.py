@@ -4,23 +4,26 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import get_current_user
+from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
-from ..models import Food, MealPlanEntry, MealPlanTemplate, MealPlanTemplateEntry, Recipe, User
+from ..models import Food, MealPlanEntry, MealPlanTemplate, MealPlanTemplateEntry, Profile, Recipe, User
 
 router = APIRouter(prefix="/api/meal-plan-templates", tags=["meal-plan-templates"])
 
 
-def _get_owned_template(template_id: int, current_user: User, db: Session) -> MealPlanTemplate:
+def _get_owned_template(template_id: int, profile: Profile, db: Session) -> MealPlanTemplate:
     template = db.get(MealPlanTemplate, template_id)
-    if template is None or template.user_id != current_user.id:
+    if template is None or template.profile_id != profile.id:
         raise HTTPException(status_code=404, detail="Meal plan template not found")
     return template
 
 
 @router.post("", response_model=schemas.MealPlanTemplateOut, status_code=201)
 def create_template(
-    body: schemas.MealPlanTemplateCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    body: schemas.MealPlanTemplateCreate,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     if (body.end_date - body.start_date).days != 6:
         raise HTTPException(status_code=422, detail="A template snapshots exactly one week (start_date to start_date+6)")
@@ -28,14 +31,14 @@ def create_template(
     source_entries = (
         db.query(MealPlanEntry)
         .filter(
-            MealPlanEntry.user_id == current_user.id,
+            MealPlanEntry.profile_id == profile.id,
             MealPlanEntry.plan_date >= body.start_date,
             MealPlanEntry.plan_date <= body.end_date,
         )
         .all()
     )
 
-    template = MealPlanTemplate(user_id=current_user.id, name=body.name)
+    template = MealPlanTemplate(user_id=current_user.id, profile_id=profile.id, name=body.name)
     db.add(template)
     db.flush()
 
@@ -57,8 +60,8 @@ def create_template(
 
 
 @router.get("", response_model=list[schemas.MealPlanTemplateOut])
-def list_templates(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    templates = db.query(MealPlanTemplate).filter(MealPlanTemplate.user_id == current_user.id).all()
+def list_templates(profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
+    templates = db.query(MealPlanTemplate).filter(MealPlanTemplate.profile_id == profile.id).all()
     counts: dict[int, int] = {}
     for entry in db.query(MealPlanTemplateEntry).filter(
         MealPlanTemplateEntry.template_id.in_([t.id for t in templates])
@@ -72,8 +75,8 @@ def list_templates(current_user: User = Depends(get_current_user), db: Session =
 
 
 @router.get("/{template_id}", response_model=schemas.MealPlanTemplateDetailOut)
-def get_template(template_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    template = _get_owned_template(template_id, current_user, db)
+def get_template(template_id: int, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
+    template = _get_owned_template(template_id, profile, db)
     entries = db.query(MealPlanTemplateEntry).filter(MealPlanTemplateEntry.template_id == template.id).all()
 
     food_ids = {e.food_id for e in entries if e.food_id is not None}
@@ -99,8 +102,8 @@ def get_template(template_id: int, current_user: User = Depends(get_current_user
 
 
 @router.delete("/{template_id}", status_code=204)
-def delete_template(template_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    template = _get_owned_template(template_id, current_user, db)
+def delete_template(template_id: int, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
+    template = _get_owned_template(template_id, profile, db)
     db.query(MealPlanTemplateEntry).filter(MealPlanTemplateEntry.template_id == template.id).delete()
     db.delete(template)
     db.commit()
@@ -111,9 +114,10 @@ def apply_template(
     template_id: int,
     start_date: date,
     current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
-    template = _get_owned_template(template_id, current_user, db)
+    template = _get_owned_template(template_id, profile, db)
     template_entries = db.query(MealPlanTemplateEntry).filter(MealPlanTemplateEntry.template_id == template.id).all()
 
     created: list[MealPlanEntry] = []
@@ -130,6 +134,7 @@ def apply_template(
 
         entry = MealPlanEntry(
             user_id=current_user.id,
+            profile_id=profile.id,
             plan_date=start_date + timedelta(days=template_entry.day_offset),
             meal=template_entry.meal,
             food_id=template_entry.food_id,

@@ -4,29 +4,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import get_current_user
+from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
-from ..models import DiaryEntry, DiaryMealTemplate, DiaryMealTemplateItem, Food, Recipe, User
+from ..models import DiaryEntry, DiaryMealTemplate, DiaryMealTemplateItem, Food, Profile, Recipe, User
 from ..schemas import Meal
 
 router = APIRouter(prefix="/api/diary-meal-templates", tags=["diary-meal-templates"])
 
 
-def _get_owned_template(template_id: int, current_user: User, db: Session) -> DiaryMealTemplate:
+def _get_owned_template(template_id: int, profile: Profile, db: Session) -> DiaryMealTemplate:
     template = db.get(DiaryMealTemplate, template_id)
-    if template is None or template.user_id != current_user.id:
+    if template is None or template.profile_id != profile.id:
         raise HTTPException(status_code=404, detail="Diary meal template not found")
     return template
 
 
 @router.post("", response_model=schemas.DiaryMealTemplateOut, status_code=201)
 def create_template(
-    body: schemas.DiaryMealTemplateCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    body: schemas.DiaryMealTemplateCreate,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     source_entries = (
         db.query(DiaryEntry)
         .filter(
-            DiaryEntry.user_id == current_user.id,
+            DiaryEntry.profile_id == profile.id,
             DiaryEntry.entry_date == body.entry_date,
             DiaryEntry.meal == body.meal,
         )
@@ -35,7 +38,7 @@ def create_template(
     if not source_entries:
         raise HTTPException(status_code=422, detail="No diary entries logged for that date and meal")
 
-    template = DiaryMealTemplate(user_id=current_user.id, name=body.name)
+    template = DiaryMealTemplate(user_id=current_user.id, profile_id=profile.id, name=body.name)
     db.add(template)
     db.flush()
 
@@ -55,8 +58,8 @@ def create_template(
 
 
 @router.get("", response_model=list[schemas.DiaryMealTemplateOut])
-def list_templates(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    templates = db.query(DiaryMealTemplate).filter(DiaryMealTemplate.user_id == current_user.id).all()
+def list_templates(profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
+    templates = db.query(DiaryMealTemplate).filter(DiaryMealTemplate.profile_id == profile.id).all()
     counts: dict[int, int] = {}
     for item in db.query(DiaryMealTemplateItem).filter(
         DiaryMealTemplateItem.template_id.in_([t.id for t in templates])
@@ -70,8 +73,8 @@ def list_templates(current_user: User = Depends(get_current_user), db: Session =
 
 
 @router.get("/{template_id}", response_model=schemas.DiaryMealTemplateDetailOut)
-def get_template(template_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    template = _get_owned_template(template_id, current_user, db)
+def get_template(template_id: int, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
+    template = _get_owned_template(template_id, profile, db)
     items = db.query(DiaryMealTemplateItem).filter(DiaryMealTemplateItem.template_id == template.id).all()
 
     food_ids = {i.food_id for i in items if i.food_id is not None}
@@ -95,8 +98,8 @@ def get_template(template_id: int, current_user: User = Depends(get_current_user
 
 
 @router.delete("/{template_id}", status_code=204)
-def delete_template(template_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    template = _get_owned_template(template_id, current_user, db)
+def delete_template(template_id: int, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
+    template = _get_owned_template(template_id, profile, db)
     db.query(DiaryMealTemplateItem).filter(DiaryMealTemplateItem.template_id == template.id).delete()
     db.delete(template)
     db.commit()
@@ -108,9 +111,10 @@ def apply_template(
     entry_date: date,
     meal: Meal,
     current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
-    template = _get_owned_template(template_id, current_user, db)
+    template = _get_owned_template(template_id, profile, db)
     items = db.query(DiaryMealTemplateItem).filter(DiaryMealTemplateItem.template_id == template.id).all()
 
     created: list[DiaryEntry] = []
@@ -126,6 +130,7 @@ def apply_template(
 
         entry = DiaryEntry(
             user_id=current_user.id,
+            profile_id=profile.id,
             entry_date=entry_date,
             meal=meal,
             food_id=item.food_id,

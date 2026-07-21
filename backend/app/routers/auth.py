@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import create_access_token, get_current_user, hash_password, verify_password
+from ..auth import create_access_token, create_owner_profile, get_current_user, hash_password, verify_password
 from ..database import get_db
 from ..demo_data import create_demo_account
 from ..models import User
@@ -17,6 +17,8 @@ def register(body: schemas.UserCreate, db: Session = Depends(get_db)):
 
     user = User(email=body.email, password_hash=hash_password(body.password))
     db.add(user)
+    db.flush()
+    create_owner_profile(db, user)
     db.commit()
     db.refresh(user)
     return schemas.TokenOut(access_token=create_access_token(user.id))

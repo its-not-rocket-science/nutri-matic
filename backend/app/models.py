@@ -85,22 +85,64 @@ class User(Base):
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
 
+class Profile(Base):
+    """One individual under an account — see routers/profiles.py. The
+    account owner gets one auto-created at registration/migration
+    (is_account_owner=True, the only profile that can't be deleted and the
+    default when no explicit profile_id is given, see
+    auth.get_owned_profile); additional household members (partner, kids)
+    can be added with no login of their own. The personal/biometric fields
+    below used to live directly on User (Phase 3) — moved here so a
+    household can track more than one person's diet/diary/weight/meal-plan
+    under one login. User keeps its Phase-3 columns for now (unused by
+    application code once every account has a Profile, but left in place —
+    no destructive migration); Recipe/Collection/FoodPrice/ApiKey and the
+    clinician-link tables stay account-level (shared content, billing, and
+    clinician relationships aren't per-individual)."""
+
+    __tablename__ = "profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    is_account_owner: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+
+    # same fields/meaning/nullability as User's Phase-3 profile fields above
+    sex: Mapped[str | None] = mapped_column(String, nullable=True)
+    birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    activity_level: Mapped[str | None] = mapped_column(String, nullable=True)
+    is_pregnant: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_lactating: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dietary_pattern: Mapped[str | None] = mapped_column(String, nullable=True)
+    goal: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class DietaryConstraint(Base):
-    """A user's allergy, intolerance, religious requirement, or preference —
-    see dietary_tags.py for the controlled vocabulary and how each tag maps
-    to a keyword-based food match. Medical considerations and free-text
-    preferences are NOT enforced as filters (see dietary_tags.py's module
-    docstring for why) and are stored with tag=None, note=<free text>
-    instead — informational only, shown on the profile but never used to
-    exclude a food/recipe from search or the optimizer."""
+    """A profile's allergy, intolerance, religious requirement, or
+    preference — see dietary_tags.py for the controlled vocabulary and how
+    each tag maps to a keyword-based food match. Medical considerations and
+    free-text preferences are NOT enforced as filters (see dietary_tags.py's
+    module docstring for why) and are stored with tag=None, note=<free
+    text> instead — informational only, shown on the profile but never used
+    to exclude a food/recipe from search or the optimizer."""
 
     __tablename__ = "dietary_constraints"
     __table_args__ = (
-        UniqueConstraint("user_id", "category", "tag", name="uq_dietary_constraint"),
+        UniqueConstraint("profile_id", "category", "tag", name="uq_dietary_constraint"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    # nullable only during the profiles migration — every row is backfilled
+    # by migrate_profiles.py and every new row sets this going forward; see
+    # Profile's docstring for why user_id is kept alongside it regardless.
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     # "allergy" | "intolerance" | "religious" | "medical" | "preference"
     category: Mapped[str] = mapped_column(String, nullable=False)
     # a dietary_tags.py vocabulary key (e.g. "peanut", "halal") for
@@ -451,6 +493,7 @@ class DiaryEntry(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     entry_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     meal: Mapped[str] = mapped_column(String, nullable=False)  # "breakfast" | "lunch" | "dinner" | "snack"
 
@@ -473,10 +516,11 @@ class DiarySnapshot(Base):
     before this feature existed."""
 
     __tablename__ = "diary_snapshots"
-    __table_args__ = (UniqueConstraint("user_id", "entry_date", name="uq_diary_snapshot_user_date"),)
+    __table_args__ = (UniqueConstraint("profile_id", "entry_date", name="uq_diary_snapshot_user_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     entry_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     # the DiarySummaryOut-shaped payload, as JSON, exactly as computed at
     # snapshot time — see routers/diary.py's snapshot endpoint
@@ -568,6 +612,7 @@ class MealPlanEntry(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     plan_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     meal: Mapped[str] = mapped_column(String, nullable=False)  # "breakfast" | "lunch" | "dinner" | "snack"
 
@@ -597,6 +642,7 @@ class MealPlanTemplate(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
@@ -633,6 +679,7 @@ class DiaryMealTemplate(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
@@ -666,10 +713,11 @@ class DiaryMealTemplateItem(Base):
 
 class WeightLog(Base):
     __tablename__ = "weight_logs"
-    __table_args__ = (UniqueConstraint("user_id", "log_date", name="uq_weight_log_user_date"),)
+    __table_args__ = (UniqueConstraint("profile_id", "log_date", name="uq_weight_log_user_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     log_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
 
@@ -679,6 +727,7 @@ class SavedFilterPreset(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     scope: Mapped[str] = mapped_column(String, nullable=False)  # "food" | "recipe"
     # list of {"key": str, "op": "gte"|"lte"|"eq", "value": float} — same

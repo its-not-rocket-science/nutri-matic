@@ -1,3 +1,4 @@
+import { activeProfile } from './activeProfile.svelte';
 import type { User } from './types';
 
 const TOKEN_KEY = 'nutrimatic_token';
@@ -31,6 +32,7 @@ export const auth = {
 	logout() {
 		setToken(null);
 		user = null;
+		activeProfile.clear();
 	},
 	/** Call once on app mount to pick up a token persisted from a previous session. */
 	init(): string | null {

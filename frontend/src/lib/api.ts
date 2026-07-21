@@ -1,7 +1,9 @@
 import { goto } from '$app/navigation';
+import { activeProfile } from './activeProfile.svelte';
 import { auth } from './auth.svelte';
 import type {
 	AbsorbedProtein,
+	AccountUpdate,
 	ClinicianClientSummary,
 	ClinicianLink,
 	ClinicianNote,
@@ -35,6 +37,8 @@ import type {
 	MealPlanTemplateDetail,
 	NutrientAmount,
 	PlanOptimization,
+	Profile,
+	ProfileCreate,
 	ProfileUpdate,
 	QuickAdd,
 	Recipe,
@@ -103,6 +107,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	return res.json();
 }
 
+/** Appends the currently active household profile's id as a query param —
+ * every profile-scoped endpoint (diary, weight log, meal plan, templates,
+ * presets, dietary constraints) defaults to the account's owner profile
+ * server-side when this is omitted, so omitting it before a profile list
+ * has ever loaded is still safe, just not switchable yet. */
+function withProfile(path: string): string {
+	if (activeProfile.id == null) return path;
+	const sep = path.includes('?') ? '&' : '?';
+	return `${path}${sep}profile_id=${activeProfile.id}`;
+}
+
 export const api = {
 	listFoods: (limit = 10, offset = 0) =>
 		request<FoodList>(`/api/foods?limit=${limit}&offset=${offset}`),
@@ -126,25 +141,34 @@ export const api = {
 		request<TokenResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 	me: () => request<User>('/api/auth/me'),
 
-	getProfile: () => request<User>('/api/profile'),
-	updateProfile: (profile: ProfileUpdate) =>
-		request<User>('/api/profile', { method: 'PUT', body: JSON.stringify(profile) }),
+	getAccount: () => request<User>('/api/account'),
+	updateAccount: (body: AccountUpdate) =>
+		request<User>('/api/account', { method: 'PUT', body: JSON.stringify(body) }),
 
-	getDietaryVocabulary: () => request<DietaryVocabulary>('/api/profile/dietary-vocabulary'),
-	listDietaryConstraints: () => request<DietaryConstraint[]>('/api/profile/dietary-constraints'),
-	createDietaryConstraint: (constraint: DietaryConstraintCreate) =>
-		request<DietaryConstraint>('/api/profile/dietary-constraints', {
+	listProfiles: () => request<Profile[]>('/api/profiles'),
+	createProfile: (profile: ProfileCreate) =>
+		request<Profile>('/api/profiles', { method: 'POST', body: JSON.stringify(profile) }),
+	getProfile: (id: number) => request<Profile>(`/api/profiles/${id}`),
+	updateProfile: (id: number, profile: ProfileUpdate) =>
+		request<Profile>(`/api/profiles/${id}`, { method: 'PUT', body: JSON.stringify(profile) }),
+	deleteProfile: (id: number) => request<void>(`/api/profiles/${id}`, { method: 'DELETE' }),
+
+	getDietaryVocabulary: () => request<DietaryVocabulary>('/api/profiles/dietary-vocabulary'),
+	listDietaryConstraints: (profileId: number) =>
+		request<DietaryConstraint[]>(`/api/profiles/${profileId}/dietary-constraints`),
+	createDietaryConstraint: (profileId: number, constraint: DietaryConstraintCreate) =>
+		request<DietaryConstraint>(`/api/profiles/${profileId}/dietary-constraints`, {
 			method: 'POST',
 			body: JSON.stringify(constraint)
 		}),
-	deleteDietaryConstraint: (id: number) =>
-		request<void>(`/api/profile/dietary-constraints/${id}`, { method: 'DELETE' }),
+	deleteDietaryConstraint: (profileId: number, id: number) =>
+		request<void>(`/api/profiles/${profileId}/dietary-constraints/${id}`, { method: 'DELETE' }),
 
 	logWeight: (entry: WeightLogCreate) =>
-		request<WeightLog>('/api/weight-logs', { method: 'POST', body: JSON.stringify(entry) }),
+		request<WeightLog>(withProfile('/api/weight-logs'), { method: 'POST', body: JSON.stringify(entry) }),
 	listWeightLogs: (startDate: string, endDate: string) =>
-		request<WeightLog[]>(`/api/weight-logs?start_date=${startDate}&end_date=${endDate}`),
-	deleteWeightLog: (id: number) => request<void>(`/api/weight-logs/${id}`, { method: 'DELETE' }),
+		request<WeightLog[]>(withProfile(`/api/weight-logs?start_date=${startDate}&end_date=${endDate}`)),
+	deleteWeightLog: (id: number) => request<void>(withProfile(`/api/weight-logs/${id}`), { method: 'DELETE' }),
 
 	listRecipes: (tag?: string) => request<Recipe[]>(`/api/recipes${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`),
 	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),
@@ -175,8 +199,9 @@ export const api = {
 	copyRecipe: (id: number) => request<Recipe>(`/api/recipes/${id}/copy`, { method: 'POST' }),
 	scoreRecipe: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/recipes/${id}/score?method=${method}`),
-	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(`/api/recipes/${id}/nutrients`),
-	getRecipeAbsorbedProtein: (id: number) => request<AbsorbedProtein | null>(`/api/recipes/${id}/absorbed-protein`),
+	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(withProfile(`/api/recipes/${id}/nutrients`)),
+	getRecipeAbsorbedProtein: (id: number) =>
+		request<AbsorbedProtein | null>(withProfile(`/api/recipes/${id}/absorbed-protein`)),
 	getRecipeRobustness: (id: number) => request<Robustness | null>(`/api/recipes/${id}/robustness`),
 
 	listShares: (recipeId: number) => request<RecipeShare[]>(`/api/recipes/${recipeId}/shares`),
@@ -200,67 +225,85 @@ export const api = {
 	deleteComment: (recipeId: number, commentId: number) =>
 		request<void>(`/api/recipes/${recipeId}/comments/${commentId}`, { method: 'DELETE' }),
 
-	getDiaryDay: (entryDate: string) => request<DiarySummary>(`/api/diary?entry_date=${entryDate}`),
+	getDiaryDay: (entryDate: string) => request<DiarySummary>(withProfile(`/api/diary?entry_date=${entryDate}`)),
 	addDiaryEntry: (entry: DiaryEntryCreate) =>
-		request<DiaryEntry>('/api/diary', { method: 'POST', body: JSON.stringify(entry) }),
-	deleteDiaryEntry: (id: number) => request<void>(`/api/diary/${id}`, { method: 'DELETE' }),
+		request<DiaryEntry>(withProfile('/api/diary'), { method: 'POST', body: JSON.stringify(entry) }),
+	deleteDiaryEntry: (id: number) => request<void>(withProfile(`/api/diary/${id}`), { method: 'DELETE' }),
 	copyDiaryDay: (sourceDate: string, targetDate: string) =>
-		request<DiaryEntry[]>(`/api/diary/copy-day?source_date=${sourceDate}&target_date=${targetDate}`, {
+		request<DiaryEntry[]>(withProfile(`/api/diary/copy-day?source_date=${sourceDate}&target_date=${targetDate}`), {
 			method: 'POST'
 		}),
 	getDiaryTrends: (startDate: string, endDate: string, groupBy: TrendGroupBy) =>
-		request<DiaryTrends>(`/api/diary/trends?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`),
-	getQuickAdd: () => request<QuickAdd>('/api/diary/quick-add'),
+		request<DiaryTrends>(
+			withProfile(`/api/diary/trends?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`)
+		),
+	getQuickAdd: () => request<QuickAdd>(withProfile('/api/diary/quick-add')),
 	getGapSuggestions: (entryDate: string) =>
-		request<GapSuggestion | null>(`/api/diary/gap-suggestions?entry_date=${entryDate}`),
+		request<GapSuggestion | null>(withProfile(`/api/diary/gap-suggestions?entry_date=${entryDate}`)),
 	getDiarySnapshot: (entryDate: string) =>
-		request<DiarySnapshot | null>(`/api/diary/snapshot?entry_date=${entryDate}`),
+		request<DiarySnapshot | null>(withProfile(`/api/diary/snapshot?entry_date=${entryDate}`)),
 	createDiarySnapshot: (entryDate: string) =>
-		request<DiarySnapshot>(`/api/diary/snapshot?entry_date=${entryDate}`, { method: 'POST' }),
+		request<DiarySnapshot>(withProfile(`/api/diary/snapshot?entry_date=${entryDate}`), { method: 'POST' }),
 	getMealOptimization: (entryDate: string, meal: Meal, maxAdditionalCost?: number | null) =>
 		request<MealOptimization | null>(
-			`/api/diary/meal-optimize?entry_date=${entryDate}&meal=${meal}` +
-				(maxAdditionalCost != null ? `&max_additional_cost=${maxAdditionalCost}` : '')
+			withProfile(
+				`/api/diary/meal-optimize?entry_date=${entryDate}&meal=${meal}` +
+					(maxAdditionalCost != null ? `&max_additional_cost=${maxAdditionalCost}` : '')
+			)
 		),
 
-	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>('/api/diary-meal-templates'),
+	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>(withProfile('/api/diary-meal-templates')),
 	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>
-		request<DiaryMealTemplate>('/api/diary-meal-templates', {
+		request<DiaryMealTemplate>(withProfile('/api/diary-meal-templates'), {
 			method: 'POST',
 			body: JSON.stringify({ name, entry_date: entryDate, meal })
 		}),
-	getDiaryMealTemplate: (id: number) => request<DiaryMealTemplateDetail>(`/api/diary-meal-templates/${id}`),
-	deleteDiaryMealTemplate: (id: number) => request<void>(`/api/diary-meal-templates/${id}`, { method: 'DELETE' }),
+	getDiaryMealTemplate: (id: number) =>
+		request<DiaryMealTemplateDetail>(withProfile(`/api/diary-meal-templates/${id}`)),
+	deleteDiaryMealTemplate: (id: number) =>
+		request<void>(withProfile(`/api/diary-meal-templates/${id}`), { method: 'DELETE' }),
 	applyDiaryMealTemplate: (id: number, entryDate: string, meal: Meal) =>
-		request<DiaryEntry[]>(`/api/diary-meal-templates/${id}/apply?entry_date=${entryDate}&meal=${meal}`, {
-			method: 'POST'
-		}),
-
-	listMealPlanEntries: (startDate: string, endDate: string) =>
-		request<MealPlanEntry[]>(`/api/meal-plan?start_date=${startDate}&end_date=${endDate}`),
-	addMealPlanEntry: (entry: MealPlanEntryCreate) =>
-		request<MealPlanEntry>('/api/meal-plan', { method: 'POST', body: JSON.stringify(entry) }),
-	deleteMealPlanEntry: (id: number) => request<void>(`/api/meal-plan/${id}`, { method: 'DELETE' }),
-	markMealPlanEntryEaten: (id: number) =>
-		request<DiaryEntry>(`/api/meal-plan/${id}/mark-eaten`, { method: 'POST' }),
-	getShoppingList: (startDate: string, endDate: string) =>
-		request<ShoppingList>(`/api/meal-plan/shopping-list?start_date=${startDate}&end_date=${endDate}`),
-	getPlanOptimization: (startDate: string, endDate: string, maxAdditionalCost?: number | null) =>
-		request<PlanOptimization | null>(
-			`/api/meal-plan/optimize?start_date=${startDate}&end_date=${endDate}` +
-				(maxAdditionalCost != null ? `&max_additional_cost=${maxAdditionalCost}` : '')
+		request<DiaryEntry[]>(
+			withProfile(`/api/diary-meal-templates/${id}/apply?entry_date=${entryDate}&meal=${meal}`),
+			{ method: 'POST' }
 		),
 
-	listMealPlanTemplates: () => request<MealPlanTemplate[]>('/api/meal-plan-templates'),
+	listMealPlanEntries: (startDate: string, endDate: string) =>
+		request<MealPlanEntry[]>(withProfile(`/api/meal-plan?start_date=${startDate}&end_date=${endDate}`)),
+	addMealPlanEntry: (entry: MealPlanEntryCreate) =>
+		request<MealPlanEntry>(withProfile('/api/meal-plan'), { method: 'POST', body: JSON.stringify(entry) }),
+	deleteMealPlanEntry: (id: number) => request<void>(withProfile(`/api/meal-plan/${id}`), { method: 'DELETE' }),
+	markMealPlanEntryEaten: (id: number) =>
+		request<DiaryEntry>(withProfile(`/api/meal-plan/${id}/mark-eaten`), { method: 'POST' }),
+	getShoppingList: (startDate: string, endDate: string, profileIds?: number[]) =>
+		request<ShoppingList>(
+			withProfile(
+				`/api/meal-plan/shopping-list?start_date=${startDate}&end_date=${endDate}` +
+					(profileIds && profileIds.length > 0 ? `&profile_ids=${profileIds.join(',')}` : '')
+			)
+		),
+	getPlanOptimization: (startDate: string, endDate: string, maxAdditionalCost?: number | null) =>
+		request<PlanOptimization | null>(
+			withProfile(
+				`/api/meal-plan/optimize?start_date=${startDate}&end_date=${endDate}` +
+					(maxAdditionalCost != null ? `&max_additional_cost=${maxAdditionalCost}` : '')
+			)
+		),
+
+	listMealPlanTemplates: () => request<MealPlanTemplate[]>(withProfile('/api/meal-plan-templates')),
 	createMealPlanTemplate: (name: string, startDate: string, endDate: string) =>
-		request<MealPlanTemplate>('/api/meal-plan-templates', {
+		request<MealPlanTemplate>(withProfile('/api/meal-plan-templates'), {
 			method: 'POST',
 			body: JSON.stringify({ name, start_date: startDate, end_date: endDate })
 		}),
-	getMealPlanTemplate: (id: number) => request<MealPlanTemplateDetail>(`/api/meal-plan-templates/${id}`),
-	deleteMealPlanTemplate: (id: number) => request<void>(`/api/meal-plan-templates/${id}`, { method: 'DELETE' }),
+	getMealPlanTemplate: (id: number) =>
+		request<MealPlanTemplateDetail>(withProfile(`/api/meal-plan-templates/${id}`)),
+	deleteMealPlanTemplate: (id: number) =>
+		request<void>(withProfile(`/api/meal-plan-templates/${id}`), { method: 'DELETE' }),
 	applyMealPlanTemplate: (id: number, startDate: string) =>
-		request<MealPlanEntry[]>(`/api/meal-plan-templates/${id}/apply?start_date=${startDate}`, { method: 'POST' }),
+		request<MealPlanEntry[]>(withProfile(`/api/meal-plan-templates/${id}/apply?start_date=${startDate}`), {
+			method: 'POST'
+		}),
 
 	listFoodPrices: () => request<FoodPrice[]>('/api/food-prices'),
 	setFoodPrice: (foodId: number, price: FoodPriceCreate) =>
@@ -271,12 +314,12 @@ export const api = {
 	searchFoods: (req: SearchRequest) =>
 		request<Food[]>('/api/foods/search', { method: 'POST', body: JSON.stringify(req) }),
 	searchRecipes: (req: SearchRequest) =>
-		request<Recipe[]>('/api/recipes/search', { method: 'POST', body: JSON.stringify(req) }),
+		request<Recipe[]>(withProfile('/api/recipes/search'), { method: 'POST', body: JSON.stringify(req) }),
 
-	listPresets: (scope: FilterScope) => request<SavedFilterPreset[]>(`/api/presets?scope=${scope}`),
+	listPresets: (scope: FilterScope) => request<SavedFilterPreset[]>(withProfile(`/api/presets?scope=${scope}`)),
 	createPreset: (preset: SavedFilterPresetCreate) =>
-		request<SavedFilterPreset>('/api/presets', { method: 'POST', body: JSON.stringify(preset) }),
-	deletePreset: (id: number) => request<void>(`/api/presets/${id}`, { method: 'DELETE' }),
+		request<SavedFilterPreset>(withProfile('/api/presets'), { method: 'POST', body: JSON.stringify(preset) }),
+	deletePreset: (id: number) => request<void>(withProfile(`/api/presets/${id}`), { method: 'DELETE' }),
 
 	listCollections: () => request<Collection[]>('/api/collections'),
 	createCollection: (name: string) =>

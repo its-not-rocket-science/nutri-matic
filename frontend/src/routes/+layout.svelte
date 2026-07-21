@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
+	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { theme, type ThemeChoice } from '$lib/theme.svelte';
@@ -108,11 +109,21 @@
 		if (hadStoredToken) {
 			try {
 				auth.setUser(await api.me());
+				activeProfile.setProfiles(await api.listProfiles());
 			} catch {
 				auth.logout();
 			}
 		}
 	});
+
+	async function handleSwitchProfile(e: Event) {
+		const id = Number((e.target as HTMLSelectElement).value);
+		activeProfile.setActive(id);
+		// every page's own onMount re-fetches against the newly active
+		// profile on next navigation; a full reload is the simplest way to
+		// make the current page's already-loaded data refresh immediately too
+		location.reload();
+	}
 </script>
 
 <svelte:head>
@@ -255,6 +266,21 @@
 				{themeLabel[theme.choice]}
 			</button>
 			{#if auth.isLoggedIn}
+				{#if activeProfile.list.length > 1}
+					<label class="profile-switcher-label" for="active-profile-select">
+						<span class="sr-only">Active profile</span>
+						<select
+							id="active-profile-select"
+							class="profile-switcher-select"
+							value={activeProfile.id ?? ''}
+							onchange={handleSwitchProfile}
+						>
+							{#each activeProfile.list as p (p.id)}
+								<option value={p.id}>{p.name}{p.is_account_owner ? ' (you)' : ''}</option>
+							{/each}
+						</select>
+					</label>
+				{/if}
 				<span class="user-email muted">{auth.user?.email ?? ''}</span>
 				<button type="button" class="btn btn-secondary logout-btn" onclick={() => auth.logout()}>Log out</button>
 			{:else}
@@ -518,6 +544,13 @@
 		gap: var(--space-2);
 		padding-top: var(--space-4);
 		border-top: 1px solid var(--color-border);
+	}
+	.profile-switcher-label {
+		display: block;
+		padding: 0 var(--space-2);
+	}
+	.profile-switcher-select {
+		width: 100%;
 	}
 	.user-email {
 		padding: 0 var(--space-2);

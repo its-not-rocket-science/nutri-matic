@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import { formatCurrency } from '$lib/currency';
@@ -50,6 +51,7 @@
 			const { access_token } = await api.startDemo();
 			auth.setToken(access_token);
 			auth.setUser(await api.me());
+			activeProfile.setProfiles(await api.listProfiles());
 			await goto('/');
 		} catch (e) {
 			demoError = e instanceof Error ? e.message : String(e);
@@ -139,8 +141,8 @@
 {#if auth.isLoggedIn}
 	<h1>Nutri-Matic</h1>
 
-	{#if auth.user?.goal}
-		<p class="muted goal-banner">{GOAL_MESSAGES[auth.user.goal as Goal]}</p>
+	{#if activeProfile.active?.goal}
+		<p class="muted goal-banner">{GOAL_MESSAGES[activeProfile.active.goal as Goal]}</p>
 	{/if}
 
 	<div class="quick-actions">
