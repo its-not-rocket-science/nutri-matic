@@ -272,9 +272,31 @@ class TokenOut(BaseModel):
 
 
 class UserOut(BaseModel):
+    """Account-level fields only — sex/birth_year/weight/dietary_pattern/
+    goal etc. moved to ProfileOut with the household-profiles feature (an
+    account can have more than one Profile, so they no longer belong here).
+    See routers/profiles.py."""
+
     model_config = ConfigDict(from_attributes=True)
     id: int
     email: str
+    # ISO 4217 code, or null to use the browser locale's implied currency
+    currency: str | None = None
+    # entitlement primitive (Phase 3) — see entitlements.py. Not editable
+    # via AccountUpdate: plan changes go through a future billing/admin
+    # flow, never self-service.
+    plan: str = "free"
+
+
+class AccountUpdate(BaseModel):
+    currency: str | None = None
+
+
+class ProfileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    is_account_owner: bool
     sex: Sex | None = None
     birth_year: int | None = None
     activity_level: ActivityLevel | None = None
@@ -283,15 +305,22 @@ class UserOut(BaseModel):
     weight_kg: float | None = None
     height_cm: float | None = None
     dietary_pattern: str | None = None
-    # ISO 4217 code, or null to use the browser locale's implied currency
-    currency: str | None = None
     # onboarding's step-1 pick — null if never set (skipped onboarding, or a
     # pre-this-feature account)
     goal: str | None = None
-    # entitlement primitive (Phase 3) — see entitlements.py. Not editable
-    # via ProfileUpdate: plan changes go through a future billing/admin
-    # flow, never self-service.
-    plan: str = "free"
+
+
+class ProfileCreate(BaseModel):
+    name: str = Field(min_length=1)
+    sex: Sex | None = None
+    birth_year: int | None = None
+    activity_level: ActivityLevel | None = None
+    is_pregnant: bool = False
+    is_lactating: bool = False
+    weight_kg: float | None = None
+    height_cm: float | None = None
+    dietary_pattern: str | None = None
+    goal: str | None = None
 
 
 class EntitlementsOut(BaseModel):
@@ -301,6 +330,7 @@ class EntitlementsOut(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
+    name: str = Field(min_length=1)
     sex: Sex | None = None
     birth_year: int | None = None
     activity_level: ActivityLevel | None = None
@@ -310,7 +340,6 @@ class ProfileUpdate(BaseModel):
     height_cm: float | None = None
     dietary_pattern: str | None = None
     goal: str | None = None
-    currency: str | None = None
 
 
 class DietaryConstraintCreate(BaseModel):

@@ -63,6 +63,20 @@ def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def set_owner_bio(client, token, **fields):
+    """Sets bio fields on the caller's owner profile — bio/dietary fields
+    moved from the account (/api/profile) to per-individual profiles
+    (/api/profiles/{id}) with the household-profiles feature."""
+    profiles = client.get("/api/profiles", headers=auth_headers(token)).json()
+    owner = next(p for p in profiles if p["is_account_owner"])
+    payload = {
+        "name": owner["name"], "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        **fields,
+    }
+    return client.put(f"/api/profiles/{owner['id']}", json=payload, headers=auth_headers(token))
+
+
 def test_day_summary_includes_iron_bioavailability_and_calcium_phosphorus(client):
     token = register_and_token(client, "a@example.com")
     client.post(
@@ -128,13 +142,9 @@ def test_absorbed_protein_none_when_nothing_logged(client):
 
 def test_absorbed_protein_percent_drv_with_complete_profile(client):
     token = register_and_token(client, "a@example.com")
-    client.put(
-        "/api/profile",
-        json={
-            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
-            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
-        },
-        headers=auth_headers(token),
+    set_owner_bio(
+        client, token,
+        sex="male", birth_year=1990, activity_level="sedentary", weight_kg=70, height_cm=175,
     )
 
     db = next(app.dependency_overrides[get_db]())
@@ -166,13 +176,9 @@ def test_absorbed_protein_percent_drv_with_complete_profile(client):
 
 def test_day_summary_nutrients_includes_personalized_protein_target(client):
     token = register_and_token(client, "a@example.com")
-    client.put(
-        "/api/profile",
-        json={
-            "sex": "male", "birth_year": 1990, "activity_level": "sedentary",
-            "is_pregnant": False, "is_lactating": False, "weight_kg": 70, "height_cm": 175,
-        },
-        headers=auth_headers(token),
+    set_owner_bio(
+        client, token,
+        sex="male", birth_year=1990, activity_level="sedentary", weight_kg=70, height_cm=175,
     )
 
     db = next(app.dependency_overrides[get_db]())

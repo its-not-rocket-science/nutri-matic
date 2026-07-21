@@ -44,7 +44,7 @@ be exactly the fabricated precision this app avoids elsewhere.
 
 from .energy import calculate_age, calculate_eer
 from .food_chemistry import OLDER_ADULT_AGE_THRESHOLD
-from .models import User
+from .models import Profile
 
 WEIGHT_LOSS_GOALS = {"weight_loss", "visceral_fat_reduction"}
 
@@ -55,28 +55,28 @@ CALORIE_FLOOR_FEMALE_KCAL = 1200.0
 CALORIE_FLOOR_MALE_KCAL = 1500.0
 
 
-def calculate_energy_target(user: User, *, current_year: int | None = None) -> tuple[float, bool] | None:
+def calculate_energy_target(profile: Profile, *, current_year: int | None = None) -> tuple[float, bool] | None:
     """Returns (target_kcal, deficit_applied), or None if EER itself can't
     be computed (see energy.calculate_eer for required fields).
 
-    deficit_applied is True only when a weight-loss goal is set, the user
-    isn't pregnant/lactating, and the deficit actually landed below EER
-    (i.e. the floor didn't erase it entirely) — so callers can show an
+    deficit_applied is True only when a weight-loss goal is set, the
+    profile isn't pregnant/lactating, and the deficit actually landed below
+    EER (i.e. the floor didn't erase it entirely) — so callers can show an
     honest "this reflects your weight-loss goal" note only when the target
     is actually different from plain maintenance, never unconditionally."""
-    eer = calculate_eer(user, current_year=current_year)
+    eer = calculate_eer(profile, current_year=current_year)
     if eer is None:
         return None
-    if user.goal not in WEIGHT_LOSS_GOALS or user.is_pregnant or user.is_lactating:
+    if profile.goal not in WEIGHT_LOSS_GOALS or profile.is_pregnant or profile.is_lactating:
         return (eer, False)
 
-    age = calculate_age(user, current_year=current_year)
+    age = calculate_age(profile, current_year=current_year)
     deficit_percent = (
         DEFICIT_PERCENT_OLDER_ADULT
         if age is not None and age >= OLDER_ADULT_AGE_THRESHOLD
         else DEFICIT_PERCENT_ADULT
     )
-    floor = CALORIE_FLOOR_MALE_KCAL if user.sex == "male" else CALORIE_FLOOR_FEMALE_KCAL
+    floor = CALORIE_FLOOR_MALE_KCAL if profile.sex == "male" else CALORIE_FLOOR_FEMALE_KCAL
 
     target = max(eer * (1 - deficit_percent), floor)
     return (target, target < eer)

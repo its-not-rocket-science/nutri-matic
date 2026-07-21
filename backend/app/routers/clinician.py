@@ -19,8 +19,22 @@ from .. import schemas
 from ..auth import get_current_user
 from ..database import get_db
 from ..entitlements import PLAN_ENTERPRISE, PLAN_PROFESSIONAL, effective_plan
-from ..models import ClinicianClientLink, ClinicianNote, User
+from ..models import ClinicianClientLink, ClinicianNote, Profile, User
 from .diary import GroupBy, _compute_day_summary, _compute_trends
+
+
+def _client_owner_profile(client_user_id: int, db: Session) -> Profile:
+    """Clinician access targets the client's OWNER profile only — a
+    family's other members aren't visible to the clinician yet (a
+    deliberate, documented limitation, not an oversight)."""
+    profile = (
+        db.query(Profile)
+        .filter(Profile.user_id == client_user_id, Profile.is_account_owner.is_(True))
+        .one_or_none()
+    )
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Client has no owner profile")
+    return profile
 
 router = APIRouter(prefix="/api/clinician", tags=["clinician"])
 
@@ -217,7 +231,7 @@ def get_client_summary(
     the client's profile/entries instead of the caller's own."""
     _require_active_link(current_user.id, client_user_id, db)
     client = db.get(User, client_user_id)
-    day = _compute_day_summary(entry_date, client, db)
+    day = _compute_day_summary(entry_date, _client_owner_profile(client_user_id, db), db)
     return schemas.ClinicianClientSummaryOut(client_email=client.email, day=day)
 
 
@@ -233,8 +247,7 @@ def get_client_trends(
     """Longitudinal comparison for one client — same trends computation the
     client's own /diary/trends uses."""
     _require_active_link(current_user.id, client_user_id, db)
-    client = db.get(User, client_user_id)
-    return _compute_trends(start_date, end_date, group_by, client, db)
+    return _compute_trends(start_date, end_date, group_by, _client_owner_profile(client_user_id, db), db)
 
 
 @router.post("/clients/{client_user_id}/notes", response_model=schemas.ClinicianNoteOut, status_code=201)

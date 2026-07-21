@@ -100,6 +100,40 @@ ALTER TABLE collection_recipes ADD COLUMN IF NOT EXISTS approval_status VARCHAR 
 -- recipe_ingredient_provenance / robustness_results are brand new tables —
 -- Base.metadata.create_all() creates those automatically on next backend
 -- startup, same as any other new table. No ALTER TABLE needed for them.
+
+-- Household profiles (multiple individuals per account) — profiles is a
+-- brand new table, created automatically by create_all(); every other
+-- personal-data table gets a nullable profile_id alongside its existing
+-- user_id (kept, not dropped — see models.Profile's docstring). Three of
+-- these tables have a uniqueness constraint that was scoped to user_id
+-- alone and must move to profile_id, or two profiles under one account
+-- couldn't each have their own row for the same date/tag.
+--
+-- Rollout is two steps, in order:
+--   1. Deploy this code + run the block below.
+--   2. Run `python -m app.migrate_profiles` (idempotent, re-runnable) and
+--      confirm it reports zero remaining NULL profile_id rows before
+--      relying on any profile_id-scoped endpoint.
+ALTER TABLE dietary_constraints ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+ALTER TABLE diary_entries ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+ALTER TABLE diary_snapshots ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+ALTER TABLE weight_logs ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+ALTER TABLE meal_plan_entries ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+ALTER TABLE meal_plan_templates ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+ALTER TABLE diary_meal_templates ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+ALTER TABLE saved_filter_presets ADD COLUMN IF NOT EXISTS profile_id INTEGER REFERENCES profiles(id);
+
+-- uq_dietary_constraint / uq_diary_snapshot_user_date / uq_weight_log_user_date
+-- move from (user_id, ...) to (profile_id, ...) — Postgres allows any
+-- number of NULLs in a unique constraint, so this is safe to run before
+-- migrate_profiles.py backfills profile_id (existing NULL rows don't
+-- conflict with each other in the meantime).
+ALTER TABLE dietary_constraints DROP CONSTRAINT IF EXISTS uq_dietary_constraint;
+ALTER TABLE dietary_constraints ADD CONSTRAINT uq_dietary_constraint UNIQUE (profile_id, category, tag);
+ALTER TABLE diary_snapshots DROP CONSTRAINT IF EXISTS uq_diary_snapshot_user_date;
+ALTER TABLE diary_snapshots ADD CONSTRAINT uq_diary_snapshot_user_date UNIQUE (profile_id, entry_date);
+ALTER TABLE weight_logs DROP CONSTRAINT IF EXISTS uq_weight_log_user_date;
+ALTER TABLE weight_logs ADD CONSTRAINT uq_weight_log_user_date UNIQUE (profile_id, log_date);
 ```
 
 ## What's deliberately not covered here

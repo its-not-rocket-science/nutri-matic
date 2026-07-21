@@ -3,13 +3,14 @@ from sqlalchemy.orm import Session
 
 from .. import schemas
 from ..aggregation import WeightedFood, aggregate_nutrients, compute_protein_quality_with_coverage
-from ..auth import get_current_user
+from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..dietary_filter import filter_excluded_recipes, recipes_dietary_status
 from ..energy_goal import calculate_energy_target
 from ..models import (
     Food,
     FoodNutrient,
+    Profile,
     Recipe,
     RecipeComment,
     RecipeIngredient,
@@ -195,16 +196,19 @@ def list_public_recipes(current_user: User = Depends(get_current_user), db: Sess
 
 @router.post("/search", response_model=list[schemas.RecipeOut])
 def recipe_search(
-    body: schemas.SearchRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    body: schemas.SearchRequest,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     filters = [NutrientFilter(f.key, f.op, f.value) for f in body.filters]
     try:
         matches = search_recipes(db, current_user.id, filters)
     except UnknownFilterKey as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    matches = filter_excluded_recipes(matches, db, current_user)
+    matches = filter_excluded_recipes(matches, db, profile)
     matches = matches[: body.limit]
-    status_by_id = recipes_dietary_status(matches, db, current_user)
+    status_by_id = recipes_dietary_status(matches, db, profile)
     out = []
     for r in matches:
         recipe_out = _recipe_out(r, db, current_user)
@@ -371,7 +375,12 @@ def score_recipe(
 
 
 @router.get("/{recipe_id}/nutrients", response_model=list[schemas.NutrientAmountOut])
-def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def recipe_nutrients(
+    recipe_id: int,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
     recipe = _get_visible_recipe(recipe_id, current_user, db)
     items = _weighted_foods(recipe, db)
 
@@ -381,10 +390,10 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
     for row in rows:
         by_food_id.setdefault(row.food_id, []).append(row)
 
-    profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
+    drv_profile = (profile.sex, profile.is_pregnant, profile.is_lactating)
     totals = aggregate_nutrients(items, by_food_id, divide_by=recipe.servings)
-    protein_target = calculate_protein_target_g(current_user)
-    energy_result = calculate_energy_target(current_user)
+    protein_target = calculate_protein_target_g(profile)
+    energy_result = calculate_energy_target(profile)
     energy_target, energy_goal_adjusted = energy_result if energy_result is not None else (None, False)
 
     out = []
@@ -420,7 +429,7 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
                 )
             )
             continue
-        drv = resolve_drv(key, profile)
+        drv = resolve_drv(key, drv_profile)
         out.append(schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv))
     out.sort(key=lambda n: n.name)
     return out
@@ -428,7 +437,10 @@ def recipe_nutrients(recipe_id: int, current_user: User = Depends(get_current_us
 
 @router.get("/{recipe_id}/absorbed-protein", response_model=schemas.AbsorbedProteinOut | None)
 def recipe_absorbed_protein(
-    recipe_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    recipe_id: int,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     """Per-serving counterpart to the diary day summary's absorbed_protein —
     same DIAAS/PDCAAS-weighted total, scaled to one serving of this recipe
@@ -441,7 +453,7 @@ def recipe_absorbed_protein(
     if absorbed is None:
         return None
 
-    target_g = calculate_protein_target_g(current_user)
+    target_g = calculate_protein_target_g(profile)
     total_protein_g = absorbed.total_protein_g / recipe.servings
     diaas_absorbed_g = absorbed.diaas_absorbed_g / recipe.servings if absorbed.diaas_absorbed_g is not None else None
     pdcaas_absorbed_g = (

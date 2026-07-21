@@ -37,6 +37,11 @@ def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def owner_profile(client, token):
+    profiles = client.get("/api/profiles", headers=auth_headers(token)).json()
+    return next(p for p in profiles if p["is_account_owner"])
+
+
 def test_log_weight_creates_entry(client):
     token = register_and_token(client, "a@example.com")
     res = client.post(
@@ -62,7 +67,7 @@ def test_latest_log_syncs_profile_weight(client):
     token = register_and_token(client, "a@example.com")
     client.post("/api/weight-logs", json={"log_date": "2026-07-13", "weight_kg": 80.5}, headers=auth_headers(token))
 
-    profile = client.get("/api/profile", headers=auth_headers(token)).json()
+    profile = owner_profile(client, token)
     assert profile["weight_kg"] == 80.5
 
 
@@ -72,7 +77,7 @@ def test_backfilling_earlier_date_does_not_override_profile(client):
     # backfill an earlier day after the fact
     client.post("/api/weight-logs", json={"log_date": "2026-07-10", "weight_kg": 82.0}, headers=auth_headers(token))
 
-    profile = client.get("/api/profile", headers=auth_headers(token)).json()
+    profile = owner_profile(client, token)
     assert profile["weight_kg"] == 80.5
 
 
@@ -81,7 +86,7 @@ def test_newer_log_after_initial_updates_profile(client):
     client.post("/api/weight-logs", json={"log_date": "2026-07-10", "weight_kg": 82.0}, headers=auth_headers(token))
     client.post("/api/weight-logs", json={"log_date": "2026-07-13", "weight_kg": 80.5}, headers=auth_headers(token))
 
-    profile = client.get("/api/profile", headers=auth_headers(token)).json()
+    profile = owner_profile(client, token)
     assert profile["weight_kg"] == 80.5
 
 
@@ -94,7 +99,7 @@ def test_delete_does_not_reset_profile_weight(client):
     res = client.delete(f"/api/weight-logs/{log['id']}", headers=auth_headers(token))
     assert res.status_code == 204
 
-    profile = client.get("/api/profile", headers=auth_headers(token)).json()
+    profile = owner_profile(client, token)
     assert profile["weight_kg"] == 80.5
 
     logs = client.get(

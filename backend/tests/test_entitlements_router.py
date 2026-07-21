@@ -54,5 +54,5 @@ def test_entitlements_requires_auth(client):
 
 def test_profile_response_includes_plan(client):
     token = register_and_token(client, "a@example.com")
-    res = client.get("/api/profile", headers=auth_headers(token))
+    res = client.get("/api/account", headers=auth_headers(token))
     assert res.json()["plan"] == "free"

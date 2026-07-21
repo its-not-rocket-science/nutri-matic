@@ -17,7 +17,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from .auth import create_access_token, hash_password
+from .auth import create_access_token, create_owner_profile, hash_password
 from .models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Recipe, RecipeIngredient, User, WeightLog
 
 DEMO_EMAIL_DOMAIN = "demo.nutrimatic.local"
@@ -65,6 +65,8 @@ def create_demo_account(db: Session) -> str:
     )
     db.add(user)
     db.flush()
+    profile = create_owner_profile(db, user)
+    db.flush()
 
     foods = _find_demo_foods(db)
     today = date.today()
@@ -81,17 +83,17 @@ def create_demo_account(db: Session) -> str:
 
     # Two days of a plausible, varied diary
     if egg:
-        db.add(DiaryEntry(user_id=user.id, entry_date=today, meal="breakfast", food_id=egg.id, quantity_g=100))
+        db.add(DiaryEntry(user_id=user.id, profile_id=profile.id, entry_date=today, meal="breakfast", food_id=egg.id, quantity_g=100))
     if yogurt:
-        db.add(DiaryEntry(user_id=user.id, entry_date=today, meal="breakfast", food_id=yogurt.id, quantity_g=150))
+        db.add(DiaryEntry(user_id=user.id, profile_id=profile.id, entry_date=today, meal="breakfast", food_id=yogurt.id, quantity_g=150))
     if chicken and rice:
-        db.add(DiaryEntry(user_id=user.id, entry_date=today, meal="lunch", food_id=chicken.id, quantity_g=150))
-        db.add(DiaryEntry(user_id=user.id, entry_date=today, meal="lunch", food_id=rice.id, quantity_g=180))
+        db.add(DiaryEntry(user_id=user.id, profile_id=profile.id, entry_date=today, meal="lunch", food_id=chicken.id, quantity_g=150))
+        db.add(DiaryEntry(user_id=user.id, profile_id=profile.id, entry_date=today, meal="lunch", food_id=rice.id, quantity_g=180))
     if broccoli:
-        db.add(DiaryEntry(user_id=user.id, entry_date=today, meal="dinner", food_id=broccoli.id, quantity_g=120))
+        db.add(DiaryEntry(user_id=user.id, profile_id=profile.id, entry_date=today, meal="dinner", food_id=broccoli.id, quantity_g=120))
     if lentils:
         yesterday = today - timedelta(days=1)
-        db.add(DiaryEntry(user_id=user.id, entry_date=yesterday, meal="dinner", food_id=lentils.id, quantity_g=200))
+        db.add(DiaryEntry(user_id=user.id, profile_id=profile.id, entry_date=yesterday, meal="dinner", food_id=lentils.id, quantity_g=200))
 
     # A simple recipe, so /recipes isn't empty either
     if chicken and rice:
@@ -106,14 +108,14 @@ def create_demo_account(db: Session) -> str:
     if lentils:
         db.add(
             MealPlanEntry(
-                user_id=user.id, plan_date=today + timedelta(days=1), meal="dinner",
+                user_id=user.id, profile_id=profile.id, plan_date=today + timedelta(days=1), meal="dinner",
                 food_id=lentils.id, quantity_g=200,
             )
         )
         db.add(FoodPrice(user_id=user.id, food_id=lentils.id, package_price=3.20, package_quantity_g=500))
 
-    db.add(WeightLog(user_id=user.id, log_date=today - timedelta(days=7), weight_kg=65.8))
-    db.add(WeightLog(user_id=user.id, log_date=today, weight_kg=65.0))
+    db.add(WeightLog(user_id=user.id, profile_id=profile.id, log_date=today - timedelta(days=7), weight_kg=65.8))
+    db.add(WeightLog(user_id=user.id, profile_id=profile.id, log_date=today, weight_kg=65.0))
 
     db.commit()
     return create_access_token(user.id)

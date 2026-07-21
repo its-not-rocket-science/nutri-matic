@@ -85,11 +85,13 @@ def test_demo_account_has_a_profile_set(client):
     token = client.post("/api/auth/demo").json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = client.get("/api/profile", headers=headers)
+    res = client.get("/api/profiles", headers=headers)
     assert res.status_code == 200
-    body = res.json()
-    assert body["sex"] == "female"
-    assert body["weight_kg"] == 65.0
+    profiles = res.json()
+    assert len(profiles) == 1
+    assert profiles[0]["is_account_owner"] is True
+    assert profiles[0]["sex"] == "female"
+    assert profiles[0]["weight_kg"] == 65.0
 
 
 def test_two_demo_calls_create_two_independent_accounts(client):

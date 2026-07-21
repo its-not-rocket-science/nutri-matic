@@ -129,33 +129,61 @@ export interface NutrientAmount {
 	goal_adjusted?: boolean;
 }
 
+/** Account-level fields only — bio/dietary/goal fields live on Profile
+ * (an account can have more than one, see the household-profiles feature). */
 export interface User {
 	id: number;
 	email: string;
+	/** ISO 4217 code, or null to use the browser locale's implied currency */
+	currency: string | null;
+	plan: string;
+}
+
+export interface AccountUpdate {
+	currency?: string | null;
+}
+
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+
+export interface Profile {
+	id: number;
+	name: string;
+	is_account_owner: boolean;
 	sex: 'male' | 'female' | null;
 	birth_year: number | null;
-	activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
+	activity_level: ActivityLevel | null;
 	is_pregnant: boolean;
 	is_lactating: boolean;
 	weight_kg: number | null;
 	height_cm: number | null;
 	dietary_pattern: string | null;
-	/** ISO 4217 code, or null to use the browser locale's implied currency */
-	currency: string | null;
 	/** onboarding's step-1 pick — null if never set */
 	goal: string | null;
 }
 
-export interface ProfileUpdate {
+export interface ProfileCreate {
+	name: string;
 	sex: 'male' | 'female' | null;
 	birth_year: number | null;
-	activity_level: User['activity_level'];
+	activity_level: ActivityLevel | null;
 	is_pregnant: boolean;
 	is_lactating: boolean;
 	weight_kg: number | null;
 	height_cm: number | null;
 	dietary_pattern: string | null;
-	currency?: string | null;
+	goal?: string | null;
+}
+
+export interface ProfileUpdate {
+	name: string;
+	sex: 'male' | 'female' | null;
+	birth_year: number | null;
+	activity_level: ActivityLevel | null;
+	is_pregnant: boolean;
+	is_lactating: boolean;
+	weight_kg: number | null;
+	height_cm: number | null;
+	dietary_pattern: string | null;
 	goal?: string | null;
 }
 

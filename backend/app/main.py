@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from .database import Base, engine
 from .routers import (
+    account,
     api_keys,
     auth,
     clinician,
@@ -18,7 +19,7 @@ from .routers import (
     meal_plan,
     meal_plan_templates,
     presets,
-    profile,
+    profiles,
     public_api,
     recipes,
     search,
@@ -67,7 +68,8 @@ app.add_middleware(
 
 app.include_router(foods.router)
 app.include_router(auth.router)
-app.include_router(profile.router)
+app.include_router(account.router)
+app.include_router(profiles.router)
 app.include_router(recipes.router)
 app.include_router(diary.router)
 app.include_router(search.router)

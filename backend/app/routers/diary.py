@@ -12,7 +12,7 @@ from ..aggregation import (
     expand_entries_to_weighted_foods,
     scale_recipe_ingredients,
 )
-from ..auth import get_current_user
+from ..auth import get_current_user, get_owned_profile
 from ..data_quality import is_implausible
 from ..bioavailability import (
     IronSplit,
@@ -34,7 +34,7 @@ from ..entitlements import (
 )
 from ..food_chemistry import compute_meal_protein_distribution, estimate_sodium_potassium, leucine_threshold_for_age
 from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
-from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, User
+from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Profile, Recipe, RecipeIngredient, RecipeShare, User
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..protein_absorption import compute_absorbed_protein_with_coverage
@@ -111,7 +111,10 @@ def _entry_out(entry: DiaryEntry, foods_by_id: dict[int, Food], recipes_by_id: d
 
 @router.post("", response_model=schemas.DiaryEntryOut, status_code=201)
 def create_entry(
-    body: schemas.DiaryEntryCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    body: schemas.DiaryEntryCreate,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     if body.food_id is not None and db.get(Food, body.food_id) is None:
         raise HTTPException(status_code=422, detail=f"Unknown food id: {body.food_id}")
@@ -122,6 +125,7 @@ def create_entry(
 
     entry = DiaryEntry(
         user_id=current_user.id,
+        profile_id=profile.id,
         entry_date=body.entry_date,
         meal=body.meal,
         food_id=body.food_id,
@@ -140,14 +144,18 @@ def create_entry(
 
 @router.post("/copy-day", response_model=list[schemas.DiaryEntryOut], status_code=201)
 def copy_day(
-    source_date: date, target_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    source_date: date,
+    target_date: date,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     """Copies every entry logged on source_date onto target_date — additive,
     like the meal-plan/diary-template apply endpoints: existing entries on
     target_date are left alone, never overwritten or deleted."""
     source_entries = (
         db.query(DiaryEntry)
-        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == source_date)
+        .filter(DiaryEntry.profile_id == profile.id, DiaryEntry.entry_date == source_date)
         .all()
     )
 
@@ -162,6 +170,7 @@ def copy_day(
 
         entry = DiaryEntry(
             user_id=current_user.id,
+            profile_id=profile.id,
             entry_date=target_date,
             meal=source_entry.meal,
             food_id=source_entry.food_id,
@@ -195,12 +204,12 @@ def _compute_nutrient_gaps(
     entries: list[DiaryEntry],
     foods_by_id: dict[int, Food],
     recipes_by_id: dict[int, Recipe],
-    current_user: User,
+    profile: Profile,
     db: Session,
 ) -> NutrientGaps:
     """Shared by get_day() and the gap-suggestions endpoint — a day's logged
-    entries turned into per-nutrient amount + %DRV, using the signed-in
-    user's profile (sex, pregnancy/lactation) for DRV resolution."""
+    entries turned into per-nutrient amount + %DRV, using the profile's
+    own sex/pregnancy/lactation for DRV resolution."""
     items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
     all_food_ids = [item.food.id for item in items]
     rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all()
@@ -208,11 +217,11 @@ def _compute_nutrient_gaps(
     for row in rows:
         by_food_id.setdefault(row.food_id, []).append(row)
 
-    profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
+    drv_profile = (profile.sex, profile.is_pregnant, profile.is_lactating)
     totals = aggregate_nutrients(items, by_food_id)  # divide_by=1 — this is a day total, not per-serving
-    energy_result = calculate_energy_target(current_user)
+    energy_result = calculate_energy_target(profile)
     energy_target, energy_goal_adjusted = energy_result if energy_result is not None else (None, False)
-    protein_target = calculate_protein_target_g(current_user)
+    protein_target = calculate_protein_target_g(profile)
 
     nutrients_out = []
     for key, amount in totals.items():
@@ -227,20 +236,20 @@ def _compute_nutrient_gaps(
                 _nutrient_amount_out(key, nutrient_def, amount, energy_target, goal_adjusted=energy_goal_adjusted)
             )
             continue
-        drv = protein_target if key == "protein" else resolve_drv(key, profile)
+        drv = protein_target if key == "protein" else resolve_drv(key, drv_profile)
         nutrients_out.append(_nutrient_amount_out(key, nutrient_def, amount, drv))
     nutrients_out.sort(key=lambda n: n.name)
     return NutrientGaps(nutrients_out=nutrients_out, totals=totals, by_food_id=by_food_id)
 
 
-def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> schemas.DiarySummaryOut:
+def _compute_day_summary(entry_date: date, profile: Profile, db: Session) -> schemas.DiarySummaryOut:
     """The full live computation for one diary day — shared by the "Live
     Mode" GET endpoint below and the snapshot-creation endpoint, which
     freezes this exact output rather than recomputing its own version of
     it. See docs/live-vs-snapshot-mode.md."""
     entries = (
         db.query(DiaryEntry)
-        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
+        .filter(DiaryEntry.profile_id == profile.id, DiaryEntry.entry_date == entry_date)
         .all()
     )
 
@@ -251,12 +260,12 @@ def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> s
 
     entries_out = [_entry_out(e, foods_by_id, recipes_by_id) for e in entries]
 
-    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
+    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, profile, db)
     nutrients_out, totals, by_food_id = gaps.nutrients_out, gaps.totals, gaps.by_food_id
 
     day_items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
     absorbed = compute_absorbed_protein_with_coverage(day_items)
-    target_g = calculate_protein_target_g(current_user)
+    target_g = calculate_protein_target_g(profile)
     absorbed_protein_out = (
         schemas.AbsorbedProteinOut(
             total_protein_g=absorbed.total_protein_g,
@@ -280,7 +289,7 @@ def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> s
         else None
     )
 
-    leucine_threshold_g = leucine_threshold_for_age(calculate_age(current_user))
+    leucine_threshold_g = leucine_threshold_for_age(calculate_age(profile))
 
     iron_out: list[schemas.MealIronBioavailabilityOut] = []
     protein_distribution_out: list[schemas.MealProteinDistributionOut] = []
@@ -376,16 +385,23 @@ def _compute_day_summary(entry_date: date, current_user: User, db: Session) -> s
 
 
 @router.get("", response_model=schemas.DiarySummaryOut)
-def get_day(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_day(
+    entry_date: date, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)
+):
     """Live Mode (the only mode this endpoint has ever had): always
     recomputed from current code and data. See /snapshot for Snapshot Mode
     — reproducing a day exactly as scored on the day it was explicitly
     snapshotted."""
-    return _compute_day_summary(entry_date, current_user, db)
+    return _compute_day_summary(entry_date, profile, db)
 
 
 @router.post("/snapshot", response_model=schemas.DiarySnapshotOut, status_code=201)
-def create_snapshot(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_snapshot(
+    entry_date: date,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
     """Freezes today's live computation for entry_date so it can be
     reproduced later even after methodology_version moves on. Explicit and
     one-shot: snapshots are never taken automatically, and once taken are
@@ -397,14 +413,14 @@ def create_snapshot(entry_date: date, current_user: User = Depends(get_current_u
     cost, not an arbitrary lock)."""
     existing = (
         db.query(DiarySnapshot)
-        .filter(DiarySnapshot.user_id == current_user.id, DiarySnapshot.entry_date == entry_date)
+        .filter(DiarySnapshot.profile_id == profile.id, DiarySnapshot.entry_date == entry_date)
         .one_or_none()
     )
     if existing is not None:
         raise HTTPException(status_code=409, detail="This day already has a snapshot — snapshots are immutable")
 
     if effective_plan(current_user) not in (PLAN_PAID, PLAN_PROFESSIONAL, PLAN_ENTERPRISE):
-        snapshot_count = db.query(DiarySnapshot).filter(DiarySnapshot.user_id == current_user.id).count()
+        snapshot_count = db.query(DiarySnapshot).filter(DiarySnapshot.profile_id == profile.id).count()
         if snapshot_count >= FREE_TIER_SNAPSHOT_LIMIT:
             raise HTTPException(
                 status_code=403,
@@ -414,12 +430,13 @@ def create_snapshot(entry_date: date, current_user: User = Depends(get_current_u
                 ),
             )
 
-    summary = _compute_day_summary(entry_date, current_user, db)
+    summary = _compute_day_summary(entry_date, profile, db)
     if not summary.entries:
         raise HTTPException(status_code=422, detail="Nothing logged this day — nothing to snapshot")
 
     snapshot = DiarySnapshot(
         user_id=current_user.id,
+        profile_id=profile.id,
         entry_date=entry_date,
         summary_json=summary.model_dump(mode="json"),
         drv_methodology_version=DRV_METHODOLOGY_VERSION,
@@ -439,13 +456,15 @@ def create_snapshot(entry_date: date, current_user: User = Depends(get_current_u
 
 
 @router.get("/snapshot", response_model=schemas.DiarySnapshotOut | None)
-def get_snapshot(entry_date: date, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_snapshot(
+    entry_date: date, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)
+):
     """Snapshot Mode: returns the frozen summary exactly as computed at
     snapshot time, or None if this day was never snapshotted (it only ever
     existed in Live Mode — see docs/live-vs-snapshot-mode.md)."""
     snapshot = (
         db.query(DiarySnapshot)
-        .filter(DiarySnapshot.user_id == current_user.id, DiarySnapshot.entry_date == entry_date)
+        .filter(DiarySnapshot.profile_id == profile.id, DiarySnapshot.entry_date == entry_date)
         .one_or_none()
     )
     if snapshot is None:
@@ -472,11 +491,11 @@ def _find_worst_gap(nutrients_out: list[schemas.NutrientAmountOut]) -> schemas.N
 
 
 def _rank_foods_by_nutrient(
-    db: Session, nutrient_key: str, limit: int, current_user: User | None = None
+    db: Session, nutrient_key: str, limit: int, profile: Profile | None = None
 ) -> list[tuple[Food, float]]:
     """Real foods carrying the most of a given nutrient per 100g, paired
     with that amount — the candidate pool both /gap-suggestions and
-    /meal-optimize draw from. When current_user is given, a hard-excluded
+    /meal-optimize draw from. When profile is given, a hard-excluded
     food (allergy/religious requirement/dietary pattern) never fills one of
     these slots — over-fetches before filtering so exclusions don't quietly
     shrink the result below `limit`.
@@ -484,7 +503,7 @@ def _rank_foods_by_nutrient(
     Sorting by amount_per_100g.desc() means a data_quality-implausible
     value (see data_quality.py) would otherwise rank first every time —
     over-fetches for that reason too, same as the dietary-exclusion case."""
-    fetch_limit = limit if current_user is None else limit * 3
+    fetch_limit = limit if profile is None else limit * 3
     rows = (
         db.query(FoodNutrient)
         .filter(FoodNutrient.nutrient_key == nutrient_key)
@@ -495,20 +514,22 @@ def _rank_foods_by_nutrient(
     rows = [r for r in rows if not is_implausible(nutrient_key, r.amount_per_100g)][:fetch_limit]
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([r.food_id for r in rows])).all()}
     ranked = [(foods_by_id[r.food_id], r.amount_per_100g) for r in rows if r.food_id in foods_by_id]
-    if current_user is not None:
-        allowed_ids = {f.id for f in filter_excluded_foods([f for f, _ in ranked], db, current_user)}
+    if profile is not None:
+        allowed_ids = {f.id for f in filter_excluded_foods([f for f, _ in ranked], db, profile)}
         ranked = [(f, amount) for f, amount in ranked if f.id in allowed_ids]
     return ranked[:limit]
 
 
 def _rank_recipes_by_nutrient(
-    db: Session, nutrient_key: str, limit: int, current_user: User
+    db: Session, nutrient_key: str, limit: int, current_user: User, profile: Profile
 ) -> list[tuple[Recipe, list[WeightedFood]]]:
     """Real recipes (the user's own, shared with them, or public) carrying
     the most of a given nutrient per serving, paired with their ingredients
     already expanded to 1 serving — the "add a whole recipe" counterpart to
     _rank_foods_by_nutrient's "add one food". Ranked the same way: actually
-    simulated per-serving nutrient totals, not an estimate."""
+    simulated per-serving nutrient totals, not an estimate. Recipe
+    visibility (own/shared/public) is account-level; dietary filtering is
+    the specific profile's."""
     shared_recipe_ids = db.query(RecipeShare.recipe_id).filter(RecipeShare.shared_with_user_id == current_user.id)
     visible_recipes = (
         db.query(Recipe)
@@ -521,7 +542,7 @@ def _rank_recipes_by_nutrient(
         )
         .all()
     )
-    visible_recipes = filter_excluded_recipes(visible_recipes, db, current_user)
+    visible_recipes = filter_excluded_recipes(visible_recipes, db, profile)
     if not visible_recipes:
         return []
 
@@ -557,7 +578,10 @@ def _rank_recipes_by_nutrient(
 
 @router.get("/gap-suggestions", response_model=schemas.GapSuggestionOut | None)
 def get_gap_suggestions(
-    entry_date: date, limit: int = 8, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    entry_date: date,
+    limit: int = 8,
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
 ):
     """Picks the single nutrient with the lowest %DRV for the given day
     and ranks real foods by how much of that nutrient they carry per 100g.
@@ -565,7 +589,7 @@ def get_gap_suggestions(
     compare against."""
     entries = (
         db.query(DiaryEntry)
-        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
+        .filter(DiaryEntry.profile_id == profile.id, DiaryEntry.entry_date == entry_date)
         .all()
     )
 
@@ -574,12 +598,12 @@ def get_gap_suggestions(
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
-    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
+    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, profile, db)
     worst = _find_worst_gap(gaps.nutrients_out)
     if worst is None:
         return None
 
-    ranked_foods = _rank_foods_by_nutrient(db, worst.key, limit, current_user)
+    ranked_foods = _rank_foods_by_nutrient(db, worst.key, limit, profile)
 
     return schemas.GapSuggestionOut(
         nutrient_key=worst.key,
@@ -600,6 +624,7 @@ def get_meal_optimization(
     limit: int = 5,
     max_additional_cost: float | None = None,
     current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
     """Nutri-Matic's flagship feature: real, simulated additions and
@@ -609,7 +634,7 @@ def get_meal_optimization(
     Returns None if the meal has no entries, or there's no gap to target."""
     entries = (
         db.query(DiaryEntry)
-        .filter(DiaryEntry.user_id == current_user.id, DiaryEntry.entry_date == entry_date)
+        .filter(DiaryEntry.profile_id == profile.id, DiaryEntry.entry_date == entry_date)
         .all()
     )
     meal_entries = [e for e in entries if e.meal == meal]
@@ -621,7 +646,7 @@ def get_meal_optimization(
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
-    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, current_user, db)
+    gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, profile, db)
     worst = _find_worst_gap(gaps.nutrients_out)
     if worst is None:
         return None
@@ -641,14 +666,14 @@ def get_meal_optimization(
     already_in_meal = {item.food.id for item in swappable_items}
     gap_candidates = [
         food
-        for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8, current_user)
+        for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8, profile)
         if food.id not in already_in_meal
     ]
 
     already_logged_recipe_ids = {e.recipe_id for e in meal_recipe_entries}
     recipe_gap_candidates = [
         (recipe, items)
-        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user)
+        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
         if recipe.id not in already_logged_recipe_ids
     ]
 
@@ -697,13 +722,13 @@ def get_meal_optimization(
 
 
 @router.get("/quick-add", response_model=schemas.QuickAddOut)
-def get_quick_add(limit: int = 10, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Unbounded over a long-lived account this would scan the user's entire
+def get_quick_add(limit: int = 10, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
+    # Unbounded over a long-lived account this would scan the profile's entire
     # logging history on every call; recent/frequent groupings only need a
     # bounded recent window, so cap it rather than loading every entry ever.
     entries = (
         db.query(DiaryEntry)
-        .filter(DiaryEntry.user_id == current_user.id)
+        .filter(DiaryEntry.profile_id == profile.id)
         .order_by(DiaryEntry.entry_date.desc())
         .limit(2000)
         .all()
@@ -749,16 +774,16 @@ def get_quick_add(limit: int = 10, current_user: User = Depends(get_current_user
 
 
 def _compute_trends(
-    start_date: date, end_date: date, group_by: GroupBy, current_user: User, db: Session
+    start_date: date, end_date: date, group_by: GroupBy, profile: Profile, db: Session
 ) -> schemas.DiaryTrendsOut:
     """Shared by the Live Mode /trends endpoint below and the clinician
     dashboard's per-client trends view (routers/clinician.py) — same
     reasoning as _compute_day_summary: freeze nothing, just let the caller
-    supply whichever User's profile/entries to compute against."""
+    supply whichever Profile's entries to compute against."""
     entries = (
         db.query(DiaryEntry)
         .filter(
-            DiaryEntry.user_id == current_user.id,
+            DiaryEntry.profile_id == profile.id,
             DiaryEntry.entry_date >= start_date,
             DiaryEntry.entry_date <= end_date,
         )
@@ -774,10 +799,10 @@ def _compute_trends(
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
-    profile = (current_user.sex, current_user.is_pregnant, current_user.is_lactating)
-    energy_result = calculate_energy_target(current_user)
+    drv_profile = (profile.sex, profile.is_pregnant, profile.is_lactating)
+    energy_result = calculate_energy_target(profile)
     energy_target, energy_goal_adjusted = energy_result if energy_result is not None else (None, False)
-    protein_target = calculate_protein_target_g(current_user)
+    protein_target = calculate_protein_target_g(profile)
 
     # expand every day up front so the FoodNutrient lookup below can run once
     # for the whole date range's food set, instead of once per day (which,
@@ -813,7 +838,7 @@ def _compute_trends(
                     )
                 )
                 continue
-            drv = protein_target if key == "protein" else resolve_drv(key, profile)
+            drv = protein_target if key == "protein" else resolve_drv(key, drv_profile)
             nutrients_out.append(_trend_nutrient_out(key, nutrient_def, avg_amount, drv))
         nutrients_out.sort(key=lambda n: n.name)
         buckets_out.append(
@@ -833,16 +858,16 @@ def get_trends(
     start_date: date,
     end_date: date,
     group_by: GroupBy = "week",
-    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
-    return _compute_trends(start_date, end_date, group_by, current_user, db)
+    return _compute_trends(start_date, end_date, group_by, profile, db)
 
 
 @router.delete("/{entry_id}", status_code=204)
-def delete_entry(entry_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_entry(entry_id: int, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
     entry = db.get(DiaryEntry, entry_id)
-    if entry is None or entry.user_id != current_user.id:
+    if entry is None or entry.profile_id != profile.id:
         raise HTTPException(status_code=404, detail="Diary entry not found")
     db.delete(entry)
     db.commit()

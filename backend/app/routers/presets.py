@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..auth import get_current_user
+from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
-from ..models import SavedFilterPreset, User
+from ..models import Profile, SavedFilterPreset, User
 from ..search import FOOD_FILTER_KEYS, RECIPE_FILTER_KEYS
 
 router = APIRouter(prefix="/api/presets", tags=["presets"])
@@ -27,6 +27,7 @@ def _preset_out(preset: SavedFilterPreset) -> schemas.SavedFilterPresetOut:
 def create_preset(
     body: schemas.SavedFilterPresetCreate,
     current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
     unknown = {f.key for f in body.filters} - _valid_keys_for_scope(body.scope)
@@ -35,6 +36,7 @@ def create_preset(
 
     preset = SavedFilterPreset(
         user_id=current_user.id,
+        profile_id=profile.id,
         name=body.name,
         scope=body.scope,
         filters=[f.model_dump() for f in body.filters],
@@ -48,10 +50,10 @@ def create_preset(
 @router.get("", response_model=list[schemas.SavedFilterPresetOut])
 def list_presets(
     scope: schemas.Scope | None = None,
-    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
-    query = db.query(SavedFilterPreset).filter(SavedFilterPreset.user_id == current_user.id)
+    query = db.query(SavedFilterPreset).filter(SavedFilterPreset.profile_id == profile.id)
     if scope is not None:
         query = query.filter(SavedFilterPreset.scope == scope)
     presets = query.order_by(SavedFilterPreset.name).all()
@@ -59,9 +61,9 @@ def list_presets(
 
 
 @router.delete("/{preset_id}", status_code=204)
-def delete_preset(preset_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_preset(preset_id: int, profile: Profile = Depends(get_owned_profile), db: Session = Depends(get_db)):
     preset = db.get(SavedFilterPreset, preset_id)
-    if preset is None or preset.user_id != current_user.id:
+    if preset is None or preset.profile_id != profile.id:
         raise HTTPException(status_code=404, detail="Preset not found")
     db.delete(preset)
     db.commit()

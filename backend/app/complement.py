@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_amino_acids
 from .dietary_filter import filter_excluded_foods
-from .models import Food, User
+from .models import Food, Profile
 from .scoring import IncompleteAminoAcidProfile, ScoreResult, compute_diaas, compute_pdcaas
 
 SHORTLIST_SIZE = 30
@@ -52,18 +52,18 @@ def suggest_complements(
     pattern: str,
     db: Session,
     limit: int = 5,
-    current_user: User | None = None,
+    profile: Profile | None = None,
 ) -> list[ComplementSuggestion]:
     """original_score is the caller's already-computed score for `food` —
     callers need it anyway (to show the user their food's current score),
-    and recomputing it here would just be duplicate work. current_user is
+    and recomputing it here would just be duplicate work. profile is
     optional (this is reachable signed-out) — when present, candidates with
-    a hard dietary exclusion for that user are dropped before ranking."""
+    a hard dietary exclusion for that profile are dropped before ranking."""
     limiting_aa = original_score.limiting_amino_acid
 
     digestibility_column = Food.digestibility_diaas if method == "diaas" else Food.digestibility_pdcaas
     candidates = db.query(Food).filter(Food.id != food.id, digestibility_column.isnot(None)).all()
-    candidates = filter_excluded_foods(candidates, db, current_user)
+    candidates = filter_excluded_foods(candidates, db, profile)
 
     ranked_by_raw_content = sorted(
         (c for c in candidates if c.amino_acids.get(limiting_aa) is not None),
