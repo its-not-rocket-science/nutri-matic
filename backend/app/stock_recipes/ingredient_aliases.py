@@ -65,7 +65,15 @@ ALIASES: dict[str, str] = {
     "chicken breasts": "chicken breast raw",
     "chicken thighs": "chicken thigh raw",
     "chicken thigh": "chicken thigh raw",
-    "mixed beans": "beans mixed canned",
+    # no genuine "mixed beans" (e.g. three-bean-salad style) product exists
+    # in this database at all -- the only "mixed"+"bean" match is a mixed
+    # VEGETABLE medley (corn/lima beans/peas/carrots), a real category
+    # mismatch for a recipe that means an actual tin of mixed beans, and it
+    # also lacks amino acid data. Kidney beans (complete data) are used as
+    # the closest single-bean stand-in, matching the garam-masala/curry-
+    # powder precedent below: a documented approximation, not the wrong
+    # food entirely.
+    "mixed beans": "beans kidney all types canned",
     "kidney beans": "kidney beans canned",
     "cannellini beans": "beans white mature seeds canned",  # "Beans, cannellini, canned..." (fuzzy pick) has no amino acid data; white kidney beans are the same bean, complete data already in DB
     "butter beans": "lima beans canned",
@@ -178,6 +186,20 @@ ALIASES: dict[str, str] = {
     # broad Indian spice mixes), a documented approximation rather than
     # the completely unrelated branded soup this was resolving to before
     "garam masala": "spices curry powder",
+    # bare "smooth peanut butter" (no "reduced fat"/"chunky" wording at all
+    # in the raw text) was resolving via fuzzy match to "Peanut butter,
+    # smooth, reduced fat" -- a different specific product with no amino
+    # acid data -- instead of the plain complete-data entry
+    "smooth peanut butter": "peanut butter smooth style without salt",
+    "peanut butter": "peanut butter smooth style without salt",
+    # bare "walnuts" (no "glazed" wording in the raw text) was resolving to
+    # "Nuts, walnuts, glazed" -- no amino acid data at all
+    "walnuts": "nuts walnuts english",
+    "walnut": "nuts walnuts english",
+    # bare "tahini" was resolving to the "type of kernels unspecified" FDC
+    # entry, which has no amino acid data at all -- the "most common type"
+    # entry (roasted/toasted kernels) does
+    "tahini": "sesame butter tahini roasted toasted",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {

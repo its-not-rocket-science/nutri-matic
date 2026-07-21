@@ -287,6 +287,16 @@ CATEGORY_FALLBACK: list[tuple[str, float]] = [
     # product with the same coarse-estimate rationale, not a manufactured
     # ingredient — included for consistency rather than left as a gap
     ("honey", 0.80),
+    # found while checking the real live database's remaining DIAAS/PDCAAS
+    # gaps — these had complete amino acid data already but no digestibility
+    # coefficient at all, purely because their name doesn't contain any
+    # existing keyword above ("bulgur" is a wheat product, "falafel" a
+    # legume-based fried food, "muffin" a baked grain good, "avocado" a
+    # fruit) — same tier as their closest existing category, not a new one
+    ("bulgur", 0.85),
+    ("falafel", 0.80),
+    ("muffin", 0.85),
+    ("avocado", 0.80),
 ]
 
 
