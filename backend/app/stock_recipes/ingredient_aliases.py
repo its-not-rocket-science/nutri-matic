@@ -215,6 +215,17 @@ ALIASES: dict[str, str] = {
     # one: it was crediting the recipe with wheat's ~13g/100g protein
     # instead of wine's actual ~0.07g/100g
     "white wine": "alcoholic beverage wine table white",
+    # bare "split peas" (no "soup"/"canned" wording at all in the raw text)
+    # was resolving to "Split pea soup, canned, reduced sodium..." -- a
+    # completely different prepared product, not the raw legume the recipe
+    # actually means, and with no amino acid data at all
+    "split peas": "peas split mature seeds cooked boiled without salt",
+    # "bran flakes"/"bran flakes cereal" (generic, no brand named) were
+    # resolving to a branded POST product with no amino acid data --
+    # RALSTON's bran flakes (a different brand, same category) has a
+    # complete profile already in the database
+    "bran flakes": "cereals ready-to-eat ralston enriched wheat bran flakes",
+    "bran flakes cereal": "cereals ready-to-eat ralston enriched wheat bran flakes",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
