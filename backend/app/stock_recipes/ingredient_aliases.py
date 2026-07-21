@@ -226,6 +226,15 @@ ALIASES: dict[str, str] = {
     # complete profile already in the database
     "bran flakes": "cereals ready-to-eat ralston enriched wheat bran flakes",
     "bran flakes cereal": "cereals ready-to-eat ralston enriched wheat bran flakes",
+    # no UK "crumpet" entry exists in this database at all -- English
+    # muffins are the closest USDA analogue (same yeasted-batter griddle
+    # bread class), complete amino acid + digestibility data
+    "crumpet": "english muffins plain enriched without calcium propionate",
+    "crumpets": "english muffins plain enriched without calcium propionate",
+    # no "muesli" entry exists in this database at all -- homemade granola
+    # is the closest analogue (same rolled-oats+dried-fruit+nuts class),
+    # complete amino acid + digestibility data
+    "muesli": "cereals granola homemade",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
