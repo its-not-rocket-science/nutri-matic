@@ -297,6 +297,14 @@ CATEGORY_FALLBACK: list[tuple[str, float]] = [
     ("falafel", 0.80),
     ("muffin", 0.85),
     ("avocado", 0.80),
+    # same pattern, next round of remaining real DIAAS/PDCAAS blockers:
+    # complete amino acid data already, just no digestibility coefficient
+    # because the name doesn't contain any existing keyword
+    ("couscous", 0.85),  # wheat semolina, same tier as bulgur/wheat
+    ("crouton", 0.85),  # baked bread, same tier as bread
+    ("liver", 0.90),  # organ meat, similar digestibility to muscle meat
+    ("mussel", 0.90),  # shellfish, same tier as the other shellfish above
+    ("edamame", 0.80),  # immature soybean, same tier as soy
 ]
 
 

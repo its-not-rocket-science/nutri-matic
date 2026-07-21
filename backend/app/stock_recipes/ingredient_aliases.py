@@ -200,6 +200,21 @@ ALIASES: dict[str, str] = {
     # entry, which has no amino acid data at all -- the "most common type"
     # entry (roasted/toasted kernels) does
     "tahini": "sesame butter tahini roasted toasted",
+    # "2 pork chops" (bare, no cut specified) was resolving to "Pork, chop,
+    # center cut, raw", which has no amino acid data at all
+    "pork chop": "pork fresh loin blade chops or roasts bone-in separable lean and fat raw",
+    "pork chops": "pork fresh loin blade chops or roasts bone-in separable lean and fat raw",
+    "romaine lettuce": "lettuce cos or romaine raw",
+    # "black-eyed beans" (a cowpea) was resolving to "Beans, Dry, Black (0%
+    # moisture)" -- ordinary black beans, a different bean entirely, not
+    # just a missing-data problem
+    "black-eyed beans": "cowpeas common blackeyes crowder southern canned plain",
+    "black eyed beans": "cowpeas common blackeyes crowder southern canned plain",
+    # "white wine" was resolving to "Wheat, hard white" (!) purely on the
+    # shared word "white" -- a serious mismatch, not just a missing-data
+    # one: it was crediting the recipe with wheat's ~13g/100g protein
+    # instead of wine's actual ~0.07g/100g
+    "white wine": "alcoholic beverage wine table white",
 }
 
 REVIEWED_FALLBACKS: dict[str, str] = {
