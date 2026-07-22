@@ -181,6 +181,58 @@ def _word_and_search(db: Session, phrase: str, limit: int = 5) -> list[Food]:
     return sorted(candidates, key=rank)[:limit]
 
 
+def _resolve_alias_target(db: Session, target: AliasTarget) -> list[Food]:
+    """Prefer a stable `food_id` over the free-text `search_phrase` — the
+    description-based word-and-search is a fallback only, used when no id
+    is pinned, or when a pinned id no longer resolves to any Food row at
+    all (the referenced food was deleted or re-ingested under a new id).
+    See validate_reviewed_mappings for the startup/pipeline-time
+    diagnostic that surfaces that situation instead of letting it
+    silently degrade into whatever the fallback search happens to find."""
+    if target.food_id is not None:
+        food = db.get(Food, target.food_id)
+        if food is not None:
+            return [food]
+    return _word_and_search(db, target.search_phrase)
+
+
+def validate_reviewed_mappings(db: Session) -> list[str]:
+    """Checks every ALIASES/REVIEWED_FALLBACKS entry that pins a stable
+    `food_id`, and returns one human-readable diagnostic string per
+    problem found:
+
+    * the id no longer resolves to any Food row at all (deleted, or the
+      database was re-ingested and it now has a different id) — the
+      entry will silently fall back to its description search until
+      fixed, which may resolve to a different food entirely
+    * the id still resolves, but Food.name has drifted from
+      `expected_food_name` (the name a maintainer saw at review time) —
+      not necessarily wrong, but worth a second look
+
+    Read-only: never modifies the alias tables or the database. Intended
+    to run at pipeline startup (see cli.py's `match` stage) so drift is
+    caught immediately rather than surfacing later as an unexplained
+    match-quality regression."""
+    diagnostics: list[str] = []
+    for table in (ALIASES, REVIEWED_FALLBACKS):
+        for key, target in table.items():
+            if target.food_id is None:
+                continue
+            food = db.get(Food, target.food_id)
+            if food is None:
+                diagnostics.append(
+                    f"reviewed mapping {key!r} pins food_id={target.food_id} "
+                    f"(expected {target.expected_food_name!r}), which no longer exists in the database — "
+                    f"falling back to description search {target.search_phrase!r}"
+                )
+            elif target.expected_food_name is not None and food.name != target.expected_food_name:
+                diagnostics.append(
+                    f"reviewed mapping {key!r}'s food_id={target.food_id} name changed from "
+                    f"{target.expected_food_name!r} to {food.name!r} — re-review recommended"
+                )
+    return diagnostics
+
+
 def _canonical_lookup(db: Session, normalised: str) -> Food | None:
     """A deterministic (non-fuzzy) Food.name match: the normalised
     ingredient name as either the whole name or the first comma-separated
@@ -209,7 +261,7 @@ def match_ingredient(db: Session, name: str) -> MatchResult:
 
     alias_target = _find_in_table(normalised, ALIASES, _ALIAS_PATTERNS)
     if alias_target:
-        alias_matches = _word_and_search(db, alias_target.search_phrase)
+        alias_matches = _resolve_alias_target(db, alias_target)
         if alias_matches:
             return MatchResult(
                 alias_matches[0], "alias", alias_target.confidence, _candidates_from(alias_matches),
@@ -227,7 +279,7 @@ def match_ingredient(db: Session, name: str) -> MatchResult:
 
     fallback_target = _find_in_table(normalised, REVIEWED_FALLBACKS, _FALLBACK_PATTERNS)
     if fallback_target:
-        fallback_matches = _word_and_search(db, fallback_target.search_phrase)
+        fallback_matches = _resolve_alias_target(db, fallback_target)
         if fallback_matches:
             return MatchResult(
                 fallback_matches[0], "manual_review", fallback_target.confidence, _candidates_from(fallback_matches),

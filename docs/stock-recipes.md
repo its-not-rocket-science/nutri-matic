@@ -144,6 +144,12 @@ at `needs_review` rather than auto-published.
 2. If the right food exists but under different wording, add an entry to
    `ALIASES` (recurring case) or `REVIEWED_FALLBACKS` (one-off) in
    `stock_recipes/ingredient_aliases.py` — no other code change needed.
+   Once you know the specific Food row, pass `food_id=`/`expected_food_name=`
+   to `reviewed(...)` so the mapping targets that stable id rather than
+   relying solely on the fallback description search re-matching it correctly
+   forever; `python -m app.stock_recipes match` runs `validate_reviewed_
+   mappings` on every id-pinned entry and warns if a referenced food
+   disappears or gets renamed out from under it.
 3. If the food genuinely isn't in the database yet, it needs to be
    ingested first (`python -m app.ingest_fdc`, see the main README) or
    added via `python -m app.seed_manual_foods` for a pure-fat/oil/etc.

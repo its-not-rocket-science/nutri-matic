@@ -32,7 +32,7 @@ from ..auth import hash_password
 from ..database import SessionLocal
 from . import dedup
 from .collections_config import COLLECTIONS
-from .food_matching import MatchResult, compute_coverage, match_ingredient
+from .food_matching import MatchResult, compute_coverage, match_ingredient, validate_reviewed_mappings
 from .ingredient_parser import PARSER_VERSION, ParsedIngredient, parse_ingredient_lines
 from .manifest import ManifestEntry, load_manifest, load_manual_recipes
 from .robustness import (
@@ -261,6 +261,13 @@ def cmd_match(args) -> int:
     db = SessionLocal()
     stats = {"attempted": 0, "matched": 0, "needs_review": 0, "rejected": 0}
     try:
+        # id-pinned reviewed/alias mappings can drift out from under a
+        # database re-ingestion — surface that immediately rather than
+        # letting it silently degrade to a description-search fallback
+        # (or, if a name merely changed, going unnoticed entirely).
+        for diagnostic in validate_reviewed_mappings(db):
+            logger.warning("reviewed-mapping validation: %s", diagnostic)
+
         for cand in targets:
             stats["attempted"] += 1
             _match_candidate(db, cand, min_coverage)

@@ -10,7 +10,13 @@ from sqlalchemy.pool import StaticPool
 from app.database import Base
 from app.models import Food
 from app.reference_patterns import AMINO_ACIDS
-from app.stock_recipes.food_matching import compute_coverage, match_ingredient, normalise_ingredient_name
+from app.stock_recipes.food_matching import (
+    compute_coverage,
+    match_ingredient,
+    normalise_ingredient_name,
+    validate_reviewed_mappings,
+)
+from app.stock_recipes.ingredient_aliases import REVIEWED_FALLBACKS, reviewed
 
 
 @pytest.fixture
@@ -126,3 +132,89 @@ def test_coverage_empty_list():
     coverage = compute_coverage([])
     assert coverage.line_coverage == 0.0
     assert coverage.mass_coverage == 0.0
+
+
+# --- prompt section 2: stable food_id targets for reviewed mappings --------
+
+def test_reviewed_mapping_resolves_via_food_id_ignoring_bad_search_phrase(db, monkeypatch):
+    """A food_id-pinned mapping must resolve straight to that row, even
+    when its fallback search_phrase would match nothing (or something
+    else) — the id is the primary target, description search is only a
+    fallback (prompt section 2)."""
+    pinned = Food(
+        name="Zzyzx Pinned Reference Food, raw", protein_g_per_100g=1.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    db.add(pinned)
+    db.commit()
+
+    target = reviewed(
+        "this search phrase matches absolutely nothing in the fixture",
+        "test-only reviewed mapping, pinned by id",
+        food_id=pinned.id, expected_food_name=pinned.name,
+    )
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix placeholder ingredient", target)
+
+    result = match_ingredient(db, "qorvantrix placeholder ingredient")
+    assert result.method == "manual_review"
+    assert result.food.id == pinned.id
+    assert result.relationship == "reviewed_substitution"
+
+
+def test_reviewed_mapping_falls_back_to_search_phrase_when_food_id_missing(db, monkeypatch):
+    """If the pinned id no longer exists (food deleted/re-ingested under a
+    new id), resolution must fall back to the description search rather
+    than failing outright."""
+    target = reviewed(
+        "onions raw",
+        "test-only reviewed mapping with a dangling id",
+        food_id=999_999, expected_food_name="Onions, raw",
+    )
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix dangling ingredient", target)
+
+    result = match_ingredient(db, "qorvantrix dangling ingredient")
+    assert result.method == "manual_review"
+    assert result.food.name == "Onions, raw"
+
+
+def test_validate_reviewed_mappings_flags_missing_food_id(db, monkeypatch):
+    target = reviewed("onions raw", "dangling id", food_id=999_999, expected_food_name="Onions, raw")
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix dangling ingredient", target)
+
+    diagnostics = validate_reviewed_mappings(db)
+    assert any("qorvantrix dangling ingredient" in d and "999999" in d for d in diagnostics)
+
+
+def test_validate_reviewed_mappings_flags_renamed_food(db, monkeypatch):
+    renamed = Food(
+        name="Zzyzx Renamed Food, raw", protein_g_per_100g=1.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    db.add(renamed)
+    db.commit()
+
+    target = reviewed(
+        "irrelevant fallback phrase", "renamed food", food_id=renamed.id, expected_food_name="Zzyzx Original Name, raw",
+    )
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix renamed ingredient", target)
+
+    diagnostics = validate_reviewed_mappings(db)
+    assert any("Zzyzx Original Name, raw" in d and "Zzyzx Renamed Food, raw" in d for d in diagnostics)
+
+
+def test_validate_reviewed_mappings_silent_when_nothing_pinned(db):
+    assert validate_reviewed_mappings(db) == []
+
+
+def test_validate_reviewed_mappings_silent_when_id_and_name_match(db, monkeypatch):
+    pinned = Food(
+        name="Zzyzx Stable Food, raw", protein_g_per_100g=1.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    db.add(pinned)
+    db.commit()
+
+    target = reviewed("irrelevant fallback phrase", "stable pinned food", food_id=pinned.id, expected_food_name=pinned.name)
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix stable ingredient", target)
+
+    assert validate_reviewed_mappings(db) == []
