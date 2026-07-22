@@ -112,11 +112,33 @@ DEFAULT_CONFIDENCE: dict[AliasRelationship, float] = {
 @dataclass(frozen=True)
 class AliasTarget:
     """One ALIASES/REVIEWED_FALLBACKS entry's resolved target and the
-    reasoning behind it."""
+    reasoning behind it.
+
+    `food_id`, when set, pins this entry to a stable Food.id (the FDC-
+    derived database identifier) rather than leaving resolution entirely
+    to `search_phrase` re-running through description search every time.
+    Descriptions drift in meaning as the database is re-ingested (a
+    fuzzier phrase can start matching a different row once the catalog
+    changes), but a maintainer who has actually reviewed and picked a
+    specific Food row means *that row*, permanently — see food_matching.
+    _resolve_alias_target, which tries `food_id` first and only falls
+    back to `search_phrase` if that id no longer resolves to anything
+    (the food was deleted or re-ingested under a new id). This is
+    intended primarily for REVIEWED_FALLBACKS entries (prompt section 2)
+    but isn't restricted to them — nothing stops an ALIASES entry from
+    pinning an id too, once a maintainer has confirmed one.
+
+    `expected_food_name` records the Food.name a maintainer saw at review
+    time, purely so validate_reviewed_mappings can flag drift (the id
+    still resolves, but to a food that's been renamed/re-described since
+    review — a signal the substitution deserves a second look, not
+    proof it's now wrong). Only meaningful alongside `food_id`.
+    """
 
     # fed to food_matching._word_and_search exactly as the old bare-string
     # dict value was — plain space-separated words, not a USDA-punctuated
-    # name (see food_matching.py's docstring for why).
+    # name (see food_matching.py's docstring for why). Always present, even
+    # when `food_id` is set, as the fallback description search.
     search_phrase: str
     relationship: AliasRelationship
     confidence: float
@@ -129,6 +151,8 @@ class AliasTarget:
     # `rationale` so the latter can stay a single user-facing sentence.
     # None for entries with nothing more to add beyond the rationale.
     provenance: str | None = None
+    food_id: int | None = None
+    expected_food_name: str | None = None
 
 
 def exact(
@@ -167,10 +191,25 @@ def proxy(
     )
 
 
-def reviewed(search_phrase: str, rationale: str, *, provenance: str | None = None) -> AliasTarget:
+def reviewed(
+    search_phrase: str,
+    rationale: str,
+    *,
+    provenance: str | None = None,
+    food_id: int | None = None,
+    expected_food_name: str | None = None,
+) -> AliasTarget:
+    """`search_phrase` is required regardless of whether `food_id` is
+    given — it's the fallback description search used if the pinned id
+    stops resolving (see AliasTarget's docstring and food_matching.
+    _resolve_alias_target). Pass `food_id` (plus `expected_food_name`,
+    the Food.name seen at review time) once a maintainer has identified
+    the exact database row this substitution should target — see prompt
+    section 2: reviewed mappings should primarily target a stable id,
+    not rely solely on description matching."""
     return AliasTarget(
         search_phrase, AliasRelationship.REVIEWED_SUBSTITUTION, DEFAULT_CONFIDENCE[AliasRelationship.REVIEWED_SUBSTITUTION],
-        rationale, provenance,
+        rationale, provenance, food_id=food_id, expected_food_name=expected_food_name,
     )
 
 
