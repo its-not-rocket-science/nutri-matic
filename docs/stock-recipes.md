@@ -102,7 +102,11 @@ relevant, the specific assumption made — stored on
 
 1. **Alias** — `stock_recipes/ingredient_aliases.py`'s `ALIASES` table, a
    curated map from common recipe wording ("mince", "self-raising flour",
-   "vegetable stock") to a cleaner search phrase. Confidence 0.95.
+   "vegetable stock") to an `AliasTarget` (search phrase plus a
+   `relationship` — `exact`/`regional_equivalent`/`close_analogue`/
+   `category_proxy` — and its confidence, rationale, and provenance
+   notes). Confidence 0.95 down to 0.65 depending on `relationship`; see
+   the module docstring for what each relationship claims.
 2. **Canonical** — a deterministic (non-fuzzy) `Food.name` prefix match.
    Confidence 0.85.
 3. **Fuzzy** — the app's existing `search.search_foods_by_name` (the same
@@ -111,8 +115,9 @@ relevant, the specific assumption made — stored on
    marketing copy, a much weaker signal; see `dietary_tags.py`'s module
    docstring for the same reasoning applied to allergen matching).
 4. **Manual review fallback** — `ingredient_aliases.py`'s
-   `REVIEWED_FALLBACKS`, populated over time from review-file corrections
-   for cases the first three tiers get wrong or miss entirely.
+   `REVIEWED_FALLBACKS`, the same `AliasTarget` shape (relationship
+   `reviewed_substitution`), populated over time from review-file
+   corrections for cases the first three tiers get wrong or miss entirely.
 
 No LLM is involved anywhere in this — every match is either a curated
 lookup or the app's existing deterministic/fuzzy search, so every match is
