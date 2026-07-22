@@ -34,7 +34,7 @@ from ..dietary_tags import match_confidence as _data_type_confidence
 from ..models import Food
 from ..reference_patterns import AMINO_ACIDS
 from ..search import search_foods_by_name
-from .ingredient_aliases import ALIASES, REVIEWED_FALLBACKS
+from .ingredient_aliases import ALIASES, REVIEWED_FALLBACKS, AliasTarget
 
 # leading noise words stripped from a parsed ingredient name before
 # matching — container/pack words the parser leaves in place (see
@@ -49,16 +49,14 @@ _LEADING_STOPWORD_RE = re.compile(
 )
 
 _FUZZY_CONFIDENCE = {"high": 0.65, "low": 0.4}
-_ALIAS_CONFIDENCE = 0.95
 _CANONICAL_CONFIDENCE = 0.85
-_REVIEWED_CONFIDENCE = 0.9
 
 # ALIASES/REVIEWED_FALLBACKS keys, longest first, each compiled as a
 # whole-word pattern — built once at import time. A key matches if it
 # appears anywhere in the normalised name as whole words, not just on an
 # exact full-string match, so e.g. the "5% lean beef mince" ->
 # "lean beef mince" suffix still resolves via the "lean beef mince" alias.
-def _compile_lookup(table: dict[str, str]) -> list[tuple[re.Pattern, str]]:
+def _compile_lookup(table: dict[str, AliasTarget]) -> list[tuple[re.Pattern, str]]:
     return [
         (re.compile(rf"(?:^|\s){re.escape(key)}(?:$|\s)"), key)
         for key in sorted(table, key=len, reverse=True)
@@ -69,7 +67,7 @@ _ALIAS_PATTERNS = _compile_lookup(ALIASES)
 _FALLBACK_PATTERNS = _compile_lookup(REVIEWED_FALLBACKS)
 
 
-def _find_in_table(normalised: str, table: dict[str, str], patterns: list[tuple[re.Pattern, str]]) -> str | None:
+def _find_in_table(normalised: str, table: dict[str, AliasTarget], patterns: list[tuple[re.Pattern, str]]) -> AliasTarget | None:
     if normalised in table:
         return table[normalised]
     for pattern, key in patterns:
@@ -101,6 +99,11 @@ class MatchResult:
     method: str | None  # "alias" | "canonical" | "fuzzy" | "manual_review" | None (unresolved)
     confidence: float | None
     candidates: list[MatchCandidate] = field(default_factory=list)
+    # the AliasTarget.relationship value ("exact" | "regional_equivalent" |
+    # "close_analogue" | "category_proxy" | "reviewed_substitution") behind
+    # an "alias"/"manual_review" method match — see ingredient_aliases.py.
+    # None for "canonical"/"fuzzy" matches, which aren't alias-table driven.
+    relationship: str | None = None
 
     @property
     def unresolved(self) -> bool:
@@ -204,11 +207,14 @@ def match_ingredient(db: Session, name: str) -> MatchResult:
     fuzzy_matches = search_foods_by_name(db, normalised, limit=5)
     candidates = _candidates_from(fuzzy_matches)
 
-    alias_phrase = _find_in_table(normalised, ALIASES, _ALIAS_PATTERNS)
-    if alias_phrase:
-        alias_matches = _word_and_search(db, alias_phrase)
+    alias_target = _find_in_table(normalised, ALIASES, _ALIAS_PATTERNS)
+    if alias_target:
+        alias_matches = _word_and_search(db, alias_target.search_phrase)
         if alias_matches:
-            return MatchResult(alias_matches[0], "alias", _ALIAS_CONFIDENCE, _candidates_from(alias_matches))
+            return MatchResult(
+                alias_matches[0], "alias", alias_target.confidence, _candidates_from(alias_matches),
+                relationship=alias_target.relationship.value,
+            )
 
     canonical = _canonical_lookup(db, normalised)
     if canonical is not None:
@@ -219,12 +225,13 @@ def match_ingredient(db: Session, name: str) -> MatchResult:
         confidence = _FUZZY_CONFIDENCE[_data_type_confidence(best.data_type)]
         return MatchResult(best, "fuzzy", confidence, candidates)
 
-    fallback_phrase = _find_in_table(normalised, REVIEWED_FALLBACKS, _FALLBACK_PATTERNS)
-    if fallback_phrase:
-        fallback_matches = _word_and_search(db, fallback_phrase)
+    fallback_target = _find_in_table(normalised, REVIEWED_FALLBACKS, _FALLBACK_PATTERNS)
+    if fallback_target:
+        fallback_matches = _word_and_search(db, fallback_target.search_phrase)
         if fallback_matches:
             return MatchResult(
-                fallback_matches[0], "manual_review", _REVIEWED_CONFIDENCE, _candidates_from(fallback_matches)
+                fallback_matches[0], "manual_review", fallback_target.confidence, _candidates_from(fallback_matches),
+                relationship=fallback_target.relationship.value,
             )
 
     return MatchResult(food=None, method=None, confidence=None, candidates=candidates)
