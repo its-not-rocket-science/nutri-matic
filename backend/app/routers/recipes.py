@@ -14,6 +14,7 @@ from ..models import (
     Recipe,
     RecipeComment,
     RecipeIngredient,
+    RecipeIngredientProvenance,
     RecipeRating,
     RecipeShare,
     RecipeTag,
@@ -86,13 +87,26 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
     owner = db.get(User, recipe.user_id)
     ratings = [r.rating for r in db.query(RecipeRating).filter(RecipeRating.recipe_id == recipe.id).all()]
     tags = [t.tag for t in db.query(RecipeTag).filter(RecipeTag.recipe_id == recipe.id).order_by(RecipeTag.tag).all()]
+    # only present for stock-recipe ingredients imported via
+    # stock_recipes/ (prompt section 8) — absent entirely for an
+    # ordinary user-added ingredient, not just null-valued
+    provenance_by_ingredient_id = {
+        p.recipe_ingredient_id: p
+        for p in db.query(RecipeIngredientProvenance).filter(
+            RecipeIngredientProvenance.recipe_ingredient_id.in_([i.id for i in ingredients])
+        ).all()
+    }
     return schemas.RecipeOut(
         id=recipe.id,
         name=recipe.name,
         servings=recipe.servings,
         ingredients=[
             schemas.RecipeIngredientOut(
-                id=i.id, food_id=i.food_id, food_name=foods_by_id[i.food_id].name, quantity_g=i.quantity_g
+                id=i.id, food_id=i.food_id, food_name=foods_by_id[i.food_id].name, quantity_g=i.quantity_g,
+                provenance=(
+                    schemas.RecipeIngredientProvenanceOut.model_validate(provenance_by_ingredient_id[i.id])
+                    if i.id in provenance_by_ingredient_id else None
+                ),
             )
             for i in ingredients
         ],

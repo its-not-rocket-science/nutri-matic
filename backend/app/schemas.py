@@ -413,12 +413,34 @@ class RecipeIngredientUpdate(BaseModel):
     quantity_g: float
 
 
+class RecipeIngredientProvenanceOut(BaseModel):
+    """Only present for a stock-recipe ingredient imported via
+    stock_recipes/ — null on RecipeIngredientOut for an ordinary
+    user-added ingredient, which has no underlying
+    models.RecipeIngredientProvenance row at all.
+
+    Exposes the alias/proxy confidence distinction prompt section 8 asks
+    for — which relationship food_matching.py's match was
+    ("exact"/"regional_equivalent"/"close_analogue"/"category_proxy"/
+    "reviewed_substitution" — see ingredient_aliases.AliasRelationship)
+    and how confident that tier is — so a user or developer can tell an
+    exact match apart from a reviewed approximation. Purely informational:
+    nothing here is read by aggregation.py, so it can never affect a
+    nutrition calculation."""
+
+    model_config = ConfigDict(from_attributes=True)
+    match_method: str | None
+    match_confidence: float | None
+    match_relationship: str | None
+
+
 class RecipeIngredientOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     food_id: int
     food_name: str
     quantity_g: float
+    provenance: RecipeIngredientProvenanceOut | None = None
 
 
 class RecipeOut(BaseModel):

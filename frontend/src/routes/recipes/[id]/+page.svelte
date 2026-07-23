@@ -17,6 +17,7 @@
 		NutrientAmount,
 		Recipe,
 		RecipeComment,
+		RecipeIngredient,
 		RecipeRatingSummary,
 		RecipeShare,
 		Robustness,
@@ -76,6 +77,39 @@
 		manual_curated: 'badge-info',
 		adapted_composite: 'badge-estimated'
 	};
+
+	// Per-ingredient match provenance (prompt section 8) — which
+	// AliasRelationship (ingredient_aliases.py) resolved this ingredient,
+	// shown as a badge next to it. Purely informational: this never
+	// changes the ingredient's quantity or the recipe's nutrition numbers.
+	const RELATIONSHIP_LABELS: Record<string, string> = {
+		exact: 'Exact match',
+		regional_equivalent: 'Regional equivalent',
+		close_analogue: 'Close analogue',
+		category_proxy: 'Category proxy',
+		reviewed_substitution: 'Reviewed substitution'
+	};
+	const RELATIONSHIP_BADGE_CLASS: Record<string, string> = {
+		exact: 'badge-measured',
+		regional_equivalent: 'badge-measured',
+		close_analogue: 'badge-info',
+		category_proxy: 'badge-estimated',
+		reviewed_substitution: 'badge-info'
+	};
+	function relationshipLabel(ingredient: RecipeIngredient): string | null {
+		const rel = ingredient.provenance?.match_relationship;
+		return rel ? (RELATIONSHIP_LABELS[rel] ?? rel) : null;
+	}
+	function relationshipBadgeClass(ingredient: RecipeIngredient): string {
+		const rel = ingredient.provenance?.match_relationship;
+		return (rel && RELATIONSHIP_BADGE_CLASS[rel]) || 'badge-info';
+	}
+	function relationshipTitle(ingredient: RecipeIngredient): string {
+		const confidence = ingredient.provenance?.match_confidence;
+		return confidence !== null && confidence !== undefined
+			? `Match confidence: ${Math.round(confidence * 100)}%`
+			: '';
+	}
 	let shares: RecipeShare[] = $state([]);
 	let shareEmail = $state('');
 	let ratings: RecipeRatingSummary | null = $state(null);
@@ -442,6 +476,14 @@
 		{#each recipe.ingredients as ingredient (ingredient.id)}
 			<li>
 				<a href="/foods/{ingredient.food_id}">{ingredient.food_name}</a>
+				{#if relationshipLabel(ingredient)}
+					<span
+						class="badge {relationshipBadgeClass(ingredient)} no-print"
+						title={relationshipTitle(ingredient)}
+					>
+						{relationshipLabel(ingredient)}
+					</span>
+				{/if}
 				{#if recipe.is_owner}
 					<input
 						type="number"

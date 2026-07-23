@@ -123,6 +123,15 @@ No LLM is involved anywhere in this — every match is either a curated
 lookup or the app's existing deterministic/fuzzy search, so every match is
 explainable and reproducible from its stored `match_method` alone.
 
+For an alias/manual-review match, `RecipeIngredientProvenance.
+match_relationship` additionally records which `AliasRelationship` was
+behind it (prompt section 8) — `GET /recipes/{id}` exposes
+`match_method`/`match_confidence`/`match_relationship` per ingredient
+(null for an ordinary, non-imported ingredient), and the recipe detail
+page shows it as a small badge next to the ingredient. This is
+informational only: nothing in `aggregation.py` reads it, so it can never
+change a nutrition number, only how that number's provenance is presented.
+
 An ingredient line that resolves to no `Food` at all (or resolves to a
 `Food` but its quantity can't be honestly converted to grams — see
 above) becomes an **unresolved ingredient**: recorded on
