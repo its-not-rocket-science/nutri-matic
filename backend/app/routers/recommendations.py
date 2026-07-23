@@ -21,6 +21,8 @@ from ..database import get_db
 from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, User
 from ..nutrient_targets import AnalysisPeriod
 from ..recommend_ingredients import DEFAULT_MAX_SUGGESTIONS, suggest_ingredients
+from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SUGGESTIONS
+from ..recommend_recipes import GOAL_PRESETS, suggest_recipes
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
@@ -105,6 +107,66 @@ def get_ingredient_suggestions(
             score=s.score.total, nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
             new_warnings=s.new_warnings, extra_energy_kcal=s.extra_energy_kcal, data_coverage=s.data_coverage,
             explanation=s.explanation,
+        )
+        for s in result.suggestions
+    ])
+
+
+@router.get("/recipes", response_model=schemas.RecipeSuggestionsOut)
+def get_recipe_suggestions(
+    entry_date: date,
+    source: str = "diary",
+    max_additional_energy: float | None = None,
+    max_suggestions: int = DEFAULT_MAX_RECIPE_SUGGESTIONS,
+    priority_nutrients: str | None = None,
+    goal: str | None = None,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Suggests up to `max_suggestions` recipes (the user's own, shared
+    with them, or public) to close the biggest current nutrient gaps for
+    a diary day or meal-plan day. `goal` is one of
+    `recommend_recipes.GOAL_PRESETS`
+    (`overall_balance`/`protein_quality`/`fibre`/`iron_folate`/`calcium`);
+    an explicit `priority_nutrients` overrides it. Returns an empty
+    `suggestions` list — never an error — when nothing logged has a gap,
+    or no visible recipe helps."""
+    if source not in ("diary", "meal_plan"):
+        raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
+    if goal is not None and goal not in GOAL_PRESETS:
+        raise HTTPException(status_code=422, detail=f"goal must be one of {sorted(GOAL_PRESETS)}")
+
+    entries = _load_entries(db, profile, entry_date, source)
+
+    food_ids = {e.food_id for e in entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+    items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
+
+    all_food_ids = [item.food.id for item in items]
+    nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+    for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
+        nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+
+    priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
+
+    result = suggest_recipes(
+        db, profile, current_user, items, nutrients_by_food_id, AnalysisPeriod.DAY,
+        max_additional_energy=max_additional_energy, max_suggestions=max_suggestions,
+        priority_nutrient_keys=priority_keys, goal=goal,
+        excluded_recipe_ids=recipe_ids,
+    )
+
+    return schemas.RecipeSuggestionsOut(suggestions=[
+        schemas.RecipeSuggestionOut(
+            recipe_id=s.recipe_id, recipe_name=s.recipe_name, suggested_servings=s.suggested_servings,
+            energy_added_kcal=s.energy_added_kcal, protein_added_g=s.protein_added_g, score=s.score.total,
+            nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
+            new_warnings=s.new_warnings, is_stock=s.is_stock, source_name=s.source_name,
+            match_coverage_lines=s.match_coverage_lines, robustness_rating=s.robustness_rating,
+            robustness_note=s.robustness_note, explanation=s.explanation,
         )
         for s in result.suggestions
     ])

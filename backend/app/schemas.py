@@ -1050,3 +1050,27 @@ class IngredientSuggestionOut(BaseModel):
 
 class IngredientSuggestionsOut(BaseModel):
     suggestions: list[IngredientSuggestionOut]
+
+
+class RecipeSuggestionOut(BaseModel):
+    """One `recommend_recipes.RecipeSuggestion` — prompt 7."""
+
+    recipe_id: int
+    recipe_name: str
+    suggested_servings: float
+    energy_added_kcal: float
+    protein_added_g: float
+    score: float
+    nutrients_improved: list[str]
+    remaining_shortfalls: list[str]
+    new_warnings: list[str]
+    is_stock: bool
+    source_name: str | None
+    match_coverage_lines: float | None
+    robustness_rating: int | None
+    robustness_note: str | None
+    explanation: str
+
+
+class RecipeSuggestionsOut(BaseModel):
+    suggestions: list[RecipeSuggestionOut]
