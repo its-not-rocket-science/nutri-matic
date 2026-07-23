@@ -140,6 +140,89 @@ def test_meal_scoped_request_uses_remaining_room_not_flat_daily_target(client):
     assert res.json() == {"suggestions": []}
 
 
+def test_recipe_source_uses_the_recipes_own_ingredients(client):
+    """Recipe-detail page's "Improve this recipe" — no diary/meal-plan
+    entry involved at all, just the recipe's own scaled ingredients."""
+    token = register_and_token(client, "g@example.com")
+    headers = auth_headers(token)
+    reg = client.post(
+        "/api/recipes",
+        json={"name": "Plain rice", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=headers,
+    )
+    recipe_id = reg.json()["id"]
+
+    res = client.get(
+        "/api/recommendations/ingredients",
+        params={"recipe_id": recipe_id, "priority_nutrients": "fiber_total"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    body = res.json()
+    if body["suggestions"]:
+        assert body["suggestions"][0]["food_name"] == "Lentils"
+
+
+def test_recipe_source_rejects_meal_param(client):
+    token = register_and_token(client, "h@example.com")
+    headers = auth_headers(token)
+    reg = client.post(
+        "/api/recipes",
+        json={"name": "Plain rice", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=headers,
+    )
+    recipe_id = reg.json()["id"]
+
+    res = client.get(
+        "/api/recommendations/ingredients",
+        params={"recipe_id": recipe_id, "meal": "lunch"},
+        headers=headers,
+    )
+    assert res.status_code == 422
+
+
+def test_multi_day_meal_plan_range(client):
+    token = register_and_token(client, "i@example.com")
+    headers = auth_headers(token)
+    client.post(
+        "/api/meal-plan", json={"plan_date": "2026-01-01", "meal": "lunch", "food_id": 1, "quantity_g": 200},
+        headers=headers,
+    )
+    client.post(
+        "/api/meal-plan", json={"plan_date": "2026-01-03", "meal": "dinner", "food_id": 1, "quantity_g": 200},
+        headers=headers,
+    )
+
+    res = client.get(
+        "/api/recommendations/ingredients",
+        params={
+            "start_date": "2026-01-01", "end_date": "2026-01-03", "source": "meal_plan",
+            "priority_nutrients": "fiber_total",
+        },
+        headers=headers,
+    )
+    assert res.status_code == 200
+    body = res.json()
+    if body["suggestions"]:
+        assert body["suggestions"][0]["food_name"] == "Lentils"
+
+
+def test_multi_day_range_requires_meal_plan_source(client):
+    token = register_and_token(client, "j@example.com")
+    res = client.get(
+        "/api/recommendations/ingredients",
+        params={"start_date": "2026-01-01", "end_date": "2026-01-03", "source": "diary"},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 422
+
+
+def test_requires_exactly_one_scope(client):
+    token = register_and_token(client, "k@example.com")
+    res = client.get("/api/recommendations/ingredients", headers=auth_headers(token))
+    assert res.status_code == 422
+
+
 def test_meal_plan_source(client):
     token = register_and_token(client, "e@example.com")
     client.post(

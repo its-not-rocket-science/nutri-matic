@@ -15,10 +15,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods
+from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods, scale_recipe_ingredients
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
-from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, User
+from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, RecipeIngredient, User
 from ..nutrient_targets import AnalysisPeriod
 from ..recommend_ingredients import DEFAULT_MAX_SUGGESTIONS, suggest_ingredients
 from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SUGGESTIONS
@@ -31,6 +31,7 @@ from ..recommend_pairs import suggest_pairs
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
 _MEALS = ("breakfast", "lunch", "dinner", "snack")
+_SOURCES = ("diary", "meal_plan")
 
 
 def _load_entries(db: Session, profile: Profile, entry_date: date, source: str) -> list:
@@ -47,9 +48,55 @@ def _load_entries(db: Session, profile: Profile, entry_date: date, source: str) 
     )
 
 
+def _load_entries_range(db: Session, profile: Profile, start_date: date, end_date: date, source: str) -> list:
+    """Multi-day counterpart to `_load_entries` — same shape as
+    `routers/meal_plan.py`'s `_entries_in_range`, generalised to diary too
+    rather than duplicating a second query builder just for one source."""
+    if source == "meal_plan":
+        return (
+            db.query(MealPlanEntry)
+            .filter(
+                MealPlanEntry.profile_id == profile.id,
+                MealPlanEntry.plan_date >= start_date,
+                MealPlanEntry.plan_date <= end_date,
+            )
+            .all()
+        )
+    return (
+        db.query(DiaryEntry)
+        .filter(
+            DiaryEntry.profile_id == profile.id,
+            DiaryEntry.entry_date >= start_date,
+            DiaryEntry.entry_date <= end_date,
+        )
+        .all()
+    )
+
+
+def _recipe_as_items(db: Session, recipe_id: int, servings: float) -> tuple[Recipe, list]:
+    """A recipe's own scaled ingredients, standing in for "the current
+    meal" — lets the recipe-detail page ask "what could I add to this
+    recipe" through the exact same suggest_ingredients used for a logged
+    diary/meal-plan meal, without inventing a second candidate-generation
+    path."""
+    recipe = db.get(Recipe, recipe_id)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe_id).all()
+    if not ingredients:
+        return recipe, []
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([i.food_id for i in ingredients])).all()}
+    items = scale_recipe_ingredients(ingredients, recipe.servings, servings, foods_by_id)
+    return recipe, items
+
+
 @router.get("/ingredients", response_model=schemas.IngredientSuggestionsOut)
 def get_ingredient_suggestions(
-    entry_date: date,
+    entry_date: date | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    recipe_id: int | None = None,
+    servings: float = 1.0,
     meal: str | None = None,
     source: str = "diary",
     max_additional_energy: float | None = None,
@@ -60,62 +107,113 @@ def get_ingredient_suggestions(
     db: Session = Depends(get_db),
 ):
     """Suggests up to `max_suggestions` additional foods to close the
-    biggest current nutrient gaps for one meal, diary day, or meal-plan
-    day. `source="diary"` (default) reads logged `DiaryEntry` rows;
-    `source="meal_plan"` reads planned `MealPlanEntry` rows for the same
-    date — same analysis, different entry source, exactly like every
-    other endpoint that already supports both (see meal_plan.py).
-    `meal`, when given, scopes to just that meal, compared against the
-    day's target minus whatever the day's other meals already logged
-    (see nutrient_targets.adjust_target_for_remaining) — never the flat
-    whole-day target, and never an automatic one-third-of-the-day split.
-    `priority_nutrients` is a comma-separated list of nutrient keys
-    (e.g. `iron,folate`) to prioritise; omit to consider every
-    optimisation-eligible nutrient currently short.
+    biggest current nutrient gaps for one meal, diary day, meal-plan day,
+    multi-day meal-plan range, or a standalone recipe.
+
+    Exactly one of these scopes must be given:
+    - `entry_date` (+ optional `meal`): a diary/meal-plan day, or one meal
+      within it, per `source`. `meal`, when given, compares against the
+      day's target minus whatever the day's other meals already logged
+      (see nutrient_targets.adjust_target_for_remaining) — never the flat
+      whole-day target, and never an automatic one-third-of-the-day split.
+    - `start_date`+`end_date`: a multi-day meal-plan range (`source` must
+      be `meal_plan` — diary trends have their own dedicated page/analysis
+      and aren't wired to this multi-day mode).
+    - `recipe_id` (+ optional `servings`, default 1): a recipe's own
+      ingredients stand in for "the current meal" — the recipe-detail
+      page's "Improve this recipe", not tied to any diary/meal-plan entry.
+
+    `source="diary"` (default) reads logged `DiaryEntry` rows;
+    `source="meal_plan"` reads planned `MealPlanEntry` rows — same
+    analysis, different entry source, exactly like every other endpoint
+    that already supports both (see meal_plan.py). `priority_nutrients`
+    is a comma-separated list of nutrient keys (e.g. `iron,folate`) to
+    prioritise; omit to consider every optimisation-eligible nutrient
+    currently short.
 
     Returns an empty `suggestions` list — never an error — when nothing
     logged has any gap to close, or no safe/useful candidate exists.
     """
-    if source not in ("diary", "meal_plan"):
-        raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
+    if source not in _SOURCES:
+        raise HTTPException(status_code=422, detail=f"source must be one of {_SOURCES}")
     if meal is not None and meal not in _MEALS:
         raise HTTPException(status_code=422, detail=f"meal must be one of {_MEALS}")
 
-    all_day_entries = _load_entries(db, profile, entry_date, source)
-    period = AnalysisPeriod.DAY
-    entries = all_day_entries
-    other_entries = []
-    if meal is not None:
-        entries = [e for e in all_day_entries if e.meal == meal]
-        other_entries = [e for e in all_day_entries if e.meal != meal]
-        period = AnalysisPeriod.MEAL
-
-    food_ids = {e.food_id for e in all_day_entries if e.food_id is not None}
-    recipe_ids = {e.recipe_id for e in all_day_entries if e.recipe_id is not None}
-    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
-    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
-    items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
-
-    all_food_ids = [item.food.id for item in items]
-    nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
-    for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
-        nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+    scopes_given = sum([recipe_id is not None, entry_date is not None, start_date is not None or end_date is not None])
+    if scopes_given != 1:
+        raise HTTPException(
+            status_code=422, detail="give exactly one of entry_date, start_date+end_date, or recipe_id",
+        )
 
     already_consumed_by_key: dict[str, float] | None = None
-    if other_entries:
-        other_items = expand_entries_to_weighted_foods(other_entries, foods_by_id, recipes_by_id, db)
-        other_food_ids = [item.food.id for item in other_items]
-        other_nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
-        for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(other_food_ids)).all():
-            other_nutrients_by_food_id.setdefault(row.food_id, []).append(row)
-        already_consumed_by_key = aggregate_nutrients(other_items, other_nutrients_by_food_id)
+
+    if recipe_id is not None:
+        if meal is not None:
+            raise HTTPException(status_code=422, detail="meal is not compatible with recipe_id")
+        _recipe, items = _recipe_as_items(db, recipe_id, servings)
+        period = AnalysisPeriod.MEAL
+        day_count = 1
+        nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+        all_food_ids = [item.food.id for item in items]
+        for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
+            nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+    elif start_date is not None or end_date is not None:
+        if start_date is None or end_date is None:
+            raise HTTPException(status_code=422, detail="start_date and end_date must both be given")
+        if source != "meal_plan":
+            raise HTTPException(status_code=422, detail="a multi-day range requires source='meal_plan'")
+        if meal is not None:
+            raise HTTPException(status_code=422, detail="meal is not compatible with a multi-day range")
+        entries = _load_entries_range(db, profile, start_date, end_date, source)
+        period = AnalysisPeriod.MULTI_DAY
+        day_count = (end_date - start_date).days + 1
+
+        food_ids = {e.food_id for e in entries if e.food_id is not None}
+        recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+        foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+        recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+        items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
+
+        nutrients_by_food_id = {}
+        all_food_ids = [item.food.id for item in items]
+        for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
+            nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+    else:
+        all_day_entries = _load_entries(db, profile, entry_date, source)
+        period = AnalysisPeriod.DAY
+        day_count = 1
+        entries = all_day_entries
+        other_entries = []
+        if meal is not None:
+            entries = [e for e in all_day_entries if e.meal == meal]
+            other_entries = [e for e in all_day_entries if e.meal != meal]
+            period = AnalysisPeriod.MEAL
+
+        food_ids = {e.food_id for e in all_day_entries if e.food_id is not None}
+        recipe_ids = {e.recipe_id for e in all_day_entries if e.recipe_id is not None}
+        foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+        recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+        items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
+
+        nutrients_by_food_id = {}
+        all_food_ids = [item.food.id for item in items]
+        for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
+            nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+
+        if other_entries:
+            other_items = expand_entries_to_weighted_foods(other_entries, foods_by_id, recipes_by_id, db)
+            other_food_ids = [item.food.id for item in other_items]
+            other_nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+            for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(other_food_ids)).all():
+                other_nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+            already_consumed_by_key = aggregate_nutrients(other_items, other_nutrients_by_food_id)
 
     priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
 
     result = suggest_ingredients(
         db, profile, items, nutrients_by_food_id, period,
         max_additional_energy=max_additional_energy, max_suggestions=max_suggestions,
-        priority_nutrient_keys=priority_keys, meal_type=meal,
+        priority_nutrient_keys=priority_keys, meal_type=meal, day_count=day_count,
         already_consumed_by_key=already_consumed_by_key,
     )
 
@@ -132,7 +230,9 @@ def get_ingredient_suggestions(
 
 @router.get("/recipes", response_model=schemas.RecipeSuggestionsOut)
 def get_recipe_suggestions(
-    entry_date: date,
+    entry_date: date | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     source: str = "diary",
     max_additional_energy: float | None = None,
     max_suggestions: int = DEFAULT_MAX_RECIPE_SUGGESTIONS,
@@ -144,18 +244,36 @@ def get_recipe_suggestions(
 ):
     """Suggests up to `max_suggestions` recipes (the user's own, shared
     with them, or public) to close the biggest current nutrient gaps for
-    a diary day or meal-plan day. `goal` is one of
+    a diary day, meal-plan day, or (via `start_date`+`end_date`, with
+    `source='meal_plan'`) a multi-day meal-plan range — "Improve this
+    plan" on the multi-day summary page. Exactly one of `entry_date` or
+    `start_date`+`end_date` must be given. `goal` is one of
     `recommend_recipes.GOAL_PRESETS`
     (`overall_balance`/`protein_quality`/`fibre`/`iron_folate`/`calcium`);
     an explicit `priority_nutrients` overrides it. Returns an empty
     `suggestions` list — never an error — when nothing logged has a gap,
     or no visible recipe helps."""
-    if source not in ("diary", "meal_plan"):
-        raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
+    if source not in _SOURCES:
+        raise HTTPException(status_code=422, detail=f"source must be one of {_SOURCES}")
     if goal is not None and goal not in GOAL_PRESETS:
         raise HTTPException(status_code=422, detail=f"goal must be one of {sorted(GOAL_PRESETS)}")
 
-    entries = _load_entries(db, profile, entry_date, source)
+    is_range = start_date is not None or end_date is not None
+    if is_range == (entry_date is not None):
+        raise HTTPException(status_code=422, detail="give exactly one of entry_date or start_date+end_date")
+
+    if is_range:
+        if start_date is None or end_date is None:
+            raise HTTPException(status_code=422, detail="start_date and end_date must both be given")
+        if source != "meal_plan":
+            raise HTTPException(status_code=422, detail="a multi-day range requires source='meal_plan'")
+        entries = _load_entries_range(db, profile, start_date, end_date, source)
+        period = AnalysisPeriod.MULTI_DAY
+        day_count = (end_date - start_date).days + 1
+    else:
+        entries = _load_entries(db, profile, entry_date, source)
+        period = AnalysisPeriod.DAY
+        day_count = 1
 
     food_ids = {e.food_id for e in entries if e.food_id is not None}
     recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
@@ -171,10 +289,10 @@ def get_recipe_suggestions(
     priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
 
     result = suggest_recipes(
-        db, profile, current_user, items, nutrients_by_food_id, AnalysisPeriod.DAY,
+        db, profile, current_user, items, nutrients_by_food_id, period,
         max_additional_energy=max_additional_energy, max_suggestions=max_suggestions,
         priority_nutrient_keys=priority_keys, goal=goal,
-        excluded_recipe_ids=recipe_ids,
+        excluded_recipe_ids=recipe_ids, day_count=day_count,
     )
 
     return schemas.RecipeSuggestionsOut(suggestions=[
