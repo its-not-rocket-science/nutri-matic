@@ -244,6 +244,11 @@ export interface RecipeIngredientProvenance {
 	match_method: string | null;
 	match_confidence: number | null;
 	match_relationship: string | null;
+	match_rationale: string | null;
+	match_preferred_fdc_id: number | null;
+	match_preferred_food_id: number | null;
+	match_used_fallback: boolean | null;
+	match_validation_warning: string | null;
 }
 
 export interface RecipeIngredient {

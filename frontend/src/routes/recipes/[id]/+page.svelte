@@ -87,7 +87,7 @@
 		regional_equivalent: 'Regional equivalent',
 		close_analogue: 'Close analogue',
 		category_proxy: 'Category proxy',
-		reviewed_substitution: 'Reviewed substitution'
+		reviewed_substitution: 'Reviewed substitute'
 	};
 	const RELATIONSHIP_BADGE_CLASS: Record<string, string> = {
 		exact: 'badge-measured',
@@ -104,11 +104,29 @@
 		const rel = ingredient.provenance?.match_relationship;
 		return (rel && RELATIONSHIP_BADGE_CLASS[rel]) || 'badge-info';
 	}
+	function confidenceWords(confidence: number | null | undefined): string {
+		if (confidence === null || confidence === undefined) return 'unknown confidence';
+		if (confidence >= 0.9) return 'high confidence';
+		if (confidence >= 0.75) return 'moderate confidence';
+		if (confidence >= 0.5) return 'low-to-moderate confidence';
+		return 'low confidence';
+	}
+	// A compact hover tooltip rather than a permanent block of text, so an
+	// approximate mapping's explanation is available without overwhelming
+	// the default ingredient list (prompt section 6) — e.g. "Crumpet
+	// represented using a plain English muffin nutrient profile. Close
+	// analogue; moderate confidence."
 	function relationshipTitle(ingredient: RecipeIngredient): string {
-		const confidence = ingredient.provenance?.match_confidence;
-		return confidence !== null && confidence !== undefined
-			? `Match confidence: ${Math.round(confidence * 100)}%`
-			: '';
+		const provenance = ingredient.provenance;
+		if (!provenance) return '';
+		const parts: string[] = [];
+		if (provenance.match_rationale) parts.push(provenance.match_rationale);
+		const label = relationshipLabel(ingredient);
+		if (label) parts.push(`${label}; ${confidenceWords(provenance.match_confidence)}.`);
+		if (provenance.match_used_fallback) {
+			parts.push('Its preferred database match was unavailable, so this was resolved via fallback search.');
+		}
+		return parts.join(' ');
 	}
 	let shares: RecipeShare[] = $state([]);
 	let shareEmail = $state('');
