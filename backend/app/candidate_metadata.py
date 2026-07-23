@@ -372,6 +372,21 @@ def resolve_candidate_metadata(food: Food) -> CandidateMetadata:
     return _UNKNOWN_EXCLUDED
 
 
+def curated_key_for(food: Food) -> str | None:
+    """The `CURATED_FOODS` key that matched this food, if any — `None`
+    for a branded product or anything resolved via a category default or
+    the unknown-excluded fallback. Used by `recommend_pairs.py` to check
+    a specific pair against `CURATED_PAIRS`, since curation is keyed by
+    name pattern, not a stable id."""
+    if food.data_type == "branded_food":
+        return None
+    name_lower = food.name.lower()
+    for key in CURATED_FOODS:
+        if _matches(name_lower, key):
+            return key
+    return None
+
+
 def is_plausible_serving(metadata: CandidateMetadata, quantity_g: float) -> bool:
     """What `recommendation_scoring.PracticalityInput.is_plausible_serving`
     is derived from — never `None` (unknown) once a `CandidateMetadata`
