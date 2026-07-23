@@ -19,6 +19,7 @@ from app.models import (
     Food,
     Recipe,
     RecipeIngredient,
+    RecipeIngredientProvenance,
     RobustnessResult,
     User,
 )
@@ -57,7 +58,13 @@ def client():
     )
     db.add(recipe)
     db.flush()
-    db.add(RecipeIngredient(recipe_id=recipe.id, food_id=food.id, quantity_g=100))
+    ingredient = RecipeIngredient(recipe_id=recipe.id, food_id=food.id, quantity_g=100)
+    db.add(ingredient)
+    db.flush()
+    db.add(RecipeIngredientProvenance(
+        recipe_ingredient_id=ingredient.id, raw_text="1 onion, chopped",
+        match_method="alias", match_confidence=0.95, match_relationship="exact",
+    ))
     # a superseded historical analysis (prompt section 4) — must never be
     # what the /robustness endpoint returns, only the is_latest=True row
     db.add(RobustnessResult(
@@ -104,6 +111,29 @@ def register_and_token(client, email, password="password123"):
 
 def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+def test_stock_recipe_ingredient_exposes_match_provenance(client):
+    """prompt section 8: alias/proxy confidence and relationship must be
+    visible through the API, without this being read anywhere by
+    aggregation.py (a separate assertion — see test_aggregation.py —
+    that nothing in that module even looks at these fields)."""
+    token = register_and_token(client, "user8@example.com")
+    res = client.get(f"/api/recipes/{client.stock_recipe_id}", headers=auth_headers(token))
+    ingredient = res.json()["ingredients"][0]
+    assert ingredient["provenance"] == {
+        "match_method": "alias", "match_confidence": 0.95, "match_relationship": "exact",
+    }
+
+
+def test_ordinary_recipe_ingredient_has_no_provenance(client):
+    token = register_and_token(client, "user9@example.com")
+    create_res = client.post(
+        "/api/recipes", json={"name": "My Own Recipe", "servings": 2, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(token),
+    )
+    ingredient = create_res.json()["ingredients"][0]
+    assert ingredient["provenance"] is None
 
 
 def test_stock_recipe_visible_to_any_signed_in_user(client):

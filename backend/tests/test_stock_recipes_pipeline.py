@@ -356,6 +356,30 @@ def test_refresh_unavailable_source_flags_status(env, monkeypatch):
     session.close()
 
 
+def test_import_persists_match_relationship(env):
+    """prompt section 8: the alias/proxy relationship food_matching.py
+    resolved a match with must survive all the way into
+    RecipeIngredientProvenance, not just match_method/match_confidence."""
+    args = _args(env.cache_dir)
+    _run_pipeline_to_review(env, args)
+    _approve_all(args.review_file)
+    pipeline.cmd_import_approved(args)
+
+    session = env.SessionLocal()
+    recipe = session.query(models.Recipe).filter(models.Recipe.name == "Bean Chilli").one()
+    provenance_rows = (
+        session.query(models.RecipeIngredientProvenance)
+        .join(models.RecipeIngredient, models.RecipeIngredient.id == models.RecipeIngredientProvenance.recipe_ingredient_id)
+        .filter(models.RecipeIngredient.recipe_id == recipe.id)
+        .all()
+    )
+    assert provenance_rows
+    alias_rows = [p for p in provenance_rows if p.match_method == "alias"]
+    assert alias_rows
+    assert all(p.match_relationship is not None for p in alias_rows)
+    session.close()
+
+
 def test_upsert_robustness_retains_history_and_flags_latest(env):
     """prompt section 4: a new analysis run must never overwrite a past
     RobustnessResult row — it inserts a new one and demotes whatever

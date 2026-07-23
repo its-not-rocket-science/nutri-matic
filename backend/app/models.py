@@ -344,6 +344,15 @@ class RecipeIngredientProvenance(Base):
     # ingredient. Null if unresolved (see Recipe.unresolved_ingredients).
     match_method: Mapped[str | None] = mapped_column(String, nullable=True)
     match_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # only set when match_method is "alias"/"manual_review" — the
+    # ingredient_aliases.AliasRelationship value behind that match
+    # ("exact" | "regional_equivalent" | "close_analogue" |
+    # "category_proxy" | "reviewed_substitution"; see food_matching.
+    # MatchResult.relationship and prompt sections 1/8). Null for
+    # "canonical"/"fuzzy" matches, and for an unresolved ingredient.
+    # Exposed via the API/frontend as provenance metadata only — never
+    # read by aggregation.py, so it can't affect a nutrition calculation.
+    match_relationship: Mapped[str | None] = mapped_column(String, nullable=True)
     # other candidate foods food_matching.py considered, most to least likely
     # — [{"food_id": int, "name": str, "score": float}, ...]. Informational,
     # for the review file; never auto-applied.

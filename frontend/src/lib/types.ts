@@ -238,11 +238,20 @@ export interface TokenResponse {
 	token_type: string;
 }
 
+// only present for a stock-recipe ingredient imported via stock_recipes/
+// — null for an ordinary user-added ingredient. See prompt section 8.
+export interface RecipeIngredientProvenance {
+	match_method: string | null;
+	match_confidence: number | null;
+	match_relationship: string | null;
+}
+
 export interface RecipeIngredient {
 	id: number;
 	food_id: number;
 	food_name: string;
 	quantity_g: number;
+	provenance: RecipeIngredientProvenance | null;
 }
 
 export interface Recipe {

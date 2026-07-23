@@ -313,6 +313,7 @@ def _match_candidate(db: Session, cand: dict, min_coverage: float) -> None:
             "quantity_stated": quantity_stated,
             "method": match.method,
             "confidence": match.confidence,
+            "relationship": match.relationship,
             "candidates": [asdict(c) for c in match.candidates],
             "food_id": match.food.id if match.food else None,
             "food_name": match.food.name if match.food else None,
@@ -676,7 +677,7 @@ def _import_one(
             quantity_min=None, quantity_max=None, normalised_quantity=None, unit=None,
             prep_note=None, optional_flag=m["optional"], section=None,
             parsing_confidence=None,
-            match_method=m["method"], match_confidence=m["confidence"],
+            match_method=m["method"], match_confidence=m["confidence"], match_relationship=m.get("relationship"),
             match_candidates=m["candidates"], manually_approved=False,
             conversion_assumptions=m["conversion_assumptions"],
         ))
