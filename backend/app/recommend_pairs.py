@@ -35,7 +35,7 @@ from .data_quality import is_implausible
 from .dietary_filter import filter_excluded_foods, food_dietary_status
 from .models import Food, FoodNutrient, Profile
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
-from .nutrient_targets import AnalysisPeriod, NutrientTarget, resolve_nutrient_target
+from .nutrient_targets import AnalysisPeriod, NutrientTarget, adjust_target_for_remaining, resolve_nutrient_target
 from .nutrients import NUTRIENTS
 from .recommendation_scoring import PracticalityInput, ScoreBreakdown, ScoringWeights, score_candidate
 
@@ -147,6 +147,7 @@ def suggest_pairs(
     priority_nutrient_keys: set[str] | None = None,
     excluded_food_ids: set[int] | None = None,
     day_count: int = 1,
+    already_consumed_by_key: dict[str, float] | None = None,
     weights: ScoringWeights | None = None,
 ) -> PairSuggestionResult:
     excluded_food_ids = excluded_food_ids or set()
@@ -157,6 +158,8 @@ def suggest_pairs(
     for key in NUTRIENTS:
         target = resolve_nutrient_target(key, profile, period, day_count=day_count)
         if target is not None:
+            if period == AnalysisPeriod.MEAL and already_consumed_by_key:
+                target = adjust_target_for_remaining(target, already_consumed_by_key.get(key, 0.0))
             target_by_key[key] = target
 
     before_gaps = analyse_nutrient_gaps(

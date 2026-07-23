@@ -29,6 +29,7 @@ amount is compared against these targets.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from enum import Enum
 
@@ -228,6 +229,29 @@ class MealComparisonTarget:
     # "full_daily" — neither given: the day's target as-is, for a caller
     # that wants to interpret the comparison itself.
     comparison_mode: str
+
+
+def adjust_target_for_remaining(target: NutrientTarget, already_consumed: float) -> NutrientTarget:
+    """The "remaining room" version of a day-level target — `lower_target`/
+    `preferred_target`/`upper_target` each reduced by `already_consumed`
+    (never below 0), everything else (`target_type`, `source`, etc.)
+    unchanged. For comparing just *one meal's own consumption* against
+    what's left of the day's target, rather than the whole day's figure —
+    the `recommend_*` modules use this for meal-scoped requests with real
+    diary context, the same "remaining daily target" prompt section 2's
+    `resolve_meal_comparison_target` already established for a single
+    comparison_amount; this is the per-field version for a full
+    `NutrientTarget` a scoring/gap-analysis pipeline can consume directly.
+    """
+    def remaining(value: float | None) -> float | None:
+        return max(value - already_consumed, 0.0) if value is not None else None
+
+    return dataclasses.replace(
+        target,
+        lower_target=remaining(target.lower_target),
+        preferred_target=remaining(target.preferred_target),
+        upper_target=remaining(target.upper_target),
+    )
 
 
 def resolve_meal_comparison_target(

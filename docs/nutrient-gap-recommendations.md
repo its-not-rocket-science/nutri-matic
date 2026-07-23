@@ -511,3 +511,38 @@ both_solo_are_fine` is the reason that distinction matters operationally,
 not just conceptually: two foods that would each individually look like a
 good, safe suggestion can still combine to push a nutrient over its upper
 limit, and only scoring the real combined effect catches that.
+
+## Bugfix: meal-scoped requests were comparing against the flat daily target
+
+Found while starting prompt 10's frontend reconnaissance, not tied to a
+single numbered prompt: `resolve_nutrient_target(key, profile,
+AnalysisPeriod.MEAL, ...)` deliberately returns the *same* flat figure as
+`AnalysisPeriod.DAY` (see prompt 2 — no automatic one-third-of-the-day
+assumption), and `resolve_meal_comparison_target` already existed to let
+a caller ask for "remaining room" explicitly. But none of the three
+`recommend_*` suggestion modes actually called it — a lunch-scoped
+`/api/recommendations/ingredients?meal=lunch` request was comparing the
+meal's own totals against the whole day's target, so a nutrient already
+fully covered at breakfast still showed as a shortfall at lunch.
+
+Fixed with a new `nutrient_targets.adjust_target_for_remaining(target,
+already_consumed)` that subtracts already-consumed amounts from a target's
+lower/preferred/upper figures (never below zero, `None` fields stay
+`None`), and a new `already_consumed_by_key: dict[str, float] | None`
+parameter threaded through `suggest_ingredients`, `suggest_recipes`, and
+`suggest_pairs` — applied only when `period == AnalysisPeriod.MEAL`, so
+day/multi-day analysis is unaffected. `routers/recommendations.py`'s
+`/ingredients` endpoint (the only one of the four that currently accepts
+a `meal` parameter) now loads the whole day's entries, splits out "the
+other meals," aggregates their nutrient totals, and passes that in as
+`already_consumed_by_key`. `recommend_recipes.suggest_recipes` and
+`recommend_pairs.suggest_pairs` accept the same parameter for when a
+`meal` scope is added to those endpoints later, but nothing currently
+passes it since neither endpoint takes a `meal` parameter yet.
+
+Regression tests: `test_adjust_target_for_remaining_*` (`test_nutrient_
+targets.py`), `test_meal_period_uses_remaining_room_not_flat_daily_target`
+(`test_recommend_ingredients.py`), and `test_meal_scoped_request_uses_
+remaining_room_not_flat_daily_target` (`test_recommendations_api.py`,
+logging a fibre-filling breakfast and confirming a fibre-focused lunch
+request comes back empty).

@@ -7,6 +7,7 @@ import pytest
 from app.models import Profile
 from app.nutrient_targets import (
     AnalysisPeriod,
+    adjust_target_for_remaining,
     resolve_meal_comparison_target,
     resolve_nutrient_target,
 )
@@ -197,3 +198,41 @@ def test_meal_comparison_handles_no_target_gracefully():
     profile = make_profile(sex="male")
     result = resolve_meal_comparison_target("energy", profile, already_consumed_today=500.0)
     assert result.comparison_amount is None
+
+
+# --- adjust_target_for_remaining --------------------------------------
+
+def test_adjust_target_for_remaining_reduces_lower_preferred_and_upper():
+    profile = make_profile(sex="female")
+    target = resolve_nutrient_target("vitamin_c", profile, AnalysisPeriod.DAY)
+    remaining = adjust_target_for_remaining(target, 30.0)
+    assert remaining.lower_target == pytest.approx(10.0)
+    assert remaining.preferred_target == pytest.approx(10.0)
+    assert remaining.upper_target == pytest.approx(1970.0)
+
+
+def test_adjust_target_for_remaining_never_goes_below_zero():
+    profile = make_profile(sex="female")
+    target = resolve_nutrient_target("vitamin_c", profile, AnalysisPeriod.DAY)
+    remaining = adjust_target_for_remaining(target, 1000.0)
+    assert remaining.lower_target == 0.0
+    assert remaining.preferred_target == 0.0
+
+
+def test_adjust_target_for_remaining_leaves_none_fields_none():
+    profile = make_profile(sex="female")
+    target = resolve_nutrient_target("iron_heme", profile, AnalysisPeriod.DAY)  # informational, all None
+    remaining = adjust_target_for_remaining(target, 5.0)
+    assert remaining.lower_target is None
+    assert remaining.preferred_target is None
+    assert remaining.upper_target is None
+
+
+def test_adjust_target_for_remaining_preserves_other_fields():
+    profile = make_profile(sex="female")
+    target = resolve_nutrient_target("vitamin_c", profile, AnalysisPeriod.DAY)
+    remaining = adjust_target_for_remaining(target, 10.0)
+    assert remaining.key == target.key
+    assert remaining.target_type == target.target_type
+    assert remaining.source == target.source
+    assert remaining.confidence == target.confidence
