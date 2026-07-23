@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -423,6 +424,39 @@ def test_upsert_robustness_retains_history_and_flags_latest(env):
     assert rows[1].is_latest is True
     assert rows[1].model_version == "1.0.1"
     assert rows[1].overall_explanation == "second run, model updated"
+    session.close()
+
+
+def test_robustness_results_db_rejects_two_latest_rows_for_one_recipe(env):
+    """prompt section 9: "at most one current run per recipe" must be
+    enforced by the strongest constraint the database supports, not just
+    by _upsert_robustness's own careful update-then-insert order —
+    bypass that helper entirely and insert two is_latest=True rows
+    directly, which the partial unique index must refuse."""
+    session = env.SessionLocal()
+    system_user = models.User(email="stock-recipes@nutrimatic.system", password_hash="x", is_system=True)
+    session.add(system_user)
+    session.flush()
+    recipe = models.Recipe(
+        user_id=system_user.id, name="Constraint Test Recipe", servings=1, is_public=True,
+        import_slug="constraint_test",
+    )
+    session.add(recipe)
+    session.flush()
+
+    session.add(models.RobustnessResult(
+        recipe_id=recipe.id, is_latest=True, model_version="1.0.0", simulation_count=10, random_seed=1,
+        metrics={}, overall_rating=3, overall_explanation="first",
+    ))
+    session.commit()
+
+    session.add(models.RobustnessResult(
+        recipe_id=recipe.id, is_latest=True, model_version="1.0.1", simulation_count=10, random_seed=1,
+        metrics={}, overall_rating=4, overall_explanation="second, bypassing _upsert_robustness",
+    ))
+    with pytest.raises(IntegrityError):
+        session.commit()
+    session.rollback()
     session.close()
 
 

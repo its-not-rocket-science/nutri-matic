@@ -148,12 +148,31 @@ ALTER TABLE robustness_results ADD COLUMN IF NOT EXISTS is_latest BOOLEAN NOT NU
 -- \d robustness_results and adjust if this particular name doesn't match:
 ALTER TABLE robustness_results DROP CONSTRAINT IF EXISTS robustness_results_recipe_id_key;
 CREATE INDEX IF NOT EXISTS ix_robustness_results_recipe_id_is_latest ON robustness_results (recipe_id, is_latest);
+-- replaces that dropped uniqueness with the correct one: at most one
+-- is_latest=TRUE row per recipe (not "at most one row per recipe" at
+-- all) — a partial unique index, supported by Postgres and by SQLite
+-- 3.8.0+ (what the test suite runs against), so it's enforced by the
+-- database itself, not just by _upsert_robustness's application code.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_robustness_results_recipe_id_latest
+    ON robustness_results (recipe_id) WHERE is_latest;
 
 -- recipe_ingredient_provenance.match_relationship (prompt section 8) —
 -- which AliasRelationship (exact/regional_equivalent/close_analogue/
 -- category_proxy/reviewed_substitution) an alias/manual_review match came
 -- from; null for canonical/fuzzy matches and pre-existing rows.
 ALTER TABLE recipe_ingredient_provenance ADD COLUMN IF NOT EXISTS match_relationship VARCHAR;
+
+-- recipe_ingredient_provenance: mapping-quality provenance fields
+-- (prompt section 5) — rationale text, which fdc_id/food_id (if any) an
+-- alias/reviewed match was pinned to regardless of whether it actually
+-- resolved, whether resolution had to fall back to the description
+-- search, and any target-validation warning. All null for canonical/
+-- fuzzy matches, an unresolved ingredient, or a pre-existing row.
+ALTER TABLE recipe_ingredient_provenance ADD COLUMN IF NOT EXISTS match_rationale VARCHAR;
+ALTER TABLE recipe_ingredient_provenance ADD COLUMN IF NOT EXISTS match_preferred_fdc_id INTEGER;
+ALTER TABLE recipe_ingredient_provenance ADD COLUMN IF NOT EXISTS match_preferred_food_id INTEGER;
+ALTER TABLE recipe_ingredient_provenance ADD COLUMN IF NOT EXISTS match_used_fallback BOOLEAN;
+ALTER TABLE recipe_ingredient_provenance ADD COLUMN IF NOT EXISTS match_validation_warning VARCHAR;
 ```
 
 ## What's deliberately not covered here
