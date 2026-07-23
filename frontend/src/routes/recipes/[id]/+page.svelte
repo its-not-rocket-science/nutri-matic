@@ -34,6 +34,48 @@
 	let robustness: Robustness | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
 	const totalProtein = $derived(nutrients.find((n) => n.key === 'protein') ?? null);
+
+	// Provenance of a *stock* recipe's ingredient list — prompt section 6:
+	// don't let a source_url attribution link imply ingredients were
+	// scraped verbatim when they weren't. Three distinct cases, in
+	// priority order:
+	//   1. an educational_note means the list was deliberately adapted/
+	//      composited for nutritional-analysis purposes (prompt section 7's
+	//      generic muesli composite is the motivating example) — never a
+	//      transcription of one specific real-world dish.
+	//   2. a non-"manual" source_name means the ingredients were imported
+	//      directly from structured recipe data at source_url.
+	//   3. otherwise ("manual", no note) the list was hand-typed by a
+	//      maintainer — source_url, if present, is only a "see something
+	//      similar" reference link, not where the ingredients came from.
+	// null for an ordinary (non-stock) recipe, which has no such claim to
+	// make either way — its own optional source_url is shown plainly.
+	type ProvenanceKind = 'adapted_composite' | 'structured_import' | 'manual_curated';
+	const provenance = $derived.by((): { kind: ProvenanceKind; label: string; note: string } | null => {
+		if (!recipe || !recipe.is_stock) return null;
+		if (recipe.educational_note) {
+			return { kind: 'adapted_composite', label: 'Adapted for analysis', note: recipe.educational_note };
+		}
+		if (recipe.source_name && recipe.source_name !== 'manual') {
+			return {
+				kind: 'structured_import',
+				label: 'Structured-data import',
+				note: 'This ingredient list was imported directly from the linked source page.'
+			};
+		}
+		return {
+			kind: 'manual_curated',
+			label: 'Manually curated',
+			note: recipe.source_url
+				? 'This ingredient list was written by hand for this recipe, not scraped from the linked page — it’s shown for reference only.'
+				: 'This ingredient list was written by hand for this recipe.'
+		};
+	});
+	const provenanceBadgeClass: Record<ProvenanceKind, string> = {
+		structured_import: 'badge-measured',
+		manual_curated: 'badge-info',
+		adapted_composite: 'badge-estimated'
+	};
 	let shares: RecipeShare[] = $state([]);
 	let shareEmail = $state('');
 	let ratings: RecipeRatingSummary | null = $state(null);
@@ -336,7 +378,17 @@
 				<button type="button" class="btn btn-secondary no-print" onclick={startEditDetails}>Edit</button>
 			{/if}
 		</p>
-		{#if recipe.source_url}
+		{#if recipe.is_stock && provenance}
+			<p class="muted provenance-note">
+				<span class="badge {provenanceBadgeClass[provenance.kind]}">{provenance.label}</span>
+				{provenance.note}
+				{#if recipe.source_url}
+					<a href={recipe.source_url} target="_blank" rel="noopener noreferrer">
+						{provenance.kind === 'structured_import' ? 'View source' : 'View similar recipe'}
+					</a>
+				{/if}
+			</p>
+		{:else if recipe.source_url}
 			<p class="muted">
 				Source: <a href={recipe.source_url} target="_blank" rel="noopener noreferrer">{recipe.source_url}</a>
 			</p>
@@ -674,6 +726,13 @@
 	}
 	.data-quality-warning {
 		max-width: 32rem;
+	}
+	.provenance-note {
+		max-width: 32rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--space-2);
 	}
 	.unresolved-list {
 		display: block;

@@ -264,6 +264,11 @@ export interface Recipe {
 	match_coverage_lines: number | null;
 	match_coverage_mass: number | null;
 	unresolved_ingredients: string[];
+	// set only for a stock recipe whose ingredient list was deliberately
+	// adapted/composited for nutritional-analysis purposes rather than
+	// transcribed as a specific real-world dish — see the provenance
+	// note built in recipes/[id]/+page.svelte.
+	educational_note: string | null;
 }
 
 export interface RecipeCreate {

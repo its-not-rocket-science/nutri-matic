@@ -451,6 +451,15 @@ class RecipeOut(BaseModel):
     # raw ingredient lines the importer couldn't match to a food — shown as
     # a data-quality warning; empty for a non-stock recipe.
     unresolved_ingredients: list[str] = []
+    # set only for a stock recipe whose ingredient list was deliberately
+    # adapted/composited for nutritional-analysis purposes rather than
+    # transcribed as a specific real-world dish (e.g. a generic "muesli"
+    # stand-in built from rolled oats/dried fruit/nuts/seeds) — see prompt
+    # section 6/7. The frontend surfaces this as its own provenance
+    # category, distinct from both a structured-data import and an
+    # ordinary manually-curated recipe, so it's never presented as if
+    # scraped or transcribed verbatim from source_url.
+    educational_note: str | None = None
 
 
 class RecipeShareCreate(BaseModel):

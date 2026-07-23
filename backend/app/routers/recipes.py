@@ -109,6 +109,7 @@ def _recipe_out(recipe: Recipe, db: Session, current_user: User) -> schemas.Reci
         match_coverage_lines=recipe.match_coverage_lines,
         match_coverage_mass=recipe.match_coverage_mass,
         unresolved_ingredients=recipe.unresolved_ingredients or [],
+        educational_note=recipe.educational_note,
     )
 
 
