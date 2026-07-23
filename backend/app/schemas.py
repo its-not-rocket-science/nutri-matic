@@ -1025,3 +1025,28 @@ class ClinicianNoteOut(BaseModel):
 class ClinicianClientSummaryOut(BaseModel):
     client_email: str
     day: DiarySummaryOut
+
+
+class IngredientSuggestionOut(BaseModel):
+    """One `recommend_ingredients.IngredientSuggestion` — prompt 6.
+    `score` is the total from `recommendation_scoring.ScoreBreakdown`;
+    the full breakdown isn't exposed here to keep the default response
+    compact (prompt 10's "do not overwhelm users with every nutrient by
+    default") — see the /ingredients/{food_id}/explain-style detail if a
+    future prompt needs the full breakdown surfaced."""
+
+    food_id: int
+    food_name: str
+    quantity_g: float
+    candidate_kind: str
+    score: float
+    nutrients_improved: list[str]
+    remaining_shortfalls: list[str]
+    new_warnings: list[str]
+    extra_energy_kcal: float
+    data_coverage: float
+    explanation: str
+
+
+class IngredientSuggestionsOut(BaseModel):
+    suggestions: list[IngredientSuggestionOut]

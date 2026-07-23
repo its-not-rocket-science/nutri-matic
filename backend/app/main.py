@@ -22,6 +22,7 @@ from .routers import (
     profiles,
     public_api,
     recipes,
+    recommendations,
     search,
     weight,
 )
@@ -84,6 +85,7 @@ app.include_router(entitlements.router)
 app.include_router(api_keys.router)
 app.include_router(public_api.router)
 app.include_router(clinician.router)
+app.include_router(recommendations.router)
 
 
 @app.get("/api/health")

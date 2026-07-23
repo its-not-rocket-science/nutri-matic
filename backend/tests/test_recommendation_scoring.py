@@ -164,6 +164,21 @@ def test_adversarial_extreme_oversupply_does_not_blow_up_the_score():
     assert extreme_score.total < modest_score.total
 
 
+def test_coverage_dilution_to_insufficient_data_is_never_counted_as_improvement():
+    """Regression: adding a candidate with no data at all for an unrelated
+    nutrient increases total consumed mass without adding any new
+    information for that nutrient, which can drop its *coverage* below
+    the judgeable threshold — demoting it to insufficient_data. That must
+    never register as a "reduction" just because optimisation_weight
+    also dropped to 0 alongside the status change."""
+    before = [gap("fiber_total", 0.4, coverage=1.0)]
+    after = [gap("fiber_total", 0.4, coverage=0.2)]  # same consumed amount, coverage diluted below the bar
+    assert after[0].status.value == "insufficient_data"
+    result = score_candidate(before, after)
+    assert result.weighted_gap_reduction == 0.0
+    assert "fiber_total" not in result.nutrients_improved
+
+
 def test_practicality_neutral_when_no_data():
     result = score_candidate([], [], practicality=None)
     assert result.practicality == 0.0
