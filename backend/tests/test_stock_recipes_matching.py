@@ -215,6 +215,98 @@ def test_validate_reviewed_mappings_silent_when_nothing_pinned(db):
     assert validate_reviewed_mappings(db) == []
 
 
+# --- prompt section 4: fdc_id preference, fallback tracking ----------------
+
+def test_fdc_id_preferred_over_food_id(db, monkeypatch):
+    """fdc_id is the portable identifier (stable across any database that
+    ingested the same FDC release) — it must be tried before the merely-
+    local food_id, even when both are set on the same entry."""
+    by_fdc = Food(
+        name="Zzyzx FDC Target, raw", protein_g_per_100g=1.0, fdc_id=555_555,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    by_local_id = Food(
+        name="Zzyzx Local Id Target, raw", protein_g_per_100g=1.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    db.add_all([by_fdc, by_local_id])
+    db.commit()
+
+    target = reviewed(
+        "irrelevant fallback phrase", "prefers fdc_id", fdc_id=555_555, food_id=by_local_id.id,
+        expected_food_name="Zzyzx FDC Target, raw",
+    )
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix fdc preferred ingredient", target)
+
+    result = match_ingredient(db, "qorvantrix fdc preferred ingredient")
+    assert result.food.id == by_fdc.id
+    assert result.used_fallback is False
+    assert result.validation_warning is None
+
+
+def test_used_fallback_true_when_preferred_id_missing(db, monkeypatch):
+    target = reviewed(
+        "onions raw", "dangling fdc_id", fdc_id=999_999, expected_food_name="Onions, raw",
+    )
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix dangling fdc ingredient", target)
+
+    result = match_ingredient(db, "qorvantrix dangling fdc ingredient")
+    assert result.food.name == "Onions, raw"
+    assert result.used_fallback is True
+    assert result.validation_warning is not None
+
+
+def test_used_fallback_false_when_no_preferred_id_set(db):
+    result = match_ingredient(db, "onions")
+    assert result.method == "alias"
+    assert result.used_fallback is False
+    assert result.preferred_food_id is None
+    assert result.preferred_fdc_id is None
+
+
+def test_rationale_surfaced_on_match_result(db):
+    result = match_ingredient(db, "onions")
+    assert result.rationale
+
+
+def test_validate_reviewed_mappings_flags_incomplete_amino_acid_coverage(db, monkeypatch):
+    incomplete = Food(
+        name="Zzyzx Incomplete Coverage Food, raw", protein_g_per_100g=5.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    db.add(incomplete)
+    db.commit()
+
+    target = reviewed(
+        "irrelevant fallback phrase", "incomplete coverage", food_id=incomplete.id,
+        expected_food_name=incomplete.name,
+    )
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix incomplete coverage ingredient", target)
+
+    diagnostics = validate_reviewed_mappings(db)
+    assert any("incomplete amino acid profile" in d for d in diagnostics)
+
+
+def test_validate_reviewed_mappings_exempts_zero_protein_foods_from_coverage_check(db, monkeypatch):
+    """A pure fat/oil/spice with zero protein has no amino acid profile by
+    design (aggregation.py already excludes it from amino acid math) — that
+    must never be reported as a coverage gap."""
+    zero_protein = Food(
+        name="Zzyzx Zero Protein Food", protein_g_per_100g=0.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    db.add(zero_protein)
+    db.commit()
+
+    target = reviewed(
+        "irrelevant fallback phrase", "zero protein", food_id=zero_protein.id,
+        expected_food_name=zero_protein.name,
+    )
+    monkeypatch.setitem(REVIEWED_FALLBACKS, "qorvantrix zero protein ingredient", target)
+
+    assert validate_reviewed_mappings(db) == []
+
+
 # --- prompt section 7: generic muesli composite ---------------------------
 
 def test_muesli_resolves_to_the_generic_composite_not_granola(db):
@@ -241,7 +333,7 @@ def test_muesli_resolves_to_the_generic_composite_not_granola(db):
 def test_validate_reviewed_mappings_silent_when_id_and_name_match(db, monkeypatch):
     pinned = Food(
         name="Zzyzx Stable Food, raw", protein_g_per_100g=1.0,
-        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+        amino_acids=dict.fromkeys(AMINO_ACIDS, 40.0), digestibility_pdcaas=0.9, data_type="sr_legacy_food",
     )
     db.add(pinned)
     db.commit()

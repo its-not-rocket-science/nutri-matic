@@ -100,6 +100,27 @@ class MatchResult:
     # an "alias"/"manual_review" method match — see ingredient_aliases.py.
     # None for "canonical"/"fuzzy" matches, which aren't alias-table driven.
     relationship: str | None = None
+    # the AliasTarget.rationale behind an "alias"/"manual_review" match —
+    # the human-readable sentence a user/developer should see (prompt
+    # section 6). None for "canonical"/"fuzzy" matches.
+    rationale: str | None = None
+    # the AliasTarget's pinned fdc_id/food_id, if any was set, regardless
+    # of whether it actually resolved (see `used_fallback`) — prompt
+    # section 5's "preferred target identifier". Both None for a match
+    # with no pinned id at all (an ordinary description-only alias).
+    preferred_fdc_id: int | None = None
+    preferred_food_id: int | None = None
+    # True only when a preferred fdc_id/food_id WAS set but didn't resolve
+    # to any Food row, so the description search_phrase resolved this
+    # match instead — prompt section 5's "whether preferred-ID or fallback
+    # search resolved the food". False when no fallback was needed
+    # (either no id was pinned, or the pinned id resolved directly).
+    used_fallback: bool = False
+    # a human-readable note when something about this match's target
+    # validation is worth a maintainer's attention — e.g. the pinned id
+    # didn't resolve, or resolved to a food whose name has drifted from
+    # what was recorded at review time. None when nothing is amiss.
+    validation_warning: str | None = None
 
     @property
     def unresolved(self) -> bool:
@@ -177,25 +198,70 @@ def _word_and_search(db: Session, phrase: str, limit: int = 5) -> list[Food]:
     return sorted(candidates, key=rank)[:limit]
 
 
-def _resolve_alias_target(db: Session, target: AliasTarget) -> list[Food]:
-    """Prefer a stable `food_id` over the free-text `search_phrase` — the
-    description-based word-and-search is a fallback only, used when no id
-    is pinned, or when a pinned id no longer resolves to any Food row at
-    all (the referenced food was deleted or re-ingested under a new id).
-    See validate_reviewed_mappings for the startup/pipeline-time
-    diagnostic that surfaces that situation instead of letting it
-    silently degrade into whatever the fallback search happens to find."""
+@dataclass
+class AliasResolution:
+    foods: list[Food]
+    used_fallback: bool
+    validation_warning: str | None = None
+
+
+def _name_drift_warning(target: AliasTarget, food: Food) -> str | None:
+    if target.expected_food_name is not None and food.name != target.expected_food_name:
+        return (
+            f"resolved food name {food.name!r} differs from expected {target.expected_food_name!r} "
+            "recorded at review time — re-review recommended"
+        )
+    return None
+
+
+def _resolve_alias_target(db: Session, target: AliasTarget) -> AliasResolution:
+    """Prefer a stable `fdc_id`/`food_id` over the free-text
+    `search_phrase` — the description-based word-and-search is a fallback
+    only, used when neither id is pinned, or when a pinned id no longer
+    resolves to any Food row at all (the referenced food was deleted or
+    re-ingested under a new id). `fdc_id` is tried before `food_id` since
+    it's the more portable identifier (see AliasTarget's docstring). See
+    validate_reviewed_mappings for the startup/pipeline-time diagnostic
+    that surfaces a dangling id instead of letting it silently degrade
+    into whatever the fallback search happens to find."""
+    if target.fdc_id is not None:
+        food = db.query(Food).filter(Food.fdc_id == target.fdc_id).one_or_none()
+        if food is not None:
+            return AliasResolution([food], used_fallback=False, validation_warning=_name_drift_warning(target, food))
+
     if target.food_id is not None:
         food = db.get(Food, target.food_id)
         if food is not None:
-            return [food]
-    return _word_and_search(db, target.search_phrase)
+            return AliasResolution([food], used_fallback=False, validation_warning=_name_drift_warning(target, food))
+
+    foods = _word_and_search(db, target.search_phrase)
+    had_preferred_target = target.fdc_id is not None or target.food_id is not None
+    warning = (
+        "preferred target id did not resolve to any Food row — resolved via fallback description search instead"
+        if had_preferred_target else None
+    )
+    return AliasResolution(foods, used_fallback=had_preferred_target, validation_warning=warning)
+
+
+def _lacks_nutrition_coverage(food: Food) -> str | None:
+    """A one-line reason this preferred target can't fully back a
+    protein-quality (DIAAS/PDCAAS) score, or None if its coverage is fine.
+    Zero-protein foods (pure fats/oils/spices) are exempt — aggregation.py
+    already excludes them from amino acid aggregation entirely, so an
+    incomplete/absent amino acid profile there is expected, not a gap."""
+    if food.protein_g_per_100g <= 0:
+        return None
+    if _lacks_amino_acids(food):
+        return "incomplete amino acid profile"
+    if food.digestibility_diaas is None and food.digestibility_pdcaas is None:
+        return "no digestibility coefficient (DIAAS or PDCAAS) at all"
+    return None
 
 
 def validate_reviewed_mappings(db: Session) -> list[str]:
     """Checks every ALIASES/REVIEWED_FALLBACKS entry that pins a stable
-    `food_id`, and returns one human-readable diagnostic string per
-    problem found:
+    `fdc_id`/`food_id`, and returns one human-readable diagnostic string
+    per problem found:
 
     * the id no longer resolves to any Food row at all (deleted, or the
       database was re-ingested and it now has a different id) — the
@@ -204,27 +270,48 @@ def validate_reviewed_mappings(db: Session) -> list[str]:
     * the id still resolves, but Food.name has drifted from
       `expected_food_name` (the name a maintainer saw at review time) —
       not necessarily wrong, but worth a second look
+    * the id resolves to a food with incomplete nutrition coverage for a
+      protein-contributing ingredient (missing amino acids or
+      digestibility) — the substitution itself may be sound, but it can
+      never fully back a DIAAS/PDCAAS score as-is
 
     Read-only: never modifies the alias tables or the database. Intended
-    to run at pipeline startup (see cli.py's `match` stage) so drift is
-    caught immediately rather than surfacing later as an unexplained
+    to run at pipeline startup (see cli.py's `match` stage, and the
+    standalone `validate-aliases` CLI command) so drift is caught
+    immediately rather than surfacing later as an unexplained
     match-quality regression."""
     diagnostics: list[str] = []
     for table in (ALIASES, REVIEWED_FALLBACKS):
         for key, target in table.items():
-            if target.food_id is None:
+            if target.fdc_id is None and target.food_id is None:
                 continue
-            food = db.get(Food, target.food_id)
+
+            food = None
+            if target.fdc_id is not None:
+                food = db.query(Food).filter(Food.fdc_id == target.fdc_id).one_or_none()
+            if food is None and target.food_id is not None:
+                food = db.get(Food, target.food_id)
+
             if food is None:
+                pinned = f"fdc_id={target.fdc_id}" if target.fdc_id is not None else f"food_id={target.food_id}"
                 diagnostics.append(
-                    f"reviewed mapping {key!r} pins food_id={target.food_id} "
-                    f"(expected {target.expected_food_name!r}), which no longer exists in the database — "
-                    f"falling back to description search {target.search_phrase!r}"
+                    f"reviewed mapping {key!r} pins {pinned} (expected {target.expected_food_name!r}), "
+                    f"which no longer exists in the database — falling back to description search "
+                    f"{target.search_phrase!r}"
                 )
-            elif target.expected_food_name is not None and food.name != target.expected_food_name:
+                continue
+
+            if target.expected_food_name is not None and food.name != target.expected_food_name:
                 diagnostics.append(
-                    f"reviewed mapping {key!r}'s food_id={target.food_id} name changed from "
+                    f"reviewed mapping {key!r}'s preferred target name changed from "
                     f"{target.expected_food_name!r} to {food.name!r} — re-review recommended"
+                )
+
+            coverage_gap = _lacks_nutrition_coverage(food)
+            if coverage_gap is not None:
+                diagnostics.append(
+                    f"reviewed mapping {key!r}'s preferred target {food.name!r} has {coverage_gap} — "
+                    "can't fully back a protein-quality score"
                 )
     return diagnostics
 
@@ -257,11 +344,13 @@ def match_ingredient(db: Session, name: str) -> MatchResult:
 
     alias_target = _find_in_table(normalised, ALIASES, _ALIAS_PATTERNS)
     if alias_target:
-        alias_matches = _resolve_alias_target(db, alias_target)
-        if alias_matches:
+        resolution = _resolve_alias_target(db, alias_target)
+        if resolution.foods:
             return MatchResult(
-                alias_matches[0], "alias", alias_target.confidence, _candidates_from(alias_matches),
-                relationship=alias_target.relationship.value,
+                resolution.foods[0], "alias", alias_target.confidence, _candidates_from(resolution.foods),
+                relationship=alias_target.relationship.value, rationale=alias_target.rationale,
+                preferred_fdc_id=alias_target.fdc_id, preferred_food_id=alias_target.food_id,
+                used_fallback=resolution.used_fallback, validation_warning=resolution.validation_warning,
             )
 
     canonical = _canonical_lookup(db, normalised)
@@ -275,11 +364,13 @@ def match_ingredient(db: Session, name: str) -> MatchResult:
 
     fallback_target = _find_in_table(normalised, REVIEWED_FALLBACKS, _FALLBACK_PATTERNS)
     if fallback_target:
-        fallback_matches = _resolve_alias_target(db, fallback_target)
-        if fallback_matches:
+        resolution = _resolve_alias_target(db, fallback_target)
+        if resolution.foods:
             return MatchResult(
-                fallback_matches[0], "manual_review", fallback_target.confidence, _candidates_from(fallback_matches),
-                relationship=fallback_target.relationship.value,
+                resolution.foods[0], "manual_review", fallback_target.confidence, _candidates_from(resolution.foods),
+                relationship=fallback_target.relationship.value, rationale=fallback_target.rationale,
+                preferred_fdc_id=fallback_target.fdc_id, preferred_food_id=fallback_target.food_id,
+                used_fallback=resolution.used_fallback, validation_warning=resolution.validation_warning,
             )
 
     return MatchResult(food=None, method=None, confidence=None, candidates=candidates)
