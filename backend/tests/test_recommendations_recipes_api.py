@@ -101,3 +101,55 @@ def test_invalid_goal_rejected(client):
 def test_requires_authentication(client):
     res = client.get("/api/recommendations/recipes", params={"entry_date": "2026-01-01"})
     assert res.status_code in (401, 403)
+
+
+def test_multi_day_meal_plan_range(client):
+    """"Improve this plan" on the multi-day meal-plan summary page —
+    start_date+end_date with source=meal_plan, no single entry_date."""
+    token = register_and_token(client, "d@example.com")
+    headers = auth_headers(token)
+    client.post(
+        "/api/meal-plan", json={"plan_date": "2026-01-01", "meal": "lunch", "food_id": 1, "quantity_g": 200},
+        headers=headers,
+    )
+    client.post(
+        "/api/meal-plan", json={"plan_date": "2026-01-03", "meal": "dinner", "food_id": 1, "quantity_g": 200},
+        headers=headers,
+    )
+
+    res = client.get(
+        "/api/recommendations/recipes",
+        params={"start_date": "2026-01-01", "end_date": "2026-01-03", "source": "meal_plan"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    body = res.json()
+    if body["suggestions"]:
+        assert body["suggestions"][0]["recipe_name"] == "Public Lentil Soup"
+
+
+def test_multi_day_range_requires_meal_plan_source(client):
+    token = register_and_token(client, "e@example.com")
+    res = client.get(
+        "/api/recommendations/recipes",
+        params={"start_date": "2026-01-01", "end_date": "2026-01-03", "source": "diary"},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 422
+
+
+def test_requires_exactly_one_scope(client):
+    token = register_and_token(client, "f@example.com")
+    headers = auth_headers(token)
+    res = client.get("/api/recommendations/recipes", headers=headers)
+    assert res.status_code == 422
+
+    res = client.get(
+        "/api/recommendations/recipes",
+        params={
+            "entry_date": "2026-01-01", "start_date": "2026-01-01", "end_date": "2026-01-03",
+            "source": "meal_plan",
+        },
+        headers=headers,
+    )
+    assert res.status_code == 422
