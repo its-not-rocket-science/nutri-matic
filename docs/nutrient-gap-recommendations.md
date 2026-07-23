@@ -427,3 +427,31 @@ this app *less* able to judge that nutrient, not more. Fixed by excluding
 `insufficient_data`-after nutrients from `_gap_reduction` entirely; kept
 as a permanent regression test
 (`test_coverage_dilution_to_insufficient_data_is_never_counted_as_improvement`).
+
+## Prompt 7: suggest recipes
+
+`app/recommend_recipes.py` + `GET /api/recommendations/recipes`. Same
+candidate → filter → simulate → score shape as prompt 6, generalised to
+whole recipes at their own serving size. Reuses ownership/visibility
+exactly as `routers/diary.py`'s existing `_rank_recipes_by_nutrient`
+(own + shared + public, dietary-filtered) — broadened from one nutrient
+to the full scoring engine, not reinvented.
+
+**`is_stock` is the owning account's `is_system` flag** (matching
+`routers/recipes.py`'s own `_recipe_out` exactly), not `import_slug`
+presence — a real bug caught by this prompt's own tests (a test recipe
+with `import_slug` set but an ordinary non-system owner was wrongly
+reporting `is_stock=True` before the fix). `import_slug` is still the
+right signal for a narrower question — whether the stock-recipe pipeline
+ever computed `match_coverage_lines`/robustness data for this recipe at
+all — used separately to decide whether `ingredient_confidence`/
+`candidate_data_coverage` have anything real to feed the scoring engine.
+
+Recipes carry no meal-type/category metadata at all (confirmed in the
+prompt-1 audit), so `meal_type` filtering — which
+`recommend_ingredients.py` gets from `candidate_metadata.py` — is a
+documented gap here, not a silent no-op. Diversity (prompt 7's "avoid
+near-duplicate recipes") is done by primary ingredient (the ingredient
+contributing the most mass) — a real, inspectable signal, the same kind
+`optimizer.py`'s own family-based swap logic already relies on, rather
+than a fabricated "recipe similarity" score.
