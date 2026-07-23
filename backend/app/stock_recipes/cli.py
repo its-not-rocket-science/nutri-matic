@@ -10,6 +10,7 @@
     python -m app.stock_recipes refresh
     python -m app.stock_recipes report
     python -m app.stock_recipes health-check
+    python -m app.stock_recipes validate-aliases
 
 Each stage reads/writes a local JSON candidate cache under --cache-dir
 (default ./.stock_recipe_cache) — nothing touches the database until
@@ -132,6 +133,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--verbose", action="store_true", help="Debug-level logging")
 
+    p = sub.add_parser(
+        "validate-aliases",
+        help="Validate the ingredient_aliases.py registry (read-only) — malformed entries, duplicate "
+             "keys, dangling preferred target ids, name drift, incomplete nutrition coverage",
+    )
+    p.add_argument("--verbose", action="store_true", help="Debug-level logging")
+
     return parser
 
 
@@ -153,6 +161,7 @@ def main(argv: list[str] | None = None) -> None:
         "refresh": pipeline.cmd_refresh,
         "report": pipeline.cmd_report,
         "health-check": pipeline.cmd_health_check,
+        "validate-aliases": pipeline.cmd_validate_aliases,
     }
     exit_code = handlers[args.command](args)
     sys.exit(exit_code or 0)

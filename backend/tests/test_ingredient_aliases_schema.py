@@ -62,6 +62,14 @@ def test_food_id_pinned_entries_also_record_expected_food_name(table_name):
             )
 
 
+def test_validate_alias_schema_clean_on_the_real_registry():
+    """The production validate_alias_schema() (used by the standalone
+    `validate-aliases` CLI command) must report zero problems against the
+    actual ALIASES/REVIEWED_FALLBACKS tables — a real integration check on
+    top of the granular per-property tests above."""
+    assert ingredient_aliases.validate_alias_schema() == []
+
+
 @pytest.mark.parametrize("table_name", ["ALIASES", "REVIEWED_FALLBACKS"])
 def test_no_duplicate_keys_in_the_source_dict_literal(table_name):
     """A duplicate key in a Python dict literal is not a SyntaxError — the

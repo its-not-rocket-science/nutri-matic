@@ -424,3 +424,22 @@ def test_upsert_robustness_retains_history_and_flags_latest(env):
     assert rows[1].model_version == "1.0.1"
     assert rows[1].overall_explanation == "second run, model updated"
     session.close()
+
+
+def test_cmd_validate_aliases_clean_registry_returns_zero(env):
+    """prompt section 4's standalone registry-validation command — clean
+    against the real alias tables and an empty database (nothing pinned
+    means nothing to check at the database level either)."""
+    args = _args(env.cache_dir)
+    assert pipeline.cmd_validate_aliases(args) == 0
+
+
+def test_cmd_validate_aliases_reports_dangling_preferred_target(env, monkeypatch):
+    from app.stock_recipes.ingredient_aliases import REVIEWED_FALLBACKS, reviewed
+
+    monkeypatch.setitem(
+        REVIEWED_FALLBACKS, "qorvantrix cli test ingredient",
+        reviewed("onions raw", "test-only dangling id", food_id=999_999, expected_food_name="Onions, raw"),
+    )
+    args = _args(env.cache_dir)
+    assert pipeline.cmd_validate_aliases(args) == 1
