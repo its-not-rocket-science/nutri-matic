@@ -493,23 +493,43 @@ python -m app.stock_recipes health-check
 ```
 
 Re-fetches every already-imported `fetch`-sourced recipe's source page (the
-same adapter, robots.txt/rate-limit/caching rules `fetch`/`refresh` use) and
-writes a report (`health_report.json` + a sibling `.csv`) of what it finds:
+same adapter, robots.txt/rate-limit/caching rules `fetch`/`refresh` use),
+and separately re-checks every imported recipe's alias/proxy provenance and
+robustness freshness (fetch- or manual-sourced — matching applies to
+both). Writes a report (`health_report.json` + a sibling `.csv`) of what it
+finds, each row carrying a `severity` (`info`/`warning`/`critical`) and a
+`recommended_action`:
 
-- **dead_url** — the source page is now unreachable (404, robots
-  disallow, no `Recipe` JSON-LD, etc.)
-- **redirect** — the source URL now redirects somewhere else
-- **content_changed** — the source's content fingerprint no longer
-  matches what was last imported
-- **missing_licence** — no source licence is recorded at all
-- **ingredients_changed** — the source's ingredient lines differ from
-  what's stored in this recipe's provenance
-- **nutrition_changed** — re-resolving the fresh ingredient lines
-  through the normal match/aggregate pipeline produces a materially
+- **dead_url** (critical) — the source page is now unreachable (404,
+  robots disallow, no `Recipe` JSON-LD, etc.)
+- **redirect** (warning) — the source URL now redirects somewhere else
+- **canonical_url_changed** (warning) — the manifest's `source_url` has
+  been edited since this recipe was last imported
+- **content_changed** (warning) — the source's content fingerprint no
+  longer matches what was last imported
+- **missing_licence** (warning) — no source licence is recorded at all
+- **licence_changed** (warning) — the source's licence text itself
+  changed since last import
+- **ingredients_changed** (warning) — the source's ingredient lines
+  differ from what's stored in this recipe's provenance
+- **nutrition_changed** (critical) — re-resolving the fresh ingredient
+  lines through the normal match/aggregate pipeline produces a materially
   different (>15%) per-serving energy or protein figure
-- **rematch_recommended** — a summary flag when the above suggest a
-  maintainer should rerun `match`/`analyse` and re-review before
-  republishing
+- **rematch_recommended** (warning) — a summary flag when the above
+  suggest a maintainer should rerun `match`/`analyse` and re-review
+  before republishing
+- **preferred_target_missing** (warning) — an ingredient's alias/reviewed
+  mapping had a preferred `fdc_id`/`food_id` that no longer resolved (the
+  per-recipe instance of what `validate-aliases` checks at the registry
+  level)
+- **used_fallback_resolution** (info) — an ingredient resolved via the
+  fallback description search rather than its preferred target
+- **low_confidence_proxy** (info) — an ingredient resolved through a
+  below-75%-confidence alias/reviewed match — the same "moderate
+  confidence" cutoff the frontend badge uses, so what a maintainer sees
+  here matches what an end user would see
+- **stale_robustness** (info) — the recipe's latest robustness analysis
+  predates the current `ROBUSTNESS_MODEL_VERSION`
 
 Unlike `refresh`, `health-check` is **read-only**: it never writes to the
 database, the candidate cache, or any `Recipe` row, even when it finds a

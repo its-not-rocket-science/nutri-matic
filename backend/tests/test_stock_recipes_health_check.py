@@ -165,8 +165,137 @@ def test_content_and_ingredients_changed_recommend_rematch(env, monkeypatch):
     assert "rematch_recommended" in by_type
 
 
+# --- prompt section 10: mapping-quality / stale-robustness checks ---------
+
+def test_stale_robustness_flagged_when_model_version_outdated(env, monkeypatch):
+    session, recipe, cache_dir = env
+    session.add(models.RobustnessResult(
+        recipe_id=recipe.id, is_latest=True, model_version="0.0.1-old", simulation_count=10, random_seed=1,
+        metrics={}, overall_rating=3, overall_explanation="old model version",
+    ))
+    session.commit()
+    monkeypatch.setattr(health_check, "build_adapters", lambda manual: {"schema_org": _FakeAdapter(error=SourceUnavailable("unreachable"))})
+
+    issues = health_check.run_health_check(session, cache_dir)
+    stale = [i for i in issues if i.issue_type == "stale_robustness"]
+    assert len(stale) == 1
+    assert "0.0.1-old" in stale[0].detail
+
+
+def test_no_stale_robustness_issue_when_no_analysis_exists(env, monkeypatch):
+    session, recipe, cache_dir = env
+    monkeypatch.setattr(health_check, "build_adapters", lambda manual: {"schema_org": _FakeAdapter(error=SourceUnavailable("unreachable"))})
+
+    issues = health_check.run_health_check(session, cache_dir)
+    assert not any(i.issue_type == "stale_robustness" for i in issues)
+
+
+def test_canonical_url_changed_flagged(env, monkeypatch):
+    session, recipe, cache_dir = env
+    monkeypatch.setattr(
+        health_check, "load_manifest",
+        lambda: [ManifestEntry(
+            slug="health_test_recipe", name="Health Test Recipe", collections=["budget_meals"],
+            source="fetch", source_name="schema_org", source_url="https://example.com/moved-recipe",
+        )],
+    )
+    monkeypatch.setattr(health_check, "build_adapters", lambda manual: {"schema_org": _FakeAdapter(error=SourceUnavailable("unreachable"))})
+
+    issues = health_check.run_health_check(session, cache_dir)
+    changed = [i for i in issues if i.issue_type == "canonical_url_changed"]
+    assert len(changed) == 1
+    assert "moved-recipe" in changed[0].detail
+
+
+def test_licence_changed_flagged(env, monkeypatch):
+    session, recipe, cache_dir = env
+    raw = RawRecipe(
+        name="Health Test Recipe", servings=2, ingredient_lines=["1 onion, chopped"],
+        canonical_url=MANIFEST_ENTRY.source_url, source_licence="CC-BY-SA-4.0",
+        content_fingerprint="fp-original", resolved_url=MANIFEST_ENTRY.source_url,
+    )
+    monkeypatch.setattr(health_check, "build_adapters", lambda manual: {"schema_org": _FakeAdapter(result=raw)})
+
+    issues = health_check.run_health_check(session, cache_dir)
+    changed = [i for i in issues if i.issue_type == "licence_changed"]
+    assert len(changed) == 1
+    assert "CC-BY-4.0" in changed[0].detail and "CC-BY-SA-4.0" in changed[0].detail
+
+
+def test_low_confidence_proxy_flagged(env, monkeypatch):
+    session, recipe, cache_dir = env
+    provenance = (
+        session.query(models.RecipeIngredientProvenance)
+        .join(models.RecipeIngredient, models.RecipeIngredient.id == models.RecipeIngredientProvenance.recipe_ingredient_id)
+        .filter(models.RecipeIngredient.recipe_id == recipe.id)
+        .one()
+    )
+    provenance.match_confidence = 0.65
+    provenance.match_relationship = "category_proxy"
+    provenance.match_rationale = "test-only low confidence rationale"
+    session.commit()
+    monkeypatch.setattr(health_check, "build_adapters", lambda manual: {"schema_org": _FakeAdapter(error=SourceUnavailable("unreachable"))})
+
+    issues = health_check.run_health_check(session, cache_dir)
+    low_conf = [i for i in issues if i.issue_type == "low_confidence_proxy"]
+    assert len(low_conf) == 1
+    assert "65%" in low_conf[0].detail
+    assert low_conf[0].severity == "info"
+
+
+def test_preferred_target_missing_flagged(env, monkeypatch):
+    session, recipe, cache_dir = env
+    provenance = (
+        session.query(models.RecipeIngredientProvenance)
+        .join(models.RecipeIngredient, models.RecipeIngredient.id == models.RecipeIngredientProvenance.recipe_ingredient_id)
+        .filter(models.RecipeIngredient.recipe_id == recipe.id)
+        .one()
+    )
+    provenance.match_used_fallback = True
+    provenance.match_validation_warning = "preferred target id did not resolve to any Food row"
+    session.commit()
+    monkeypatch.setattr(health_check, "build_adapters", lambda manual: {"schema_org": _FakeAdapter(error=SourceUnavailable("unreachable"))})
+
+    issues = health_check.run_health_check(session, cache_dir)
+    missing = [i for i in issues if i.issue_type == "preferred_target_missing"]
+    assert len(missing) == 1
+    assert missing[0].severity == "warning"
+
+
+def test_manual_sourced_recipe_still_gets_mapping_quality_checks(env, monkeypatch):
+    """Mapping-quality checks (unlike URL/licence/content checks) must run
+    for a manual-sourced recipe too — alias/proxy matching applies
+    regardless of whether the recipe came from a live source."""
+    session, recipe, cache_dir = env
+    manual_recipe = models.Recipe(
+        user_id=recipe.user_id, name="Manual Test Recipe", servings=1, is_public=True,
+        import_slug="manual_health_test_recipe", source_name="manual", source_url=None,
+        stock_status="imported",
+    )
+    session.add(manual_recipe)
+    session.flush()
+    onion_food_id = session.query(models.Food).filter(models.Food.name == "Onions, raw").one().id
+    ingredient = models.RecipeIngredient(recipe_id=manual_recipe.id, food_id=onion_food_id, quantity_g=100)
+    session.add(ingredient)
+    session.flush()
+    session.add(models.RecipeIngredientProvenance(
+        recipe_ingredient_id=ingredient.id, raw_text="1 onion, chopped",
+        match_method="alias", match_confidence=0.6,
+    ))
+    session.commit()
+    monkeypatch.setattr(health_check, "build_adapters", lambda manual: {"schema_org": _FakeAdapter(error=SourceUnavailable("unreachable"))})
+
+    issues = health_check.run_health_check(session, cache_dir)
+    manual_issues = [i for i in issues if i.recipe_id == manual_recipe.id]
+    assert any(i.issue_type == "low_confidence_proxy" for i in manual_issues)
+    assert not any(i.issue_type in ("dead_url", "missing_licence") for i in manual_issues)
+
+
 def test_write_health_report_json_and_csv(env, tmp_path):
-    issues = [health_check.HealthIssue(1, "slug-a", "Recipe A", "dead_url", "404 not found")]
+    issues = [health_check.HealthIssue(
+        recipe_id=1, slug="slug-a", name="Recipe A", issue_type="dead_url", detail="404 not found",
+        severity="critical", recommended_action="Update or remove the manifest source_url.",
+    )]
     report_path = tmp_path / "report.json"
 
     health_check.write_health_report(report_path, issues)
@@ -175,4 +304,7 @@ def test_write_health_report_json_and_csv(env, tmp_path):
     assert report_path.with_suffix(".csv").exists()
     import json
     data = json.loads(report_path.read_text(encoding="utf-8"))
-    assert data == [{"recipe_id": 1, "slug": "slug-a", "name": "Recipe A", "issue_type": "dead_url", "detail": "404 not found"}]
+    assert data == [{
+        "recipe_id": 1, "slug": "slug-a", "name": "Recipe A", "issue_type": "dead_url", "detail": "404 not found",
+        "severity": "critical", "recommended_action": "Update or remove the manifest source_url.",
+    }]
