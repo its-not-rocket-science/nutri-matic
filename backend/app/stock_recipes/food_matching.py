@@ -20,6 +20,13 @@ app has beyond the alias table *is* a normalised-name lookup against
 Food.name — there's no separate "canonical mapping" data source to
 consult first. Keeping them as one tier avoids inventing a distinction
 that doesn't correspond to two different real behaviours.
+
+Text normalisation itself (lowercasing, stripping container words) lives
+in linguistic_normalisation.py, not here — this module only decides what a
+normalised name resolves to, never how it got normalised (prompt section
+10: keep "make the text comparable" and "decide what food this means"
+separable). `normalise_ingredient_name` is re-exported from here purely
+for import-site convenience/backward compatibility.
 """
 
 from __future__ import annotations
@@ -35,18 +42,17 @@ from ..models import Food
 from ..reference_patterns import AMINO_ACIDS
 from ..search import search_foods_by_name
 from .ingredient_aliases import ALIASES, REVIEWED_FALLBACKS, AliasTarget
+from .linguistic_normalisation import normalise_ingredient_name
 
-# leading noise words stripped from a parsed ingredient name before
-# matching — container/pack words the parser leaves in place (see
-# ingredient_parser.py's docstring: it's honest about raw structure, not
-# responsible for search normalisation) and quantity-adjacent leftovers.
-_LEADING_STOPWORDS = (
-    "tin", "tins", "can", "cans", "packet", "packets", "jar", "jars",
-    "block", "blocks", "bag", "bags", "bottle", "bottles",
-)
-_LEADING_STOPWORD_RE = re.compile(
-    r"^(?:" + "|".join(_LEADING_STOPWORDS) + r")\s+(?:of\s+)?", re.IGNORECASE,
-)
+__all__ = [
+    "normalise_ingredient_name",
+    "MatchCandidate",
+    "MatchResult",
+    "CoverageResult",
+    "match_ingredient",
+    "compute_coverage",
+    "validate_reviewed_mappings",
+]
 
 _FUZZY_CONFIDENCE = {"high": 0.65, "low": 0.4}
 _CANONICAL_CONFIDENCE = 0.85
@@ -74,16 +80,6 @@ def _find_in_table(normalised: str, table: dict[str, AliasTarget], patterns: lis
         if pattern.search(normalised):
             return table[key]
     return None
-
-
-def normalise_ingredient_name(name: str) -> str:
-    """Lowercased, leading container words stripped, whitespace collapsed —
-    NOT a full normal form (no stemming/synonym work; search_foods_by_name
-    already does that for the fuzzy tier). Used as the ALIASES/
-    REVIEWED_FALLBACKS lookup key and as the deterministic-match query."""
-    text = name.strip().lower()
-    text = _LEADING_STOPWORD_RE.sub("", text)
-    return re.sub(r"\s{2,}", " ", text).strip()
 
 
 @dataclass

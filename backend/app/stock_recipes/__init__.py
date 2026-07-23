@@ -14,9 +14,12 @@ Module map:
                            schema.org/Recipe JSON-LD scraper)
     ingredient_parser.py   raw ingredient line -> structured fields
     unit_conversion.py     household units -> grams, with confidence
+    linguistic_normalisation.py
+                           pure text normalisation (lowercase, strip
+                           container words) — no substitution judgement
     ingredient_aliases.py  maintainable alias -> AliasTarget map (search
                            phrase + relationship/confidence/rationale)
-    food_matching.py       parsed ingredient -> Food, with confidence
+    food_matching.py       normalised ingredient -> Food, with confidence
     robustness.py          Monte Carlo nutritional-robustness analysis
     health_check.py        read-only dead-link/redirect/drift/licence
                            report for already-imported recipes (`health-
