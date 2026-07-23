@@ -289,6 +289,39 @@ maintainer previously hand-corrected.
 `analyse`/`review-export`/`import-approved` for that slug like any other
 update.
 
+### Health-checking already-imported recipes
+
+```bash
+python -m app.stock_recipes health-check
+```
+
+Re-fetches every already-imported `fetch`-sourced recipe's source page (the
+same adapter, robots.txt/rate-limit/caching rules `fetch`/`refresh` use) and
+writes a report (`health_report.json` + a sibling `.csv`) of what it finds:
+
+- **dead_url** — the source page is now unreachable (404, robots
+  disallow, no `Recipe` JSON-LD, etc.)
+- **redirect** — the source URL now redirects somewhere else
+- **content_changed** — the source's content fingerprint no longer
+  matches what was last imported
+- **missing_licence** — no source licence is recorded at all
+- **ingredients_changed** — the source's ingredient lines differ from
+  what's stored in this recipe's provenance
+- **nutrition_changed** — re-resolving the fresh ingredient lines
+  through the normal match/aggregate pipeline produces a materially
+  different (>15%) per-serving energy or protein figure
+- **rematch_recommended** — a summary flag when the above suggest a
+  maintainer should rerun `match`/`analyse` and re-review before
+  republishing
+
+Unlike `refresh`, `health-check` is **read-only**: it never writes to the
+database, the candidate cache, or any `Recipe` row, even when it finds a
+dead link or drifted content — it only produces the report above for a
+maintainer to read and act on by hand, the same way `review-export`'s
+output gets reviewed before `import-approved`. Run it on whatever schedule
+suits (e.g. a periodic CI job); nothing about running it, however often,
+can change a public recipe.
+
 ### Rerunning analysis after a nutritional-model change
 
 Robustness results carry the `robustness.ROBUSTNESS_MODEL_VERSION` they

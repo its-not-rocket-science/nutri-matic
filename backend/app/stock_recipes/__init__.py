@@ -18,6 +18,9 @@ Module map:
                            phrase + relationship/confidence/rationale)
     food_matching.py       parsed ingredient -> Food, with confidence
     robustness.py          Monte Carlo nutritional-robustness analysis
+    health_check.py        read-only dead-link/redirect/drift/licence
+                           report for already-imported recipes (`health-
+                           check` — never modifies a Recipe)
     dedup.py               stable ids / near-duplicate detection
     pipeline.py            orchestrates discover/fetch/.../report against
                            a local candidate cache; only import-approved

@@ -29,6 +29,14 @@ class RawRecipe:
     # between fetches (Recipe.content_fingerprint), independent of
     # incidental page markup/formatting changes.
     content_fingerprint: str
+    # the URL actually reached after following any redirects, when this
+    # fetch made a live HTTP request — None when nothing was fetched live
+    # (a cache hit, or a source with no HTTP concept at all, e.g. the
+    # manual adapter). Lets health_check.py (prompt section 5) tell a
+    # source-side redirect apart from "no redirect happened"; not used for
+    # anything else (canonical_url, not this, is what gets stored/compared
+    # as the recipe's source_url).
+    resolved_url: str | None = None
 
 
 class SourceUnavailable(Exception):

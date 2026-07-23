@@ -128,11 +128,18 @@ class SchemaOrgJsonLdAdapter:
         digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
         return cache_dir / "pages" / domain / f"{digest}.html"
 
-    def _get_html(self, url: str, cache_dir: Path, force_refresh: bool) -> str:
+    def _get_html(self, url: str, cache_dir: Path, force_refresh: bool) -> tuple[str, str | None]:
+        """Returns (html_text, resolved_url). `resolved_url` is the
+        response's actual final URL (httpx.Client(follow_redirects=True)
+        already follows redirects transparently for parsing purposes;
+        this additionally reports *where it landed*, so a caller can tell
+        a redirect happened at all — see health_check.py). None on a
+        cache hit: nothing was actually requested live, so there's no
+        redirect signal to report either way."""
         cache_path = self._cache_path(cache_dir, url)
         if cache_path.exists() and not force_refresh:
             logger.debug("cache hit for %s", url)
-            return cache_path.read_text(encoding="utf-8")
+            return cache_path.read_text(encoding="utf-8"), None
 
         self._check_allowed(url)
         self._wait_for_rate_limit(url)
@@ -157,7 +164,7 @@ class SchemaOrgJsonLdAdapter:
 
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(response.text, encoding="utf-8")
-            return response.text
+            return response.text, str(response.url)
 
         raise SourceUnavailable(f"{url} failed after {RETRY_ATTEMPTS + 1} attempts: {last_error}")
 
@@ -195,7 +202,7 @@ class SchemaOrgJsonLdAdapter:
         if not entry.source_url:
             raise SourceUnavailable(f"manifest entry {entry.slug!r} has source=\"fetch\" but no source_url")
 
-        page_html = self._get_html(entry.source_url, cache_dir, force_refresh)
+        page_html, resolved_url = self._get_html(entry.source_url, cache_dir, force_refresh)
         recipe_node = self._find_recipe_node(page_html)
         if recipe_node is None:
             raise SourceUnavailable(f"no schema.org Recipe JSON-LD found at {entry.source_url}")
@@ -220,4 +227,5 @@ class SchemaOrgJsonLdAdapter:
             canonical_url=entry.source_url,
             source_licence=str(licence) if licence else None,
             content_fingerprint=hashlib.sha256(fingerprint_payload.encode("utf-8")).hexdigest(),
+            resolved_url=resolved_url,
         )

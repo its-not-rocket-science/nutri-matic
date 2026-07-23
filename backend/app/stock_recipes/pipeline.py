@@ -829,6 +829,29 @@ def cmd_refresh(args) -> int:
     return 0
 
 
+# --- stage: health-check -------------------------------------------------
+
+def cmd_health_check(args) -> int:
+    """Read-only — see health_check.py's module docstring. Never touches
+    the database or candidate cache; only writes the report file."""
+    from .health_check import run_health_check, write_health_report
+
+    db = SessionLocal()
+    try:
+        issues = run_health_check(db, args.cache_dir, force_refresh=not getattr(args, "use_cache", False))
+    finally:
+        db.close()
+
+    write_health_report(args.report_file, issues)
+
+    by_type: dict[str, int] = {}
+    for issue in issues:
+        by_type[issue.issue_type] = by_type.get(issue.issue_type, 0) + 1
+    summary = ", ".join(f"{k}={v}" for k, v in sorted(by_type.items())) or "none"
+    logger.info("health-check: %d issue(s) found (%s) — report written to %s", len(issues), summary, args.report_file)
+    return 0
+
+
 # --- stage: report -----------------------------------------------------
 
 def cmd_report(args) -> int:
