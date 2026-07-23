@@ -166,6 +166,30 @@ def test_deterministic_ordering(db):
     assert [s.food_name for s in first.suggestions] == [s.food_name for s in second.suggestions]
 
 
+def test_meal_period_uses_remaining_room_not_flat_daily_target(db):
+    """A meal-scoped request must compare against what's left of the day's
+    target after other meals, not the flat whole-day figure — see
+    adjust_target_for_remaining in nutrient_targets.py."""
+    current = make_food(db, "White rice, cooked", energy=130, fiber_total=0.4)
+    make_food(db, "Lentils", fiber_total=8.0, energy=116)
+    profile = make_profile(db)
+    items = [WeightedFood(current, 100.0)]
+    nutrients_by_food_id = {
+        current.id: db.query(FoodNutrient).filter(FoodNutrient.food_id == current.id).all(),
+    }
+
+    # no other meals logged yet: full daily fibre target (30g) still open
+    result = suggest_ingredients(db, profile, items, nutrients_by_food_id, AnalysisPeriod.MEAL)
+    assert any(s.food_name == "Lentils" for s in result.suggestions)
+
+    # another meal already logged the day's full 30g fibre target: nothing left to close
+    result = suggest_ingredients(
+        db, profile, items, nutrients_by_food_id, AnalysisPeriod.MEAL,
+        already_consumed_by_key={"fiber_total": 30.0},
+    )
+    assert result.suggestions == []
+
+
 def test_respects_max_suggestions_limit(db):
     current = make_food(db, "White rice, cooked", energy=130, fiber_total=0.5)
     make_food(db, "Lentils", fiber_total=8.0, energy=116)

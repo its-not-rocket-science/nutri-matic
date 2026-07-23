@@ -114,6 +114,32 @@ def test_invalid_meal_rejected(client):
     assert res.status_code == 422
 
 
+def test_meal_scoped_request_uses_remaining_room_not_flat_daily_target(client):
+    """Logging enough fibre at breakfast must close the gap for a
+    lunch-scoped request too — a meal is compared against what's left of
+    the day's target, never the flat whole-day figure."""
+    token = register_and_token(client, "f@example.com")
+    headers = auth_headers(token)
+    # Lentils (food_id=2) carries 8g fibre/100g — logging 400g meets/exceeds
+    # the 30g/day UK fibre target on its own, at breakfast.
+    client.post(
+        "/api/diary", json={"entry_date": "2026-01-01", "meal": "breakfast", "food_id": 2, "quantity_g": 400},
+        headers=headers,
+    )
+    client.post(
+        "/api/diary", json={"entry_date": "2026-01-01", "meal": "lunch", "food_id": 1, "quantity_g": 200},
+        headers=headers,
+    )
+
+    res = client.get(
+        "/api/recommendations/ingredients",
+        params={"entry_date": "2026-01-01", "meal": "lunch", "priority_nutrients": "fiber_total"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert res.json() == {"suggestions": []}
+
+
 def test_meal_plan_source(client):
     token = register_and_token(client, "e@example.com")
     client.post(

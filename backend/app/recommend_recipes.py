@@ -33,7 +33,7 @@ from .aggregation import (
 from .dietary_filter import filter_excluded_recipes, recipes_dietary_status
 from .models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, RobustnessResult, User, Profile
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
-from .nutrient_targets import AnalysisPeriod, NutrientTarget, resolve_nutrient_target
+from .nutrient_targets import AnalysisPeriod, NutrientTarget, adjust_target_for_remaining, resolve_nutrient_target
 from .nutrients import NUTRIENTS
 from .recommendation_scoring import PracticalityInput, ScoreBreakdown, ScoringWeights, score_candidate
 
@@ -192,6 +192,7 @@ def suggest_recipes(
     goal: str | None = None,
     excluded_recipe_ids: set[int] | None = None,
     day_count: int = 1,
+    already_consumed_by_key: dict[str, float] | None = None,
     weights: ScoringWeights | None = None,
 ) -> RecipeSuggestionResult:
     """`items`/`nutrients_by_food_id` are the caller's current
@@ -208,6 +209,8 @@ def suggest_recipes(
     for key in NUTRIENTS:
         target = resolve_nutrient_target(key, profile, period, day_count=day_count)
         if target is not None:
+            if period == AnalysisPeriod.MEAL and already_consumed_by_key:
+                target = adjust_target_for_remaining(target, already_consumed_by_key.get(key, 0.0))
             target_by_key[key] = target
 
     before_gaps = analyse_nutrient_gaps(

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..aggregation import expand_entries_to_weighted_foods
+from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, User
@@ -65,9 +65,10 @@ def get_ingredient_suggestions(
     `source="meal_plan"` reads planned `MealPlanEntry` rows for the same
     date — same analysis, different entry source, exactly like every
     other endpoint that already supports both (see meal_plan.py).
-    `meal`, when given, scopes to just that meal (still compared against
-    the day's target — see nutrient_targets.resolve_meal_comparison_target
-    for why a meal is never automatically one-third of the day).
+    `meal`, when given, scopes to just that meal, compared against the
+    day's target minus whatever the day's other meals already logged
+    (see nutrient_targets.adjust_target_for_remaining) — never the flat
+    whole-day target, and never an automatic one-third-of-the-day split.
     `priority_nutrients` is a comma-separated list of nutrient keys
     (e.g. `iron,folate`) to prioritise; omit to consider every
     optimisation-eligible nutrient currently short.
@@ -80,14 +81,17 @@ def get_ingredient_suggestions(
     if meal is not None and meal not in _MEALS:
         raise HTTPException(status_code=422, detail=f"meal must be one of {_MEALS}")
 
-    entries = _load_entries(db, profile, entry_date, source)
+    all_day_entries = _load_entries(db, profile, entry_date, source)
     period = AnalysisPeriod.DAY
+    entries = all_day_entries
+    other_entries = []
     if meal is not None:
-        entries = [e for e in entries if e.meal == meal]
+        entries = [e for e in all_day_entries if e.meal == meal]
+        other_entries = [e for e in all_day_entries if e.meal != meal]
         period = AnalysisPeriod.MEAL
 
-    food_ids = {e.food_id for e in entries if e.food_id is not None}
-    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+    food_ids = {e.food_id for e in all_day_entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in all_day_entries if e.recipe_id is not None}
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
     items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
@@ -97,12 +101,22 @@ def get_ingredient_suggestions(
     for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
         nutrients_by_food_id.setdefault(row.food_id, []).append(row)
 
+    already_consumed_by_key: dict[str, float] | None = None
+    if other_entries:
+        other_items = expand_entries_to_weighted_foods(other_entries, foods_by_id, recipes_by_id, db)
+        other_food_ids = [item.food.id for item in other_items]
+        other_nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+        for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(other_food_ids)).all():
+            other_nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+        already_consumed_by_key = aggregate_nutrients(other_items, other_nutrients_by_food_id)
+
     priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
 
     result = suggest_ingredients(
         db, profile, items, nutrients_by_food_id, period,
         max_additional_energy=max_additional_energy, max_suggestions=max_suggestions,
         priority_nutrient_keys=priority_keys, meal_type=meal,
+        already_consumed_by_key=already_consumed_by_key,
     )
 
     return schemas.IngredientSuggestionsOut(suggestions=[
