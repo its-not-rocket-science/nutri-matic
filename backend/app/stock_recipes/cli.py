@@ -9,6 +9,7 @@
     python -m app.stock_recipes import-approved
     python -m app.stock_recipes refresh
     python -m app.stock_recipes report
+    python -m app.stock_recipes health-check
 
 Each stage reads/writes a local JSON candidate cache under --cache-dir
 (default ./.stock_recipe_cache) — nothing touches the database until
@@ -110,6 +111,27 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("report", help="Print a run summary from the current cache state")
     _add_common_args(p)
 
+    p = sub.add_parser(
+        "health-check",
+        help="Re-check imported fetch-sourced recipes for dead links, redirects, drift, and missing "
+             "licences (read-only — writes a report only, never modifies a Recipe)",
+    )
+    p.add_argument(
+        "--cache-dir", type=Path, default=DEFAULT_CACHE_DIR,
+        help=f"Local page cache directory (default: {DEFAULT_CACHE_DIR})",
+    )
+    p.add_argument(
+        "--report-file", type=Path, default=DEFAULT_CACHE_DIR / "health_report.json",
+        help=f"Report path, .json (default: {DEFAULT_CACHE_DIR / 'health_report.json'}); "
+             "a sibling .csv is written alongside it",
+    )
+    p.add_argument(
+        "--use-cache", action="store_true",
+        help="Allow cached source pages instead of always re-fetching live "
+             "(faster reruns, but may miss a link that just broke)",
+    )
+    p.add_argument("--verbose", action="store_true", help="Debug-level logging")
+
     return parser
 
 
@@ -130,6 +152,7 @@ def main(argv: list[str] | None = None) -> None:
         "import-approved": pipeline.cmd_import_approved,
         "refresh": pipeline.cmd_refresh,
         "report": pipeline.cmd_report,
+        "health-check": pipeline.cmd_health_check,
     }
     exit_code = handlers[args.command](args)
     sys.exit(exit_code or 0)
