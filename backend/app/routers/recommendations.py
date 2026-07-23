@@ -23,6 +23,8 @@ from ..nutrient_targets import AnalysisPeriod
 from ..recommend_ingredients import DEFAULT_MAX_SUGGESTIONS, suggest_ingredients
 from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SUGGESTIONS
 from ..recommend_recipes import GOAL_PRESETS, suggest_recipes
+from ..recommend_substitutions import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_SUBSTITUTION_SUGGESTIONS
+from ..recommend_substitutions import suggest_substitutions
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
@@ -170,3 +172,77 @@ def get_recipe_suggestions(
         )
         for s in result.suggestions
     ])
+
+
+@router.get("/substitutions", response_model=schemas.SubstitutionSuggestionsOut)
+def get_substitution_suggestions(
+    entry_id: int,
+    source: str = "diary",
+    max_suggestions: int = DEFAULT_MAX_SUBSTITUTION_SUGGESTIONS,
+    priority_nutrients: str | None = None,
+    energy_tolerance_kcal: float = 150.0,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Proposes recipes to replace an already-logged `entry_id` (a
+    `DiaryEntry` or `MealPlanEntry` that has a `recipe_id` — a plain food
+    entry can't be "substituted" in this sense, only removed/re-added
+    directly). Never modifies the entry itself: applying a suggestion is
+    the caller's job, via the existing delete-then-recreate endpoints
+    (see recommend_substitutions.py's module docstring)."""
+    if source not in ("diary", "meal_plan"):
+        raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
+
+    model = MealPlanEntry if source == "meal_plan" else DiaryEntry
+    entry = db.query(model).filter(model.id == entry_id, model.profile_id == profile.id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    if entry.recipe_id is None:
+        raise HTTPException(status_code=422, detail="Entry has no recipe to substitute — it's a plain food entry")
+
+    current_recipe = db.get(Recipe, entry.recipe_id)
+    if current_recipe is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    entry_date = entry.plan_date if source == "meal_plan" else entry.entry_date
+    all_entries = _load_entries(db, profile, entry_date, source)
+    other_entries = [e for e in all_entries if e.id != entry.id]
+
+    food_ids = {e.food_id for e in other_entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in other_entries if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+    other_items = expand_entries_to_weighted_foods(other_entries, foods_by_id, recipes_by_id, db)
+
+    all_food_ids = [item.food.id for item in other_items]
+    nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+    for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
+        nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+
+    priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
+
+    result = suggest_substitutions(
+        db, profile, current_user, other_items, current_recipe, entry.quantity_servings, nutrients_by_food_id,
+        AnalysisPeriod.DAY, max_suggestions=max_suggestions, priority_nutrient_keys=priority_keys,
+        energy_tolerance_kcal=energy_tolerance_kcal,
+    )
+
+    return schemas.SubstitutionSuggestionsOut(
+        current_recipe_id=result.current_recipe_id, current_recipe_name=result.current_recipe_name,
+        suggestions=[
+            schemas.SubstitutionSuggestionOut(
+                current_recipe_id=s.current_recipe_id, current_recipe_name=s.current_recipe_name,
+                current_servings=s.current_servings, replacement_recipe_id=s.replacement_recipe_id,
+                replacement_recipe_name=s.replacement_recipe_name, replacement_servings=s.replacement_servings,
+                energy_difference_kcal=s.energy_difference_kcal, protein_difference_g=s.protein_difference_g,
+                fiber_difference_g=s.fiber_difference_g, saturated_fat_difference_g=s.saturated_fat_difference_g,
+                sodium_difference_mg=s.sodium_difference_mg, key_nutrient_differences=s.key_nutrient_differences,
+                protein_quality_before=s.protein_quality_before, protein_quality_after=s.protein_quality_after,
+                score=s.score.total, remaining_shortfalls=s.remaining_shortfalls, new_warnings=s.new_warnings,
+                is_stock=s.is_stock, match_coverage_lines=s.match_coverage_lines,
+                robustness_rating=s.robustness_rating, provenance_note=s.provenance_note, explanation=s.explanation,
+            )
+            for s in result.suggestions
+        ],
+    )

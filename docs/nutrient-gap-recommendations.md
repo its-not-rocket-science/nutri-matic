@@ -455,3 +455,36 @@ near-duplicate recipes") is done by primary ingredient (the ingredient
 contributing the most mass) — a real, inspectable signal, the same kind
 `optimizer.py`'s own family-based swap logic already relies on, rather
 than a fabricated "recipe similarity" score.
+
+## Prompt 8: substitutions
+
+`app/recommend_substitutions.py` + `GET /api/recommendations/substitutions`.
+Removes an already-logged recipe hypothetically (the day's/plan's *other*
+entries become the fixed baseline), ranks real replacement recipes at a
+servings count chosen to land close to the original's own energy
+contribution (nearest half-serving, clamped to 0.5-3.0x), and rejects
+outright (not just penalises) any replacement that would push a nutrient
+newly above its upper limit that wasn't already there. No apply endpoint
+exists or is planned here — applying a suggestion is the existing
+delete-then-recreate diary/meal-plan flow, on purpose (see the module
+docstring: a second write path would be a duplicate source of truth for
+the same mutation).
+
+**A second real bug found by this prompt's own tests**: the function
+initially trusted the caller-supplied `nutrients_by_food_id` to already
+include the recipe *being replaced*'s own ingredients — true in the real
+router (which loads the whole day before splitting out "the other
+entries"), but not guaranteed for any other caller, and the test suite
+caught it immediately by using a minimal fixture that didn't happen to
+include it, silently zeroing that recipe's own contribution. Fixed by
+defensively fetching missing ingredient nutrient data for the recipe
+being replaced, the same `missing_food_ids` pattern `recommend_recipes.py`
+already uses for its own candidates — now correct regardless of what a
+caller supplies, not just the one router that happens to supply enough
+by construction.
+
+Recipe-visibility filtering here reused `recommend_recipes.py`'s
+`visible_recipes`/`load_recipe_ingredients` directly (renamed from
+`_visible_recipes`/`_recipe_ingredients` to make them a proper shared
+API) rather than re-implementing the same own/shared/public/dietary
+query a third time.
