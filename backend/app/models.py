@@ -353,6 +353,27 @@ class RecipeIngredientProvenance(Base):
     # Exposed via the API/frontend as provenance metadata only — never
     # read by aggregation.py, so it can't affect a nutrition calculation.
     match_relationship: Mapped[str | None] = mapped_column(String, nullable=True)
+    # the AliasTarget.rationale behind an "alias"/"manual_review" match —
+    # the human-readable sentence shown in the API/frontend (prompt
+    # section 6). Null for "canonical"/"fuzzy" matches.
+    match_rationale: Mapped[str | None] = mapped_column(String, nullable=True)
+    # the AliasTarget's pinned fdc_id/food_id, if any, regardless of
+    # whether it actually resolved (prompt section 5's "preferred target
+    # identifier") — both null for a match with no pinned id at all.
+    match_preferred_fdc_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    match_preferred_food_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # True only when a preferred fdc_id/food_id was set but didn't
+    # resolve, so the description search_phrase resolved this match
+    # instead (prompt section 5's "whether preferred-ID or fallback
+    # search resolved the food"). Null when not applicable (no alias/
+    # manual_review match at all, e.g. canonical/fuzzy/unresolved).
+    match_used_fallback: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # a human-readable note when this match's target-validation is worth a
+    # maintainer's attention (dangling preferred id, name drift since
+    # review) — see food_matching.validate_reviewed_mappings, which checks
+    # the alias TABLE; this is the same check's result for the specific
+    # match THIS ingredient actually made. Null when nothing was amiss.
+    match_validation_warning: Mapped[str | None] = mapped_column(String, nullable=True)
     # other candidate foods food_matching.py considered, most to least likely
     # — [{"food_id": int, "name": str, "score": float}, ...]. Informational,
     # for the review file; never auto-applied.
