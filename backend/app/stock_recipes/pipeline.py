@@ -726,23 +726,28 @@ def _sync_collections(db: Session, recipe: models.Recipe, row: dict, collections
 
 
 def _upsert_robustness(db: Session, recipe: models.Recipe, robustness: dict | None) -> None:
+    """Inserts a new, immutable RobustnessResult row and demotes whatever
+    row previously had is_latest=True for this recipe (prompt section 4):
+    every past analysis stays exactly as computed, available for auditing/
+    debugging/scientific comparison, while exactly one row per recipe is
+    ever flagged current. Never mutates an existing row's own analysis
+    fields — only `is_latest` ever changes on a previously-inserted row."""
     if robustness is None:
         return
-    existing = db.query(models.RobustnessResult).filter(models.RobustnessResult.recipe_id == recipe.id).one_or_none()
-    kwargs = {
-        "model_version": robustness["model_version"],
-        "computed_at": datetime.now(timezone.utc),
-        "simulation_count": robustness["simulation_count"],
-        "random_seed": robustness["random_seed"],
-        "metrics": robustness["metrics"],
-        "overall_rating": robustness["overall_rating"],
-        "overall_explanation": robustness["overall_explanation"],
-    }
-    if existing is None:
-        db.add(models.RobustnessResult(recipe_id=recipe.id, **kwargs))
-    else:
-        for k, v in kwargs.items():
-            setattr(existing, k, v)
+    db.query(models.RobustnessResult).filter(
+        models.RobustnessResult.recipe_id == recipe.id, models.RobustnessResult.is_latest.is_(True)
+    ).update({"is_latest": False})
+    db.add(models.RobustnessResult(
+        recipe_id=recipe.id,
+        is_latest=True,
+        model_version=robustness["model_version"],
+        computed_at=datetime.now(timezone.utc),
+        simulation_count=robustness["simulation_count"],
+        random_seed=robustness["random_seed"],
+        metrics=robustness["metrics"],
+        overall_rating=robustness["overall_rating"],
+        overall_explanation=robustness["overall_explanation"],
+    ))
 
 
 # --- stage: refresh -----------------------------------------------------

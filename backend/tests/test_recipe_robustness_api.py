@@ -58,6 +58,18 @@ def client():
     db.add(recipe)
     db.flush()
     db.add(RecipeIngredient(recipe_id=recipe.id, food_id=food.id, quantity_g=100))
+    # a superseded historical analysis (prompt section 4) — must never be
+    # what the /robustness endpoint returns, only the is_latest=True row
+    db.add(RobustnessResult(
+        recipe_id=recipe.id, model_version="0.9.0", simulation_count=100, random_seed=1, is_latest=False,
+        metrics={"protein": {
+            "baseline": 5.0, "median": 5.0, "p10": 4.0, "p90": 6.0, "cv": 0.1, "threshold": 4.0,
+            "prob_above_threshold": 0.8, "top_influential": [], "optional_sensitivity": None,
+            "unmatched_uncertainty_note": None, "display_rating": 2, "explanation": "stale",
+            "not_calculated_reason": None,
+        }},
+        overall_rating=2, overall_explanation="Superseded analysis.",
+    ))
     db.add(RobustnessResult(
         recipe_id=recipe.id, model_version="1.0.0", simulation_count=200, random_seed=42,
         metrics={"protein": {

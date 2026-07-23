@@ -354,3 +354,49 @@ def test_refresh_unavailable_source_flags_status(env, monkeypatch):
     recipe = session.query(models.Recipe).filter(models.Recipe.import_slug == "fetch_gone_test").one()
     assert recipe.stock_status == "source_unavailable"
     session.close()
+
+
+def test_upsert_robustness_retains_history_and_flags_latest(env):
+    """prompt section 4: a new analysis run must never overwrite a past
+    RobustnessResult row — it inserts a new one and demotes whatever
+    row previously had is_latest=True, so full history survives for
+    auditing/debugging/scientific comparison."""
+    session = env.SessionLocal()
+    system_user = models.User(email="stock-recipes@nutrimatic.system", password_hash="x", is_system=True)
+    session.add(system_user)
+    session.flush()
+    recipe = models.Recipe(
+        user_id=system_user.id, name="History Test Recipe", servings=1, is_public=True,
+        import_slug="history_test",
+    )
+    session.add(recipe)
+    session.flush()
+
+    first = {
+        "model_version": "1.0.0", "simulation_count": 10, "random_seed": 1,
+        "metrics": {}, "overall_rating": 3, "overall_explanation": "first run",
+    }
+    pipeline._upsert_robustness(session, recipe, first)
+    session.commit()
+
+    second = {
+        "model_version": "1.0.1", "simulation_count": 20, "random_seed": 2,
+        "metrics": {}, "overall_rating": 4, "overall_explanation": "second run, model updated",
+    }
+    pipeline._upsert_robustness(session, recipe, second)
+    session.commit()
+
+    rows = (
+        session.query(models.RobustnessResult)
+        .filter(models.RobustnessResult.recipe_id == recipe.id)
+        .order_by(models.RobustnessResult.id)
+        .all()
+    )
+    assert len(rows) == 2
+    assert rows[0].is_latest is False
+    assert rows[0].model_version == "1.0.0"
+    assert rows[0].overall_explanation == "first run"
+    assert rows[1].is_latest is True
+    assert rows[1].model_version == "1.0.1"
+    assert rows[1].overall_explanation == "second run, model updated"
+    session.close()
