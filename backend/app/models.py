@@ -12,6 +12,7 @@ from sqlalchemy import (
     JSON,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -496,6 +497,16 @@ class RobustnessResult(Base):
     __tablename__ = "robustness_results"
     __table_args__ = (
         Index("ix_robustness_results_recipe_id_is_latest", "recipe_id", "is_latest"),
+        # enforces "at most one current run per recipe" at the database
+        # level (prompt section 9), not just by convention in
+        # _upsert_robustness's application code — a partial unique index,
+        # supported by both Postgres (production) and SQLite (tests) since
+        # SQLite 3.8.0, so it's the strongest constraint available on
+        # either dialect this project actually runs against.
+        Index(
+            "uq_robustness_results_recipe_id_latest", "recipe_id", unique=True,
+            postgresql_where=text("is_latest"), sqlite_where=text("is_latest"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
