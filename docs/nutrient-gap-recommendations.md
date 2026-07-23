@@ -269,3 +269,60 @@ simulation) rather than duplicating them.
 No recommendation-engine code is added in this prompt, per its own
 instruction — this document only. The next prompt (2) is the first to add
 code: the profile-aware nutrient target resolver.
+
+## Prompt 2: target semantics
+
+`app/nutrient_targets.py` implements the resolver; `app/nutrients.py`
+gained the metadata it reads (`target_type`, `upper_limit` +
+source/confidence, `optimisation_eligible`) — additive fields with safe
+defaults, so every existing caller of `NUTRIENTS`/`resolve_drv` is
+unaffected (verified: `test_nutrients.py` and the full backend suite pass
+unchanged).
+
+**Target types** (`nutrients.TARGET_TYPE_*`):
+- `minimum_or_adequate_intake` — the ordinary case, an RNI/AI-style figure
+  to *reach*. `lower_target`/`preferred_target` are the same number (this
+  app doesn't track a distinct "ideal, above the minimum" figure — see the
+  dataclass comment on why `preferred_target` is still its own field).
+- `maximum_guideline` — the figure is a ceiling, not a floor (sodium,
+  saturated fat) — `lower_target`/`preferred_target` are always `None`;
+  only `upper_target` is set.
+- `personalized` — energy/protein: a calculation, not a table lookup.
+- `informational` — no independent optimisation target at all (a subset
+  of another tracked nutrient, or nothing established in any direction);
+  `optimisation_eligible=False` with a stated `ineligibility_reason`.
+
+**Upper limits** (`nutrients.NutrientDef.upper_limit`, resolved via
+`resolve_upper_limit`) are commonly-cited EFSA/US IOM/UK-derived
+population figures — **not medical advice**, and deliberately absent
+(`None`) for several nutrients rather than guessed:
+- **Form-specific ULs not applied to this app's tracked (food-only, or
+  combined) figure**: niacin (the UL concerns supplemental nicotinic
+  acid), folate (concerns synthetic folic acid; this app tracks combined
+  DFE), magnesium (concerns supplemental intake).
+- **Renal-clearance-dependent, not a general-population risk**:
+  phosphorus, potassium — this app has no renal-function data to condition
+  on, so no UL is asserted (see prompt 11's "sensitive contexts" handling).
+- **Genuine disagreement between bodies** (EFSA vs US IOM, often ~2x
+  apart): zinc, iodine — the more conservative (EFSA) figure is used,
+  stated explicitly in `upper_limit_source`, rather than silently picking
+  one.
+- **Uncertain/possibly outdated**: vitamin B6 (EFSA's 2023 re-evaluation
+  substantially changed prior guidance; this module can't verify which
+  figure currently stands without a live source), manganese (EFSA
+  concluded data were insufficient to set one at all).
+- **vitamin_a/retinol**: the general adult UL is used for every profile
+  variant, including pregnancy — a distinct, confidently-sourced
+  pregnancy-specific numeric UL wasn't available to this module, so rather
+  than invent one, pregnancy is left as a sensitive context to be handled
+  conservatively (prompt 11), not a different number here.
+
+**Periods**: `AnalysisPeriod.MEAL`/`DAY` always resolve one day's worth as
+a flat figure — a meal is never automatically treated as one-third of a
+day (explicitly disallowed by the prompt); `MULTI_DAY` multiplies by
+`day_count`. `resolve_meal_comparison_target` is the actual meal-specific
+machinery: pass `already_consumed_today` for a "remaining daily target"
+comparison when diary context exists, or `explicit_share` (e.g. `1/3`) for
+reviewing a meal/recipe with no such context — a caller supplying neither
+gets the plain day figure back (`comparison_mode="full_daily"`), left for
+the caller to interpret.
