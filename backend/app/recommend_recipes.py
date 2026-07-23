@@ -89,7 +89,7 @@ class RecipeSuggestionResult:
     rejected: list[RejectedRecipe] = field(default_factory=list)
 
 
-def _visible_recipes(db: Session, current_user: User, profile: Profile) -> list[Recipe]:
+def visible_recipes(db: Session, current_user: User, profile: Profile) -> list[Recipe]:
     shared_recipe_ids = db.query(RecipeShare.recipe_id).filter(RecipeShare.shared_with_user_id == current_user.id)
     recipes = (
         db.query(Recipe)
@@ -99,7 +99,7 @@ def _visible_recipes(db: Session, current_user: User, profile: Profile) -> list[
     return filter_excluded_recipes(recipes, db, profile)
 
 
-def _recipe_ingredients(db: Session, recipe_ids: list[int]) -> dict[int, list[RecipeIngredient]]:
+def load_recipe_ingredients(db: Session, recipe_ids: list[int]) -> dict[int, list[RecipeIngredient]]:
     by_recipe: dict[int, list[RecipeIngredient]] = {}
     for row in db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id.in_(recipe_ids)).all():
         by_recipe.setdefault(row.recipe_id, []).append(row)
@@ -221,7 +221,7 @@ def suggest_recipes(
     if not shortfall_keys:
         return RecipeSuggestionResult(suggestions=[])
 
-    visible = _visible_recipes(db, current_user, profile)
+    visible = visible_recipes(db, current_user, profile)
     if not visible:
         return RecipeSuggestionResult(suggestions=[])
 
@@ -234,7 +234,7 @@ def suggest_recipes(
     owner_ids = {r.user_id for r in visible}
     is_system_owner = {u.id: u.is_system for u in db.query(User).filter(User.id.in_(owner_ids)).all()}
 
-    ingredients_by_recipe = _recipe_ingredients(db, [r.id for r in visible])
+    ingredients_by_recipe = load_recipe_ingredients(db, [r.id for r in visible])
     all_food_ids = {i.food_id for rows in ingredients_by_recipe.values() for i in rows}
     foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(all_food_ids)).all()}
     working_nutrients_by_food_id = dict(nutrients_by_food_id)

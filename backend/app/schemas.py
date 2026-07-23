@@ -1074,3 +1074,40 @@ class RecipeSuggestionOut(BaseModel):
 
 class RecipeSuggestionsOut(BaseModel):
     suggestions: list[RecipeSuggestionOut]
+
+
+class SubstitutionSuggestionOut(BaseModel):
+    """One `recommend_substitutions.SubstitutionSuggestion` — prompt 8.
+    Proposal only; applying it is two calls to the *existing* diary/
+    meal-plan endpoints (delete the current entry, log the replacement) —
+    there is no apply endpoint here, see recommend_substitutions.py's
+    module docstring for why."""
+
+    current_recipe_id: int
+    current_recipe_name: str
+    current_servings: float
+    replacement_recipe_id: int
+    replacement_recipe_name: str
+    replacement_servings: float
+    energy_difference_kcal: float
+    protein_difference_g: float
+    fiber_difference_g: float
+    saturated_fat_difference_g: float
+    sodium_difference_mg: float
+    key_nutrient_differences: dict[str, float]
+    protein_quality_before: float | None
+    protein_quality_after: float | None
+    score: float
+    remaining_shortfalls: list[str]
+    new_warnings: list[str]
+    is_stock: bool
+    match_coverage_lines: float | None
+    robustness_rating: int | None
+    provenance_note: str | None
+    explanation: str
+
+
+class SubstitutionSuggestionsOut(BaseModel):
+    current_recipe_id: int
+    current_recipe_name: str
+    suggestions: list[SubstitutionSuggestionOut]
