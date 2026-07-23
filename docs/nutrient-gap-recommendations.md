@@ -488,3 +488,26 @@ Recipe-visibility filtering here reused `recommend_recipes.py`'s
 `_visible_recipes`/`_recipe_ingredients` to make them a proper shared
 API) rather than re-implementing the same own/shared/public/dietary
 query a third time.
+
+## Prompt 9: two-item combination optimiser
+
+`app/recommend_pairs.py` + `GET /api/recommendations/pairs`. Deliberately
+not unrestricted combinatorial search: a pair is only ever formed if
+`candidate_metadata.py`'s own practical metadata already supports it (a
+condiment paired with a non-condiment base — the general rule that
+already covers "wholemeal toast + peanut butter" for free) or the exact
+pair is named in `CURATED_PAIRS` (yoghurt + berries, lentils + spinach —
+real, common combinations, not inferred from nutrient content). Both the
+candidate pool (`CANDIDATE_POOL_SIZE`) and total pair evaluations
+(`MAX_PAIR_EVALUATIONS`) are hard-bounded regardless of how large the
+underlying shortfall candidate pool grows — `test_performance_bounded_
+pair_evaluations` stress-tests this with 40 extra candidate foods and
+asserts both the bound and a wall-clock ceiling.
+
+The pair is scored as one candidate — `score_candidate` on the *combined*
+before/after gaps — never as the sum of two independently-computed
+scores. `test_combined_scoring_rejects_upper_limit_breach_even_when_
+both_solo_are_fine` is the reason that distinction matters operationally,
+not just conceptually: two foods that would each individually look like a
+good, safe suggestion can still combine to push a nutrient over its upper
+limit, and only scoring the real combined effect catches that.

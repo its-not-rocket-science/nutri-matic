@@ -25,6 +25,8 @@ from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SU
 from ..recommend_recipes import GOAL_PRESETS, suggest_recipes
 from ..recommend_substitutions import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_SUBSTITUTION_SUGGESTIONS
 from ..recommend_substitutions import suggest_substitutions
+from ..recommend_pairs import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_PAIR_SUGGESTIONS
+from ..recommend_pairs import suggest_pairs
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
@@ -246,3 +248,61 @@ def get_substitution_suggestions(
             for s in result.suggestions
         ],
     )
+
+
+@router.get("/pairs", response_model=schemas.PairSuggestionsOut)
+def get_pair_suggestions(
+    entry_date: date,
+    source: str = "diary",
+    max_additional_energy: float | None = None,
+    max_suggestions: int = DEFAULT_MAX_PAIR_SUGGESTIONS,
+    priority_nutrients: str | None = None,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Optional two-item combination mode (prompt 9) — e.g. yoghurt +
+    berries, wholemeal toast + peanut butter. Only ever forms a pair
+    `candidate_metadata.py`'s practical metadata or `recommend_pairs.
+    CURATED_PAIRS` actually supports; scores the pair's real *combined*
+    effect, not the sum of each food's own score. Bounded search
+    (`recommend_pairs.MAX_PAIR_EVALUATIONS`) regardless of catalog size."""
+    if source not in ("diary", "meal_plan"):
+        raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
+
+    entries = _load_entries(db, profile, entry_date, source)
+    food_ids = {e.food_id for e in entries if e.food_id is not None}
+    recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_(food_ids)).all()}
+    recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
+    items = expand_entries_to_weighted_foods(entries, foods_by_id, recipes_by_id, db)
+
+    all_food_ids = [item.food.id for item in items]
+    nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+    for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
+        nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+
+    priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
+
+    result = suggest_pairs(
+        db, profile, items, nutrients_by_food_id, AnalysisPeriod.DAY,
+        max_additional_energy=max_additional_energy, max_suggestions=max_suggestions,
+        priority_nutrient_keys=priority_keys,
+    )
+
+    return schemas.PairSuggestionsOut(suggestions=[
+        schemas.PairSuggestionOut(
+            first=schemas.PairContributionOut(
+                food_id=s.first.food_id, food_name=s.first.food_name, quantity_g=s.first.quantity_g,
+                solo_score=s.first.solo_score,
+            ),
+            second=schemas.PairContributionOut(
+                food_id=s.second.food_id, food_name=s.second.food_name, quantity_g=s.second.quantity_g,
+                solo_score=s.second.solo_score,
+            ),
+            combined_energy_kcal=s.combined_energy_kcal, score=s.score.total,
+            nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
+            new_warnings=s.new_warnings, explanation=s.explanation,
+        )
+        for s in result.suggestions
+    ])

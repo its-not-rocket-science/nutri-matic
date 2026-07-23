@@ -1111,3 +1111,30 @@ class SubstitutionSuggestionsOut(BaseModel):
     current_recipe_id: int
     current_recipe_name: str
     suggestions: list[SubstitutionSuggestionOut]
+
+
+class PairContributionOut(BaseModel):
+    food_id: int
+    food_name: str
+    quantity_g: float
+    solo_score: float
+
+
+class PairSuggestionOut(BaseModel):
+    """One `recommend_pairs.PairSuggestion` — prompt 9. `score` is the
+    *combined* pair's score, not the sum of `first.solo_score` +
+    `second.solo_score` — see recommend_pairs.py's module docstring for
+    why those can differ."""
+
+    first: PairContributionOut
+    second: PairContributionOut
+    combined_energy_kcal: float
+    score: float
+    nutrients_improved: list[str]
+    remaining_shortfalls: list[str]
+    new_warnings: list[str]
+    explanation: str
+
+
+class PairSuggestionsOut(BaseModel):
+    suggestions: list[PairSuggestionOut]
