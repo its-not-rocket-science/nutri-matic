@@ -153,7 +153,13 @@ at `needs_review` rather than auto-published.
 3. If the food genuinely isn't in the database yet, it needs to be
    ingested first (`python -m app.ingest_fdc`, see the main README) or
    added via `python -m app.seed_manual_foods` for a pure-fat/oil/etc.
-   that FDC ingestion always skips.
+   that FDC ingestion always skips. If it's a category with no single FDC
+   entry at all but a well-known composition (muesli is the shipped
+   example), `seed_manual_foods.py`'s `COMPOSITE_FOODS` builds one by
+   weighting real component foods already in the database through this
+   app's own `aggregate_nutrients`/`aggregate_amino_acids` — a real,
+   protein-weighted blend, not fabricated figures — rather than settling
+   for a proxy to some other, adjacent food.
 4. Rerun `match` (and `analyse`) for that candidate — no need to re-fetch.
 
 ## Public stock ownership
