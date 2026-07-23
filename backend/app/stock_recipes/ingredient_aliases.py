@@ -504,10 +504,18 @@ ALIASES: dict[str, AliasTarget] = {
         "english muffins plain enriched without calcium propionate",
         "Database has no UK crumpet entry at all — English muffins are the closest USDA analogue (same yeasted-batter griddle-bread class), with complete amino acid + digestibility data.",
     ),
-    "muesli": proxy(
-        "cereals granola homemade",
-        "Database has no muesli entry at all — homemade granola is the closest analogue (same rolled-oats+dried-fruit+nuts class), with complete amino acid + digestibility data.",
-        provenance="See prompt section 7 for a proposed dedicated muesli composite to replace this proxy.",
+    "muesli": reviewed(
+        "muesli generic composite",
+        "Muesli has no single FDC entry, so this targets a purpose-built composite food "
+        "(50% rolled oats / 20% dried fruit / 20% mixed nuts / 10% seeds by mass) computed "
+        "from real component foods already in this database — a manually curated stand-in "
+        "for the category, not a proxy for a different cereal.",
+        provenance=(
+            "Previously proxied to homemade granola (a different, if adjacent, cereal — "
+            "same rolled-oats+dried-fruit+nuts class, but not muesli). See "
+            "app/seed_manual_foods.py's COMPOSITE_FOODS for exactly how the composite's "
+            "nutrients/amino acids were built, and prompt section 7."
+        ),
     ),
 }
 

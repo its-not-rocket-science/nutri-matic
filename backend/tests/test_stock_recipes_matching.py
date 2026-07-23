@@ -206,6 +206,29 @@ def test_validate_reviewed_mappings_silent_when_nothing_pinned(db):
     assert validate_reviewed_mappings(db) == []
 
 
+# --- prompt section 7: generic muesli composite ---------------------------
+
+def test_muesli_resolves_to_the_generic_composite_not_granola(db):
+    """The "muesli" alias used to proxy to homemade granola (a different,
+    if adjacent, cereal). It must now resolve to the purpose-built
+    composite food instead, even when a granola entry is also present and
+    would otherwise be a plausible fuzzy-tier candidate."""
+    db.add(Food(
+        name="Cereals, granola, homemade", protein_g_per_100g=13.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    ))
+    db.add(Food(
+        name="Muesli, generic composite (Nutri-Matic estimate)", protein_g_per_100g=9.5,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type=None,
+    ))
+    db.commit()
+
+    result = match_ingredient(db, "muesli")
+    assert result.method == "alias"
+    assert result.relationship == "reviewed_substitution"
+    assert result.food.name == "Muesli, generic composite (Nutri-Matic estimate)"
+
+
 def test_validate_reviewed_mappings_silent_when_id_and_name_match(db, monkeypatch):
     pinned = Food(
         name="Zzyzx Stable Food, raw", protein_g_per_100g=1.0,
