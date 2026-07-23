@@ -326,3 +326,73 @@ comparison when diary context exists, or `explicit_share` (e.g. `1/3`) for
 reviewing a meal/recipe with no such context — a caller supplying neither
 gets the plain day figure back (`comparison_mode="full_daily"`), left for
 the caller to interpret.
+
+## Prompt 3: gap analysis
+
+`app/nutrient_gap_analysis.py`. Six statuses only — `insufficient_data`,
+`below_target`, `near_target`, `within_target`, `above_preferred`,
+`above_upper_limit` — chosen so the word "deficient"/"excess" never has to
+appear anywhere in this module or anything downstream of it. Coverage
+(fraction of consumed mass with a known, non-implausible value for that
+nutrient) below 50% forces `insufficient_data` regardless of the raw
+number, so a total built from mostly-missing data is never presented with
+false confidence. `optimisation_weight` is 0 for `energy` unconditionally
+(matches the existing `_find_worst_gap`'s exclusion — a calorie target
+isn't a "gap" in the same sense) and capped at 1.0 per nutrient so an
+enormous shortfall can't be rewarded disproportionately once prompt 4's
+scoring engine sums these.
+
+## Prompt 4: scoring engine
+
+`app/recommendation_scoring.py`. Scores one already-simulated candidate
+(before/after `NutrientGapResult` lists) — it never aggregates or fetches
+anything itself. Every weight lives in one `ScoringWeights` dataclass
+(`DEFAULT_WEIGHTS`), overridable per call. The two most safety-relevant
+design choices, stated explicitly:
+- **Upper-limit breaches are penalised ~10x more heavily than merely
+  exceeding the preferred amount** (`upper_limit_penalty_weight=4.0` vs
+  `above_preferred_penalty_weight=0.4`), and only ever for excess the
+  candidate itself *creates or worsens* — a pre-existing excess the
+  candidate didn't cause earns no penalty (not this candidate's doing) but
+  earns no credit either.
+- **A gap already resolved before the candidate was added contributes
+  nothing to `weighted_gap_reduction`** — the cap lives in
+  `nutrient_gap_analysis`'s `optimisation_weight` (already 0 for anything
+  at/above target), and this module never re-introduces unbounded reward
+  on top of it (see `test_adversarial_extreme_oversupply_does_not_
+  blow_up_the_score`).
+
+## Prompt 5: candidate metadata
+
+`app/candidate_metadata.py`. Layered: `CURATED_FOODS` (a maintained,
+name-matched table of common recommendation candidates) → `EXCLUDED_
+KEYWORDS` (leavening agents, stock cubes, raw seasoning, supplements,
+plain fats/oils — never suitable standalone regardless of curation) →
+`_CATEGORY_DEFAULTS` (a short, deliberately conservative list of generic
+fallbacks) → excluded from direct suggestion by default. A branded
+product's `data_type` is checked *before* any name match at all — its name
+is marketing copy, not a reliable description, so it can never
+"accidentally" match a curated generic entry.
+
+**Safety note, stated explicitly because it was a real bug caught by this
+module's own test suite during development**: there is deliberately no
+blanket "name contains 'raw'" category default. This app's catalog
+includes raw meat/fish/egg ("Chicken, raw", "Salmon, raw") alongside raw
+produce, and a generic "raw things are edible as-is" fallback would have
+marked those as safe to suggest standalone — a real safety problem, not
+just a gastronomically odd one. Every category default is instead an
+explicitly reviewed, genuinely-edible-unprepared food form. See
+`test_raw_meat_and_fish_never_fall_through_to_a_safe_default`, kept as a
+permanent regression guard.
+
+### Maintainer guide: extending the curated candidate table
+
+Add an entry to `CURATED_FOODS` keyed by a lowercase substring that
+matches the target `Food.name` (USDA-style, e.g. `"bananas, raw"`, not
+`"banana"` alone unless that's genuinely unambiguous) via the `_curated()`
+helper — set a real `ServingRange` a person would actually eat, the
+correct `FoodGroup`/`CandidateKind`/meal types, and `requires_prep`/
+`burden` honestly (never mark something requiring cooking as needing no
+preparation). Run `test_candidate_metadata.py` after any addition — the
+raw-meat regression guard and the branded-food/excluded-keyword tests all
+re-run against the full table automatically.
