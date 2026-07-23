@@ -5,6 +5,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
+	import ImproveThis from '$lib/components/ImproveThis.svelte';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
@@ -15,12 +16,15 @@
 		DiarySummary,
 		Food,
 		GapSuggestion,
+		IngredientSuggestion,
 		Meal,
 		MealOptimization,
 		OptimizationSuggestion,
 		QuickAdd,
 		QuickAddItem,
-		Recipe
+		Recipe,
+		RecipeSuggestion,
+		SubstitutionSuggestion
 	} from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -292,6 +296,44 @@
 		}
 	}
 
+	// "Improve this…" nutrient-gap recommendations (prompt 10). Applying
+	// always targets a specific meal — for "Improve this meal" that's the
+	// meal the panel is attached to; for "Improve this day" it's wherever
+	// the manual add-entry form's meal selector is currently set, the same
+	// convention "Optimize this plan" already uses on the meal-plan page.
+	async function applyIngredientSuggestion(targetMeal: Meal, s: IngredientSuggestion) {
+		await api.addDiaryEntry({ entry_date: date, meal: targetMeal, food_id: s.food_id, quantity_g: s.quantity_g });
+		await loadDay();
+		await loadQuickAdd();
+		await loadGapSuggestions();
+	}
+
+	async function applyRecipeSuggestion(targetMeal: Meal, s: RecipeSuggestion) {
+		await api.addDiaryEntry({
+			entry_date: date,
+			meal: targetMeal,
+			recipe_id: s.recipe_id,
+			quantity_servings: s.suggested_servings
+		});
+		await loadDay();
+		await loadQuickAdd();
+		await loadGapSuggestions();
+	}
+
+	async function applySubstitutionSuggestion(entryId: number, s: SubstitutionSuggestion) {
+		const replaced = summary?.entries.find((e) => e.id === entryId);
+		await api.deleteDiaryEntry(entryId);
+		await api.addDiaryEntry({
+			entry_date: date,
+			meal: replaced?.meal ?? meal,
+			recipe_id: s.replacement_recipe_id,
+			quantity_servings: s.replacement_servings
+		});
+		await loadDay();
+		await loadQuickAdd();
+		await loadGapSuggestions();
+	}
+
 	async function handleScan(barcode: string) {
 		showScanner = false;
 		error = null;
@@ -465,6 +507,14 @@
 		</label>
 	</div>
 
+	<ImproveThis
+		title="Improve this day"
+		scope={{ kind: 'day', entryDate: date }}
+		targetDescription={`today's ${meal}`}
+		onApplyIngredient={(s) => applyIngredientSuggestion(meal, s)}
+		onApplyRecipe={(s) => applyRecipeSuggestion(meal, s)}
+	/>
+
 	{#each MEALS as m (m)}
 		{@const mealEntries = summary.entries.filter((e) => e.meal === m)}
 		{#if mealEntries.length > 0}
@@ -497,6 +547,16 @@
 						</li>
 					{/each}
 				</ul>
+
+				<ImproveThis
+					title="Improve this meal"
+					scope={{ kind: 'day', entryDate: date, meal: m }}
+					targetDescription={`this ${m}`}
+					substitutionEntryId={mealEntries.find((e) => e.recipe_id !== null)?.id ?? null}
+					onApplyIngredient={(s) => applyIngredientSuggestion(m, s)}
+					onApplyRecipe={(s) => applyRecipeSuggestion(m, s)}
+					onApplySubstitution={(s) => applySubstitutionSuggestion(mealEntries.find((e) => e.recipe_id !== null)?.id ?? -1, s)}
+				/>
 
 				{#if mealOptimizations[m] !== undefined}
 					{#if mealOptimizations[m] === null}

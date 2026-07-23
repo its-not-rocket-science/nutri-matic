@@ -5,18 +5,22 @@
 	import { auth } from '$lib/auth.svelte';
 	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
+	import ImproveThis from '$lib/components/ImproveThis.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
 	import { formatCurrency } from '$lib/currency';
 	import type {
 		Food,
+		IngredientSuggestion,
 		Meal,
 		MealPlanEntry,
 		MealPlanTemplate,
 		OptimizationSuggestion,
 		PlanOptimization,
 		Recipe,
-		ShoppingList
+		RecipeSuggestion,
+		ShoppingList,
+		SubstitutionSuggestion
 	} from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -206,6 +210,42 @@
 		}
 	}
 
+	// "Improve this…" nutrient-gap recommendations (prompt 10). A plan-level
+	// or day-level addition has no single natural meal to land in — same
+	// ambiguity "Optimize this plan" already has above — so it's applied
+	// wherever the "Add planned entry" form's day/meal selectors currently
+	// point, exactly like handleApplyPlanSuggestion does. A meal-scoped
+	// panel instead targets that specific day+meal directly.
+	async function applyIngredientSuggestion(targetDate: string, targetMeal: Meal, s: IngredientSuggestion) {
+		await api.addMealPlanEntry({ plan_date: targetDate, meal: targetMeal, food_id: s.food_id, quantity_g: s.quantity_g });
+		shoppingList = null;
+		await loadWeek();
+	}
+
+	async function applyRecipeSuggestion(targetDate: string, targetMeal: Meal, s: RecipeSuggestion) {
+		await api.addMealPlanEntry({
+			plan_date: targetDate,
+			meal: targetMeal,
+			recipe_id: s.recipe_id,
+			quantity_servings: s.suggested_servings
+		});
+		shoppingList = null;
+		await loadWeek();
+	}
+
+	async function applySubstitutionSuggestion(entryId: number, s: SubstitutionSuggestion) {
+		const replaced = entries.find((e) => e.id === entryId);
+		await api.deleteMealPlanEntry(entryId);
+		await api.addMealPlanEntry({
+			plan_date: replaced?.plan_date ?? planDate,
+			meal: replaced?.meal ?? meal,
+			recipe_id: s.replacement_recipe_id,
+			quantity_servings: s.replacement_servings
+		});
+		shoppingList = null;
+		await loadWeek();
+	}
+
 	async function handleAdd(e: SubmitEvent) {
 		e.preventDefault();
 		error = null;
@@ -363,6 +403,14 @@
 {#if loading}
 	<p class="muted">Calibrating…</p>
 {:else}
+	<ImproveThis
+		title="Improve this plan"
+		scope={{ kind: 'range', startDate: weekDates[0], endDate: weekDates[6] }}
+		targetDescription={`${planDate}'s ${meal}`}
+		onApplyIngredient={(s) => applyIngredientSuggestion(planDate, meal, s)}
+		onApplyRecipe={(s) => applyRecipeSuggestion(planDate, meal, s)}
+	/>
+
 	{#each weekDates as d, i (d)}
 		{@const dayEntries = entries.filter((e) => e.plan_date === d)}
 		<section class="no-print">
@@ -370,6 +418,13 @@
 			{#if dayEntries.length === 0}
 				<p class="muted">Nothing planned — use "Add planned entry" below to fill this day in.</p>
 			{:else}
+				<ImproveThis
+					title="Improve this day"
+					scope={{ kind: 'day', entryDate: d, source: 'meal_plan' }}
+					targetDescription={`${WEEKDAY_LABELS[i]}'s ${meal}`}
+					onApplyIngredient={(s) => applyIngredientSuggestion(d, meal, s)}
+					onApplyRecipe={(s) => applyRecipeSuggestion(d, meal, s)}
+				/>
 				{#each MEALS as m (m)}
 					{@const mealEntries = dayEntries.filter((e) => e.meal === m)}
 					{#if mealEntries.length > 0}
@@ -396,6 +451,17 @@
 									</li>
 								{/each}
 							</ul>
+							<ImproveThis
+								title="Improve this meal"
+								scope={{ kind: 'day', entryDate: d, meal: m, source: 'meal_plan' }}
+								targetDescription={`${WEEKDAY_LABELS[i]}'s ${m}`}
+								substitutionEntryId={mealEntries.find((e) => e.recipe_id !== null)?.id ?? null}
+								substitutionSource="meal_plan"
+								onApplyIngredient={(s) => applyIngredientSuggestion(d, m, s)}
+								onApplyRecipe={(s) => applyRecipeSuggestion(d, m, s)}
+								onApplySubstitution={(s) =>
+									applySubstitutionSuggestion(mealEntries.find((e) => e.recipe_id !== null)?.id ?? -1, s)}
+							/>
 						</div>
 					{/if}
 				{/each}
