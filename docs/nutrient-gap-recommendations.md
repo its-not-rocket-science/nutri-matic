@@ -396,3 +396,34 @@ correct `FoodGroup`/`CandidateKind`/meal types, and `requires_prep`/
 preparation). Run `test_candidate_metadata.py` after any addition — the
 raw-meat regression guard and the branded-food/excluded-keyword tests all
 re-run against the full table automatically.
+
+## Prompt 6: suggest additional ingredients
+
+`app/recommend_ingredients.py` + `GET /api/recommendations/ingredients`
+(`app/routers/recommendations.py`). Ties prompts 2-5 together into the
+first user-facing mode: pool candidates from whichever nutrients are
+currently `below_target`/`near_target`
+(`nutrient_gap_analysis`), hard-filter by dietary constraints
+(`dietary_filter.filter_excluded_foods` — the same function search/
+discovery already uses) and `candidate_metadata`'s suitability flag,
+simulate each survivor's real before/after effect at its curated serving
+size, and rank with `recommendation_scoring.score_candidate`. Works
+identically for a diary day or a meal-plan day (`source=diary`/
+`meal_plan` query param) — the function itself never queries
+`DiaryEntry`/`MealPlanEntry`, the router does, exactly like every existing
+diary/meal-plan endpoint's own `expand_entries_to_weighted_foods` reuse.
+
+**A real bug found and fixed while writing this prompt's tests**, worth
+recording because it's a subtle instance of a principle repeated
+throughout this feature ("missing data must reduce confidence, never
+count as zero"): adding a candidate with *no data at all* for some
+unrelated nutrient increases that nutrient's total consumed **mass**
+without adding any new **information** about it, which can dilute its
+`coverage` below the judgeable threshold and demote its status to
+`insufficient_data`. The scoring engine's `_gap_reduction` was initially
+counting that status-change's weight drop as an "improvement" (weight did
+go from something to 0), which is exactly backwards — the candidate made
+this app *less* able to judge that nutrient, not more. Fixed by excluding
+`insufficient_data`-after nutrients from `_gap_reduction` entirely; kept
+as a permanent regression test
+(`test_coverage_dilution_to_insufficient_data_is_never_counted_as_improvement`).

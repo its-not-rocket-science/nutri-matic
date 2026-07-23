@@ -118,13 +118,21 @@ def _gap_reduction(before: list[NutrientGapResult], after: list[NutrientGapResul
     across every nutrient the caller resolved gaps for. A nutrient already
     at/above target before (weight already 0) can contribute nothing here
     — prompt 4 point 3: "avoid rewarding nutrients already substantially
-    above target" is true by construction, not a special case."""
+    above target" is true by construction, not a special case.
+
+    A nutrient whose status becomes `insufficient_data` after the
+    candidate is added is explicitly excluded here, even though its
+    weight also drops to 0 — that drop means the candidate's added mass
+    *diluted coverage* for a nutrient it carries no data for (more total
+    mass, no new information), not that the shortfall was addressed.
+    Counting that as a "reduction" would reward a candidate for making
+    this app less able to judge a gap, exactly backwards."""
     after_by_key = {g.key: g for g in after}
     total = 0.0
     improved: list[str] = []
     for b in before:
         a = after_by_key.get(b.key)
-        if a is None:
+        if a is None or a.status == NutrientStatus.INSUFFICIENT_DATA:
             continue
         reduction = b.optimisation_weight - a.optimisation_weight
         if reduction > 1e-9:
