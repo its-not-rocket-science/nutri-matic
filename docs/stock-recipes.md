@@ -171,6 +171,88 @@ at `needs_review` rather than auto-published.
    for a proxy to some other, adjacent food.
 4. Rerun `match` (and `analyse`) for that candidate — no need to re-fetch.
 
+### Maintainer guide: adding to the alias registry
+
+All of these are one dict entry in `stock_recipes/ingredient_aliases.py`
+— no other code change needed. Which helper you reach for depends on what
+kind of claim you're making about the substitution (see "Why an alias
+hierarchy" below for the reasoning; this is the practical how-to):
+
+- **Adding an exact alias** — the recipe's wording is just a different
+  way of saying the *same* food (a plural, a USDA-style reordering, a
+  spelling variant). Use `exact("search phrase")`; the default rationale
+  ("Same ingredient — search phrase normalised to the app's USDA-style
+  naming.") is usually enough, but write a specific one if there's a
+  real story (e.g. correcting a wrong canonical match).
+- **Adding a regional equivalent** — a genuine UK/US naming difference
+  for what's otherwise identical as food (`courgette`/`zucchini`,
+  `mince`/`ground`). Use `regional("search phrase", "rationale explaining
+  the naming difference")`.
+- **Approving a nutritional proxy** — the database has no entry for the
+  specific thing the recipe means, so you're picking either the closest
+  *specific* substitute (`analogue(...)`, e.g. a variety/brand standing
+  in for one the catalog lacks) or a broad stand-in for a whole missing
+  *category* (`proxy(...)`, e.g. a spice blend or bread product with no
+  dedicated entry at all). Both take a required `rationale` explaining
+  why this is the closest available option, and an optional lower
+  `confidence` override if the default (0.8 / 0.65) overstates how
+  confident you actually are.
+- **Recording a one-off reviewed substitution** — you've personally
+  looked at a specific Food row and decided it's the right target for an
+  ingredient nothing else resolves correctly. Use `reviewed("fallback
+  search phrase", "rationale", fdc_id=..., expected_food_name=...)` (or
+  `food_id=` if the target has no `fdc_id` — see "Why reviewed
+  substitutions target a food_id" below for which to prefer) in
+  `REVIEWED_FALLBACKS`, or in `ALIASES` if it's expected to recur.
+- **Validating the registry** — run `python -m app.stock_recipes
+  validate-aliases` after any of the above (and periodically/in CI): it
+  checks every entry is well-formed (non-empty rationale/search phrase,
+  in-range confidence, no duplicate keys) and, against a live database,
+  that every pinned `fdc_id`/`food_id` still resolves, hasn't silently
+  drifted to a renamed food, and has the nutrition coverage a
+  protein-quality score needs. Exits 1 if anything needs attention.
+
+## Principles
+
+Four things worth stating explicitly, because they're easy to lose sight
+of once the mechanics (below) get detailed:
+
+- **Linguistic equivalence is not nutritional equivalence.** "Courgette"
+  and "zucchini" naming the same vegetable is a fact about English, not
+  about food composition — it happens to also be nutritionally exact here,
+  but that's a property of the specific pair, not of "same/similar word"
+  in general. "Garam masala" and "curry powder" are nowhere near
+  linguistically related and aren't nutritionally identical either — the
+  match exists purely because it's the closest available approximation,
+  not because the words mean the same thing. Treating wording similarity
+  as a proxy for nutritional similarity anywhere in this system would be a
+  mistake; `AliasRelationship` exists specifically so the two questions
+  ("is this the same words" vs. "is this the same food") are never
+  conflated into one boolean.
+- **Comments alone are insufficient provenance.** A code comment explains
+  a decision to whoever reads the source — it says nothing to the end
+  user seeing the recipe's nutrition numbers, and nothing to any code
+  that might want to reason about match quality (a health check, a
+  confidence threshold, a UI badge). Provenance that matters has to be
+  data a program can read and a user can see, not prose only a future
+  maintainer might stumble across.
+- **Approximate substitutions must be visible and auditable.** A category
+  proxy or reviewed substitution is a legitimate, often-necessary choice —
+  the database will never have every dish's exact ingredient — but it's a
+  choice a user is entitled to see, and a maintainer is entitled to
+  re-check later. Hence: relationship + confidence + rationale on every
+  entry, exposed through the API and the recipe detail page, `validate-
+  aliases`/`validate_reviewed_mappings` to catch drift, and permanent
+  regression tests so a wrong substitution can't quietly come back.
+- **A successful match does not necessarily mean an exact match.**
+  `food_matching.match_ingredient` returning a `Food` (as opposed to
+  `None`) only means *something* resolved — it says nothing on its own
+  about whether that something is the literal ingredient, a regional
+  rename, or a coarse category stand-in. `MatchResult.relationship`/
+  `confidence` are what actually answer that question; treating "matched"
+  as "matched exactly" anywhere (a UI, a report, a future feature) would
+  misrepresent what the matcher is actually claiming.
+
 ## Design rationale
 
 The subsections above describe *how* matching, provenance, and robustness
@@ -215,14 +297,24 @@ resolved correctly against today's catalog can start resolving to a
 product added, an existing entry's name tweaked). The entry would then
 silently point somewhere else, with nothing in the data saying so.
 
-`food_id` (+ `expected_food_name`, the name seen at review time) lets the
-entry target the exact row a human chose, permanently — `search_phrase`
-becomes a fallback for the one case an id can't survive (the referenced
-food is deleted or re-ingested under a new id), not the primary mechanism.
-`validate_reviewed_mappings` (run at the start of `match`) is what catches
-that fallback actually firing, or the target having been renamed out from
-under it — surfacing drift immediately rather than as an unexplained
-match-quality regression discovered much later.
+`fdc_id`/`food_id` (+ `expected_food_name`, the name seen at review time)
+let the entry target the exact row a human chose, permanently —
+`search_phrase` becomes a fallback for the one case neither id can survive
+(the referenced food is deleted or re-ingested under a new local id), not
+the primary mechanism. `fdc_id` — USDA FoodData Central's own identifier —
+is tried first and preferred wherever the target is a real FDC-derived
+food, since it's stable across *any* database that ingests the same FDC
+release; `food_id` (a local, auto-increment primary key) only matters for
+something that isn't from FDC at all, like the generic-muesli composite.
+`validate_reviewed_mappings` (run at the start of `match`, and by the
+standalone `validate-aliases` command) is what catches a fallback actually
+firing, a target renamed out from under its entry, or a preferred target
+whose nutrition coverage (amino acids/digestibility) can't fully back a
+protein-quality score — surfacing drift immediately rather than as an
+unexplained match-quality regression discovered much later. The same
+per-match signal (did *this specific ingredient* have to fall back, and
+why) is also recorded on `RecipeIngredientProvenance` and surfaced by
+`health-check` per recipe, not just at the registry level.
 
 ### Why confidence varies by relationship instead of one flat number
 
