@@ -123,6 +123,8 @@ def test_stock_recipe_ingredient_exposes_match_provenance(client):
     ingredient = res.json()["ingredients"][0]
     assert ingredient["provenance"] == {
         "match_method": "alias", "match_confidence": 0.95, "match_relationship": "exact",
+        "match_rationale": None, "match_preferred_fdc_id": None, "match_preferred_food_id": None,
+        "match_used_fallback": None, "match_validation_warning": None,
     }
 
 

@@ -419,19 +419,27 @@ class RecipeIngredientProvenanceOut(BaseModel):
     user-added ingredient, which has no underlying
     models.RecipeIngredientProvenance row at all.
 
-    Exposes the alias/proxy confidence distinction prompt section 8 asks
+    Exposes the alias/proxy confidence distinction prompt sections 6/8 ask
     for — which relationship food_matching.py's match was
     ("exact"/"regional_equivalent"/"close_analogue"/"category_proxy"/
-    "reviewed_substitution" — see ingredient_aliases.AliasRelationship)
-    and how confident that tier is — so a user or developer can tell an
-    exact match apart from a reviewed approximation. Purely informational:
-    nothing here is read by aggregation.py, so it can never affect a
-    nutrition calculation."""
+    "reviewed_substitution" — see ingredient_aliases.AliasRelationship),
+    how confident that tier is, the human-readable rationale behind it,
+    and (for a reviewed/preferred-id match) whether resolution actually
+    had to fall back to a description search — so a user or developer can
+    tell an exact match apart from a reviewed approximation, and know when
+    a substitution's target validation is worth a second look. Purely
+    informational: nothing here is read by aggregation.py, so it can never
+    affect a nutrition calculation."""
 
     model_config = ConfigDict(from_attributes=True)
     match_method: str | None
     match_confidence: float | None
     match_relationship: str | None
+    match_rationale: str | None = None
+    match_preferred_fdc_id: int | None = None
+    match_preferred_food_id: int | None = None
+    match_used_fallback: bool | None = None
+    match_validation_warning: str | None = None
 
 
 class RecipeIngredientOut(BaseModel):
