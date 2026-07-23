@@ -546,3 +546,90 @@ targets.py`), `test_meal_period_uses_remaining_room_not_flat_daily_target`
 remaining_room_not_flat_daily_target` (`test_recommendations_api.py`,
 logging a fibre-filling breakfast and confirming a fibre-focused lunch
 request comes back empty).
+
+## Prompt 10 prep: recipe-detail and multi-day plan scopes
+
+Before building the frontend, two backend gaps were closed so every page
+prompt 10 lists would have something real to call:
+
+- `GET /api/recommendations/ingredients` gained `recipe_id`+`servings` as
+  a third scope (alongside `entry_date` and `start_date`+`end_date`) —
+  the recipe's own scaled ingredients stand in for "the current meal",
+  via a new `_recipe_as_items()` helper in `routers/recommendations.py`.
+  No diary/meal-plan entry is involved at all.
+- Both `/ingredients` and `/recipes` gained `start_date`+`end_date` (with
+  `source=meal_plan`) as an alternative to `entry_date`, resolving
+  `AnalysisPeriod.MULTI_DAY` with the correct `day_count` — this had
+  been supported by `resolve_nutrient_target`/`suggest_ingredients`/
+  `suggest_recipes` since prompt 2, just never wired to an endpoint.
+
+Each endpoint now validates that exactly one scope was given (422
+otherwise). See `test_recommendations_api.py`/`test_recommendations_
+recipes_api.py` for the new scope-selection tests.
+
+## Prompt 10: the frontend "Improve this…" experience
+
+Three new frontend files, reused across all four pages the prompt names:
+
+- `lib/nutrientLabels.ts` — nutrient key -> UK-English display label
+  (`fiber_total` -> "Fibre"). The recommendation endpoints return bare
+  keys, not names, so this is a small necessary frontend-only mapping —
+  not a second source of nutritional truth, just presentation.
+- `lib/components/RecommendationCard.svelte` — one card layout shared by
+  ingredient/recipe/substitution suggestions: title, serving/energy,
+  "helps close the remaining X gap" (never "treats X deficiency"),
+  above-preferred/upper-limit warnings, a coverage/confidence note, and
+  a native `<details>` disclosure for the full explanation and remaining
+  shortfalls — expandable, not shown by default (prompt 10's "do not
+  overwhelm by default").
+- `lib/components/ImproveThis.svelte` — the actual panel: fetches
+  nothing until opened, offers a priority preset (mirroring
+  `recommend_recipes.GOAL_PRESETS`, a UI-only grouping kept in sync by
+  hand, not a nutritional value), a max-extra-energy cap, and up to
+  three mode tabs (add foods / suggest recipes / replace this meal —
+  the last only shown when the caller supplies a substitutable entry
+  id). Every apply action goes through a `confirm()` dialog first (the
+  same convention `recipes/[id]` and `profile` pages already use for
+  destructive actions) — required since applying changes a diary or
+  plan. Applying and re-fetching afterwards is delegated to the parent
+  page via `onApplyIngredient`/`onApplyRecipe`/`onApplySubstitution`
+  callbacks, because only the parent knows *where* a day-level or
+  plan-level addition should land — reusing the exact "wherever the
+  entry form's date/meal selectors are currently set" convention the
+  existing "Optimize this plan" feature already established, rather than
+  inventing a second one.
+
+Wired in:
+- **Diary day** (`routes/diary`): "Improve this day" (day-scoped, lands
+  in whatever meal the manual add-entry form currently has selected) and
+  a per-meal "Improve this meal" (meal-scoped, remaining-room-aware —
+  see the bugfix above — with "replace this meal" enabled whenever that
+  meal contains a recipe entry).
+- **Meal-plan day/multi-day summary** (`routes/meal-plan`, which is
+  already a 7-day week view): "Improve this plan" for the whole visible
+  week (`start_date`+`end_date`), "Improve this day" per weekday, and
+  "Improve this meal" per meal-group within a day — same
+  wherever-the-form-is-set convention as the existing plan optimiser.
+- **Recipe detail** (`routes/recipes/[id]`): "Improve this recipe",
+  ingredients-only (`allowRecipes={false}` — recommending a second
+  recipe to eat alongside a recipe isn't wired, stated as a deliberate
+  scope limit rather than silently omitted), applying via the same
+  `addIngredient` the manual "Add ingredient" form already uses. Only
+  shown to `recipe.is_owner`, matching every other edit affordance on
+  that page.
+
+Frontend tests: `lib/nutrientLabels.test.ts` (label mapping) and new
+cases in `lib/api.test.ts` covering the three new scope shapes
+(day/range/recipe), priority-nutrient comma-joining, and the
+substitutions/recipes query-string wiring — component-level rendering
+has no test harness in this repo yet (no `@testing-library/svelte`), so
+`ImproveThis.svelte`/`RecommendationCard.svelte` were instead verified by
+hand: full backend+frontend test suites (750 + 11 passing), a clean
+`svelte-check`/production build, and a live walkthrough in a real
+browser against a throwaway backend+SQLite instance (never the
+project's own docker-compose stack) — logging a food, opening "Improve
+this day"/"Improve this meal" on the diary page, confirming a
+meal-restricted request correctly excludes a food outside its curated
+meal types, creating a recipe and confirming "Improve this recipe"
+recommends a real candidate, and confirming the empty-plan "Improve this
+plan" panel renders its correct empty state.

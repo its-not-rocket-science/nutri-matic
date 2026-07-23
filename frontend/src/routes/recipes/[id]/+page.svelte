@@ -5,6 +5,7 @@
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
+	import ImproveThis from '$lib/components/ImproveThis.svelte';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import ScoreCard from '$lib/components/ScoreCard.svelte';
@@ -14,6 +15,7 @@
 	import type {
 		AbsorbedProtein,
 		Food,
+		IngredientSuggestion,
 		NutrientAmount,
 		Recipe,
 		RecipeComment,
@@ -341,6 +343,16 @@
 		}
 	}
 
+	// "Improve this recipe" (prompt 10) — the recipe's own ingredients stand
+	// in for "the current meal" (see routers/recommendations.py's
+	// recipe_id scope), so applying a suggestion just adds it as a new
+	// ingredient via the same addIngredient the manual "Add ingredient"
+	// form already uses, then refreshes the nutrient totals it affects.
+	async function applyIngredientSuggestionToRecipe(s: IngredientSuggestion) {
+		recipe = await api.addIngredient(recipeId, s.food_id, s.quantity_g);
+		nutrients = await api.getRecipeNutrients(recipeId);
+	}
+
 	async function handleAddIngredient(food: Food) {
 		editError = null;
 		addingIngredient = true;
@@ -642,6 +654,16 @@
 	{/if}
 
 	<NutrientBars {nutrients} per="per serving" />
+
+	{#if recipe.is_owner}
+		<ImproveThis
+			title="Improve this recipe"
+			scope={{ kind: 'recipe', recipeId, servings: recipe.servings }}
+			targetDescription="this recipe"
+			allowRecipes={false}
+			onApplyIngredient={applyIngredientSuggestionToRecipe}
+		/>
+	{/if}
 
 	{#if recipe.is_owner}
 		<section class="card sharing no-print">

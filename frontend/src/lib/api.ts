@@ -29,6 +29,7 @@ import type {
 	FoodPriceCreate,
 	FoodProvenance,
 	GapSuggestion,
+	IngredientSuggestions,
 	Meal,
 	MealOptimization,
 	MealPlanEntry,
@@ -46,6 +47,7 @@ import type {
 	RecipeCreate,
 	RecipeRatingSummary,
 	RecipeShare,
+	RecipeSuggestions,
 	RecipeUpdate,
 	Robustness,
 	SavedFilterPreset,
@@ -53,6 +55,7 @@ import type {
 	Score,
 	SearchRequest,
 	ShoppingList,
+	SubstitutionSuggestions,
 	TokenResponse,
 	TrendGroupBy,
 	User,
@@ -116,6 +119,46 @@ function withProfile(path: string): string {
 	if (activeProfile.id == null) return path;
 	const sep = path.includes('?') ? '&' : '?';
 	return `${path}${sep}profile_id=${activeProfile.id}`;
+}
+
+/** One of three mutually exclusive scopes GET /api/recommendations/* takes
+ * — a single day (optionally one meal within it), a multi-day meal-plan
+ * range, or a standalone recipe (recipe-detail page's "Improve this
+ * recipe") — matching the backend's "give exactly one" validation in
+ * routers/recommendations.py. */
+export type RecommendationScope =
+	| { kind: 'day'; entryDate: string; meal?: Meal; source?: 'diary' | 'meal_plan' }
+	| { kind: 'range'; startDate: string; endDate: string }
+	| { kind: 'recipe'; recipeId: number; servings?: number };
+
+function scopeParams(scope: RecommendationScope): URLSearchParams {
+	const params = new URLSearchParams();
+	if (scope.kind === 'day') {
+		params.set('entry_date', scope.entryDate);
+		if (scope.meal) params.set('meal', scope.meal);
+		if (scope.source) params.set('source', scope.source);
+	} else if (scope.kind === 'range') {
+		params.set('start_date', scope.startDate);
+		params.set('end_date', scope.endDate);
+		params.set('source', 'meal_plan');
+	} else {
+		params.set('recipe_id', String(scope.recipeId));
+		if (scope.servings != null) params.set('servings', String(scope.servings));
+	}
+	return params;
+}
+
+export interface IngredientSuggestionOptions {
+	maxAdditionalEnergy?: number;
+	maxSuggestions?: number;
+	priorityNutrients?: string[];
+}
+
+export interface RecipeSuggestionOptions {
+	maxAdditionalEnergy?: number;
+	maxSuggestions?: number;
+	priorityNutrients?: string[];
+	goal?: string;
 }
 
 export const api = {
@@ -251,6 +294,37 @@ export const api = {
 					(maxAdditionalCost != null ? `&max_additional_cost=${maxAdditionalCost}` : '')
 			)
 		),
+
+	// "Improve this…" nutrient-gap recommendations (prompts 6-10). See
+	// docs/nutrient-gap-recommendations.md — these never diagnose a
+	// deficiency, only describe nutrients as below/near/within/above the
+	// app's own target.
+	getIngredientSuggestions: (scope: RecommendationScope, options: IngredientSuggestionOptions = {}) => {
+		const params = scopeParams(scope);
+		if (options.maxAdditionalEnergy != null) params.set('max_additional_energy', String(options.maxAdditionalEnergy));
+		if (options.maxSuggestions != null) params.set('max_suggestions', String(options.maxSuggestions));
+		if (options.priorityNutrients?.length) params.set('priority_nutrients', options.priorityNutrients.join(','));
+		return request<IngredientSuggestions>(withProfile(`/api/recommendations/ingredients?${params}`));
+	},
+	getRecipeSuggestions: (scope: RecommendationScope, options: RecipeSuggestionOptions = {}) => {
+		const params = scopeParams(scope);
+		if (options.maxAdditionalEnergy != null) params.set('max_additional_energy', String(options.maxAdditionalEnergy));
+		if (options.maxSuggestions != null) params.set('max_suggestions', String(options.maxSuggestions));
+		if (options.priorityNutrients?.length) params.set('priority_nutrients', options.priorityNutrients.join(','));
+		if (options.goal) params.set('goal', options.goal);
+		return request<RecipeSuggestions>(withProfile(`/api/recommendations/recipes?${params}`));
+	},
+	getSubstitutionSuggestions: (
+		entryId: number,
+		source: 'diary' | 'meal_plan' = 'diary',
+		options: { maxSuggestions?: number; priorityNutrients?: string[]; energyToleranceKcal?: number } = {}
+	) => {
+		const params = new URLSearchParams({ entry_id: String(entryId), source });
+		if (options.maxSuggestions != null) params.set('max_suggestions', String(options.maxSuggestions));
+		if (options.priorityNutrients?.length) params.set('priority_nutrients', options.priorityNutrients.join(','));
+		if (options.energyToleranceKcal != null) params.set('energy_tolerance_kcal', String(options.energyToleranceKcal));
+		return request<SubstitutionSuggestions>(withProfile(`/api/recommendations/substitutions?${params}`));
+	},
 
 	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>(withProfile('/api/diary-meal-templates')),
 	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>

@@ -649,6 +649,83 @@ export interface PlanOptimization {
 	suggestions: OptimizationSuggestion[];
 }
 
+// --- nutrient-gap recommendations (prompts 6-10) ------------------------
+// `remaining_shortfalls`/`new_warnings` are nutrient keys, not diagnoses —
+// see docs/nutrient-gap-recommendations.md: the feature never claims a
+// "deficiency", only below/near/within/above-preferred/above-upper-limit
+// against the app's own target.
+
+export interface IngredientSuggestion {
+	food_id: number;
+	food_name: string;
+	quantity_g: number;
+	candidate_kind: string;
+	score: number;
+	nutrients_improved: string[];
+	remaining_shortfalls: string[];
+	new_warnings: string[];
+	extra_energy_kcal: number;
+	data_coverage: number;
+	explanation: string;
+}
+
+export interface IngredientSuggestions {
+	suggestions: IngredientSuggestion[];
+}
+
+export interface RecipeSuggestion {
+	recipe_id: number;
+	recipe_name: string;
+	suggested_servings: number;
+	energy_added_kcal: number;
+	protein_added_g: number;
+	score: number;
+	nutrients_improved: string[];
+	remaining_shortfalls: string[];
+	new_warnings: string[];
+	is_stock: boolean;
+	source_name: string | null;
+	match_coverage_lines: number | null;
+	robustness_rating: number | null;
+	robustness_note: string | null;
+	explanation: string;
+}
+
+export interface RecipeSuggestions {
+	suggestions: RecipeSuggestion[];
+}
+
+export interface SubstitutionSuggestion {
+	current_recipe_id: number;
+	current_recipe_name: string;
+	current_servings: number;
+	replacement_recipe_id: number;
+	replacement_recipe_name: string;
+	replacement_servings: number;
+	energy_difference_kcal: number;
+	protein_difference_g: number;
+	fiber_difference_g: number;
+	saturated_fat_difference_g: number;
+	sodium_difference_mg: number;
+	key_nutrient_differences: Record<string, number>;
+	protein_quality_before: number | null;
+	protein_quality_after: number | null;
+	score: number;
+	remaining_shortfalls: string[];
+	new_warnings: string[];
+	is_stock: boolean;
+	match_coverage_lines: number | null;
+	robustness_rating: number | null;
+	provenance_note: string | null;
+	explanation: string;
+}
+
+export interface SubstitutionSuggestions {
+	current_recipe_id: number;
+	current_recipe_name: string;
+	suggestions: SubstitutionSuggestion[];
+}
+
 export type FilterOp = 'gte' | 'lte' | 'eq';
 
 export interface FilterKey {
