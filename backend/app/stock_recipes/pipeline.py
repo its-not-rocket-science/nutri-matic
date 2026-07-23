@@ -861,6 +861,38 @@ def cmd_health_check(args) -> int:
     return 0
 
 
+# --- stage: validate-aliases ---------------------------------------------
+
+def cmd_validate_aliases(args) -> int:
+    """Read-only registry validation (prompt section 4) — never modifies
+    the alias tables or the database. Combines ingredient_aliases.
+    validate_alias_schema's static checks (malformed entries, duplicate
+    keys) with food_matching.validate_reviewed_mappings' database checks
+    (a pinned target id that no longer resolves, name drift, incomplete
+    nutrition coverage). Returns exit code 1 if anything was found, so it
+    can be wired into CI, without making ordinary app startup brittle —
+    this is a standalone command a maintainer/CI job runs deliberately,
+    never called from application startup itself."""
+    from .food_matching import validate_reviewed_mappings
+    from .ingredient_aliases import validate_alias_schema
+
+    problems = validate_alias_schema()
+    db = SessionLocal()
+    try:
+        problems += validate_reviewed_mappings(db)
+    finally:
+        db.close()
+
+    if not problems:
+        logger.info("validate-aliases: no problems found")
+        return 0
+
+    for problem in problems:
+        logger.warning("validate-aliases: %s", problem)
+    logger.info("validate-aliases: %d problem(s) found", len(problems))
+    return 1
+
+
 # --- stage: report -----------------------------------------------------
 
 def cmd_report(args) -> int:

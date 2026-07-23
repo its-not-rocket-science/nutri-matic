@@ -229,6 +229,59 @@ def reviewed(
     )
 
 
+def _duplicate_key_problems(table_name: str) -> list[str]:
+    """A duplicate key in a Python dict literal is not a SyntaxError — the
+    second occurrence silently overwrites the first at runtime, so nothing
+    about the resulting dict object can ever reveal it happened. Parsing
+    this module's own source AST is the only way to see a collision the
+    runtime dict already resolved away (prompt section 2: "add validation
+    for duplicate keys")."""
+    import ast
+    import inspect
+    import sys
+
+    tree = ast.parse(inspect.getsource(sys.modules[__name__]))
+    for node in ast.walk(tree):
+        target = (
+            node.target if isinstance(node, ast.AnnAssign)
+            else (node.targets[0] if isinstance(node, ast.Assign) else None)
+        )
+        if target is not None and getattr(target, "id", None) == table_name:
+            keys = [k.value for k in node.value.keys]
+            seen: set[str] = set()
+            dupes = [k for k in keys if k in seen or seen.add(k)]
+            return [f"{table_name} source literal has duplicate key(s): {dupes}"] if dupes else []
+    return [f"could not find a {table_name} assignment in ingredient_aliases.py's source"]
+
+
+def validate_alias_schema() -> list[str]:
+    """Static (no-database) validation over ALIASES/REVIEWED_FALLBACKS —
+    every entry really is a well-formed AliasTarget, and neither table's
+    source literal has a duplicate key. Read-only, no database access:
+    the `validate-aliases` CLI command (stock_recipes/cli.py) runs this
+    alongside food_matching.validate_reviewed_mappings, which needs a live
+    database to check that a pinned target id actually still resolves.
+    Returns one human-readable diagnostic string per problem found, or an
+    empty list if the registry is clean."""
+    problems: list[str] = []
+    for table_name, table in (("ALIASES", ALIASES), ("REVIEWED_FALLBACKS", REVIEWED_FALLBACKS)):
+        problems.extend(_duplicate_key_problems(table_name))
+        for key, target in table.items():
+            label = f"{table_name}[{key!r}]"
+            if not isinstance(target, AliasTarget):
+                problems.append(f"{label} is not an AliasTarget")
+                continue
+            if not target.rationale or not target.rationale.strip():
+                problems.append(f"{label} has no rationale")
+            if not target.search_phrase or not target.search_phrase.strip():
+                problems.append(f"{label} has no search_phrase")
+            if not (0.0 < target.confidence <= 1.0):
+                problems.append(f"{label}.confidence={target.confidence!r} out of range (0, 1]")
+            if (target.food_id is not None or target.fdc_id is not None) and not target.expected_food_name:
+                problems.append(f"{label} pins an id but has no expected_food_name")
+    return problems
+
+
 ALIASES: dict[str, AliasTarget] = {
     "onion": exact("onions raw"),
     "onions": exact("onions raw"),
