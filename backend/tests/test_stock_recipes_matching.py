@@ -108,6 +108,15 @@ def test_normalise_strips_container_words():
     assert normalise_ingredient_name("  Packet of stuffing mix  ") == "stuffing mix"
 
 
+def test_normalise_ingredient_name_is_the_same_function_reexported_from_linguistic_normalisation():
+    """prompt section 10: linguistic normalisation lives in its own
+    module now — food_matching.normalise_ingredient_name must be that
+    same function re-exported, not an independent copy that could drift."""
+    from app.stock_recipes.linguistic_normalisation import normalise_ingredient_name as direct
+
+    assert normalise_ingredient_name is direct
+
+
 def test_coverage_line_and_mass():
     coverage = compute_coverage([(True, 100.0), (True, 50.0), (False, None)])
     assert coverage.line_coverage == pytest.approx(2 / 3)

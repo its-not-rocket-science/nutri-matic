@@ -296,6 +296,63 @@ in exchange, nothing about the recipe's analysis history is ever lost, while
 ever see the one `is_latest=True` row — old analyses are there for whoever
 goes looking, not something every caller has to filter out.
 
+### Future-proofing review (prompt section 10)
+
+A pass over the architecture above, looking specifically for changes that
+would make future additions easier without touching any current matching
+outcome:
+
+* **Linguistic normalisation now lives in its own module**
+  (`linguistic_normalisation.py`) instead of being defined inside
+  `food_matching.py`. `normalise_ingredient_name` (lowercase, strip
+  container words, collapse whitespace) carries no opinion about which
+  food anything means — it's the same input every one of the matching
+  tiers agrees on before any substitution judgement happens. Splitting it
+  out makes that boundary a module boundary instead of something you have
+  to read the whole file to notice. `food_matching.py` re-exports the
+  function unchanged, so every existing import site and behaviour is
+  identical — this was a pure move, verified by a test that the
+  re-exported name and the module's own are the same function object, not
+  a copy that could drift.
+* **Reviewed substitutions were already made first-class objects, not
+  dictionary entries** — prompt section 1's `AliasTarget` (`relationship`,
+  `confidence`, `rationale`, `provenance`, optional `food_id`/
+  `expected_food_name`) replaced the bare `dict[str, str]` alias tables.
+  What was missing until now was *enforcement*: nothing stopped a new
+  entry from being added with an empty rationale or an out-of-range
+  confidence, relying on a reviewer noticing by eye. A schema-invariant
+  test suite (`test_ingredient_aliases_schema.py`) now asserts, for every
+  `ALIASES`/`REVIEWED_FALLBACKS` entry, that it really is an `AliasTarget`
+  with a non-empty rationale, a valid `AliasRelationship`, a confidence in
+  `(0, 1]`, a non-empty search phrase, and — for any entry pinning a
+  `food_id` — a recorded `expected_food_name` (without which
+  `validate_reviewed_mappings` could never distinguish "renamed since
+  review" from "never had a name recorded"). A future entry that skips any
+  of this now fails a test immediately, rather than being a silent gap.
+
+Deliberately **not** done in this pass, and why:
+
+* **Moving `ALIASES`/`REVIEWED_FALLBACKS` out of Python into a data file**
+  (YAML/JSON) would let a non-engineer contribute entries without touching
+  code. Not done here because `AliasTarget` currently benefits directly
+  from being real Python — the `exact()`/`regional()`/`analogue()`/
+  `proxy()`/`reviewed()` constructors give each relationship a sensible
+  confidence default while still allowing an override, which a plain data
+  file would need to reimplement as its own validation layer (and lose
+  the "a typo in a relationship name is a Python `NameError`/`ImportError`
+  at import time, not a silently-ignored bad row" property). Worth
+  revisiting only if a non-engineer contributor workflow actually
+  materialises — premature otherwise.
+* **A general "linguistic normalisation" pipeline (stemming, broader
+  synonym handling)** beyond what `search_foods_by_name` already does for
+  the fuzzy tier was considered and rejected for now: every alias/
+  canonical match's whole point is that it's *not* fuzzy — broadening
+  `normalise_ingredient_name` itself risks it starting to silently paper
+  over real distinctions the alias table exists to get right on purpose
+  (see the section 3 regression fixtures). Any future normalisation work
+  belongs in `search.py`'s fuzzy tier, which already owns that tradeoff,
+  not here.
+
 ## Public stock ownership
 
 Stock recipes are owned by a real `User` row with `is_system=True` (see
