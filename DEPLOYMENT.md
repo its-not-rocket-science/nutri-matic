@@ -134,6 +134,26 @@ ALTER TABLE diary_snapshots DROP CONSTRAINT IF EXISTS uq_diary_snapshot_user_dat
 ALTER TABLE diary_snapshots ADD CONSTRAINT uq_diary_snapshot_user_date UNIQUE (profile_id, entry_date);
 ALTER TABLE weight_logs DROP CONSTRAINT IF EXISTS uq_weight_log_user_date;
 ALTER TABLE weight_logs ADD CONSTRAINT uq_weight_log_user_date UNIQUE (profile_id, log_date);
+
+-- robustness_results: prompt section 4 replaces "one row per recipe,
+-- upserted in place on every re-analysis" with immutable history rows
+-- (is_latest flags the one current result). A database whose
+-- robustness_results table predates this change needs the old implicit
+-- "one row per recipe_id" uniqueness relaxed and the new flag column
+-- added — existing rows default to is_latest=TRUE, which is correct
+-- (there was only ever one row per recipe before this).
+ALTER TABLE robustness_results ADD COLUMN IF NOT EXISTS is_latest BOOLEAN NOT NULL DEFAULT TRUE;
+-- drops whatever unique constraint enforced that "one per recipe_id" —
+-- name depends on how the original table was created; check
+-- \d robustness_results and adjust if this particular name doesn't match:
+ALTER TABLE robustness_results DROP CONSTRAINT IF EXISTS robustness_results_recipe_id_key;
+CREATE INDEX IF NOT EXISTS ix_robustness_results_recipe_id_is_latest ON robustness_results (recipe_id, is_latest);
+
+-- recipe_ingredient_provenance.match_relationship (prompt section 8) —
+-- which AliasRelationship (exact/regional_equivalent/close_analogue/
+-- category_proxy/reviewed_substitution) an alias/manual_review match came
+-- from; null for canonical/fuzzy matches and pre-existing rows.
+ALTER TABLE recipe_ingredient_provenance ADD COLUMN IF NOT EXISTS match_relationship VARCHAR;
 ```
 
 ## What's deliberately not covered here

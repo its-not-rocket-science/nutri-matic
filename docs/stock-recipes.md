@@ -171,6 +171,131 @@ at `needs_review` rather than auto-published.
    for a proxy to some other, adjacent food.
 4. Rerun `match` (and `analyse`) for that candidate — no need to re-fetch.
 
+## Design rationale
+
+The subsections above describe *how* matching, provenance, and robustness
+work. This one is about *why* they're shaped the way they are — the
+tradeoffs and prior failure modes each decision was actually responding to,
+for whoever next has to decide whether to change one of them.
+
+### Why an alias hierarchy instead of one flat mapping
+
+Every alias/fallback entry used to be a bare `dict[str, str]`: normalised
+ingredient phrase in, search phrase out. That worked as long as nobody
+needed to ask *how much* to trust a given entry — but not every entry
+deserves the same trust. "onion" -> "onions raw" is definitionally the same
+food; "garam masala" -> curry powder is a coarse stand-in for a spice blend
+this database simply doesn't have. Collapsing both into "an alias" made it
+impossible to tell them apart from the data alone — a reviewer (or a future
+maintainer) had to already know the history of each entry to know how far
+to trust it.
+
+`AliasRelationship` (`ingredient_aliases.py`) makes that distinction a
+field instead of tribal knowledge: `exact` (same food, reworded),
+`regional_equivalent` (a real UK/US naming difference for the same
+product), `close_analogue` (a different variety/brand standing in because
+the database has no entry for the specific thing), `category_proxy` (a
+broad stand-in for a whole missing category — the coarsest, least certain
+kind), and `reviewed_substitution` (a one-off a maintainer manually signed
+off on). The five priority *tiers* food_matching.py already had (alias,
+canonical, fuzzy, reviewed fallback) answer "in what order do we try to
+match"; relationship answers "once matched via alias/fallback, how much
+should this specific match be trusted" — an orthogonal question the tier
+alone can't answer, since a single tier (ALIASES) contains entries from
+four different relationship categories.
+
+### Why reviewed substitutions target a food_id, not just a description
+
+A `REVIEWED_FALLBACKS`/reviewed-`ALIASES` entry exists because a maintainer
+already looked at one specific Food row and decided it was the right
+target. Leaving that pinned only via a free-text search phrase means the
+entry is re-derived from scratch on every match — and a description that
+resolved correctly against today's catalog can start resolving to a
+*different* row after a re-ingestion changes what's nearby (a new branded
+product added, an existing entry's name tweaked). The entry would then
+silently point somewhere else, with nothing in the data saying so.
+
+`food_id` (+ `expected_food_name`, the name seen at review time) lets the
+entry target the exact row a human chose, permanently — `search_phrase`
+becomes a fallback for the one case an id can't survive (the referenced
+food is deleted or re-ingested under a new id), not the primary mechanism.
+`validate_reviewed_mappings` (run at the start of `match`) is what catches
+that fallback actually firing, or the target having been renamed out from
+under it — surfacing drift immediately rather than as an unexplained
+match-quality regression discovered much later.
+
+### Why confidence varies by relationship instead of one flat number
+
+Every alias-tier match used to report a single flat confidence (0.95, or
+0.9 for a reviewed fallback) regardless of what kind of match it actually
+was — an "onions" -> "Onions, raw" match and a "garam masala" -> curry
+powder proxy looked equally certain in the data, even though one is a
+simple rewording and the other is a maintainer's best available
+approximation. `DEFAULT_CONFIDENCE` ties confidence to `AliasRelationship`
+instead (0.95 down to 0.65), so the number a user or developer sees
+actually reflects how much interpretive judgment went into that specific
+substitution — without touching a single nutrition calculation:
+`aggregation.py` never reads `match_confidence`/`match_relationship` at
+all, by design. Confidence is a *provenance* signal, not an input to a
+sum — conflating the two would risk a future change quietly discounting a
+recipe's nutrient totals based on how *sure* the matcher was, which isn't
+what DIAAS/PDCAAS/energy math is supposed to mean.
+
+### Why provenance is a separate table, exposed all the way to the frontend
+
+`RecipeIngredientProvenance` is a 1:1 supplement to `RecipeIngredient`
+rather than columns bolted onto it, so every existing user-recipe code
+path is completely untouched by anything stock-recipe-specific — a plain
+user-built ingredient has no row here at all, not an empty/null one.
+Storing `match_method`/`match_confidence`/`match_relationship` was of
+little use, though, as long as nothing ever read them back out: they sat
+in the database purely for a maintainer willing to run a query. Exposing
+them via `RecipeIngredientOut.provenance` and the recipe detail page's
+per-ingredient badge (prompt sections 6/8) turns "we recorded how
+confident this match was" into something an actual end user can see and
+judge for themselves, without requiring them to trust an opaque bulk
+"stock recipe" label — the same reasoning that motivated distinguishing
+structured imports from manually-curated and adapted-composite recipes at
+the recipe level (prompt section 6): provenance that only exists in the
+database isn't really provenance a user has, it's an audit trail for
+developers.
+
+### Why the regression tests are negative, not just positive
+
+Most test coverage asks "does the right thing happen." The permanent
+fixtures in `test_stock_recipes_matching_regressions.py` deliberately ask
+the opposite: "does the *wrong* thing stay impossible." That distinction
+matters here specifically because every one of those fixtures documents a
+match that was *silently, confidently wrong* before it was fixed — white
+wine scored as if it were wheat, an egg as if it were eggnog — not a
+crash, not an obvious data gap, but a wrong number that looked plausible.
+A future refactor of `_word_and_search`'s ranking, the alias table, or the
+canonical/fuzzy tiers could easily reintroduce one of these by accident
+without any positive test noticing (the recipe would still "match
+something," just the wrong thing again). Asserting the negative directly
+— and keeping the fixtures even if the matching implementation
+underneath them changes entirely — is what actually guards against
+regression here, since "still returns *a* food" is not the same claim as
+"still returns the *right* food."
+
+### Why robustness analyses are immutable history, not an upserted row
+
+`RobustnessResult` used to hold exactly one row per recipe, overwritten on
+every re-analysis — correct for "what should the API return" (only the
+latest result ever matters for that), but it meant every earlier analysis
+was destroyed the moment a newer one ran, with no way to answer "did this
+rating change because the model changed, or because the recipe's
+ingredients did?" after the fact. That question comes up specifically
+*because* this app already tracks `model_version`/`simulation_count`/
+`random_seed` per result — those fields are only actually useful for
+auditing/debugging/scientific comparison if more than one result survives
+to compare. Making every analysis run insert a new row and flip
+`is_latest` rather than mutate in place costs one boolean column and index;
+in exchange, nothing about the recipe's analysis history is ever lost, while
+`/recipes/{id}/robustness` and every other current-state view still only
+ever see the one `is_latest=True` row — old analyses are there for whoever
+goes looking, not something every caller has to filter out.
+
 ## Public stock ownership
 
 Stock recipes are owned by a real `User` row with `is_system=True` (see
