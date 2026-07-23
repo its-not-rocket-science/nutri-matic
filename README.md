@@ -267,6 +267,8 @@ python -m app.stock_recipes analyse
 python -m app.stock_recipes review-export
 # review .stock_recipe_cache/review.csv, then:
 python -m app.stock_recipes import-approved
+# periodically, read-only — dead links/redirects/drift/missing licences:
+python -m app.stock_recipes health-check
 ```
 
 See [docs/stock-recipes.md](docs/stock-recipes.md) for what each stage
