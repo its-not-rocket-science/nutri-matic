@@ -445,19 +445,37 @@ class CollectionRecipe(Base):
 
 
 class RobustnessResult(Base):
-    """A recipe's current nutritional-robustness analysis — see
-    stock_recipes/robustness.py for the Monte Carlo simulation that
+    """One immutable nutritional-robustness analysis run for a recipe —
+    see stock_recipes/robustness.py for the Monte Carlo simulation that
     produces this, and prompt sections 9/10 for what a robustness rating
-    is and (importantly) isn't. One row per recipe (latest result only;
-    `analyse`/`refresh` upsert it rather than keeping history) — the model
-    version and simulation parameters are stored precisely so a stale
-    result can always be identified and recomputed, not because past
-    results themselves need to be retained."""
+    is and (importantly) isn't.
+
+    Multiple rows can exist per recipe: `analyse`/`refresh` never update
+    or delete a past result (model_version, computed_at, and the
+    simulation parameters are stored precisely so any given row can
+    always be identified as stale-or-not and reproduced), they insert a
+    new row and flip `is_latest` — see stock_recipes/pipeline.py's
+    _upsert_robustness. This is what prompt section 4 wants: a full
+    history retained for auditing/debugging/scientific comparison
+    (e.g. "did this recipe's rating change when the model was updated,
+    or only when its ingredients did?"), while
+    routers/recipes.py's /robustness endpoint continues to expose only
+    `is_latest=True` — the history exists for whoever goes looking, not
+    as something every caller has to filter out."""
 
     __tablename__ = "robustness_results"
+    __table_args__ = (
+        Index("ix_robustness_results_recipe_id_is_latest", "recipe_id", "is_latest"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, unique=True, index=True)
+    recipe_id: Mapped[int] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=False, index=True)
+    # exactly one row per recipe_id should have is_latest=True at any time
+    # — enforced by _upsert_robustness's insert-then-flip-previous
+    # sequence, not a DB constraint (SQLite/Postgres partial-unique-index
+    # syntax differs enough that a hand-rolled check here wasn't worth the
+    # portability cost; see _upsert_robustness's docstring).
+    is_latest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     # stock_recipes/robustness.py's ROBUSTNESS_MODEL_VERSION at analysis time
     model_version: Mapped[str] = mapped_column(String, nullable=False)
     computed_at: Mapped[datetime] = mapped_column(

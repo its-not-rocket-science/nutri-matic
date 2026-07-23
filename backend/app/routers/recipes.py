@@ -480,7 +480,11 @@ def recipe_robustness(recipe_id: int, current_user: User = Depends(get_current_u
     stock_recipes/robustness.py. None for a recipe that's never been
     analysed (e.g. any ordinary user-created recipe)."""
     _get_visible_recipe(recipe_id, current_user, db)
-    result = db.query(RobustnessResult).filter(RobustnessResult.recipe_id == recipe_id).one_or_none()
+    result = (
+        db.query(RobustnessResult)
+        .filter(RobustnessResult.recipe_id == recipe_id, RobustnessResult.is_latest.is_(True))
+        .one_or_none()
+    )
     if result is None:
         return None
     return schemas.RobustnessOut(

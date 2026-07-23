@@ -307,6 +307,17 @@ python -m app.stock_recipes import-approved
 current resolved ingredients — no re-fetch or re-match needed unless the
 source or matching itself changed.
 
+Every `import-approved`/`refresh` run that (re-)analyses a recipe inserts a
+new, immutable `RobustnessResult` row rather than overwriting the last one —
+the recipe's full analysis history survives (which model version, when,
+under what simulation parameters), which is what lets you actually answer
+"did this recipe's rating change because the model changed, or because its
+ingredients did?" after a rerun like the one above. Exactly one row per
+recipe has `is_latest=True`; the `/recipes/{id}/robustness` API and every
+other current-state view only ever look at that one, so old rows are never
+something a caller needs to filter out — they're there for direct-DB
+auditing/debugging/scientific comparison, not routine display.
+
 ## Adding a source adapter
 
 Implement `stock_recipes/sources/base.py`'s `SourceAdapter` protocol
