@@ -339,6 +339,19 @@ def _matches(name_lower: str, key: str) -> bool:
     return key in name_lower
 
 
+def _longest_matching_key(name_lower: str, keys) -> str | None:
+    """The most specific (longest) matching key, not just the first one in
+    iteration order — otherwise a shorter key that happens to come first
+    (e.g. "orange" before "orange juice") would shadow a more specific
+    one for any name containing both, regardless of which is the better
+    description. See recommend_validate.py's duplicate-key check, which
+    is what originally caught this."""
+    matches = [key for key in keys if _matches(name_lower, key)]
+    if not matches:
+        return None
+    return max(matches, key=len)
+
+
 def resolve_candidate_metadata(food: Food) -> CandidateMetadata:
     """Layered resolution (prompt 5): curated entry, then an explicit
     exclusion, then a safe category default, then — the default of
@@ -358,9 +371,9 @@ def resolve_candidate_metadata(food: Food) -> CandidateMetadata:
     if food.data_type == "branded_food":
         return _UNKNOWN_EXCLUDED
 
-    for key, metadata in CURATED_FOODS.items():
-        if _matches(name_lower, key):
-            return metadata
+    best_key = _longest_matching_key(name_lower, CURATED_FOODS)
+    if best_key is not None:
+        return CURATED_FOODS[best_key]
 
     if any(_matches(name_lower, kw) for kw in EXCLUDED_KEYWORDS):
         return _UNKNOWN_EXCLUDED
@@ -381,10 +394,7 @@ def curated_key_for(food: Food) -> str | None:
     if food.data_type == "branded_food":
         return None
     name_lower = food.name.lower()
-    for key in CURATED_FOODS:
-        if _matches(name_lower, key):
-            return key
-    return None
+    return _longest_matching_key(name_lower, CURATED_FOODS)
 
 
 def is_plausible_serving(metadata: CandidateMetadata, quantity_g: float) -> bool:
