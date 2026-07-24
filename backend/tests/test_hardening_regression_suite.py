@@ -323,12 +323,24 @@ class TestAuditability:
     def test_provenance_and_mapping_quality_serialised_for_recipe_suggestions(self, client):
         client_, _ = client
         token = register_and_token(client_, "au-c@example.com")
+        headers = auth_headers(token)
+        # a recipe suggestion needs an existing meal to react against —
+        # otherwise the very first candidate's energy delta looks like a
+        # blind overshoot from zero and every candidate scores <= 0 and
+        # gets silently dropped, which would make this test pass vacuously
+        # (an empty suggestions list satisfies a bare "for s in []" loop)
+        client_.post(
+            "/api/diary", json={"entry_date": "2026-01-01", "meal": "lunch", "food_id": 1, "quantity_g": 200},
+            headers=headers,
+        )
         make_recipe(client_, token, "Lentil Stew", food_id=2, quantity_g=200)
         res = client_.get(
-            "/api/recommendations/recipes", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
+            "/api/recommendations/recipes", params={"entry_date": "2026-01-01"}, headers=headers,
         )
         assert res.status_code == 200
-        for s in res.json()["suggestions"]:
+        suggestions = res.json()["suggestions"]
+        assert suggestions, "expected at least one recipe suggestion to check quality_summary on"
+        for s in suggestions:
             summary = s["quality_summary"]
             assert "proportion_exact_or_regional" in summary
             assert "min_mapping_confidence" in summary
@@ -342,11 +354,21 @@ class TestAuditability:
         crash, for this by-far-most-common real case."""
         client_, _ = client
         token = register_and_token(client_, "au-d@example.com")
+        headers = auth_headers(token)
+        client_.post(
+            "/api/diary", json={"entry_date": "2026-01-01", "meal": "lunch", "food_id": 2, "quantity_g": 100},
+            headers=headers,
+        )
         make_recipe(client_, token, "Plain User Recipe", food_id=1, quantity_g=150)
         res = client_.get(
-            "/api/recommendations/recipes", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
+            "/api/recommendations/recipes", params={"entry_date": "2026-01-01"}, headers=headers,
         )
         assert res.status_code == 200
+        suggestions = res.json()["suggestions"]
+        assert suggestions, "expected at least one recipe suggestion for the legacy-null quality_summary check"
+        summary = suggestions[0]["quality_summary"]
+        assert summary["proportion_exact_or_regional"] is None
+        assert summary["min_mapping_confidence"] is None
 
 
 class TestSafety:
