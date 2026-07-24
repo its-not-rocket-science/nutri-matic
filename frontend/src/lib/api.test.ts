@@ -116,3 +116,41 @@ describe('api.getSubstitutionSuggestions', () => {
 		expect(url).toContain('source=diary');
 	});
 });
+
+describe('api medical acknowledgement (hardening prompt 5)', () => {
+	function lastCall() {
+		const mock = fetch as unknown as ReturnType<typeof vi.fn>;
+		return mock.mock.calls[mock.mock.calls.length - 1];
+	}
+
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				ok: true,
+				status: 200,
+				json: async () => ({ id: 1, profile_id: 5, policy_version: 1, acknowledged_at: '2026-01-01T00:00:00Z', revoked_at: null })
+			}))
+		);
+	});
+
+	it('getMedicalAcknowledgement calls the status endpoint for the given profile', async () => {
+		await api.getMedicalAcknowledgement(5);
+		const [url] = lastCall();
+		expect(url).toContain('/api/profiles/5/medical-acknowledgement');
+	});
+
+	it('acknowledgeMedicalConstraints POSTs to the acknowledgement endpoint', async () => {
+		await api.acknowledgeMedicalConstraints(5);
+		const [url, options] = lastCall();
+		expect(url).toContain('/api/profiles/5/medical-acknowledgement');
+		expect(options.method).toBe('POST');
+	});
+
+	it('revokeMedicalAcknowledgement DELETEs the acknowledgement endpoint', async () => {
+		await api.revokeMedicalAcknowledgement(5);
+		const [url, options] = lastCall();
+		expect(url).toContain('/api/profiles/5/medical-acknowledgement');
+		expect(options.method).toBe('DELETE');
+	});
+});

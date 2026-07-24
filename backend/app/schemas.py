@@ -363,6 +363,19 @@ class DietaryConstraintOut(BaseModel):
     note: str | None
 
 
+class MedicalAcknowledgementOut(BaseModel):
+    """A `models.MedicalRecommendationAcknowledgement` row — hardening
+    prompt 5. `revoked_at` is null while active. See `recommendation_
+    safety.py`'s module docstring for the full policy this backs."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    profile_id: int
+    policy_version: int
+    acknowledged_at: datetime
+    revoked_at: datetime | None
+
+
 class DietaryTagOut(BaseModel):
     key: str
     label: str
@@ -1102,6 +1115,7 @@ class IngredientSuggestionsOut(BaseModel):
     # e.g. a child profile, where the underlying target formulas aren't
     # valid — rather than guessing at a number that doesn't apply.
     disabled_reason: str | None = None
+    disabled_reason_code: str | None = None
 
 
 class RecipeQualitySummaryOut(BaseModel):
@@ -1158,6 +1172,7 @@ class RecipeSuggestionsOut(BaseModel):
     suggestions: list[RecipeSuggestionOut]
     warnings: list[str] = []
     disabled_reason: str | None = None
+    disabled_reason_code: str | None = None
 
 
 class SubstitutionSuggestionOut(BaseModel):
@@ -1200,6 +1215,7 @@ class SubstitutionSuggestionsOut(BaseModel):
     suggestions: list[SubstitutionSuggestionOut]
     warnings: list[str] = []
     disabled_reason: str | None = None
+    disabled_reason_code: str | None = None
 
 
 class PairContributionOut(BaseModel):
@@ -1233,3 +1249,4 @@ class PairSuggestionsOut(BaseModel):
     suggestions: list[PairSuggestionOut]
     warnings: list[str] = []
     disabled_reason: str | None = None
+    disabled_reason_code: str | None = None

@@ -277,3 +277,88 @@ score, not ingredient provenance) — the types are ready for a future
 "data quality" expandable section to consume. `svelte-check` (0
 errors), `vitest run` (13 passed), and the production build all remain
 green.
+
+## Prompt 5: strengthen medical-constraint handling
+
+**Real policy change, not just plumbing**: a `DietaryConstraint(category=
+"medical")` row previously only added a `medical_constraint_present`
+warning — recommendations still ran normally. It now disables the
+*entire engine* by default, the same way an under-18 profile is disabled
+(prompt 11) — `assess_eligibility()` returns `enabled=False` with a new
+`disabled_reason_code=unacknowledged_medical_constraint`. This is a
+deliberate behaviour change this prompt explicitly asked for, not a
+regression — the pre-existing `test_medical_constraint_surfaces_as_
+warning_not_silently_dropped` test (which asserted the *old* behaviour)
+was rewritten to assert the new one.
+
+**Re-enabling requires an explicit, stored, revocable acknowledgement —
+never a request parameter.** New model, `models.
+MedicalRecommendationAcknowledgement` (`profile_id`, `policy_version`,
+`acknowledged_at`, `revoked_at`), and three new endpoints under `/api/
+profiles/{id}/medical-acknowledgement`:
+
+- `GET` — the currently active acknowledgement, or `null`.
+- `POST` — records a new acknowledgement (201). Always inserts a new
+  row rather than mutating a past one (same immutable-history
+  convention as `RobustnessResult`) — a full audit trail of every
+  acknowledge/revoke cycle.
+- `DELETE` — revokes every currently-active acknowledgement (204,
+  always, even if nothing was active — a harmless no-op). Always fully
+  revocable, per the prompt's explicit requirement.
+
+An acknowledgement only counts as *active* if its `policy_version`
+matches the current `recommendation_safety.MEDICAL_ACKNOWLEDGEMENT_
+POLICY_VERSION` — bump that constant whenever the acknowledgement's
+wording/scope changes materially, and every existing acknowledgement
+stops counting until the profile re-acknowledges under the new terms
+(same versioning shape as `RECOMMENDATION_MODEL_VERSION`).
+
+**What acknowledging does *not* do**, enforced structurally rather than
+by convention: it never reads the medical constraint's free-text `note`
+(no code path exists that could); every hard dietary exclusion and the
+upper-limit penalty stay fully enforced regardless of acknowledgement
+state (they're independent code paths in `dietary_filter.py`/
+`recommendation_scoring.py`, never touched by this prompt); and the
+`medical_constraint_present` warning keeps showing on every response
+even once acknowledged — "continue to show the warning" is enforced by
+`assess_eligibility` always appending it whenever a medical constraint
+exists, before it even checks acknowledgement status.
+
+**No query-string bypass anywhere** — confirmed by grepping `routers/
+recommendations.py` for any request parameter resembling an override,
+and by `test_no_query_string_bypass_for_medical_disable`, which throws
+several plausible bypass-parameter names (`acknowledge_medical`,
+`override_safety`, etc.) at the ingredients endpoint and confirms every
+one is silently ignored — the only way to change eligibility is the
+dedicated, authenticated, ownership-checked endpoint above.
+
+**Profile-deletion cascade gap found and fixed while implementing
+this**: `routers/profiles.py`'s `delete_profile` already cleaned up
+`DietaryConstraint` rows for a deleted dependent profile, but the new
+`MedicalRecommendationAcknowledgement` table wasn't added to that
+cleanup list — a real, if minor, orphaned-row gap, fixed by adding it
+alongside `DietaryConstraint`'s own deletion. Covered by extending the
+existing `test_dependent_profile_can_be_deleted_and_cascades_its_data`.
+
+**Tests**: `test_recommendation_safety.py` gained acknowledge/revoke/
+policy-version-mismatch/history-preserved cases (module-level) and
+`test_recommendations_safety_api.py` gained the full HTTP flow: disables
+by default, re-enables on acknowledgement (warning still shown),
+disables again on revocation, the status endpoint, cross-account
+acknowledgement rejection, the query-string-bypass attempt, and — proving
+"candidate services are not called when disabled" directly — a test that
+monkeypatches `suggest_ingredients` to raise if called at all, then
+confirms a disabled request still returns a clean empty response. Full
+backend suite: 916 passed (up from 904), 0 regressions.
+
+**Frontend**: `lib/api.ts` gained `getMedicalAcknowledgement`/
+`acknowledgeMedicalConstraints`/`revokeMedicalAcknowledgement`;
+`lib/types.ts` gained `MedicalAcknowledgement` and `disabled_reason_code`
+on the three wired suggestion-list types. `ImproveThis.svelte`'s
+disabled-notice now shows an "I understand — show general suggestions
+anyway" button specifically for the medical-constraint case (confirmed
+via a native `confirm()` dialog stating this is not medical clearance,
+matching this app's existing destructive-action convention), which
+calls the acknowledge endpoint and re-fetches. `vitest run` (16 passed,
++3 new `api.ts` cases), `svelte-check` (0 errors), and the production
+build all remain green.

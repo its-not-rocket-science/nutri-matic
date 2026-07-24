@@ -139,6 +139,7 @@ def test_dependent_profile_can_be_deleted_and_cascades_its_data(client):
         json={"log_date": "2026-01-01", "weight_kg": 30.0},
         headers=auth_headers(token),
     )
+    client.post(f"/api/profiles/{dependent['id']}/medical-acknowledgement", headers=auth_headers(token))
 
     res = client.delete(f"/api/profiles/{dependent['id']}", headers=auth_headers(token))
     assert res.status_code == 204
