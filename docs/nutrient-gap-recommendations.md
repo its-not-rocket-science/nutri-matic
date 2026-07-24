@@ -908,3 +908,248 @@ key`) rather than the first one found, so the more specific entry always
 wins regardless of declaration order. Regression test:
 `test_more_specific_curated_key_wins_over_a_shorter_shadowing_one`
 (`test_candidate_metadata.py`).
+
+## Prompt 15: final end-to-end validation and deliverables
+
+### Validation checklist
+
+Every item below maps to real, currently-passing test coverage (not a
+manual spot-check) — see the file named for the exact assertions:
+
+| Scenario | Covered by |
+|---|---|
+| One-meal ingredient suggestions | `test_recommend_ingredients.py`, `test_meal_period_uses_remaining_room_not_flat_daily_target` |
+| Diary-day ingredient suggestions | `test_recommendations_api.py::test_ingredient_suggestions_for_a_diary_day` |
+| Meal-plan-day recipe suggestions | `test_recommendations_recipes_api.py::test_recipe_suggestions_for_a_diary_day` (+ `source=meal_plan`) |
+| Multi-day plan analysis | `test_multi_day_meal_plan_range` (both ingredients and recipes API tests) |
+| Meal substitutions | `test_recommend_substitutions.py`, scenario 06 |
+| Vegetarian/vegan profiles | `test_vegan_profile_never_suggests_poultry`, scenario 04 |
+| Allergen exclusions | `test_allergen_hard_exclusion_removes_candidate`, scenario 05 |
+| Energy caps | `test_max_additional_energy_caps_suggestions`, scenario 02 |
+| Upper-limit protection | `recommendation_scoring.py`'s adversarial upper-limit tests, scenario 11 |
+| Partial nutrient coverage | scenario 08, `test_low_confidence_partial_data_candidate_ranks_below_complete_data_one` |
+| Protein-quality improvement | scenario 07, `recommendation_scoring.py`'s protein-quality tests |
+| Low-confidence proxy handling | scenario 09, `recommend_validate.py`'s low-confidence-proxy check |
+| Explicit apply actions | `ImproveThis.svelte`'s `confirm()`-gated apply handlers; `recommend_substitutions.py` never auto-applies |
+| Deterministic repeated requests | `test_deterministic_ordering` |
+| No-suggestion state | `test_no_suggestion_when_nothing_is_short`, `test_no_suggestions_returns_empty_list*` |
+| Unsupported sensitive-profile state | `test_recommendations_safety_api.py`'s under-18 disable tests |
+
+### Checks actually run for this deliverable
+
+- **Backend tests**: `pytest -q` in `backend/` — **803 passed**, 0 failed.
+- **Frontend tests**: `npx vitest run` in `frontend/` — **13 passed** (0
+  failed) across `api.test.ts`, `nutrientLabels.test.ts`,
+  `recommendationSafety.test.ts`.
+- **Type checks**: `npx svelte-check --tsconfig ./tsconfig.json` —
+  **0 errors** (1 pre-existing warning in `meal-plan/+page.svelte`,
+  unrelated to this feature, present before this work started).
+- **Production build**: `npm run build` — succeeds.
+- **Migration check**: no database schema changed anywhere in prompts
+  1-15 (confirmed via `git diff` against `models.py` — zero lines
+  changed) — nothing to migrate.
+- **Linting/formatting**: this repository has no lint or formatter
+  configured (no ESLint/Prettier config in `frontend/`, no ruff/black/
+  flake8 config in `backend/`, confirmed by their absence) — nothing
+  exists to run, so nothing is claimed to have been run.
+- **Performance benchmarks**: see prompt 12's section above —
+  `suggest_ingredients` ~15ms/4 queries at 301 foods, `suggest_recipes`
+  ~31ms/14 queries at 120 recipes, both re-verified passing in this run.
+- **Integration/API tests**: included in the backend `pytest -q` run
+  above (`test_recommendations_*_api.py`).
+- Existing diary/recipe/profile/stock-recipe/robustness/meal-plan
+  behaviour: unchanged — the full backend suite includes every one of
+  their existing test files, all passing alongside the new tests, and
+  no existing endpoint's response shape changed except the four
+  `/api/recommendations/*` schemas gaining new optional fields
+  (`warnings`, `disabled_reason` — additive, prompt 11).
+
+### Architecture summary
+
+Layered, each stage consuming only the previous stage's output:
+`nutrient_targets.py` (profile+period -> target) ->
+`nutrient_gap_analysis.py` (target vs. consumed -> status/coverage) ->
+`recommendation_scoring.py` (before/after gap comparison -> one score
+breakdown) -> `candidate_metadata.py` (which foods are practical to
+suggest at all) -> `recommend_ingredients.py`/`recommend_recipes.py`/
+`recommend_substitutions.py`/`recommend_pairs.py` (the four modes,
+generating and scoring candidates) -> `recommendation_safety.py`
+(profile-level eligibility/warnings, checked by the router before any
+of the above runs) -> `routers/recommendations.py` (HTTP layer) ->
+`ImproveThis.svelte`/`RecommendationCard.svelte` (frontend). Every
+existing nutritional-truth source (`nutrients.py`, `dietary_filter.py`,
+`aggregation.py`, the stock-recipe alias/robustness systems) is reused,
+never duplicated.
+
+### Scoring formula
+
+```
+score = weighted_gap_reduction
+      + protein_quality_benefit
+      + dietary_fit
+      + practicality
+      - upper_limit_penalty
+      - above_preferred_penalty
+      - energy_overshoot_penalty
+      - uncertainty_penalty
+      - implausible_serving_penalty
+```
+
+Every term is a named field on `recommendation_scoring.ScoringWeights`
+with its rationale documented inline at the declaration — see prompt 4's
+section above for the full worked explanation, and `RECOMMENDATION_
+MODEL_VERSION` for the version to bump when any of it changes.
+
+### Changed-file list
+
+27 non-test application/frontend/doc files changed since prompt 1's
+audit began (`git diff --stat 1a6ea1c..HEAD`), plus their corresponding
+test files. New modules: `nutrient_targets.py`,
+`nutrient_gap_analysis.py`, `recommendation_scoring.py`,
+`candidate_metadata.py`, `recommend_ingredients.py`,
+`recommend_recipes.py`, `recommend_substitutions.py`,
+`recommend_pairs.py`, `recommendation_safety.py`, `recommend_validate.py`,
+`routers/recommendations.py`; extended: `nutrients.py`,
+`nutrient_targets.py` (prompt 11's margin), `schemas.py`, `main.py`;
+frontend: `lib/components/ImproveThis.svelte`, `lib/components/
+RecommendationCard.svelte`, `lib/nutrientLabels.ts`, `lib/
+recommendationSafety.ts`, extensions to `lib/api.ts`/`lib/types.ts`, and
+integration into `routes/diary/+page.svelte`, `routes/meal-plan/
++page.svelte`, `routes/recipes/[id]/+page.svelte`.
+
+### Database migration instructions
+
+**None required.** No table or column changed across the entire feature
+(prompts 1-15) — confirmed via `git diff` showing zero changes to
+`models.py` since the audit commit. The feature reuses every existing
+table (`Profile`, `DietaryConstraint`, `Food`, `FoodNutrient`, `Recipe`,
+`RecipeIngredient`, `DiaryEntry`, `MealPlanEntry`, `RobustnessResult`)
+exactly as they already were.
+
+### New API endpoints
+
+- `GET /api/recommendations/ingredients` — `entry_date`(+`meal`) |
+  `start_date`+`end_date` | `recipe_id`(+`servings`), one required;
+  `source`, `max_additional_energy`, `max_suggestions`,
+  `priority_nutrients`.
+- `GET /api/recommendations/recipes` — `entry_date` | `start_date`+
+  `end_date`; `source`, `goal`, `max_additional_energy`,
+  `max_suggestions`, `priority_nutrients`.
+- `GET /api/recommendations/substitutions` — `entry_id`; `source`,
+  `max_suggestions`, `priority_nutrients`, `energy_tolerance_kcal`.
+- `GET /api/recommendations/pairs` — `entry_date`; `source`,
+  `max_additional_energy`, `max_suggestions`, `priority_nutrients`.
+
+### New frontend routes/components
+
+No new routes — the feature is integrated into the three existing pages
+that already covered its use cases (`/diary`, `/meal-plan`,
+`/recipes/[id]`). New reusable components: `ImproveThis.svelte` (the
+panel), `RecommendationCard.svelte` (one card layout for all three
+suggestion modes it renders).
+
+### Candidate metadata conventions
+
+See prompt 5's section and prompt 14's maintainer how-to, above. Short
+version: `candidate_metadata.CURATED_FOODS`, keyed by a lowercase
+`Food.name` substring, resolved by *longest matching key* (not
+declaration order, since prompt 14's bugfix), layered with
+`EXCLUDED_KEYWORDS` -> `_CATEGORY_DEFAULTS` -> excluded-by-default.
+
+### Recommendation model-version rules
+
+`recommendation_scoring.RECOMMENDATION_MODEL_VERSION` — bump whenever
+`ScoringWeights`' defaults or the scoring formula change materially. Not
+tied to this feature's own prompt numbering. No cache currently keys off
+it (see prompt 12's decision), but it exists so one can be added
+correctly later without a retrofit.
+
+### Test commands and actual results
+
+```
+cd backend && pytest -q            # 803 passed
+cd frontend && npx vitest run      # 13 passed (3 test files)
+cd frontend && npx svelte-check --tsconfig ./tsconfig.json   # 0 errors
+cd frontend && npm run build       # succeeds
+python -m app.recommend_validate   # maintainer report, exit 0
+```
+
+### Performance results
+
+See prompt 12's benchmark table above: `suggest_ingredients` ~15ms at
+301 candidate foods (4 SQL queries), `suggest_recipes` ~31ms at 120
+stock recipes (14 queries), `suggest_pairs` <1ms. Query count verified
+flat across a 15x catalog-size increase (`test_recommendation_
+performance.py`).
+
+### Known limitations
+
+- Recipes carry no meal-type/category metadata at all (a pre-existing
+  gap, not introduced by this feature) — `meal_type` filtering is a
+  documented no-op for recipe/substitution/pair suggestions.
+- `candidate_metadata.CURATED_FOODS` covers ~35 common foods, not the
+  full catalog — anything else falls to a category default or is
+  excluded from direct suggestion, by design (prompt 5).
+- No supplement recommendations, ever (deliberate, prompt 11).
+- Recommendations are disabled outright for a profile under 18 (prompt
+  11) — no partial/best-effort mode for that case.
+- A medical dietary constraint is surfaced as a warning, never read or
+  acted on — this feature has no way to know what a prescribed diet
+  actually requires.
+- No caching layer — a deliberate decision (prompt 12), not an
+  oversight; see that section for why.
+- The `orange`/`orange juice` key-overlap pattern (prompt 14's bugfix)
+  suggests other overlapping `CURATED_FOODS` keys are possible as the
+  table grows — `python -m app.recommend_validate` catches these, but
+  it isn't run automatically in CI yet.
+
+### Example outputs
+
+**Adding an ingredient** (150g White rice logged, fibre+iron short):
+
+```json
+{
+  "food_name": "Lentils", "quantity_g": 130, "score": 0.97,
+  "nutrients_improved": ["iron", "fiber_total"], "extra_energy_kcal": 150.8,
+  "explanation": "Adding 130g of Lentils helps close the remaining Iron, Fibre, total gap."
+}
+```
+
+**Adding a recipe** (same day, fibre short, a stock lentil soup available):
+
+```json
+{
+  "recipe_name": "Lentil Soup", "suggested_servings": 1.0,
+  "energy_added_kcal": 116.0, "is_stock": true,
+  "explanation": "Adding 1 serving of Lentil Soup helps close the remaining Fibre, total gap."
+}
+```
+
+**Replacing a meal** (a plain rice bowl swapped for the lentil soup):
+
+```json
+{
+  "current_recipe_name": "Plain Rice Bowl", "replacement_recipe_name": "Lentil Soup",
+  "energy_difference_kcal": -21.0, "fiber_difference_g": 11.4,
+  "explanation": "Replacing Plain Rice Bowl with Lentil Soup (21kcal less)."
+}
+```
+
+**No safe recommendation** (nothing logged at all):
+
+```json
+{ "suggestions": [] }
+```
+
+### Statement on clinical scope
+
+This feature does not diagnose a nutrient deficiency, does not claim to
+treat or prevent disease, does not recommend supplements, does not
+recommend exceeding a tolerable upper limit, and does not override a
+medically prescribed diet. Every nutrient comparison is expressed as
+below/near/within/above-preferred/above-upper-limit against this app's
+own reference target — never a clinical judgement — and every
+recommendation response carries this in mind explicitly via
+`recommendation_safety.py`'s standing disclaimers and, for a profile this
+app's target logic genuinely isn't built for (under 18), an outright
+disable rather than a guess.
