@@ -34,6 +34,15 @@ from .aggregation import ProteinQualityResult
 from .dietary_tags import Suitability
 from .nutrient_gap_analysis import NutrientGapResult, NutrientStatus
 
+# Bump whenever ScoringWeights' defaults, the scoring formula itself, or
+# any other part of score_candidate's arithmetic changes materially enough
+# that an old cached/stored result could no longer be trusted — see
+# prompt 12 (docs/nutrient-gap-recommendations.md's performance/caching
+# section) for why a cache key needs this, and prompt 14's maintainer
+# instructions for when to bump it. Not tied to the feature's own prompt
+# numbering — this only tracks the scoring formula/weights.
+RECOMMENDATION_MODEL_VERSION = 1
+
 
 @dataclass(frozen=True)
 class PracticalityInput:
