@@ -234,13 +234,15 @@
 	}
 
 	async function applySubstitutionSuggestion(entryId: number, s: SubstitutionSuggestion) {
-		const replaced = entries.find((e) => e.id === entryId);
-		await api.deleteMealPlanEntry(entryId);
-		await api.addMealPlanEntry({
-			plan_date: replaced?.plan_date ?? planDate,
-			meal: replaced?.meal ?? meal,
-			recipe_id: s.replacement_recipe_id,
-			quantity_servings: s.replacement_servings
+		// Atomic single-request replacement (hardening prompt 6) — this used
+		// to be a delete-then-recreate pair of calls, which could lose the
+		// entry entirely if the second call failed after the first succeeded.
+		await api.applySubstitution({
+			entryId,
+			source: 'meal_plan',
+			expectedCurrentRecipeId: s.current_recipe_id,
+			replacementRecipeId: s.replacement_recipe_id,
+			replacementServings: s.replacement_servings
 		});
 		shoppingList = null;
 		await loadWeek();

@@ -117,6 +117,47 @@ describe('api.getSubstitutionSuggestions', () => {
 	});
 });
 
+describe('api.applySubstitution (hardening prompt 6)', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				ok: true,
+				status: 200,
+				json: async () => ({
+					entry_id: 7,
+					source: 'diary',
+					recipe_id: 42,
+					recipe_name: 'Lentil Bowl',
+					quantity_servings: 2
+				})
+			}))
+		);
+	});
+
+	it('posts a single request with snake_case fields, not a delete-then-recreate pair', async () => {
+		await api.applySubstitution({
+			entryId: 7,
+			source: 'diary',
+			expectedCurrentRecipeId: 1,
+			replacementRecipeId: 42,
+			replacementServings: 2
+		});
+		const mock = fetch as unknown as ReturnType<typeof vi.fn>;
+		expect(mock.mock.calls.length).toBe(1);
+		const [url, options] = mock.mock.calls[0];
+		expect(url).toContain('/api/recommendations/substitutions/apply');
+		expect(options.method).toBe('POST');
+		expect(JSON.parse(options.body)).toEqual({
+			entry_id: 7,
+			source: 'diary',
+			expected_current_recipe_id: 1,
+			replacement_recipe_id: 42,
+			replacement_servings: 2
+		});
+	});
+});
+
 describe('api medical acknowledgement (hardening prompt 5)', () => {
 	function lastCall() {
 		const mock = fetch as unknown as ReturnType<typeof vi.fn>;

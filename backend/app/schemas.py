@@ -1177,10 +1177,12 @@ class RecipeSuggestionsOut(BaseModel):
 
 class SubstitutionSuggestionOut(BaseModel):
     """One `recommend_substitutions.SubstitutionSuggestion` — prompt 8.
-    Proposal only; applying it is two calls to the *existing* diary/
-    meal-plan endpoints (delete the current entry, log the replacement) —
-    there is no apply endpoint here, see recommend_substitutions.py's
-    module docstring for why."""
+    Proposal only. Applying it is a separate call to
+    `POST /api/recommendations/substitutions/apply` (hardening prompt 6),
+    which mutates the target entry in place in a single transaction —
+    see that endpoint's docstring, and `SubstitutionApplyIn`/
+    `SubstitutionApplyOut` below, for why the original delete-then-
+    recreate two-call plan was replaced."""
 
     current_recipe_id: int
     current_recipe_name: str
@@ -1216,6 +1218,32 @@ class SubstitutionSuggestionsOut(BaseModel):
     warnings: list[str] = []
     disabled_reason: str | None = None
     disabled_reason_code: str | None = None
+
+
+class SubstitutionApplyIn(BaseModel):
+    """Hardening prompt 6. `expected_current_recipe_id` must match the
+    entry's *current* `recipe_id` at apply time — it's the value the
+    suggestion was generated against (`SubstitutionSuggestionOut.
+    current_recipe_id`). A mismatch means the entry moved on since the
+    suggestion was shown (edited, already substituted, or replayed) and
+    the apply is rejected with 409 rather than silently overwriting
+    whatever is there now — this doubles as duplicate-apply protection,
+    since a second identical request no longer matches after the first
+    one succeeds."""
+
+    entry_id: int = Field(gt=0)
+    source: Literal["diary", "meal_plan"] = "diary"
+    expected_current_recipe_id: int = Field(gt=0)
+    replacement_recipe_id: int = Field(gt=0)
+    replacement_servings: float = Field(gt=0, le=20.0)
+
+
+class SubstitutionApplyOut(BaseModel):
+    entry_id: int
+    source: Literal["diary", "meal_plan"]
+    recipe_id: int
+    recipe_name: str
+    quantity_servings: float
 
 
 class PairContributionOut(BaseModel):
