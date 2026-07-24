@@ -85,7 +85,9 @@ def test_no_suggestions_returns_empty_list(client):
         "/api/recommendations/recipes", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
     )
     assert res.status_code == 200
-    assert res.json() == {"suggestions": []}
+    body = res.json()
+    assert body["suggestions"] == []
+    assert body["disabled_reason"] is None
 
 
 def test_invalid_goal_rejected(client):

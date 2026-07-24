@@ -671,6 +671,12 @@ export interface IngredientSuggestion {
 
 export interface IngredientSuggestions {
 	suggestions: IngredientSuggestion[];
+	// SafetyWarningCode values (recommendation_safety.py) — standing
+	// caveats that apply regardless of what suggestions came back.
+	warnings: string[];
+	// set (with suggestions always empty) when the recommendation engine
+	// is disabled outright for this profile — e.g. a child profile.
+	disabled_reason: string | null;
 }
 
 export interface RecipeSuggestion {
@@ -693,6 +699,8 @@ export interface RecipeSuggestion {
 
 export interface RecipeSuggestions {
 	suggestions: RecipeSuggestion[];
+	warnings: string[];
+	disabled_reason: string | null;
 }
 
 export interface SubstitutionSuggestion {
@@ -724,6 +732,8 @@ export interface SubstitutionSuggestions {
 	current_recipe_id: number;
 	current_recipe_name: string;
 	suggestions: SubstitutionSuggestion[];
+	warnings: string[];
+	disabled_reason: string | null;
 }
 
 export type FilterOp = 'gte' | 'lte' | 'eq';

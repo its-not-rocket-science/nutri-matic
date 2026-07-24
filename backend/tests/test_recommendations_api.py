@@ -86,7 +86,9 @@ def test_no_suggestions_returns_empty_list_not_an_error(client):
         "/api/recommendations/ingredients", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
     )
     assert res.status_code == 200
-    assert res.json() == {"suggestions": []}
+    body = res.json()
+    assert body["suggestions"] == []
+    assert body["disabled_reason"] is None
 
 
 def test_requires_authentication(client):
@@ -137,7 +139,9 @@ def test_meal_scoped_request_uses_remaining_room_not_flat_daily_target(client):
         headers=headers,
     )
     assert res.status_code == 200
-    assert res.json() == {"suggestions": []}
+    body = res.json()
+    assert body["suggestions"] == []
+    assert body["disabled_reason"] is None
 
 
 def test_recipe_source_uses_the_recipes_own_ingredients(client):
