@@ -31,6 +31,7 @@ from ..recommend_substitutions import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_SUB
 from ..recommend_substitutions import suggest_substitutions
 from ..recommend_pairs import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_PAIR_SUGGESTIONS
 from ..recommend_pairs import suggest_pairs
+from ..recommendation_provenance import RecipeQualitySummary
 from ..recommendation_scoring import ScoreBreakdown
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
@@ -57,6 +58,27 @@ def _score_breakdown_out(score: ScoreBreakdown) -> schemas.ScoreBreakdownOut:
         implausible_serving_penalty=score.implausible_serving_penalty,
         total=score.total,
         model_version=score.model_version,
+    )
+
+
+def _quality_summary_out(summary: RecipeQualitySummary) -> schemas.RecipeQualitySummaryOut:
+    """Shared conversion for `recommendation_provenance.RecipeQualitySummary`
+    — hardening prompt 4."""
+    return schemas.RecipeQualitySummaryOut(
+        ingredient_count=summary.ingredient_count,
+        unmapped_count=summary.unmapped_count,
+        exact_or_regional_count=summary.exact_or_regional_count,
+        analogue_count=summary.analogue_count,
+        proxy_or_reviewed_count=summary.proxy_or_reviewed_count,
+        fuzzy_unclassified_count=summary.fuzzy_unclassified_count,
+        proportion_exact_or_regional=summary.proportion_exact_or_regional,
+        proportion_analogue=summary.proportion_analogue,
+        proportion_proxy_or_reviewed=summary.proportion_proxy_or_reviewed,
+        min_mapping_confidence=summary.min_mapping_confidence,
+        weighted_mapping_confidence=summary.weighted_mapping_confidence,
+        fallback_resolution_count=summary.fallback_resolution_count,
+        unresolved_or_low_confidence_count=summary.unresolved_or_low_confidence_count,
+        nutrient_coverage=summary.nutrient_coverage,
     )
 
 Source = Literal["diary", "meal_plan"]
@@ -271,6 +293,7 @@ def get_ingredient_suggestions(
                 score=s.score.total, score_breakdown=_score_breakdown_out(s.score),
                 nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
                 new_warnings=s.new_warnings, extra_energy_kcal=s.extra_energy_kcal, data_coverage=s.data_coverage,
+                fdc_id=s.fdc_id, data_type=s.data_type, candidate_source=s.candidate_source,
                 explanation=s.explanation,
             )
             for s in result.suggestions
@@ -361,6 +384,8 @@ def get_recipe_suggestions(
                 nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
                 new_warnings=s.new_warnings, is_stock=s.is_stock, source_name=s.source_name,
                 match_coverage_lines=s.match_coverage_lines, robustness_rating=s.robustness_rating,
+                robustness_model_version=s.robustness_model_version,
+                quality_summary=_quality_summary_out(s.quality_summary),
                 robustness_note=s.robustness_note, explanation=s.explanation,
             )
             for s in result.suggestions
@@ -447,7 +472,9 @@ def get_substitution_suggestions(
                 score=s.score.total, score_breakdown=_score_breakdown_out(s.score),
                 remaining_shortfalls=s.remaining_shortfalls, new_warnings=s.new_warnings,
                 is_stock=s.is_stock, match_coverage_lines=s.match_coverage_lines,
-                robustness_rating=s.robustness_rating, provenance_note=s.provenance_note, explanation=s.explanation,
+                robustness_rating=s.robustness_rating, robustness_model_version=s.robustness_model_version,
+                quality_summary=_quality_summary_out(s.quality_summary),
+                provenance_note=s.provenance_note, explanation=s.explanation,
             )
             for s in result.suggestions
         ],
