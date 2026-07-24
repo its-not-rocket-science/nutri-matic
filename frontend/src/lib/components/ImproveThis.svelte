@@ -263,6 +263,7 @@
 								warningKeys={s.new_warnings}
 								coverageNote={coverageNote(s.data_coverage, true, null)}
 								explanation={s.explanation}
+								scoreBreakdown={s.score_breakdown}
 								applying={applyingKey === `ingredient-${s.food_id}`}
 								onApply={() => handleApplyIngredient(s)}
 							/>
@@ -284,6 +285,7 @@
 								warningKeys={s.new_warnings}
 								coverageNote={s.robustness_note ?? coverageNote(1, s.is_stock, s.match_coverage_lines)}
 								explanation={s.explanation}
+								scoreBreakdown={s.score_breakdown}
 								applying={applyingKey === `recipe-${s.recipe_id}`}
 								onApply={onApplyRecipe ? () => handleApplyRecipe(s) : null}
 							/>
@@ -305,6 +307,7 @@
 								warningKeys={s.new_warnings}
 								coverageNote={s.provenance_note ?? coverageNote(1, s.is_stock, s.match_coverage_lines)}
 								explanation={s.explanation}
+								scoreBreakdown={s.score_breakdown}
 								applying={applyingKey === `sub-${s.replacement_recipe_id}`}
 								onApply={onApplySubstitution ? () => handleApplySubstitution(s) : null}
 							/>

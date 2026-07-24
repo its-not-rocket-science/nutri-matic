@@ -31,8 +31,33 @@ from ..recommend_substitutions import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_SUB
 from ..recommend_substitutions import suggest_substitutions
 from ..recommend_pairs import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_PAIR_SUGGESTIONS
 from ..recommend_pairs import suggest_pairs
+from ..recommendation_scoring import ScoreBreakdown
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
+
+
+def _score_breakdown_out(score: ScoreBreakdown) -> schemas.ScoreBreakdownOut:
+    """Shared conversion from the engine's internal `ScoreBreakdown`
+    dataclass to the public `ScoreBreakdownOut` schema — hardening
+    prompt 3. Deliberately excludes `nutrients_improved`/
+    `nutrients_worsened` (already exposed as each suggestion's own
+    top-level `nutrients_improved`/`new_warnings` fields) so the
+    breakdown carries only the numeric terms, never a duplicate/internal
+    object."""
+    return schemas.ScoreBreakdownOut(
+        weighted_gap_reduction=score.weighted_gap_reduction,
+        multi_nutrient_bonus=score.multi_nutrient_bonus,
+        protein_quality_benefit=score.protein_quality_benefit,
+        dietary_fit=score.dietary_fit,
+        practicality=score.practicality,
+        upper_limit_penalty=score.upper_limit_penalty,
+        above_preferred_penalty=score.above_preferred_penalty,
+        energy_overshoot_penalty=score.energy_overshoot_penalty,
+        uncertainty_penalty=score.uncertainty_penalty,
+        implausible_serving_penalty=score.implausible_serving_penalty,
+        total=score.total,
+        model_version=score.model_version,
+    )
 
 Source = Literal["diary", "meal_plan"]
 MealParam = Literal["breakfast", "lunch", "dinner", "snack"]
@@ -243,7 +268,8 @@ def get_ingredient_suggestions(
         suggestions=[
             schemas.IngredientSuggestionOut(
                 food_id=s.food_id, food_name=s.food_name, quantity_g=s.quantity_g, candidate_kind=s.candidate_kind,
-                score=s.score.total, nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
+                score=s.score.total, score_breakdown=_score_breakdown_out(s.score),
+                nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
                 new_warnings=s.new_warnings, extra_energy_kcal=s.extra_energy_kcal, data_coverage=s.data_coverage,
                 explanation=s.explanation,
             )
@@ -331,6 +357,7 @@ def get_recipe_suggestions(
             schemas.RecipeSuggestionOut(
                 recipe_id=s.recipe_id, recipe_name=s.recipe_name, suggested_servings=s.suggested_servings,
                 energy_added_kcal=s.energy_added_kcal, protein_added_g=s.protein_added_g, score=s.score.total,
+                score_breakdown=_score_breakdown_out(s.score),
                 nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
                 new_warnings=s.new_warnings, is_stock=s.is_stock, source_name=s.source_name,
                 match_coverage_lines=s.match_coverage_lines, robustness_rating=s.robustness_rating,
@@ -417,7 +444,8 @@ def get_substitution_suggestions(
                 fiber_difference_g=s.fiber_difference_g, saturated_fat_difference_g=s.saturated_fat_difference_g,
                 sodium_difference_mg=s.sodium_difference_mg, key_nutrient_differences=s.key_nutrient_differences,
                 protein_quality_before=s.protein_quality_before, protein_quality_after=s.protein_quality_after,
-                score=s.score.total, remaining_shortfalls=s.remaining_shortfalls, new_warnings=s.new_warnings,
+                score=s.score.total, score_breakdown=_score_breakdown_out(s.score),
+                remaining_shortfalls=s.remaining_shortfalls, new_warnings=s.new_warnings,
                 is_stock=s.is_stock, match_coverage_lines=s.match_coverage_lines,
                 robustness_rating=s.robustness_rating, provenance_note=s.provenance_note, explanation=s.explanation,
             )
@@ -480,6 +508,7 @@ def get_pair_suggestions(
                     solo_score=s.second.solo_score,
                 ),
                 combined_energy_kcal=s.combined_energy_kcal, score=s.score.total,
+                score_breakdown=_score_breakdown_out(s.score),
                 nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
                 new_warnings=s.new_warnings, explanation=s.explanation,
             )
