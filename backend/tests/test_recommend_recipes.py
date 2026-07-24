@@ -206,6 +206,27 @@ def test_low_robustness_recipe_flagged_and_penalized(db):
     assert "low" in suggestion.robustness_note.lower() or "uncertainty" in suggestion.robustness_note.lower()
 
 
+def test_missing_robustness_data_degrades_gracefully(db):
+    """Prompt 12's "graceful degradation if robustness data are
+    unavailable" — a stock recipe with no RobustnessResult row at all
+    (never computed, not merely low) must still come back as a normal
+    suggestion, never an error and never a fabricated rating."""
+    user = make_user(db, "norobust@example.com", is_system=True)
+    profile = make_profile(db, user)
+    rice = make_food(db, "White rice, cooked", energy=130, fiber_total=0.4)
+    lentils = make_food(db, "Lentils", fiber_total=8.0, energy=116)
+    make_recipe(
+        db, user, "Uncomputed Robustness Soup", 2, [(lentils, 200)],
+        is_public=True, import_slug="uncomputed_test",
+    )
+
+    result = run(db, profile, user, rice)
+    suggestion = next((s for s in result.suggestions if s.recipe_name == "Uncomputed Robustness Soup"), None)
+    assert suggestion is not None
+    assert suggestion.robustness_rating is None
+    assert suggestion.robustness_note == "Robustness has not yet been computed for this recipe."
+
+
 def test_stock_recipe_reports_match_coverage(db):
     user = make_user(db, "coverage@example.com", is_system=True)
     profile = make_profile(db, user)

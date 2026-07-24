@@ -699,4 +699,66 @@ Tests: `test_recommendation_safety.py` (the module in isolation) and
 `test_recommendations_safety_api.py` (all four endpoints, both the
 under-18 disable and the medical-constraint/pregnancy warning paths),
 plus new `test_nutrient_targets.py` cases for the upper-limit margin.
+
+## Prompt 12: performance, caching and invalidation
+
+**Decision: no caching layer was added.** This codebase has no existing
+request-level cache anywhere (no Redis, no `lru_cache`-wrapped endpoint,
+nothing) to build on, and every recommendation response depends on the
+current diary/meal-plan state, which changes on every add/remove/mark-
+eaten — a correct cache here would need exactly the invalidation surface
+the prompt describes (profile, diary entries, meal plans, recipes, alias
+mappings, food data, scoring parameters, target-reference data) and one
+missed invalidation path would silently serve a stale/wrong
+recommendation, which is a worse failure mode than "the request took an
+extra 20ms". Benchmarked below, the uncached path is already fast enough
+for interactive use, so the honest answer to "add caching only where
+correct and useful" is: not yet useful, and risky to get wrong. If a
+future profile shows this is actually slow at real scale, the version
+constants below are already in place so a cache can be added with a
+correct key rather than retrofitted.
+
+What this feature does instead — **bounded, deterministic retrieval**,
+which was already built prompts 6-9 and is verified here, not newly
+added:
+- `recommend_ingredients.CANDIDATE_POOL_PER_NUTRIENT`,
+  `recommend_recipes.CANDIDATE_POOL_PER_NUTRIENT`, `recommend_pairs.
+  CANDIDATE_POOL_SIZE`/`MAX_PAIR_EVALUATIONS` all cap how much of the
+  catalog a single request ever touches, regardless of catalog size.
+- `test_recommendation_performance.py`'s `test_ingredient_query_count_
+  does_not_scale_with_catalog_size` proves this isn't just "there's a
+  LIMIT in the code somewhere" — it actually counts SQL statements (via
+  a `before_cursor_execute` listener) against a 20-food and a 300-food
+  catalog and asserts the counts are within 2 of each other.
+- `test_missing_robustness_data_degrades_gracefully`
+  (`test_recommend_recipes.py`) confirms a recipe with no
+  `RobustnessResult` row at all (never computed, not merely low) still
+  comes back as a normal suggestion with `robustness_rating=None` and an
+  honest note, never an error — prompt 12's "graceful degradation if
+  robustness data are unavailable".
+
+**Benchmark** (measured on this development machine, in-memory SQLite,
+single request, no warm cache of any kind — see `test_recommendation_
+performance.py` for the exact setup):
+
+| Call | Catalog size | Wall time | SQL queries |
+|---|---|---|---|
+| `suggest_ingredients` | 301 foods | ~15ms | 4 |
+| `suggest_recipes` | 120 stock recipes | ~31ms | 14 |
+| `suggest_pairs` | 301 foods | <1ms | 3 |
+
+301 foods and 120 recipes are already larger than this app's current
+stock-recipe library — the first request is fast enough for interactive
+use without any caching, confirming the decision above.
+
+**Versioning, for if a cache is added later**:
+`recommendation_scoring.RECOMMENDATION_MODEL_VERSION` — bump whenever
+`ScoringWeights`' defaults or the scoring formula change materially. A
+correct cache key would need this plus profile id, the selected meal/
+day/plan identity, current nutrient totals (or an equivalent diary/
+meal-plan version signal), dietary constraints, a candidate-catalogue
+version (food/recipe/alias data), recommendation mode, energy cap, and
+priority nutrients — exactly the prompt's list — and must never be a
+globally-shared cache keyed on anything less specific than one profile's
+one request.
 plan" panel renders its correct empty state.
