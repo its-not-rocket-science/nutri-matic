@@ -205,6 +205,19 @@ export interface DietaryConstraintCreate {
 	note: string | null;
 }
 
+// Explicit, revocable opt-in re-enabling nutrient-gap recommendations for
+// a profile with a stored medical dietary constraint (hardening prompt
+// 5) — never medical clearance; hard exclusions/upper-limit safeguards
+// stay enforced regardless. null (no acknowledgement) means recommendations
+// are currently disabled for this profile if it has a medical constraint.
+export interface MedicalAcknowledgement {
+	id: number;
+	profile_id: number;
+	policy_version: number;
+	acknowledged_at: string;
+	revoked_at: string | null;
+}
+
 export interface DietaryTag {
 	key: string;
 	label: string;
@@ -725,6 +738,7 @@ export interface IngredientSuggestions {
 	// set (with suggestions always empty) when the recommendation engine
 	// is disabled outright for this profile — e.g. a child profile.
 	disabled_reason: string | null;
+	disabled_reason_code: string | null;
 }
 
 export interface RecipeSuggestion {
@@ -752,6 +766,7 @@ export interface RecipeSuggestions {
 	suggestions: RecipeSuggestion[];
 	warnings: string[];
 	disabled_reason: string | null;
+	disabled_reason_code: string | null;
 }
 
 export interface SubstitutionSuggestion {
@@ -788,6 +803,7 @@ export interface SubstitutionSuggestions {
 	suggestions: SubstitutionSuggestion[];
 	warnings: string[];
 	disabled_reason: string | null;
+	disabled_reason_code: string | null;
 }
 
 export type FilterOp = 'gte' | 'lte' | 'eq';

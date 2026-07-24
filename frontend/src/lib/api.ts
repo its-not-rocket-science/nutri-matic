@@ -32,6 +32,7 @@ import type {
 	IngredientSuggestions,
 	Meal,
 	MealOptimization,
+	MedicalAcknowledgement,
 	MealPlanEntry,
 	MealPlanEntryCreate,
 	MealPlanTemplate,
@@ -206,6 +207,18 @@ export const api = {
 		}),
 	deleteDietaryConstraint: (profileId: number, id: number) =>
 		request<void>(`/api/profiles/${profileId}/dietary-constraints/${id}`, { method: 'DELETE' }),
+
+	// Explicit, revocable opt-in re-enabling recommendations for a profile
+	// with a stored medical dietary constraint (hardening prompt 5) — see
+	// docs/nutrient-gap-recommendations-hardening.md. Never implies
+	// medical clearance; hard dietary exclusions/upper-limit safeguards
+	// stay enforced regardless.
+	getMedicalAcknowledgement: (profileId: number) =>
+		request<MedicalAcknowledgement | null>(`/api/profiles/${profileId}/medical-acknowledgement`),
+	acknowledgeMedicalConstraints: (profileId: number) =>
+		request<MedicalAcknowledgement>(`/api/profiles/${profileId}/medical-acknowledgement`, { method: 'POST' }),
+	revokeMedicalAcknowledgement: (profileId: number) =>
+		request<void>(`/api/profiles/${profileId}/medical-acknowledgement`, { method: 'DELETE' }),
 
 	logWeight: (entry: WeightLogCreate) =>
 		request<WeightLog>(withProfile('/api/weight-logs'), { method: 'POST', body: JSON.stringify(entry) }),

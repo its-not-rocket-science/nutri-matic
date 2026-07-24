@@ -156,6 +156,46 @@ class DietaryConstraint(Base):
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class MedicalRecommendationAcknowledgement(Base):
+    """An explicit, stored, revocable opt-in allowing the nutrient-gap
+    recommendation engine to run for a profile that has a
+    `DietaryConstraint(category="medical")` row — hardening prompt 5. By
+    default such a profile is disabled outright (see
+    `recommendation_safety.assess_eligibility`); this table is the *only*
+    way to re-enable it — there is deliberately no query-string or
+    request-parameter bypass anywhere in the recommendation endpoints.
+
+    Never mutated in place: acknowledging again inserts a new row rather
+    than updating an old one (same immutable-history convention as
+    `RobustnessResult`), and revoking sets `revoked_at` rather than
+    deleting — a full audit trail of when a profile did and didn't have
+    an active acknowledgement. "Active" means the *latest* row for a
+    profile has `revoked_at IS NULL` and `policy_version` matches the
+    current `recommendation_safety.MEDICAL_ACKNOWLEDGEMENT_POLICY_
+    VERSION` — a past acknowledgement under an older policy version
+    doesn't carry forward if the policy's wording/scope changes.
+
+    Acknowledging this never re-enables anything beyond running the
+    engine: hard dietary exclusions, upper-limit penalties, and every
+    other safety behaviour stay fully enforced regardless, and the
+    profile's `medical_constraint_present` warning keeps showing on every
+    response — this is not medical clearance, just "I understand this
+    doesn't know my prescribed diet and want general suggestions
+    anyway.\""""
+
+    __tablename__ = "medical_recommendation_acknowledgements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    profile_id: Mapped[int] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=False, index=True)
+    policy_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    acknowledged_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    # null while active; set to revoke — never deleted, so a profile's
+    # full acknowledge/revoke history is always reconstructable
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Food(Base):
     __tablename__ = "foods"
     __table_args__ = (

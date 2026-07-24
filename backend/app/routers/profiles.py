@@ -14,10 +14,17 @@ from ..models import (
     MealPlanEntry,
     MealPlanTemplate,
     MealPlanTemplateEntry,
+    MedicalRecommendationAcknowledgement,
     Profile,
     SavedFilterPreset,
     User,
     WeightLog,
+)
+from ..recommendation_safety import (
+    MEDICAL_ACKNOWLEDGEMENT_POLICY_VERSION,
+    acknowledge_medical_constraints,
+    has_active_medical_acknowledgement,
+    revoke_medical_acknowledgements,
 )
 
 router = APIRouter(prefix="/api/profiles", tags=["profiles"])
@@ -156,6 +163,9 @@ def delete_profile(profile_id: int, current_user: User = Depends(get_current_use
         )
 
     db.query(DietaryConstraint).filter(DietaryConstraint.profile_id == profile.id).delete(synchronize_session=False)
+    db.query(MedicalRecommendationAcknowledgement).filter(
+        MedicalRecommendationAcknowledgement.profile_id == profile.id
+    ).delete(synchronize_session=False)
     db.query(DiaryEntry).filter(DiaryEntry.profile_id == profile.id).delete(synchronize_session=False)
     db.query(DiarySnapshot).filter(DiarySnapshot.profile_id == profile.id).delete(synchronize_session=False)
     db.query(WeightLog).filter(WeightLog.profile_id == profile.id).delete(synchronize_session=False)
@@ -246,3 +256,63 @@ def delete_dietary_constraint(
         raise HTTPException(status_code=404, detail="Constraint not found")
     db.delete(constraint)
     db.commit()
+
+
+# --- medical recommendation acknowledgement (hardening prompt 5) -------
+# The *only* way to re-enable the nutrient-gap recommendation engine for
+# a profile with a stored medical dietary constraint — see
+# recommendation_safety.py's module docstring. Deliberately its own
+# explicit endpoint pair, never a query-string flag on the
+# recommendation endpoints themselves.
+
+@router.get(
+    "/{profile_id}/medical-acknowledgement", response_model=schemas.MedicalAcknowledgementOut | None,
+)
+def get_medical_acknowledgement(
+    profile_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    profile = db.get(Profile, profile_id)
+    if profile is None or profile.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    if not has_active_medical_acknowledgement(profile, db):
+        return None
+    return (
+        db.query(MedicalRecommendationAcknowledgement)
+        .filter(
+            MedicalRecommendationAcknowledgement.profile_id == profile.id,
+            MedicalRecommendationAcknowledgement.revoked_at.is_(None),
+            MedicalRecommendationAcknowledgement.policy_version == MEDICAL_ACKNOWLEDGEMENT_POLICY_VERSION,
+        )
+        .order_by(MedicalRecommendationAcknowledgement.id.desc())
+        .first()
+    )
+
+
+@router.post(
+    "/{profile_id}/medical-acknowledgement", response_model=schemas.MedicalAcknowledgementOut, status_code=201,
+)
+def create_medical_acknowledgement(
+    profile_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    """Explicit opt-in re-enabling recommendations for this profile
+    despite its stored medical dietary constraint — never implies
+    medical clearance, and every hard dietary exclusion/upper-limit
+    safeguard stays fully enforced regardless (see recommendation_
+    safety.py). Always inserts a new row rather than mutating a past
+    one — a full audit trail, matching RobustnessResult's convention."""
+    profile = db.get(Profile, profile_id)
+    if profile is None or profile.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return acknowledge_medical_constraints(profile, db)
+
+
+@router.delete("/{profile_id}/medical-acknowledgement", status_code=204)
+def revoke_medical_acknowledgement(
+    profile_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    """Always fully revocable — hardening prompt 5's explicit
+    requirement. A no-op (204, not an error) if nothing was active."""
+    profile = db.get(Profile, profile_id)
+    if profile is None or profile.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    revoke_medical_acknowledgements(profile, db)

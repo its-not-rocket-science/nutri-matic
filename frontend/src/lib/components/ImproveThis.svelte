@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api, type RecommendationScope } from '$lib/api';
 	import RecommendationCard from '$lib/components/RecommendationCard.svelte';
 	import { safetyWarningMessage } from '$lib/recommendationSafety';
@@ -73,6 +74,8 @@
 	// guessing; suggestions are always empty in that case.
 	let warnings: string[] = $state([]);
 	let disabledReason: string | null = $state(null);
+	let disabledReasonCode: string | null = $state(null);
+	let acknowledging = $state(false);
 
 	function priorityNutrients(): string[] | undefined {
 		const preset = GOAL_PRESETS.find((g) => g.key === goalKey);
@@ -91,6 +94,7 @@
 				ingredientSuggestions = res.suggestions;
 				warnings = res.warnings;
 				disabledReason = res.disabled_reason;
+				disabledReasonCode = res.disabled_reason_code;
 			} else if (mode === 'recipes') {
 				const res = await api.getRecipeSuggestions(scope, {
 					goal: goalKey,
@@ -99,6 +103,7 @@
 				recipeSuggestions = res.suggestions;
 				warnings = res.warnings;
 				disabledReason = res.disabled_reason;
+				disabledReasonCode = res.disabled_reason_code;
 			} else if (substitutionEntryId !== null) {
 				const res = await api.getSubstitutionSuggestions(substitutionEntryId, substitutionSource, {
 					priorityNutrients: priorityNutrients()
@@ -106,6 +111,7 @@
 				substitutionSuggestions = res.suggestions;
 				warnings = res.warnings;
 				disabledReason = res.disabled_reason;
+				disabledReasonCode = res.disabled_reason_code;
 			}
 			hasFetchedOnce = true;
 		} catch (e) {
@@ -174,6 +180,27 @@
 		}
 	}
 
+	async function handleAcknowledgeMedicalConstraint() {
+		if (activeProfile.id == null) return;
+		if (
+			!confirm(
+				'This does not mean these suggestions are medically safe for you — it only means you understand this feature ' +
+					"doesn't know your prescribed diet's specific requirements and won't override it. Continue?"
+			)
+		)
+			return;
+		error = null;
+		acknowledging = true;
+		try {
+			await api.acknowledgeMedicalConstraints(activeProfile.id);
+			await fetchSuggestions();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			acknowledging = false;
+		}
+	}
+
 	function coverageNote(dataCoverage: number, isStock: boolean, matchCoverageLines: number | null): string | null {
 		const notes: string[] = [];
 		if (dataCoverage < 1) notes.push(`approximate — nutrient data available for ${Math.round(dataCoverage * 100)}% of what this recommendation is based on`);
@@ -200,6 +227,11 @@
 				<p class="muted">Looking for improvements…</p>
 			{:else if hasFetchedOnce && disabledReason}
 				<p class="disabled-notice">{disabledReason}</p>
+				{#if disabledReasonCode === 'unacknowledged_medical_constraint' && activeProfile.id != null}
+					<button type="button" onclick={handleAcknowledgeMedicalConstraint} disabled={acknowledging}>
+						{acknowledging ? 'Saving…' : 'I understand — show general suggestions anyway'}
+					</button>
+				{/if}
 			{:else}
 				<div class="panel-controls">
 					<label>

@@ -1,5 +1,7 @@
-"""Tests for recommendation_safety.py — prompt 11: age-based disable,
-pregnancy/lactation warnings, and medical-constraint detection."""
+"""Tests for recommendation_safety.py — prompt 11's age-based disable and
+pregnancy/lactation warnings, and hardening prompt 5's disable-by-
+default medical-constraint policy with explicit, revocable
+acknowledgement."""
 
 from datetime import datetime
 
@@ -9,12 +11,16 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
-from app.models import DietaryConstraint, Profile
+from app.models import DietaryConstraint, MedicalRecommendationAcknowledgement, Profile
 from app.recommendation_safety import (
     MINIMUM_RECOMMENDATION_AGE,
+    DisabledReasonCode,
     SafetyWarningCode,
+    acknowledge_medical_constraints,
     assess_eligibility,
+    has_active_medical_acknowledgement,
     recipe_warnings,
+    revoke_medical_acknowledgements,
 )
 
 CURRENT_YEAR = datetime.now().year
@@ -67,6 +73,7 @@ def test_under_minimum_age_disables_with_clear_reason(db):
     assert result.enabled is False
     assert result.disabled_reason is not None
     assert str(MINIMUM_RECOMMENDATION_AGE) in result.disabled_reason
+    assert result.disabled_reason_code == DisabledReasonCode.UNDER_MINIMUM_AGE
     assert result.warnings == []
 
 
@@ -90,21 +97,95 @@ def test_lactating_profile_gets_lactation_warning(db):
     assert SafetyWarningCode.LACTATION_CONSERVATIVE in result.warnings
 
 
-def test_medical_constraint_present_is_surfaced(db):
+def test_unacknowledged_medical_constraint_disables_by_default(db):
+    """Hardening prompt 5: a medical constraint disables the engine
+    outright by default — no longer just a warning."""
     profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
     db.add(DietaryConstraint(user_id=1, profile_id=profile.id, category="medical", tag=None, note="renal diet"))
     db.commit()
     result = assess_eligibility(profile, db)
-    assert result.enabled is True
+    assert result.enabled is False
+    assert result.disabled_reason_code == DisabledReasonCode.UNACKNOWLEDGED_MEDICAL_CONSTRAINT
+    # the warning still shows even while disabled
     assert SafetyWarningCode.MEDICAL_CONSTRAINT_PRESENT in result.warnings
 
 
-def test_non_medical_constraint_does_not_trigger_medical_warning(db):
+def test_non_medical_constraint_does_not_disable_or_warn(db):
     profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
     db.add(DietaryConstraint(user_id=1, profile_id=profile.id, category="allergy", tag="peanut"))
     db.commit()
     result = assess_eligibility(profile, db)
+    assert result.enabled is True
     assert SafetyWarningCode.MEDICAL_CONSTRAINT_PRESENT not in result.warnings
+
+
+def test_acknowledged_medical_constraint_re_enables_but_keeps_warning(db):
+    profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
+    db.add(DietaryConstraint(user_id=1, profile_id=profile.id, category="medical", tag=None, note="renal diet"))
+    db.commit()
+
+    acknowledge_medical_constraints(profile, db)
+    result = assess_eligibility(profile, db)
+    assert result.enabled is True
+    assert result.disabled_reason is None
+    # prompt 5: "continue to show the warning" even once acknowledged —
+    # acknowledging is not the same as the concern going away
+    assert SafetyWarningCode.MEDICAL_CONSTRAINT_PRESENT in result.warnings
+
+
+def test_has_active_medical_acknowledgement_reflects_state(db):
+    profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
+    assert has_active_medical_acknowledgement(profile, db) is False
+    acknowledge_medical_constraints(profile, db)
+    assert has_active_medical_acknowledgement(profile, db) is True
+
+
+def test_revoking_acknowledgement_disables_again(db):
+    profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
+    db.add(DietaryConstraint(user_id=1, profile_id=profile.id, category="medical", tag=None, note="renal diet"))
+    db.commit()
+
+    acknowledge_medical_constraints(profile, db)
+    assert assess_eligibility(profile, db).enabled is True
+
+    revoked_count = revoke_medical_acknowledgements(profile, db)
+    assert revoked_count == 1
+    result = assess_eligibility(profile, db)
+    assert result.enabled is False
+    assert result.disabled_reason_code == DisabledReasonCode.UNACKNOWLEDGED_MEDICAL_CONSTRAINT
+
+
+def test_revoking_with_nothing_active_is_a_harmless_no_op(db):
+    profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
+    assert revoke_medical_acknowledgements(profile, db) == 0
+
+
+def test_acknowledgement_never_mutated_in_place_full_history_kept(db):
+    profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
+    acknowledge_medical_constraints(profile, db)
+    revoke_medical_acknowledgements(profile, db)
+    acknowledge_medical_constraints(profile, db)
+
+    rows = db.query(MedicalRecommendationAcknowledgement).filter(
+        MedicalRecommendationAcknowledgement.profile_id == profile.id,
+    ).all()
+    assert len(rows) == 2
+    assert rows[0].revoked_at is not None
+    assert rows[1].revoked_at is None
+
+
+def test_stale_policy_version_no_longer_counts_as_active(db):
+    """A past acknowledgement stamped with an older policy version
+    doesn't carry forward if the policy's wording/scope changes —
+    profile must actively re-acknowledge under the new terms."""
+    profile = make_profile(db, birth_year=CURRENT_YEAR - 30)
+    db.add(DietaryConstraint(user_id=1, profile_id=profile.id, category="medical", tag=None, note="renal diet"))
+    db.add(MedicalRecommendationAcknowledgement(profile_id=profile.id, policy_version=0))
+    db.commit()
+
+    assert has_active_medical_acknowledgement(profile, db) is False
+    result = assess_eligibility(profile, db)
+    assert result.enabled is False
 
 
 def test_recipe_warnings_appends_without_dropping_existing():
