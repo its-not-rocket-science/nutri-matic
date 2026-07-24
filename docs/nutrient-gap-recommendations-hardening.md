@@ -77,3 +77,65 @@ produce byte-identical 404 responses) and three new cases in
 `test_recipe_source_allows_public_recipe_from_another_user`. Full backend
 suite: 814 passed (up from 803 before this prompt; +11 new tests, 0
 regressions).
+
+## Prompt 2: strict API parameter validation
+
+Every `/api/recommendations/*` query parameter now has an explicit,
+enforced bound — most via FastAPI's own `Query(..., ge=, le=, gt=)`
+constraints (checked by Pydantic before the endpoint body runs at all,
+so a malformed request never reaches a database query), the rest via a
+new shared module, `app/recommendation_params.py`, for the two checks
+that don't fit a single-field constraint:
+
+- `validate_date_range(start_date, end_date)` — rejects `start_date >
+  end_date` and caps the span at `MAX_DATE_RANGE_DAYS` (90).
+- `parse_priority_nutrients(raw)` — trims whitespace, drops empty
+  tokens, deduplicates, caps the count at `MAX_PRIORITY_NUTRIENTS` (20),
+  and rejects any key not in `nutrients.NUTRIENTS` with a 422 naming the
+  unknown key(s) — a typo'd nutrient key silently behaving as "no
+  priority" would be worse than an explicit rejection.
+
+**Bounds applied** (`routers/recommendations.py`):
+
+| Parameter | Constraint |
+|---|---|
+| `servings` | `0 < servings <= 20` |
+| `max_suggestions` | `1 <= max_suggestions <= 10` |
+| `max_additional_energy` | `0 <= value <= 5000` |
+| `energy_tolerance_kcal` | `0 <= value <= 2000` |
+| `recipe_id`, `entry_id` | positive integers (`gt=0`) |
+| `start_date`/`end_date` | `start <= end`, span `<= 90` days |
+| `priority_nutrients` | trimmed/deduped/capped at 20, every key must be real |
+| `meal` | `Literal["breakfast","lunch","dinner","snack"]` |
+| `source` | `Literal["diary","meal_plan"]` |
+| `goal` | must be a `recommend_recipes.GOAL_PRESETS` key (dynamic, so a plain runtime check rather than a `Literal`) |
+
+`ge`/`le` constraints reject `NaN`/`inf` for free — a `NaN` fails every
+comparison (`nan >= 0` is `False`), and `inf` fails any `le` bound, so no
+separate "reject non-finite" check was needed.
+
+**Ordering fix, not just new constraints**: `get_ingredient_suggestions`
+and `get_recipe_suggestions` previously called `assess_eligibility()` (a
+real `DietaryConstraint` query) *before* checking the scope-combination
+was even valid (`recipe_id` + `entry_date` together, a reversed date
+range, etc.) — a malformed request was doing real database work before
+being rejected. All four endpoints now run every shape/semantic check
+(scope combination, `priority_nutrients`, date-range consistency) first,
+and only reach `assess_eligibility`/entry-loading queries once the
+request is known-valid. `test_invalid_scope_never_reaches_eligibility_
+check` asserts this directly, by making `assess_eligibility` raise if
+called and confirming a malformed request still gets a clean 422 rather
+than an `AssertionError`-turned-500.
+
+Internal candidate-pool bounds (`CANDIDATE_POOL_PER_NUTRIENT`,
+`MAX_PAIR_EVALUATIONS`, etc., prompt 12) are unchanged and remain the
+second line of defence regardless of what a caller requests.
+
+**Tests**: `test_recommendation_params.py` (the two shared validators in
+isolation) and `test_recommendations_param_validation.py` — a table-
+driven, `pytest.mark.parametrize`d suite of 52 cases covering every row
+in the bounds table above, both the rejected and the still-valid
+boundary values (e.g. `max_suggestions` at exactly 1 and 10 must still
+succeed). Full backend suite: 877 passed (up from 814), 0 regressions.
+No frontend change needed — `lib/api.ts` never sends a value outside any
+of these bounds.

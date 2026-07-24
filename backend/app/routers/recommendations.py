@@ -10,8 +10,9 @@ this mirrors.
 """
 
 from datetime import date
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -21,6 +22,7 @@ from ..database import get_db
 from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, RecipeIngredient, User
 from ..nutrient_targets import AnalysisPeriod
 from ..recipe_access import get_visible_recipe
+from ..recommendation_params import parse_priority_nutrients, validate_date_range
 from ..recommendation_safety import assess_eligibility, recipe_warnings
 from ..recommend_ingredients import DEFAULT_MAX_SUGGESTIONS, suggest_ingredients
 from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SUGGESTIONS
@@ -32,8 +34,18 @@ from ..recommend_pairs import suggest_pairs
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
-_MEALS = ("breakfast", "lunch", "dinner", "snack")
-_SOURCES = ("diary", "meal_plan")
+Source = Literal["diary", "meal_plan"]
+MealParam = Literal["breakfast", "lunch", "dinner", "snack"]
+
+# Hardening prompt 2's own worked suggestions, applied consistently across
+# every endpoint below via FastAPI's Query(...) constraints — rejected
+# before any database work runs (FastAPI/Pydantic validates path/query
+# parameters before the endpoint body executes at all).
+MIN_MAX_SUGGESTIONS = 1
+MAX_MAX_SUGGESTIONS = 10
+MAX_SERVINGS = 20.0
+MAX_ADDITIONAL_ENERGY_CAP = 5000.0
+MAX_ENERGY_TOLERANCE_CAP = 2000.0
 
 
 def _load_entries(db: Session, profile: Profile, entry_date: date, source: str) -> list:
@@ -103,12 +115,12 @@ def get_ingredient_suggestions(
     entry_date: date | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
-    recipe_id: int | None = None,
-    servings: float = 1.0,
-    meal: str | None = None,
-    source: str = "diary",
-    max_additional_energy: float | None = None,
-    max_suggestions: int = DEFAULT_MAX_SUGGESTIONS,
+    recipe_id: int | None = Query(default=None, gt=0),
+    servings: float = Query(default=1.0, gt=0, le=MAX_SERVINGS),
+    meal: MealParam | None = None,
+    source: Source = "diary",
+    max_additional_energy: float | None = Query(default=None, ge=0, le=MAX_ADDITIONAL_ENERGY_CAP),
+    max_suggestions: int = Query(default=DEFAULT_MAX_SUGGESTIONS, ge=MIN_MAX_SUGGESTIONS, le=MAX_MAX_SUGGESTIONS),
     priority_nutrients: str | None = None,
     current_user: User = Depends(get_current_user),
     profile: Profile = Depends(get_owned_profile),
@@ -142,26 +154,32 @@ def get_ingredient_suggestions(
     Returns an empty `suggestions` list — never an error — when nothing
     logged has any gap to close, or no safe/useful candidate exists.
     """
-    if source not in _SOURCES:
-        raise HTTPException(status_code=422, detail=f"source must be one of {_SOURCES}")
-    if meal is not None and meal not in _MEALS:
-        raise HTTPException(status_code=422, detail=f"meal must be one of {_MEALS}")
-
-    eligibility = assess_eligibility(profile, db)
-    if not eligibility.enabled:
-        return schemas.IngredientSuggestionsOut(suggestions=[], disabled_reason=eligibility.disabled_reason)
-
+    # --- basic shape/semantic validation first, no database work yet ---
     scopes_given = sum([recipe_id is not None, entry_date is not None, start_date is not None or end_date is not None])
     if scopes_given != 1:
         raise HTTPException(
             status_code=422, detail="give exactly one of entry_date, start_date+end_date, or recipe_id",
         )
+    if recipe_id is not None and meal is not None:
+        raise HTTPException(status_code=422, detail="meal is not compatible with recipe_id")
+    if start_date is not None or end_date is not None:
+        if start_date is None or end_date is None:
+            raise HTTPException(status_code=422, detail="start_date and end_date must both be given")
+        if source != "meal_plan":
+            raise HTTPException(status_code=422, detail="a multi-day range requires source='meal_plan'")
+        if meal is not None:
+            raise HTTPException(status_code=422, detail="meal is not compatible with a multi-day range")
+        validate_date_range(start_date, end_date)
+    priority_keys = parse_priority_nutrients(priority_nutrients)
+
+    # --- only now does any database work start ---
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.IngredientSuggestionsOut(suggestions=[], disabled_reason=eligibility.disabled_reason)
 
     already_consumed_by_key: dict[str, float] | None = None
 
     if recipe_id is not None:
-        if meal is not None:
-            raise HTTPException(status_code=422, detail="meal is not compatible with recipe_id")
         _recipe, items = _recipe_as_items(db, current_user, recipe_id, servings)
         period = AnalysisPeriod.MEAL
         day_count = 1
@@ -170,12 +188,6 @@ def get_ingredient_suggestions(
         for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
             nutrients_by_food_id.setdefault(row.food_id, []).append(row)
     elif start_date is not None or end_date is not None:
-        if start_date is None or end_date is None:
-            raise HTTPException(status_code=422, detail="start_date and end_date must both be given")
-        if source != "meal_plan":
-            raise HTTPException(status_code=422, detail="a multi-day range requires source='meal_plan'")
-        if meal is not None:
-            raise HTTPException(status_code=422, detail="meal is not compatible with a multi-day range")
         entries = _load_entries_range(db, profile, start_date, end_date, source)
         period = AnalysisPeriod.MULTI_DAY
         day_count = (end_date - start_date).days + 1
@@ -220,8 +232,6 @@ def get_ingredient_suggestions(
                 other_nutrients_by_food_id.setdefault(row.food_id, []).append(row)
             already_consumed_by_key = aggregate_nutrients(other_items, other_nutrients_by_food_id)
 
-    priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
-
     result = suggest_ingredients(
         db, profile, items, nutrients_by_food_id, period,
         max_additional_energy=max_additional_energy, max_suggestions=max_suggestions,
@@ -248,9 +258,11 @@ def get_recipe_suggestions(
     entry_date: date | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
-    source: str = "diary",
-    max_additional_energy: float | None = None,
-    max_suggestions: int = DEFAULT_MAX_RECIPE_SUGGESTIONS,
+    source: Source = "diary",
+    max_additional_energy: float | None = Query(default=None, ge=0, le=MAX_ADDITIONAL_ENERGY_CAP),
+    max_suggestions: int = Query(
+        default=DEFAULT_MAX_RECIPE_SUGGESTIONS, ge=MIN_MAX_SUGGESTIONS, le=MAX_MAX_SUGGESTIONS,
+    ),
     priority_nutrients: str | None = None,
     goal: str | None = None,
     current_user: User = Depends(get_current_user),
@@ -268,24 +280,26 @@ def get_recipe_suggestions(
     an explicit `priority_nutrients` overrides it. Returns an empty
     `suggestions` list — never an error — when nothing logged has a gap,
     or no visible recipe helps."""
-    if source not in _SOURCES:
-        raise HTTPException(status_code=422, detail=f"source must be one of {_SOURCES}")
+    # --- basic shape/semantic validation first, no database work yet ---
     if goal is not None and goal not in GOAL_PRESETS:
         raise HTTPException(status_code=422, detail=f"goal must be one of {sorted(GOAL_PRESETS)}")
-
-    eligibility = assess_eligibility(profile, db)
-    if not eligibility.enabled:
-        return schemas.RecipeSuggestionsOut(suggestions=[], disabled_reason=eligibility.disabled_reason)
-
     is_range = start_date is not None or end_date is not None
     if is_range == (entry_date is not None):
         raise HTTPException(status_code=422, detail="give exactly one of entry_date or start_date+end_date")
-
     if is_range:
         if start_date is None or end_date is None:
             raise HTTPException(status_code=422, detail="start_date and end_date must both be given")
         if source != "meal_plan":
             raise HTTPException(status_code=422, detail="a multi-day range requires source='meal_plan'")
+        validate_date_range(start_date, end_date)
+    priority_keys = parse_priority_nutrients(priority_nutrients)
+
+    # --- only now does any database work start ---
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.RecipeSuggestionsOut(suggestions=[], disabled_reason=eligibility.disabled_reason)
+
+    if is_range:
         entries = _load_entries_range(db, profile, start_date, end_date, source)
         period = AnalysisPeriod.MULTI_DAY
         day_count = (end_date - start_date).days + 1
@@ -304,8 +318,6 @@ def get_recipe_suggestions(
     nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
     for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
         nutrients_by_food_id.setdefault(row.food_id, []).append(row)
-
-    priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
 
     result = suggest_recipes(
         db, profile, current_user, items, nutrients_by_food_id, period,
@@ -332,11 +344,13 @@ def get_recipe_suggestions(
 
 @router.get("/substitutions", response_model=schemas.SubstitutionSuggestionsOut)
 def get_substitution_suggestions(
-    entry_id: int,
-    source: str = "diary",
-    max_suggestions: int = DEFAULT_MAX_SUBSTITUTION_SUGGESTIONS,
+    entry_id: int = Query(gt=0),
+    source: Source = "diary",
+    max_suggestions: int = Query(
+        default=DEFAULT_MAX_SUBSTITUTION_SUGGESTIONS, ge=MIN_MAX_SUGGESTIONS, le=MAX_MAX_SUGGESTIONS,
+    ),
     priority_nutrients: str | None = None,
-    energy_tolerance_kcal: float = 150.0,
+    energy_tolerance_kcal: float = Query(default=150.0, ge=0, le=MAX_ENERGY_TOLERANCE_CAP),
     current_user: User = Depends(get_current_user),
     profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
@@ -347,8 +361,7 @@ def get_substitution_suggestions(
     directly). Never modifies the entry itself: applying a suggestion is
     the caller's job, via the existing delete-then-recreate endpoints
     (see recommend_substitutions.py's module docstring)."""
-    if source not in ("diary", "meal_plan"):
-        raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
+    priority_keys = parse_priority_nutrients(priority_nutrients)
 
     model = MealPlanEntry if source == "meal_plan" else DiaryEntry
     entry = db.query(model).filter(model.id == entry_id, model.profile_id == profile.id).one_or_none()
@@ -387,8 +400,6 @@ def get_substitution_suggestions(
     for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
         nutrients_by_food_id.setdefault(row.food_id, []).append(row)
 
-    priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
-
     result = suggest_substitutions(
         db, profile, current_user, other_items, current_recipe, entry.quantity_servings, nutrients_by_food_id,
         AnalysisPeriod.DAY, max_suggestions=max_suggestions, priority_nutrient_keys=priority_keys,
@@ -419,9 +430,9 @@ def get_substitution_suggestions(
 @router.get("/pairs", response_model=schemas.PairSuggestionsOut)
 def get_pair_suggestions(
     entry_date: date,
-    source: str = "diary",
-    max_additional_energy: float | None = None,
-    max_suggestions: int = DEFAULT_MAX_PAIR_SUGGESTIONS,
+    source: Source = "diary",
+    max_additional_energy: float | None = Query(default=None, ge=0, le=MAX_ADDITIONAL_ENERGY_CAP),
+    max_suggestions: int = Query(default=DEFAULT_MAX_PAIR_SUGGESTIONS, ge=MIN_MAX_SUGGESTIONS, le=MAX_MAX_SUGGESTIONS),
     priority_nutrients: str | None = None,
     current_user: User = Depends(get_current_user),
     profile: Profile = Depends(get_owned_profile),
@@ -433,8 +444,7 @@ def get_pair_suggestions(
     CURATED_PAIRS` actually supports; scores the pair's real *combined*
     effect, not the sum of each food's own score. Bounded search
     (`recommend_pairs.MAX_PAIR_EVALUATIONS`) regardless of catalog size."""
-    if source not in ("diary", "meal_plan"):
-        raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
+    priority_keys = parse_priority_nutrients(priority_nutrients)
 
     eligibility = assess_eligibility(profile, db)
     if not eligibility.enabled:
@@ -451,8 +461,6 @@ def get_pair_suggestions(
     nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
     for row in db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(all_food_ids)).all():
         nutrients_by_food_id.setdefault(row.food_id, []).append(row)
-
-    priority_keys = set(priority_nutrients.split(",")) if priority_nutrients else None
 
     result = suggest_pairs(
         db, profile, items, nutrients_by_food_id, AnalysisPeriod.DAY,
