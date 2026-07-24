@@ -107,6 +107,7 @@ def _entry_out(entry: DiaryEntry, foods_by_id: dict[int, Food], recipes_by_id: d
         recipe_id=entry.recipe_id,
         recipe_name=recipes_by_id[entry.recipe_id].name if entry.recipe_id else None,
         quantity_servings=entry.quantity_servings,
+        updated_at=entry.updated_at,
     )
 
 

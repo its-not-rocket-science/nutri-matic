@@ -64,7 +64,14 @@ def client():
         id=2, name="Lentils", protein_g_per_100g=9.0,
         amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
     )
-    db.add_all([rice, lentils])
+    # "meat"-tagged (dietary_tags.TAGS["meat"]) — hard-excluded once a
+    # profile's dietary_pattern is "vegan"/"vegetarian", for the apply-time
+    # dietary-revalidation test below
+    beef = Food(
+        id=3, name="Beef, ground, cooked", protein_g_per_100g=26.0,
+        amino_acids=dict.fromkeys(AMINO_ACIDS), data_type="sr_legacy_food",
+    )
+    db.add_all([rice, lentils, beef])
     db.flush()
     db.add_all([
         FoodNutrient(food_id=1, nutrient_key="energy", amount_per_100g=130.0),
@@ -73,6 +80,7 @@ def client():
         FoodNutrient(food_id=2, nutrient_key="fiber_total", amount_per_100g=8.0),
         FoodNutrient(food_id=2, nutrient_key="energy", amount_per_100g=116.0),
         FoodNutrient(food_id=2, nutrient_key="iron", amount_per_100g=3.3),
+        FoodNutrient(food_id=3, nutrient_key="energy", amount_per_100g=250.0),
     ])
     db.commit()
     db.close()
@@ -196,6 +204,7 @@ class TestAccessControl:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe["id"],
+                "expected_updated_at": entry["updated_at"],
                 "replacement_recipe_id": replacement_recipe["id"],
                 "replacement_servings": 1,
             },
@@ -450,6 +459,7 @@ class TestMutation:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe["id"],
+                "expected_updated_at": entry["updated_at"],
                 "replacement_recipe_id": replacement_recipe["id"],
                 "replacement_servings": 2,
             },
@@ -479,12 +489,48 @@ class TestMutation:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": replacement_recipe["id"],  # wrong on purpose
+                "expected_updated_at": entry["updated_at"],
                 "replacement_recipe_id": replacement_recipe["id"],
                 "replacement_servings": 1,
             },
             headers=headers,
         )
         assert res.status_code == 409
+        day = client_.get("/api/diary?entry_date=2026-01-01", headers=headers).json()
+        assert next(e for e in day["entries"] if e["id"] == entry["id"])["recipe_id"] == current_recipe["id"]
+
+    def test_replacement_recipe_revalidated_against_current_dietary_constraints(self, client):
+        """Prompt 8's follow-up review: the replacement recipe must be
+        re-checked against the profile's *current* dietary constraints at
+        apply time — a constraint added after the suggestion was
+        generated must still block the apply, not just visibility and
+        eligibility."""
+        client_, _ = client
+        token = register_and_token(client_, "mu-e@example.com")
+        headers = auth_headers(token)
+        current_recipe = make_recipe(client_, token, "Rice Bowl")
+        entry = log_recipe_entry(client_, headers, current_recipe["id"])
+        beef_recipe = make_recipe(client_, token, "Beef Bowl", food_id=3, quantity_g=200)
+
+        profile_id = client_.get("/api/profiles", headers=headers).json()[0]["id"]
+        client_.put(
+            f"/api/profiles/{profile_id}",
+            json={"name": "Me", "sex": None, "birth_year": None, "dietary_pattern": "vegan"},
+            headers=headers,
+        )
+
+        res = client_.post(
+            "/api/recommendations/substitutions/apply",
+            json={
+                "entry_id": entry["id"], "source": "diary",
+                "expected_current_recipe_id": current_recipe["id"],
+                "expected_updated_at": entry["updated_at"],
+                "replacement_recipe_id": beef_recipe["id"],
+                "replacement_servings": 1,
+            },
+            headers=headers,
+        )
+        assert res.status_code == 422
         day = client_.get("/api/diary?entry_date=2026-01-01", headers=headers).json()
         assert next(e for e in day["entries"] if e["id"] == entry["id"])["recipe_id"] == current_recipe["id"]
 
@@ -499,6 +545,7 @@ class TestMutation:
         payload = {
             "entry_id": entry["id"], "source": "diary",
             "expected_current_recipe_id": current_recipe["id"],
+            "expected_updated_at": entry["updated_at"],
             "replacement_recipe_id": replacement_recipe["id"],
             "replacement_servings": 1,
         }
@@ -506,3 +553,30 @@ class TestMutation:
         second = client_.post("/api/recommendations/substitutions/apply", json=payload, headers=headers)
         assert first.status_code == 200
         assert second.status_code == 409  # the replay no longer matches — defined, not silently repeated
+
+    def test_stale_expected_updated_at_alone_rejected(self, client):
+        """Companion to the recipe_id staleness check above: a correct
+        expected_current_recipe_id but wrong expected_updated_at must
+        still 409 — the broader "full entry-version" signal, not just
+        "did the recipe change" (prompt 8's follow-up review)."""
+        client_, _ = client
+        token = register_and_token(client_, "mu-d@example.com")
+        headers = auth_headers(token)
+        current_recipe = make_recipe(client_, token, "Rice Bowl")
+        entry = log_recipe_entry(client_, headers, current_recipe["id"])
+        replacement_recipe = make_recipe(client_, token, "Lentil Bowl", food_id=2, quantity_g=224)
+
+        res = client_.post(
+            "/api/recommendations/substitutions/apply",
+            json={
+                "entry_id": entry["id"], "source": "diary",
+                "expected_current_recipe_id": current_recipe["id"],
+                "expected_updated_at": "2020-01-01T00:00:00Z",
+                "replacement_recipe_id": replacement_recipe["id"],
+                "replacement_servings": 1,
+            },
+            headers=headers,
+        )
+        assert res.status_code == 409
+        day = client_.get("/api/diary?entry_date=2026-01-01", headers=headers).json()
+        assert next(e for e in day["entries"] if e["id"] == entry["id"])["recipe_id"] == current_recipe["id"]

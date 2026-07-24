@@ -598,6 +598,7 @@ class DiaryEntryOut(BaseModel):
     recipe_id: int | None
     recipe_name: str | None
     quantity_servings: float | None
+    updated_at: datetime
 
 
 class MealIronBioavailabilityOut(BaseModel):
@@ -778,6 +779,7 @@ class MealPlanEntryOut(BaseModel):
     recipe_id: int | None
     recipe_name: str | None
     quantity_servings: float | None
+    updated_at: datetime
 
 
 class FoodPriceCreate(BaseModel):
@@ -1187,6 +1189,13 @@ class SubstitutionSuggestionOut(BaseModel):
     current_recipe_id: int
     current_recipe_name: str
     current_servings: float
+    # the target entry's version signal at the moment this suggestion was
+    # generated — round-trip this back unmodified as
+    # `SubstitutionApplyIn.expected_updated_at` (hardening prompt 6/8's
+    # "full entry-version or timestamp checking", broader than
+    # current_recipe_id alone, which wouldn't catch some other field on
+    # the entry changing without the recipe itself changing).
+    current_entry_updated_at: datetime
     replacement_recipe_id: int
     replacement_recipe_name: str
     replacement_servings: float
@@ -1214,6 +1223,7 @@ class SubstitutionSuggestionOut(BaseModel):
 class SubstitutionSuggestionsOut(BaseModel):
     current_recipe_id: int
     current_recipe_name: str
+    current_entry_updated_at: datetime | None = None
     suggestions: list[SubstitutionSuggestionOut]
     warnings: list[str] = []
     disabled_reason: str | None = None
@@ -1221,19 +1231,28 @@ class SubstitutionSuggestionsOut(BaseModel):
 
 
 class SubstitutionApplyIn(BaseModel):
-    """Hardening prompt 6. `expected_current_recipe_id` must match the
-    entry's *current* `recipe_id` at apply time — it's the value the
-    suggestion was generated against (`SubstitutionSuggestionOut.
-    current_recipe_id`). A mismatch means the entry moved on since the
-    suggestion was shown (edited, already substituted, or replayed) and
-    the apply is rejected with 409 rather than silently overwriting
-    whatever is there now — this doubles as duplicate-apply protection,
-    since a second identical request no longer matches after the first
-    one succeeds."""
+    """Hardening prompt 6, extended by prompt 8's follow-up review.
+    `expected_current_recipe_id` must match the entry's *current*
+    `recipe_id` at apply time — it's the value the suggestion was
+    generated against (`SubstitutionSuggestionOut.current_recipe_id`). A
+    mismatch means the entry moved on since the suggestion was shown
+    (edited, already substituted, or replayed) and the apply is rejected
+    with 409 rather than silently overwriting whatever is there now —
+    this doubles as duplicate-apply protection, since a second identical
+    request no longer matches after the first one succeeds.
+
+    `expected_updated_at` is the broader, "full entry-version" companion
+    check (`SubstitutionSuggestionOut.current_entry_updated_at`,
+    round-tripped unmodified): `recipe_id` alone only catches the recipe
+    itself changing, not some other field on the entry changing in
+    between (e.g. `quantity_servings` edited by a future update endpoint)
+    — comparing the entry's whole mutation timestamp catches any such
+    drift, not just a recipe swap specifically."""
 
     entry_id: int = Field(gt=0)
     source: Literal["diary", "meal_plan"] = "diary"
     expected_current_recipe_id: int = Field(gt=0)
+    expected_updated_at: datetime
     replacement_recipe_id: int = Field(gt=0)
     replacement_servings: float = Field(gt=0, le=20.0)
 

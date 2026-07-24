@@ -181,3 +181,43 @@ def test_cannot_access_other_users_template(client):
         ).status_code
         == 404
     )
+
+
+def test_apply_template_keeps_a_shared_not_owned_recipe(client):
+    """Same bug class hardening prompt 6 fixed in diary.py/meal_plan.py's
+    own create paths (found during the prompt 8 follow-up review):
+    apply_template used to check `recipe.user_id == current_user.id`
+    (outright ownership), which silently dropped any template item whose
+    recipe the applying user could see but didn't own — e.g. one shared
+    with them, exactly the case here."""
+    owner_token = register_and_token(client, "owner@example.com")
+    recipient_token = register_and_token(client, "recipient@example.com")
+    recipe = client.post(
+        "/api/recipes",
+        json={"name": "Owner's Recipe", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 100}]},
+        headers=auth_headers(owner_token),
+    ).json()
+    client.post(
+        f"/api/recipes/{recipe['id']}/shares",
+        json={"email": "recipient@example.com"},
+        headers=auth_headers(owner_token),
+    )
+    client.post(
+        "/api/diary",
+        json={"entry_date": "2026-07-13", "meal": "breakfast", "recipe_id": recipe["id"], "quantity_servings": 1},
+        headers=auth_headers(recipient_token),
+    )
+    template = client.post(
+        "/api/diary-meal-templates",
+        json={"name": "Shared breakfast", "entry_date": "2026-07-13", "meal": "breakfast"},
+        headers=auth_headers(recipient_token),
+    ).json()
+
+    res = client.post(
+        f"/api/diary-meal-templates/{template['id']}/apply?entry_date=2026-07-20&meal=lunch",
+        headers=auth_headers(recipient_token),
+    )
+    assert res.status_code == 201
+    created = res.json()
+    assert len(created) == 1
+    assert created[0]["recipe_id"] == recipe["id"]

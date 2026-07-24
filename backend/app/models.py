@@ -604,6 +604,18 @@ class DiaryEntry(Base):
     recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # bumped on every mutation (currently only the substitution-apply
+    # endpoint mutates an existing row rather than delete+recreate) — the
+    # entry-version signal `SubstitutionApplyIn.expected_updated_at` checks
+    # against, hardening prompt 6/8's "full entry-version or timestamp
+    # checking" requirement, broader than comparing recipe_id alone (which
+    # wouldn't catch some other field changing without the recipe itself
+    # changing).
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),
+    )
+
 
 class DiarySnapshot(Base):
     """A frozen copy of a diary day's computed nutrient breakdown, taken
@@ -720,6 +732,13 @@ class MealPlanEntry(Base):
 
     recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # see DiaryEntry.updated_at's own docstring — same entry-version signal,
+    # same reason.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class FoodPrice(Base):

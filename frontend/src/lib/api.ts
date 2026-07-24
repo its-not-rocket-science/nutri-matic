@@ -343,6 +343,7 @@ export const api = {
 		entryId: number;
 		source: 'diary' | 'meal_plan';
 		expectedCurrentRecipeId: number;
+		expectedUpdatedAt: string;
 		replacementRecipeId: number;
 		replacementServings: number;
 	}) =>
@@ -352,6 +353,7 @@ export const api = {
 				entry_id: args.entryId,
 				source: args.source,
 				expected_current_recipe_id: args.expectedCurrentRecipeId,
+				expected_updated_at: args.expectedUpdatedAt,
 				replacement_recipe_id: args.replacementRecipeId,
 				replacement_servings: args.replacementServings
 			})

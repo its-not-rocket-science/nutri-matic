@@ -781,3 +781,82 @@ hand-written) — run once, output captured verbatim, not edited except
 for whitespace/truncation for readability in this table.
 
 No core hardening requirement from `prompts.txt` was left as a TODO.
+
+## Follow-up: closing two remaining limitations from Prompt 8
+
+Prompt 8's "Remaining limitations" section named two specific gaps in
+the substitution-apply endpoint. Both are now closed:
+
+**1. Replacement recipe now revalidated against current dietary
+constraints at apply time.** `apply_substitution` calls `dietary_filter.
+filter_excluded_recipes([replacement], db, profile)` after resolving the
+replacement's visibility and before mutating the entry; an empty result
+(the replacement hard-conflicts with the profile's current
+`dietary_pattern`/`DietaryConstraint` tags) is rejected with 422, and the
+original entry is left untouched. This catches a constraint added
+*after* the suggestion was generated but *before* it was applied — the
+same "revalidate at apply time" principle already applied to recipe
+visibility and eligibility, extended to dietary fit specifically. Only
+hard exclusions are enforced here (matching `filter_excluded_recipes`'s
+existing "avoid"-severity-is-left-in-place convention everywhere else in
+the app) — an "avoid" constraint on the replacement doesn't block the
+apply, same as it never blocked the original suggestion from being shown.
+
+**2. Full entry-version/timestamp checking added, not just recipe_id.**
+`DiaryEntry`/`MealPlanEntry` both gained an `updated_at` column (Python-
+side `datetime.now(timezone.utc)` default and `onupdate`, matching this
+codebase's existing timestamp convention — no `server_default`/dialect-
+specific SQL, so it behaves identically on SQLite in tests and Postgres
+in production). `SubstitutionApplyIn` gained a required
+`expected_updated_at`, checked alongside the existing
+`expected_current_recipe_id`: either mismatch now 409s. The recipe_id
+check alone couldn't catch a hypothetical future edit that changed some
+other field (e.g. `quantity_servings`) without touching `recipe_id` —
+the timestamp check does, because `onupdate` bumps it on *any* UPDATE to
+the row, not just a recipe change specifically. `GET /api/
+recommendations/substitutions` now returns the entry's current
+`updated_at` as `current_entry_updated_at` (both at the top level and,
+matching the existing `current_recipe_id`/`current_recipe_name`
+duplication convention, per-suggestion) so the frontend can round-trip
+it back into the apply call without restructuring how suggestions are
+threaded through `ImproveThis.svelte`. `DiaryEntryOut`/`MealPlanEntryOut`
+also gained `updated_at`, needed for tests (and any future caller) to
+obtain the value directly from the create/list endpoints without a
+round-trip through the substitutions endpoint.
+
+**A third bug found and fixed along the way**: the same ownership-only
+recipe check hardening prompt 6 fixed in `diary.py`/`meal_plan.py` was
+still present, unfixed, in the meal/plan *template*-apply flows —
+`routers/diary_meal_templates.py`'s `apply_template` and `routers/
+meal_plan_templates.py`'s `apply_template` both silently skipped any
+template item whose recipe wasn't owned outright by the applying user,
+which would have silently dropped a public/stock/shared recipe from a
+saved template on apply. Fixed the same way: swapped the `recipe.user_id
+!= current_user.id` check for `not is_recipe_visible(recipe,
+current_user, db)` in both files. This wasn't caught by prompt 6's
+original audit because that audit's explicit scope list didn't name
+"meal template apply" — a reminder that "audit all apply flows" is
+easy to under-scope by enumeration; the recipe_access.py module existing
+as one canonical check is exactly what made this a two-line fix once
+found, rather than a third re-implementation.
+
+**Tests**: `test_recommendations_substitutions_api.py` gained
+`test_stale_expected_updated_at_rejected_with_409` and
+`test_replacement_recipe_conflicting_with_dietary_exclusion_rejected`
+(plus `expected_updated_at` added to every existing apply-endpoint test
+payload); `test_hardening_regression_suite.py` gained the equivalent
+`TestMutation::test_stale_expected_updated_at_alone_rejected` and
+`TestMutation::test_replacement_recipe_revalidated_against_current_
+dietary_constraints`. The template-apply fix got its own regression
+test in each file — `test_diary_meal_templates.py::
+test_apply_template_keeps_a_shared_not_owned_recipe` and
+`test_meal_plan_templates.py::test_apply_template_keeps_a_shared_not_
+owned_recipe` — since neither file previously exercised a non-owned-
+but-visible (shared) recipe in a template at all; this was a silent gap
+in existing coverage, not a regression, but "add regression tests for
+every security/validation change" applies to a bug fix found mid-review
+just as much as one found in a dedicated audit.
+
+Full backend suite: 957 passed (up from 951), 0 regressions. Frontend
+`vitest run` (17 passed), `svelte-check` (0 errors, same 1 pre-existing
+unrelated warning), and the production build all remain green.

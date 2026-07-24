@@ -773,6 +773,7 @@ export interface SubstitutionSuggestion {
 	current_recipe_id: number;
 	current_recipe_name: string;
 	current_servings: number;
+	current_entry_updated_at: string;
 	replacement_recipe_id: number;
 	replacement_recipe_name: string;
 	replacement_servings: number;
@@ -800,6 +801,7 @@ export interface SubstitutionSuggestion {
 export interface SubstitutionSuggestions {
 	current_recipe_id: number;
 	current_recipe_name: string;
+	current_entry_updated_at: string | null;
 	suggestions: SubstitutionSuggestion[];
 	warnings: string[];
 	disabled_reason: string | null;

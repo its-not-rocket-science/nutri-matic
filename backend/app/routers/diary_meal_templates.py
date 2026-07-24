@@ -7,6 +7,7 @@ from .. import schemas
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..models import DiaryEntry, DiaryMealTemplate, DiaryMealTemplateItem, Food, Profile, Recipe, User
+from ..recipe_access import is_recipe_visible
 from ..schemas import Meal
 
 router = APIRouter(prefix="/api/diary-meal-templates", tags=["diary-meal-templates"])
@@ -119,11 +120,15 @@ def apply_template(
 
     created: list[DiaryEntry] = []
     for item in items:
-        # a recipe in the template might since have been deleted, or (if it were ever transferred)
-        # no longer belong to this user — skip rather than fail the whole apply for one stale item
+        # a recipe in the template might since have been deleted, made
+        # private, or unshared — skip rather than fail the whole apply for
+        # one stale item. Visibility (owner/shared/public), not outright
+        # ownership — a template item pointing at a shared or public/stock
+        # recipe is still legitimately applicable (same bug class hardening
+        # prompt 6 fixed in diary.py/meal_plan.py's own create paths).
         if item.recipe_id is not None:
             recipe = db.get(Recipe, item.recipe_id)
-            if recipe is None or recipe.user_id != current_user.id:
+            if recipe is None or not is_recipe_visible(recipe, current_user, db):
                 continue
         if item.food_id is not None and db.get(Food, item.food_id) is None:
             continue
@@ -161,6 +166,7 @@ def apply_template(
             recipe_id=e.recipe_id,
             recipe_name=recipes_by_id[e.recipe_id].name if e.recipe_id else None,
             quantity_servings=e.quantity_servings,
+            updated_at=e.updated_at,
         )
         for e in created
     ]
