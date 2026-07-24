@@ -761,4 +761,35 @@ version (food/recipe/alias data), recommendation mode, energy cap, and
 priority nutrients — exactly the prompt's list — and must never be a
 globally-shared cache keyed on anything less specific than one profile's
 one request.
-plan" panel renders its correct empty state.
+
+## Prompt 13: recommendation-quality regression fixtures
+
+`test_recommendation_quality_fixtures.py` — a permanent, table-driven
+suite: one `test_scenario_NN_*` function per named scenario from the
+prompt (12 total), each with its own small deterministic fixture
+catalogue, going through the real `suggest_ingredients`/`suggest_recipes`/
+`suggest_substitutions`/`suggest_pairs` entry points end to end rather
+than unit-testing an internal function. Per the prompt's own instruction,
+assertions check ranking invariants and structural fields (does A outrank
+B, is an excluded item ever present, does a rejection/empty-result happen
+where expected) — never a fragile exact score value.
+
+The 12 scenarios, in order: low fibre/folate favouring lentils over oil/
+cheese; low calcium under a modest energy cap; an iron gap with sodium
+near its limit penalising a high-sodium iron source; a vegan profile
+excluding animal products; a nut allergy excluding both a nut ingredient
+and a nut-containing recipe; energy fully allocated (addition mode finds
+nothing, substitution mode still can, since it isn't constrained by
+extra-energy headroom); adequate protein quantity but weak lysine quality
+improved by a complementary legume recipe; missing candidate data
+reducing rank; a category-proxy recipe (low `match_coverage_lines`)
+ranking below an otherwise-identical exact-data recipe; extreme
+oversupply not winning purely by quantity once a target's covered; two
+foods that combine badly being rejected by the pair optimiser; and
+near-identical recipes being deduplicated by the primary-ingredient
+diversity rule.
+
+This is where prompt 14's "adding regression scenarios" maintainer
+instruction points a future contributor — add a new `test_scenario_NN_*`
+function here, following the same pattern (small fixture catalogue,
+assert the invariant, not the score).
