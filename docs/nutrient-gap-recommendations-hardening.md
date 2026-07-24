@@ -527,3 +527,257 @@ which necessarily monkeypatches `suggest_ingredients` to prove it's
   replayed/duplicate apply 409s on the second attempt.
 
 Full backend suite: 951 passed (up from 930), 0 regressions.
+
+**Review note (found while writing prompt 8's final report, fixed
+before it)**: two of this suite's own tests —
+`test_provenance_and_mapping_quality_serialised_for_recipe_suggestions`
+and `test_legacy_null_provenance_handled_without_error` — queried recipe
+suggestions with no prior meal logged, which meant the very first
+candidate's whole energy contribution looked like an overshoot from a
+zero baseline and every candidate scored `<= 0` and was silently
+dropped. Both tests then looped over an *empty* `suggestions` list and
+passed without ever touching a single assertion — a vacuous pass, not
+real coverage. Fixed by logging a small prior diary entry first (the
+same pattern `test_recommendations_provenance_api.py` already used) and
+adding an explicit non-empty assertion, plus a direct check of the
+legacy-null case's expected-null fields. Still 951 passed after the fix
+(no new test count change, same 21 in this file — the fix corrected
+what two of them actually check).
+
+## Prompt 8: final review and validation
+
+**All 10 required items verified, with the evidence that backs each:**
+
+1. **Direct recipe scopes enforce normal visibility.** `_recipe_as_items()`
+   (`routers/recommendations.py`) calls `get_visible_recipe()`, never a
+   bare `db.get`. Verified by `test_recipe_access.py` and
+   `test_hardening_regression_suite.py::TestAccessControl`.
+2. **No private-resource enumeration is possible.** Inaccessible-private
+   and nonexistent recipes return byte-identical 404 bodies — verified
+   directly in `TestAccessControl::test_private_recipe_existence_is_not_
+   disclosed` and originally in `test_recipe_access.py`.
+3. **Every public parameter has documented, tested bounds.** See the
+   bounds table in Prompt 2 above and `test_recommendations_param_
+   validation.py`'s 52 table-driven cases, cross-checked again in
+   `TestInputValidation`.
+4. **Invalid scopes fail before unnecessary database work.**
+   `test_invalid_scope_never_reaches_eligibility_check`
+   (`test_recommendations_api.py`) makes `assess_eligibility` raise if
+   called, and confirms a malformed request still 422s cleanly.
+5. **API results expose total score, score breakdown, model version,
+   data coverage and relevant provenance/mapping quality.** Prompts 3–4;
+   re-verified end-to-end in `TestAuditability`.
+6. **Default UI remains concise and accessible.** The score breakdown
+   and quality-summary detail live behind existing/added collapsed
+   `<details>` disclosures ("Why this ranked here"), closed by default —
+   `svelte-check` clean, `vitest` green, confirmed by manual read of
+   `RecommendationCard.svelte`.
+7. **Profiles with unparsed medical constraints are disabled by
+   default.** Prompt 5; re-verified in `TestSafety::test_medical_
+   constraint_disabled_by_default`.
+8. **Under-18, pregnancy and lactation behaviour remains correct.**
+   Preserved from prompt 11, re-verified in `TestSafety` (age disable,
+   pregnancy+lactation warning codes both present together).
+9. **Apply flows are authorised and atomic.** Prompt 6; re-verified in
+   `TestAccessControl::test_apply_endpoints_cannot_mutate_another_
+   profile` and `TestMutation` (atomic replacement, stale rejection,
+   duplicate-apply rejection).
+10. **Existing valid clients remain backwards compatible.** Every change
+    across all 7 prompts was additive to response schemas (new optional
+    fields, new nested objects) or tightened validation only on
+    previously-*invalid* input (`Query` constraints reject values no
+    valid existing request would send — confirmed in prompt 2 by "no
+    frontend change needed, `lib/api.ts` never sends a value outside any
+    of these bounds"); no existing field was renamed, removed, or
+    changed type; no previously-200 request now errors.
+
+### Checks actually run, with real results
+
+| Check | Command | Result |
+|---|---|---|
+| Backend full suite | `python -m pytest -q` (from `backend/`) | **951 passed**, 0 failed, 0 regressions |
+| Frontend unit tests | `npx vitest run` (from `frontend/`) | **17 passed** (3 test files) |
+| Frontend type check | `npx svelte-check --tsconfig ./tsconfig.json` | **0 errors**, 1 pre-existing unrelated warning (`meal-plan/+page.svelte`'s `weekDates` reference, predates this hardening pass) |
+| Production build | `npm run build` (from `frontend/`) | **succeeded** (`✓ built in 15.57s`) |
+| Linting | — | **no linter is configured** in this repo (no ESLint/Ruff/flake8 config found in either `frontend/` or `backend/`) — confirmed by direct inspection, not assumed |
+| Formatting | — | **no formatter is configured** (no Prettier/Black config found) — same basis |
+
+No integration/security-regression suite exists separately from the
+backend suite above — `test_hardening_regression_suite.py` (prompt 7)
+and every `test_recommendations_*`/`test_recipe_access.py`/
+`test_recommendation_*` file *are* the security-regression suite, and
+they all run as part of the one `pytest -q` command reported above.
+
+### Security decisions made this pass
+
+- **Recipe access is its own boundary, resolved in one place**
+  (`recipe_access.py`), never re-derived per endpoint — a boolean
+  variant (`is_recipe_visible`) was added rather than a second resolver
+  when the visibility rule needed to be reused with a different status
+  code, keeping exactly one source of truth for "can this user see this
+  recipe".
+- **404, never 403, for every inaccessible-recipe case** — preserved
+  and extended, never weakened.
+- **A medical dietary constraint disables the whole engine by default**,
+  requiring an explicit, stored, revocable acknowledgement — never a
+  query-string bypass, never based on parsing the constraint's free-text
+  note.
+- **Substitution apply is a single authorised, ownership-scoped,
+  atomic transaction** with built-in staleness/duplicate rejection via
+  an expected-recipe-id check, replacing a non-atomic two-call frontend
+  pattern that had a real data-loss window.
+- **Parameter validation runs before any database query**, so a
+  malformed request costs nothing beyond Pydantic's own parsing.
+
+### API limits (unchanged from Prompt 2, restated for completeness)
+
+See the bounds table in Prompt 2 above — `servings` (0–20), `max_
+suggestions` (1–10), `max_additional_energy` (0–5000 kcal), `energy_
+tolerance_kcal` (0–2000 kcal), date ranges (≤90 days, start ≤ end),
+`priority_nutrients` (≤20 keys, every key must be real), plus the new
+`replacement_servings` bound on the prompt 6 apply endpoint (0–20,
+matching `MAX_SERVINGS`).
+
+### Changed files
+
+37 files changed across prompts 1–8 (`git diff --stat 297cebb..HEAD`):
+14 backend `app/` modules (incl. 2 new: `recipe_access.py`,
+`recommendation_provenance.py`), 15 backend test files (5 new), 5
+frontend files, and `docs/nutrient-gap-recommendations-hardening.md`
+(this file). Full list available via `git diff --stat 297cebb..HEAD`
+(`297cebb` is the commit the original 15-prompt feature build ended on).
+
+### Migration steps
+
+**None.** This app has no Alembic/migration tooling — `Base.metadata.
+create_all(bind=engine)` runs at startup and creates any new table
+(`MedicalRecommendationAcknowledgement`, prompt 5) automatically. No
+existing table's columns changed.
+
+### Endpoint changes
+
+- **New**: `POST /api/recommendations/substitutions/apply` (prompt 6).
+- **New**: `GET/POST/DELETE /api/profiles/{id}/medical-acknowledgement`
+  (prompt 5).
+- **Behaviour-changed, not shape-changed**: every `/api/recommendations/*`
+  GET endpoint gained stricter `Query` validation (prompt 2) and
+  additional optional response fields (`score_breakdown`, `quality_
+  summary`, `fdc_id`, `data_type`, `candidate_source`, `robustness_
+  model_version`, `disabled_reason_code` — prompts 3–5); a medical
+  constraint now disables the engine by default where it previously only
+  warned (prompt 5, a deliberate policy change, documented above).
+- **Behaviour-fixed, not shape-changed**: `POST /api/diary` and
+  `POST /api/meal-plan` now correctly accept a visible (not just owned)
+  recipe id (prompt 6) — a bug fix, since the old behaviour was never
+  the intended contract.
+
+### Remaining limitations
+
+- The substitution-apply endpoint's staleness check compares only
+  `recipe_id`, not `quantity_servings` or other entry fields — a
+  suggestion generated against the right recipe but a since-changed
+  serving count is not caught. Adding a full row-version/timestamp
+  column would close this but wasn't required by the prompt's "where
+  state/version information permits" scope, and no such column exists
+  today.
+- "Revalidate dietary constraints" at apply time currently means
+  "recommendations must still be enabled" (`assess_eligibility`), not a
+  full re-run of the original suggestion's dietary-fit scoring — the
+  replacement recipe itself is re-checked for visibility, but not
+  re-scored against the profile's dietary constraints at the moment of
+  apply. A stricter version would re-run `recipes_dietary_status` on the
+  replacement recipe before committing; this pass stopped at the
+  eligibility-gate check, which is the higher-severity gap the prompt's
+  wording ("where appropriate") was read to require.
+- No linter/formatter exists in this repo at all (pre-existing, not
+  introduced or removed by this pass) — style consistency across this
+  pass relies on manual adherence to surrounding conventions, not a
+  tool.
+- `recipe_access.is_recipe_visible`'s "is_public" definition doesn't
+  distinguish a genuine system/stock recipe from an ordinary user's
+  recipe that happens to be marked public — this was already true
+  before this pass and is unchanged; not a gap introduced here.
+
+### Six worked examples (real output, generated by direct reproduction
+against the actual endpoints — see below for exactly how each was run)
+
+**1. Inaccessible private recipe** — `GET /api/recommendations/
+ingredients?recipe_id=<another user's private recipe>`:
+```
+404
+{"detail": "Recipe not found"}
+```
+(A request for a nonexistent recipe id returns the exact same 404 body —
+verified equal in the same run.)
+
+**2. Invalid request** — `GET /api/recommendations/ingredients?entry_
+date=2026-01-01&max_suggestions=11`:
+```
+422
+{"detail": [{"type": "less_than_equal", "loc": ["query", "max_suggestions"],
+  "msg": "Input should be less than or equal to 10", "input": "11", "ctx": {"le": 10}}]}
+```
+
+**3. Full score breakdown** — one ingredient suggestion from `GET /api/
+recommendations/ingredients`:
+```json
+{
+  "food_id": 2, "food_name": "Lentils", "quantity_g": 130.0,
+  "score": 0.972211261261261,
+  "score_breakdown": {
+    "weighted_gap_reduction": 0.5845315315315314,
+    "multi_nutrient_bonus": 0.0876797297297297,
+    "protein_quality_benefit": 0.0, "dietary_fit": 0.0, "practicality": 0.3,
+    "upper_limit_penalty": 0.0, "above_preferred_penalty": 0.0,
+    "energy_overshoot_penalty": 0.0, "uncertainty_penalty": 0.0,
+    "implausible_serving_penalty": 0.0,
+    "total": 0.972211261261261, "model_version": 1
+  },
+  "nutrients_improved": ["iron", "fiber_total"],
+  "fdc_id": null, "data_type": "sr_legacy_food", "candidate_source": "curated"
+}
+```
+
+**4. Low-confidence/quality-summary warning** — `quality_summary` for a
+recipe suggestion built from a regional-equivalent ingredient plus a
+fallback-resolved category-proxy ingredient:
+```json
+{
+  "ingredient_count": 2, "unmapped_count": 0,
+  "exact_or_regional_count": 1, "proxy_or_reviewed_count": 1,
+  "proportion_exact_or_regional": 0.5, "proportion_proxy_or_reviewed": 0.5,
+  "min_mapping_confidence": 0.3, "weighted_mapping_confidence": 0.575,
+  "fallback_resolution_count": 1, "unresolved_or_low_confidence_count": 1,
+  "nutrient_coverage": 0.7
+}
+```
+(`robustness_note`: `"Robustness has not yet been computed for this recipe."`)
+
+**5. Medically disabled response** — `GET /api/recommendations/
+ingredients` for a profile with an unacknowledged medical constraint:
+```json
+{
+  "suggestions": [],
+  "warnings": ["data_is_estimate", "absorption_varies", "medical_constraint_present"],
+  "disabled_reason": "This profile has a stored medical dietary consideration, so recommendations are disabled by default — this feature doesn't know what your prescribed diet actually requires and must not be used to override it. If you understand this and still want general nutritional suggestions, you can explicitly acknowledge this in your profile settings; hard dietary exclusions and upper-limit safeguards stay fully enforced either way, and acknowledging this is not medical clearance.",
+  "disabled_reason_code": "unacknowledged_medical_constraint"
+}
+```
+
+**6. Successful atomic substitution** — `POST /api/recommendations/
+substitutions/apply`:
+```
+200
+{"entry_id": 2, "source": "diary", "recipe_id": 4, "recipe_name": "Lentil Bowl", "quantity_servings": 2.0}
+```
+(The target diary entry's `recipe_id`/`quantity_servings` were updated
+in place; `GET /api/diary?entry_date=...` afterwards shows exactly one
+entry for that day, confirming no stray duplicate from a partial
+delete-then-create.)
+
+All six examples above were produced by a one-off script driving the
+real FastAPI app through `TestClient` against an in-memory database (not
+hand-written) — run once, output captured verbatim, not edited except
+for whitespace/truncation for readability in this table.
+
+No core hardening requirement from `prompts.txt` was left as a TODO.
