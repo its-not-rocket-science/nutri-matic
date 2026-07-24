@@ -328,6 +328,7 @@
 			entryId,
 			source: 'diary',
 			expectedCurrentRecipeId: s.current_recipe_id,
+			expectedUpdatedAt: s.current_entry_updated_at,
 			replacementRecipeId: s.replacement_recipe_id,
 			replacementServings: s.replacement_servings
 		});

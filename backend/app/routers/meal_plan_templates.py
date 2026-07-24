@@ -7,6 +7,7 @@ from .. import schemas
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..models import Food, MealPlanEntry, MealPlanTemplate, MealPlanTemplateEntry, Profile, Recipe, User
+from ..recipe_access import is_recipe_visible
 
 router = APIRouter(prefix="/api/meal-plan-templates", tags=["meal-plan-templates"])
 
@@ -122,12 +123,14 @@ def apply_template(
 
     created: list[MealPlanEntry] = []
     for template_entry in template_entries:
-        # a recipe in the template might since have been deleted, or (if a recipe id were ever
-        # reused across users, which it isn't) no longer belong to this user — skip rather than
-        # fail the whole apply for one stale entry
+        # a recipe in the template might since have been deleted, made
+        # private, or unshared — skip rather than fail the whole apply for
+        # one stale entry. Visibility (owner/shared/public), not outright
+        # ownership — same bug class hardening prompt 6 fixed in
+        # diary.py/meal_plan.py's own create paths.
         if template_entry.recipe_id is not None:
             recipe = db.get(Recipe, template_entry.recipe_id)
-            if recipe is None or recipe.user_id != current_user.id:
+            if recipe is None or not is_recipe_visible(recipe, current_user, db):
                 continue
         if template_entry.food_id is not None and db.get(Food, template_entry.food_id) is None:
             continue
@@ -165,6 +168,7 @@ def apply_template(
             recipe_id=e.recipe_id,
             recipe_name=recipes_by_id[e.recipe_id].name if e.recipe_id else None,
             quantity_servings=e.quantity_servings,
+            updated_at=e.updated_at,
         )
         for e in created
     ]

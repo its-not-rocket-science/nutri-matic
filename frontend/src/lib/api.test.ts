@@ -140,6 +140,7 @@ describe('api.applySubstitution (hardening prompt 6)', () => {
 			entryId: 7,
 			source: 'diary',
 			expectedCurrentRecipeId: 1,
+			expectedUpdatedAt: '2026-01-01T12:00:00Z',
 			replacementRecipeId: 42,
 			replacementServings: 2
 		});
@@ -152,6 +153,7 @@ describe('api.applySubstitution (hardening prompt 6)', () => {
 			entry_id: 7,
 			source: 'diary',
 			expected_current_recipe_id: 1,
+			expected_updated_at: '2026-01-01T12:00:00Z',
 			replacement_recipe_id: 42,
 			replacement_servings: 2
 		});

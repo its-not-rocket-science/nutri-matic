@@ -9,7 +9,7 @@ total — see routers/diary.py's `_compute_nutrient_gaps` for the precedent
 this mirrors.
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,6 +19,7 @@ from .. import schemas
 from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods, scale_recipe_ingredients
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
+from ..dietary_filter import filter_excluded_recipes
 from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, RecipeIngredient, User
 from ..nutrient_targets import AnalysisPeriod
 from ..recipe_access import get_visible_recipe
@@ -86,6 +87,16 @@ def _disabled_reason_code_out(eligibility) -> str | None:
     """Hardening prompt 5's structured reason code, as a plain string for
     the API schema."""
     return eligibility.disabled_reason_code.value if eligibility.disabled_reason_code else None
+
+def _as_utc(dt: datetime) -> datetime:
+    """`DiaryEntry.updated_at`/`MealPlanEntry.updated_at` are always set
+    Python-side as timezone-aware UTC (see the models' own docstrings),
+    but a client-supplied `expected_updated_at` could in principle arrive
+    naive (no offset) — treat that as UTC too rather than letting Python
+    raise on a naive-vs-aware comparison, which would surface as a 500
+    instead of the intended 409."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
 
 Source = Literal["diary", "meal_plan"]
 MealParam = Literal["breakfast", "lunch", "dinner", "snack"]
@@ -446,6 +457,7 @@ def get_substitution_suggestions(
     if not eligibility.enabled:
         return schemas.SubstitutionSuggestionsOut(
             current_recipe_id=current_recipe.id, current_recipe_name=current_recipe.name,
+            current_entry_updated_at=entry.updated_at,
             suggestions=[], disabled_reason=eligibility.disabled_reason,
             disabled_reason_code=_disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
         )
@@ -473,10 +485,12 @@ def get_substitution_suggestions(
 
     return schemas.SubstitutionSuggestionsOut(
         current_recipe_id=result.current_recipe_id, current_recipe_name=result.current_recipe_name,
+        current_entry_updated_at=entry.updated_at,
         suggestions=[
             schemas.SubstitutionSuggestionOut(
                 current_recipe_id=s.current_recipe_id, current_recipe_name=s.current_recipe_name,
-                current_servings=s.current_servings, replacement_recipe_id=s.replacement_recipe_id,
+                current_servings=s.current_servings, current_entry_updated_at=entry.updated_at,
+                replacement_recipe_id=s.replacement_recipe_id,
                 replacement_recipe_name=s.replacement_recipe_name, replacement_servings=s.replacement_servings,
                 energy_difference_kcal=s.energy_difference_kcal, protein_difference_g=s.protein_difference_g,
                 fiber_difference_g=s.fiber_difference_g, saturated_fat_difference_g=s.saturated_fat_difference_g,
@@ -503,27 +517,39 @@ def apply_substitution(
     db: Session = Depends(get_db),
 ):
     """Applies a previously-shown substitution suggestion — hardening
-    prompt 6. Replaces the two-call delete-then-recreate pattern the
-    frontend used to do itself (a real data-loss risk: if the second
-    call failed after the first succeeded, the entry was just gone) with
-    a single in-place mutation of the target entry's `recipe_id`/
-    `quantity_servings`, committed once. That single UPDATE is what makes
-    this atomic — there's no window where the entry doesn't exist.
+    prompt 6, extended by prompt 8's follow-up review. Replaces the
+    two-call delete-then-recreate pattern the frontend used to do itself
+    (a real data-loss risk: if the second call failed after the first
+    succeeded, the entry was just gone) with a single in-place mutation
+    of the target entry's `recipe_id`/`quantity_servings`, committed
+    once. That single UPDATE is what makes this atomic — there's no
+    window where the entry doesn't exist.
 
-    `expected_current_recipe_id` must still match the entry's current
-    recipe (409 if not), which rejects both a stale suggestion (the
-    entry changed since it was generated) and a duplicate apply (the
-    second, replayed request no longer matches after the first one
-    already swapped the recipe) with the same check.
+    Two independent staleness checks, both against the entry, not the
+    request: `expected_current_recipe_id` must match the entry's current
+    recipe, and `expected_updated_at` must match its current mutation
+    timestamp. Either mismatch means the entry moved on since the
+    suggestion was generated (edited some other way, already
+    substituted, or replayed) — rejected with 409 rather than silently
+    overwriting whatever is there now. The recipe_id check alone also
+    catches a duplicate/replayed apply (the second request no longer
+    matches after the first one already swapped the recipe); the
+    timestamp check is the broader "full entry-version" companion, since
+    a hypothetical future edit that left recipe_id unchanged but touched
+    some other field would still bump updated_at.
 
     The entry is looked up scoped to the caller's own profile (never a
     bare `db.get`), so this can't touch another user's diary/meal-plan
     entry. The replacement recipe is re-resolved through
     `get_visible_recipe` at apply time, not trusted from whatever the
     suggestion said earlier, so a recipe that was deleted or made
-    private between suggestion and apply can't be logged. Recommendation
-    generation itself stays read-only; this is the one write path, and
-    it's the only one."""
+    private between suggestion and apply can't be logged. It's also
+    re-checked against the profile's current hard dietary exclusions
+    (`filter_excluded_recipes`) — a constraint added *after* the
+    suggestion was generated must still block the apply, the same
+    "revalidate at apply time" principle already applied to visibility
+    and eligibility below. Recommendation generation itself stays
+    read-only; this is the one write path, and it's the only one."""
     model = MealPlanEntry if body.source == "meal_plan" else DiaryEntry
     entry = db.query(model).filter(model.id == body.entry_id, model.profile_id == profile.id).one_or_none()
     if entry is None:
@@ -535,8 +561,18 @@ def apply_substitution(
             status_code=409,
             detail="Entry's current recipe has changed since this suggestion was generated",
         )
+    if _as_utc(entry.updated_at) != _as_utc(body.expected_updated_at):
+        raise HTTPException(
+            status_code=409,
+            detail="Entry has changed since this suggestion was generated",
+        )
 
     replacement = get_visible_recipe(body.replacement_recipe_id, current_user, db)
+    if not filter_excluded_recipes([replacement], db, profile):
+        raise HTTPException(
+            status_code=422,
+            detail="Replacement recipe conflicts with a dietary exclusion for this profile",
+        )
 
     eligibility = assess_eligibility(profile, db)
     if not eligibility.enabled:
