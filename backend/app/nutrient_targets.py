@@ -89,6 +89,17 @@ class NutrientTarget:
     goal_adjusted: bool = False
 
 
+# A deliberate extra margin this app applies on top of whatever tolerable
+# upper limit a nutrient already has, for a pregnant or lactating profile
+# — prompt 11's "treat pregnancy ... conservatively". This is this app's
+# own added caution, not a sourced clinical guideline figure in its own
+# right (most nutrients here have no confirmed pregnancy/lactation-
+# specific UL at all — see resolve_upper_limit) — never presented as one;
+# see recommendation_safety.py's PREGNANCY_CONSERVATIVE/
+# LACTATION_CONSERVATIVE warning codes, which every recommendation
+# response surfaces alongside this.
+PREGNANCY_LACTATION_UPPER_LIMIT_MARGIN = 0.9
+
 _ENERGY_SOURCE = "Personalized target: Mifflin-St Jeor BMR x activity level (see energy.py)"
 _ENERGY_DEFICIT_SOURCE = (
     "Personalized target: Mifflin-St Jeor BMR x activity level, minus a weight-loss-goal "
@@ -138,6 +149,8 @@ def resolve_nutrient_target(
     drv_profile = _profile_key(profile)
     upper = resolve_upper_limit(key, drv_profile)
     upper_scaled = upper * scale if upper is not None else None
+    if upper_scaled is not None and (profile.is_pregnant or profile.is_lactating):
+        upper_scaled *= PREGNANCY_LACTATION_UPPER_LIMIT_MARGIN
 
     if nutrient_def.target_type == TARGET_TYPE_MAXIMUM_GUIDELINE:
         # the ceiling itself may live in `drv` (saturated_fat, which
@@ -146,7 +159,12 @@ def resolve_nutrient_target(
         # for backward compatibility — see nutrients.py) — try drv first
         # since a nutrient wouldn't set both.
         ceiling = resolve_drv(key, drv_profile)
-        ceiling = ceiling * scale if ceiling is not None else upper_scaled
+        if ceiling is not None:
+            ceiling *= scale
+            if profile.is_pregnant or profile.is_lactating:
+                ceiling *= PREGNANCY_LACTATION_UPPER_LIMIT_MARGIN
+        else:
+            ceiling = upper_scaled
         return NutrientTarget(
             key=key, name=nutrient_def.name, unit=nutrient_def.unit, target_type=nutrient_def.target_type,
             lower_target=None, preferred_target=None, upper_target=ceiling,

@@ -633,3 +633,70 @@ meal-restricted request correctly excludes a food outside its curated
 meal types, creating a recipe and confirming "Improve this recipe"
 recommends a real candidate, and confirming the empty-plan "Improve this
 plan" panel renders its correct empty state.
+
+## Prompt 11: safety, clinical boundaries and explanation rules
+
+`app/recommendation_safety.py` centralises the rules every `recommend_*`
+module and the router should already have been following implicitly,
+rather than leaving each one to independently re-decide them:
+
+- **Never diagnose / never claim to treat disease** — already enforced
+  by `nutrient_gap_analysis.NutrientStatus`'s vocabulary and every
+  `_explain()`'s "helps close the remaining X gap" wording; this module
+  doesn't re-implement that, just documents it as the standing rule.
+- **Never override a medically prescribed diet** — `dietary_filter.py`
+  already never reads a `category="medical"` `DietaryConstraint`'s free
+  text. What was missing: the recommendation response gave no visible
+  sign such a constraint existed at all. Fixed with a new
+  `MEDICAL_CONSTRAINT_PRESENT` warning code, detected by checking for any
+  `medical`-category constraint row — never reading its `note`, only its
+  existence.
+- **Never recommend a supplement** — structurally true (`candidate_
+  metadata.py`'s curated table has no supplement entries); no code
+  change needed, stated here as the standing rule.
+- **Never recommend exceeding a tolerable upper limit, treat pregnancy/
+  lactation conservatively** — `recommendation_scoring.py`'s upper-limit
+  penalty already discourages this, but "conservative" wasn't measurably
+  different for a pregnant/lactating profile before this prompt. Added
+  `nutrient_targets.PREGNANCY_LACTATION_UPPER_LIMIT_MARGIN` (0.9): every
+  upper target/ceiling this app resolves for a pregnant or lactating
+  profile is now scaled down by a further 10% — this app's own added
+  caution, explicitly documented as *not* a sourced clinical figure in
+  its own right (most nutrients here have no confirmed pregnancy-specific
+  UL at all), paired with `PREGNANCY_CONSERVATIVE`/`LACTATION_
+  CONSERVATIVE` warning codes so a caller can say so. This changed two
+  existing test expectations (`test_profile_variants_resolve_different_
+  drv`'s pregnant-iron-UL case) — a deliberate, documented behaviour
+  change, not a regression.
+- **Disable rather than guess for a profile a target formula wasn't
+  built for** — a real gap found while building this: nothing anywhere
+  guarded `energy_goal.py`/`protein_requirement.py`'s adult-only EER/
+  protein formulas against a child profile. `assess_eligibility()` now
+  returns `enabled=False` with a clear reason for any profile under
+  `MINIMUM_RECOMMENDATION_AGE` (18), and all four `/api/recommendations/*`
+  endpoints check this first and return an empty, `disabled_reason`-set
+  response rather than calling into `suggest_ingredients`/etc at all.
+  Missing `birth_year` is treated as "unknown", never assumed a child —
+  disabling a real adult with an incomplete profile would be its own
+  kind of unsafe guess.
+- **Estimates/recipe-variation/absorption disclaimers, structured over
+  prose** — `SafetyWarningCode` (a str enum) plus `WARNING_MESSAGES`;
+  every enabled response carries a `warnings: list[str]` of codes
+  (`data_is_estimate`/`absorption_varies` always, plus whichever of
+  `pregnancy_conservative`/`lactation_conservative`/`medical_constraint_
+  present` apply), and recipe-mode responses additionally get
+  `recipe_nutrients_vary`. `IngredientSuggestionsOut`/`RecipeSuggestionsOut`/
+  `SubstitutionSuggestionsOut`/`PairSuggestionsOut` all gained `warnings`
+  and `disabled_reason` fields (additive — existing consumers unaffected).
+
+Frontend: `lib/recommendationSafety.ts` mirrors the same code->message
+mapping for display, and `ImproveThis.svelte` shows `disabled_reason`
+prominently in place of the mode tabs/results (never alongside a false
+"no suggestions" empty state), and `warnings` once per panel in a
+collapsed `<details>` — never repeated on every card.
+
+Tests: `test_recommendation_safety.py` (the module in isolation) and
+`test_recommendations_safety_api.py` (all four endpoints, both the
+under-18 disable and the medical-constraint/pregnancy warning paths),
+plus new `test_nutrient_targets.py` cases for the upper-limit margin.
+plan" panel renders its correct empty state.

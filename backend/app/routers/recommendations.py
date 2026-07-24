@@ -20,6 +20,7 @@ from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, RecipeIngredient, User
 from ..nutrient_targets import AnalysisPeriod
+from ..recommendation_safety import assess_eligibility, recipe_warnings
 from ..recommend_ingredients import DEFAULT_MAX_SUGGESTIONS, suggest_ingredients
 from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SUGGESTIONS
 from ..recommend_recipes import GOAL_PRESETS, suggest_recipes
@@ -139,6 +140,10 @@ def get_ingredient_suggestions(
     if meal is not None and meal not in _MEALS:
         raise HTTPException(status_code=422, detail=f"meal must be one of {_MEALS}")
 
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.IngredientSuggestionsOut(suggestions=[], disabled_reason=eligibility.disabled_reason)
+
     scopes_given = sum([recipe_id is not None, entry_date is not None, start_date is not None or end_date is not None])
     if scopes_given != 1:
         raise HTTPException(
@@ -217,15 +222,18 @@ def get_ingredient_suggestions(
         already_consumed_by_key=already_consumed_by_key,
     )
 
-    return schemas.IngredientSuggestionsOut(suggestions=[
-        schemas.IngredientSuggestionOut(
-            food_id=s.food_id, food_name=s.food_name, quantity_g=s.quantity_g, candidate_kind=s.candidate_kind,
-            score=s.score.total, nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
-            new_warnings=s.new_warnings, extra_energy_kcal=s.extra_energy_kcal, data_coverage=s.data_coverage,
-            explanation=s.explanation,
-        )
-        for s in result.suggestions
-    ])
+    return schemas.IngredientSuggestionsOut(
+        suggestions=[
+            schemas.IngredientSuggestionOut(
+                food_id=s.food_id, food_name=s.food_name, quantity_g=s.quantity_g, candidate_kind=s.candidate_kind,
+                score=s.score.total, nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
+                new_warnings=s.new_warnings, extra_energy_kcal=s.extra_energy_kcal, data_coverage=s.data_coverage,
+                explanation=s.explanation,
+            )
+            for s in result.suggestions
+        ],
+        warnings=[w.value for w in eligibility.warnings],
+    )
 
 
 @router.get("/recipes", response_model=schemas.RecipeSuggestionsOut)
@@ -257,6 +265,10 @@ def get_recipe_suggestions(
         raise HTTPException(status_code=422, detail=f"source must be one of {_SOURCES}")
     if goal is not None and goal not in GOAL_PRESETS:
         raise HTTPException(status_code=422, detail=f"goal must be one of {sorted(GOAL_PRESETS)}")
+
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.RecipeSuggestionsOut(suggestions=[], disabled_reason=eligibility.disabled_reason)
 
     is_range = start_date is not None or end_date is not None
     if is_range == (entry_date is not None):
@@ -295,17 +307,20 @@ def get_recipe_suggestions(
         excluded_recipe_ids=recipe_ids, day_count=day_count,
     )
 
-    return schemas.RecipeSuggestionsOut(suggestions=[
-        schemas.RecipeSuggestionOut(
-            recipe_id=s.recipe_id, recipe_name=s.recipe_name, suggested_servings=s.suggested_servings,
-            energy_added_kcal=s.energy_added_kcal, protein_added_g=s.protein_added_g, score=s.score.total,
-            nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
-            new_warnings=s.new_warnings, is_stock=s.is_stock, source_name=s.source_name,
-            match_coverage_lines=s.match_coverage_lines, robustness_rating=s.robustness_rating,
-            robustness_note=s.robustness_note, explanation=s.explanation,
-        )
-        for s in result.suggestions
-    ])
+    return schemas.RecipeSuggestionsOut(
+        suggestions=[
+            schemas.RecipeSuggestionOut(
+                recipe_id=s.recipe_id, recipe_name=s.recipe_name, suggested_servings=s.suggested_servings,
+                energy_added_kcal=s.energy_added_kcal, protein_added_g=s.protein_added_g, score=s.score.total,
+                nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
+                new_warnings=s.new_warnings, is_stock=s.is_stock, source_name=s.source_name,
+                match_coverage_lines=s.match_coverage_lines, robustness_rating=s.robustness_rating,
+                robustness_note=s.robustness_note, explanation=s.explanation,
+            )
+            for s in result.suggestions
+        ],
+        warnings=[w.value for w in recipe_warnings(eligibility.warnings)],
+    )
 
 
 @router.get("/substitutions", response_model=schemas.SubstitutionSuggestionsOut)
@@ -338,6 +353,13 @@ def get_substitution_suggestions(
     current_recipe = db.get(Recipe, entry.recipe_id)
     if current_recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
+
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.SubstitutionSuggestionsOut(
+            current_recipe_id=current_recipe.id, current_recipe_name=current_recipe.name,
+            suggestions=[], disabled_reason=eligibility.disabled_reason,
+        )
 
     entry_date = entry.plan_date if source == "meal_plan" else entry.entry_date
     all_entries = _load_entries(db, profile, entry_date, source)
@@ -379,6 +401,7 @@ def get_substitution_suggestions(
             )
             for s in result.suggestions
         ],
+        warnings=[w.value for w in recipe_warnings(eligibility.warnings)],
     )
 
 
@@ -402,6 +425,10 @@ def get_pair_suggestions(
     if source not in ("diary", "meal_plan"):
         raise HTTPException(status_code=422, detail="source must be 'diary' or 'meal_plan'")
 
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.PairSuggestionsOut(suggestions=[], disabled_reason=eligibility.disabled_reason)
+
     entries = _load_entries(db, profile, entry_date, source)
     food_ids = {e.food_id for e in entries if e.food_id is not None}
     recipe_ids = {e.recipe_id for e in entries if e.recipe_id is not None}
@@ -422,19 +449,22 @@ def get_pair_suggestions(
         priority_nutrient_keys=priority_keys,
     )
 
-    return schemas.PairSuggestionsOut(suggestions=[
-        schemas.PairSuggestionOut(
-            first=schemas.PairContributionOut(
-                food_id=s.first.food_id, food_name=s.first.food_name, quantity_g=s.first.quantity_g,
-                solo_score=s.first.solo_score,
-            ),
-            second=schemas.PairContributionOut(
-                food_id=s.second.food_id, food_name=s.second.food_name, quantity_g=s.second.quantity_g,
-                solo_score=s.second.solo_score,
-            ),
-            combined_energy_kcal=s.combined_energy_kcal, score=s.score.total,
-            nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
-            new_warnings=s.new_warnings, explanation=s.explanation,
-        )
-        for s in result.suggestions
-    ])
+    return schemas.PairSuggestionsOut(
+        suggestions=[
+            schemas.PairSuggestionOut(
+                first=schemas.PairContributionOut(
+                    food_id=s.first.food_id, food_name=s.first.food_name, quantity_g=s.first.quantity_g,
+                    solo_score=s.first.solo_score,
+                ),
+                second=schemas.PairContributionOut(
+                    food_id=s.second.food_id, food_name=s.second.food_name, quantity_g=s.second.quantity_g,
+                    solo_score=s.second.solo_score,
+                ),
+                combined_energy_kcal=s.combined_energy_kcal, score=s.score.total,
+                nutrients_improved=s.nutrients_improved, remaining_shortfalls=s.remaining_shortfalls,
+                new_warnings=s.new_warnings, explanation=s.explanation,
+            )
+            for s in result.suggestions
+        ],
+        warnings=[w.value for w in eligibility.warnings],
+    )

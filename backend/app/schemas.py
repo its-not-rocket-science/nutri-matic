@@ -1050,6 +1050,16 @@ class IngredientSuggestionOut(BaseModel):
 
 class IngredientSuggestionsOut(BaseModel):
     suggestions: list[IngredientSuggestionOut]
+    # SafetyWarningCode values (recommendation_safety.py) — standing
+    # caveats (data is an estimate, absorption varies, pregnancy/lactation
+    # conservatism, a stored medical constraint this feature can't read)
+    # that apply regardless of what suggestions came back, prompt 11.
+    warnings: list[str] = []
+    # set (with suggestions always empty) when recommendation_safety.
+    # assess_eligibility disables the engine outright for this profile —
+    # e.g. a child profile, where the underlying target formulas aren't
+    # valid — rather than guessing at a number that doesn't apply.
+    disabled_reason: str | None = None
 
 
 class RecipeSuggestionOut(BaseModel):
@@ -1074,6 +1084,8 @@ class RecipeSuggestionOut(BaseModel):
 
 class RecipeSuggestionsOut(BaseModel):
     suggestions: list[RecipeSuggestionOut]
+    warnings: list[str] = []
+    disabled_reason: str | None = None
 
 
 class SubstitutionSuggestionOut(BaseModel):
@@ -1111,6 +1123,8 @@ class SubstitutionSuggestionsOut(BaseModel):
     current_recipe_id: int
     current_recipe_name: str
     suggestions: list[SubstitutionSuggestionOut]
+    warnings: list[str] = []
+    disabled_reason: str | None = None
 
 
 class PairContributionOut(BaseModel):
@@ -1138,3 +1152,5 @@ class PairSuggestionOut(BaseModel):
 
 class PairSuggestionsOut(BaseModel):
     suggestions: list[PairSuggestionOut]
+    warnings: list[str] = []
+    disabled_reason: str | None = None

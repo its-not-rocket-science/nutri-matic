@@ -51,9 +51,11 @@ def test_profile_variants_resolve_different_drv():
     assert male.lower_target == pytest.approx(8.7)
     assert female.lower_target == pytest.approx(14.8)
     assert pregnant.lower_target == pytest.approx(14.8)
-    # same nutrient, same upper limit regardless of sex/pregnancy (iron's UL has no confirmed split)
+    # same underlying upper limit regardless of sex (iron's UL has no confirmed
+    # sex split) — but pregnancy applies this app's own extra conservative
+    # margin on top (prompt 11), so pregnant != male here on purpose.
     assert male.upper_target == pytest.approx(45.0)
-    assert pregnant.upper_target == pytest.approx(45.0)
+    assert pregnant.upper_target == pytest.approx(45.0 * 0.9)
 
 
 def test_maximum_guideline_nutrient_has_only_an_upper_target():
@@ -226,6 +228,38 @@ def test_adjust_target_for_remaining_leaves_none_fields_none():
     assert remaining.lower_target is None
     assert remaining.preferred_target is None
     assert remaining.upper_target is None
+
+
+def test_pregnancy_applies_conservative_upper_limit_margin():
+    profile = make_profile(sex="female", is_pregnant=True)
+    target = resolve_nutrient_target("vitamin_c", profile, AnalysisPeriod.DAY)
+    assert target.upper_target == pytest.approx(2000.0 * 0.9)
+
+
+def test_lactation_applies_conservative_upper_limit_margin():
+    profile = make_profile(sex="female", is_lactating=True)
+    target = resolve_nutrient_target("vitamin_c", profile, AnalysisPeriod.DAY)
+    assert target.upper_target == pytest.approx(2000.0 * 0.9)
+
+
+def test_non_pregnant_non_lactating_gets_no_margin():
+    profile = make_profile(sex="female")
+    target = resolve_nutrient_target("vitamin_c", profile, AnalysisPeriod.DAY)
+    assert target.upper_target == pytest.approx(2000.0)
+
+
+def test_pregnancy_margin_applies_to_maximum_guideline_ceiling_too():
+    profile = make_profile(sex="female", is_pregnant=True)
+    sodium = resolve_nutrient_target("sodium", profile, AnalysisPeriod.DAY)
+    assert sodium.upper_target == pytest.approx(2400.0 * 0.9)
+    sat_fat = resolve_nutrient_target("saturated_fat", profile, AnalysisPeriod.DAY)
+    assert sat_fat.upper_target == pytest.approx(30.0 * 0.9)
+
+
+def test_pregnancy_margin_scales_with_multi_day():
+    profile = make_profile(sex="female", is_pregnant=True)
+    target = resolve_nutrient_target("vitamin_c", profile, AnalysisPeriod.MULTI_DAY, day_count=7)
+    assert target.upper_target == pytest.approx(2000.0 * 7 * 0.9)
 
 
 def test_adjust_target_for_remaining_preserves_other_fields():

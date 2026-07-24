@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api, type RecommendationScope } from '$lib/api';
 	import RecommendationCard from '$lib/components/RecommendationCard.svelte';
+	import { safetyWarningMessage } from '$lib/recommendationSafety';
 	import type { IngredientSuggestion, RecipeSuggestion, SubstitutionSuggestion } from '$lib/types';
 
 	/** Restrained "Improve this…" panel used on the diary day, meal-plan
@@ -66,6 +67,12 @@
 	let recipeSuggestions: RecipeSuggestion[] = $state([]);
 	let substitutionSuggestions: SubstitutionSuggestion[] = $state([]);
 	let hasFetchedOnce = $state(false);
+	// standing, profile-level caveats (prompt 11) — shown once per panel,
+	// never repeated on every card. disabledReason set means the engine
+	// was disabled outright for this profile (e.g. under 18) rather than
+	// guessing; suggestions are always empty in that case.
+	let warnings: string[] = $state([]);
+	let disabledReason: string | null = $state(null);
 
 	function priorityNutrients(): string[] | undefined {
 		const preset = GOAL_PRESETS.find((g) => g.key === goalKey);
@@ -82,17 +89,23 @@
 					maxAdditionalEnergy: maxEnergy ?? undefined
 				});
 				ingredientSuggestions = res.suggestions;
+				warnings = res.warnings;
+				disabledReason = res.disabled_reason;
 			} else if (mode === 'recipes') {
 				const res = await api.getRecipeSuggestions(scope, {
 					goal: goalKey,
 					maxAdditionalEnergy: maxEnergy ?? undefined
 				});
 				recipeSuggestions = res.suggestions;
+				warnings = res.warnings;
+				disabledReason = res.disabled_reason;
 			} else if (substitutionEntryId !== null) {
 				const res = await api.getSubstitutionSuggestions(substitutionEntryId, substitutionSource, {
 					priorityNutrients: priorityNutrients()
 				});
 				substitutionSuggestions = res.suggestions;
+				warnings = res.warnings;
+				disabledReason = res.disabled_reason;
 			}
 			hasFetchedOnce = true;
 		} catch (e) {
@@ -179,45 +192,62 @@
 
 	{#if open}
 		<div class="panel">
-			<div class="panel-controls">
-				<label>
-					Priority
-					<select bind:value={goalKey} onchange={fetchSuggestions}>
-						{#each GOAL_PRESETS as preset (preset.key)}
-							<option value={preset.key}>{preset.label}</option>
-						{/each}
-					</select>
-				</label>
-				<label>
-					Max extra energy (kcal)
-					<input type="number" min="0" step="10" placeholder="no limit" bind:value={maxEnergy} onchange={fetchSuggestions} />
-				</label>
-			</div>
-
-			<div class="mode-tabs" role="tablist">
-				<button type="button" role="tab" aria-selected={mode === 'ingredients'} onclick={() => setMode('ingredients')}>
-					Add foods
-				</button>
-				{#if allowRecipes}
-					<button type="button" role="tab" aria-selected={mode === 'recipes'} onclick={() => setMode('recipes')}>
-						Suggest recipes
-					</button>
-				{/if}
-				{#if allowSubstitution}
-					<button type="button" role="tab" aria-selected={mode === 'substitution'} onclick={() => setMode('substitution')}>
-						Replace this meal
-					</button>
-				{/if}
-			</div>
-
 			{#if error}
 				<p class="error">{error}</p>
 			{/if}
 
-			{#if loading}
+			{#if loading && !hasFetchedOnce}
 				<p class="muted">Looking for improvements…</p>
-			{:else if !hasFetchedOnce}
-				<p class="muted">Choose an option above to see suggestions.</p>
+			{:else if hasFetchedOnce && disabledReason}
+				<p class="disabled-notice">{disabledReason}</p>
+			{:else}
+				<div class="panel-controls">
+					<label>
+						Priority
+						<select bind:value={goalKey} onchange={fetchSuggestions}>
+							{#each GOAL_PRESETS as preset (preset.key)}
+								<option value={preset.key}>{preset.label}</option>
+							{/each}
+						</select>
+					</label>
+					<label>
+						Max extra energy (kcal)
+						<input type="number" min="0" step="10" placeholder="no limit" bind:value={maxEnergy} onchange={fetchSuggestions} />
+					</label>
+				</div>
+
+				<div class="mode-tabs" role="tablist">
+					<button type="button" role="tab" aria-selected={mode === 'ingredients'} onclick={() => setMode('ingredients')}>
+						Add foods
+					</button>
+					{#if allowRecipes}
+						<button type="button" role="tab" aria-selected={mode === 'recipes'} onclick={() => setMode('recipes')}>
+							Suggest recipes
+						</button>
+					{/if}
+					{#if allowSubstitution}
+						<button type="button" role="tab" aria-selected={mode === 'substitution'} onclick={() => setMode('substitution')}>
+							Replace this meal
+						</button>
+					{/if}
+				</div>
+
+				{#if warnings.length > 0}
+					<details class="safety-notice">
+						<summary>About these suggestions</summary>
+						<ul>
+							{#each warnings as code (code)}
+								<li>{safetyWarningMessage(code)}</li>
+							{/each}
+						</ul>
+					</details>
+				{/if}
+			{/if}
+
+			{#if !hasFetchedOnce || disabledReason}
+				<!-- nothing further to show: either still loading, or disabled above -->
+			{:else if loading}
+				<p class="muted">Looking for improvements…</p>
 			{:else if mode === 'ingredients'}
 				{#if ingredientSuggestions.length === 0}
 					<p class="muted">No safe or useful addition found for the current priorities.</p>
@@ -318,5 +348,20 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
+	}
+	.disabled-notice {
+		margin: 0;
+		color: var(--color-warning);
+	}
+	.safety-notice {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-muted, inherit);
+	}
+	.safety-notice summary {
+		cursor: pointer;
+	}
+	.safety-notice ul {
+		margin: var(--space-1) 0 0;
+		padding-left: var(--space-4);
 	}
 </style>
