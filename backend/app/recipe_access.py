@@ -36,6 +36,24 @@ def is_shared_with(recipe_id: int, user_id: int, db: Session) -> bool:
     )
 
 
+def is_recipe_visible(recipe: Recipe, current_user: User, db: Session) -> bool:
+    """The plain boolean check behind `get_visible_recipe` — owner,
+    explicitly shared-with, or public/system-owned stock. Exposed
+    separately so a caller that wants a different status code/error
+    shape than `get_visible_recipe`'s 404 (e.g. a 422 "unknown recipe
+    id" on a create body, hardening prompt 6) can still reuse the same
+    one visibility rule rather than re-implementing it (or, worse,
+    silently falling back to an owner-only check — the bug this prompt
+    found: `routers/diary.py`/`routers/meal_plan.py` logging a recipe
+    used to require `recipe.user_id == current_user.id`, which made a
+    suggested *stock* or *shared* recipe impossible to actually log)."""
+    return (
+        recipe.user_id == current_user.id
+        or recipe.is_public
+        or is_shared_with(recipe.id, current_user.id, db)
+    )
+
+
 def get_owned_recipe(recipe_id: int, current_user: User, db: Session) -> Recipe:
     """For mutating operations (delete, share management, apply-a-
     substitution) — owner only."""
@@ -52,12 +70,6 @@ def get_visible_recipe(recipe_id: int, current_user: User, db: Session) -> Recip
     stock recipes too, since those are always created with
     `is_public=True`, not a separate flag)."""
     recipe = db.get(Recipe, recipe_id)
-    if recipe is None:
-        raise HTTPException(status_code=404, detail="Recipe not found")
-    if (
-        recipe.user_id != current_user.id
-        and not recipe.is_public
-        and not is_shared_with(recipe_id, current_user.id, db)
-    ):
+    if recipe is None or not is_recipe_visible(recipe, current_user, db):
         raise HTTPException(status_code=404, detail="Recipe not found")
     return recipe

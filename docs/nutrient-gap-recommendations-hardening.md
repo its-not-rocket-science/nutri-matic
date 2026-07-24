@@ -362,3 +362,112 @@ matching this app's existing destructive-action convention), which
 calls the acknowledge endpoint and re-fetches. `vitest run` (16 passed,
 +3 new `api.ts` cases), `svelte-check` (0 errors), and the production
 build all remain green.
+
+## Prompt 6: audit all apply and mutation flows
+
+**Real vulnerability-adjacent bug found: suggested recipes could never
+actually be logged.** `routers/diary.py`'s `create_entry()` and
+`copy_day()`, and `routers/meal_plan.py`'s `_validate_food_or_recipe()`,
+all checked `recipe.user_id == current_user.id` when validating a
+`recipe_id` on a create/copy body — outright ownership, not visibility.
+Since almost every *suggested* recipe (from `/recommendations/recipes`,
+`/substitutions`, "quick add") is a public/stock recipe or one shared
+with the caller rather than one they personally authored, this meant
+"add this suggested recipe to your diary/meal-plan" silently 422'd
+("Unknown recipe id") for the overwhelming majority of real suggestions
+— confirmed by direct reproduction before fixing (`POST /api/diary` with
+a public, system-owned recipe id returned 422). Not an access-control
+*leak* like prompt 1 — the opposite failure mode, a *legitimate* action
+wrongly blocked — but squarely inside this prompt's "suggested recipes
+remain accessible at apply time" requirement.
+
+**Fix**: extracted `recipe_access.is_recipe_visible(recipe, current_user,
+db) -> bool` — the same owner-or-shared-or-public rule `get_visible_
+recipe` already enforced, now available as a plain boolean for call
+sites that need a different status code than that resolver's 404 (here,
+the existing 422 "Unknown recipe id" for a bad create-body reference,
+which stays a 422, not a 404 — this is reference validation on write,
+not the read-path enumeration concern prompt 1 was about, so a different
+error shape is intentional, not an inconsistency). `get_visible_recipe`
+itself was refactored to call `is_recipe_visible` internally rather than
+duplicating the boolean logic. All three broken call sites now use it.
+
+**Substitution apply made atomic.** The frontend's `applySubstitution
+Suggestion()` (both `diary/+page.svelte` and `meal-plan/+page.svelte`)
+previously did the swap as two separate calls — delete the current
+entry, then create the replacement — because prompt 8 of the original
+build had deliberately decided *not* to add a dedicated apply endpoint,
+reasoning it would be a redundant second way to mutate an entry. That
+reasoning didn't account for atomicity: if the create call failed after
+the delete succeeded (network blip, validation error, disabled
+eligibility), the entry was just gone — a genuine data-loss bug, not
+hypothetical.
+
+Fixed by adding `POST /api/recommendations/substitutions/apply`
+(`schemas.SubstitutionApplyIn`/`SubstitutionApplyOut`), which mutates the
+target entry's `recipe_id`/`quantity_servings` in place with a single
+`db.commit()` — there is no window where the entry doesn't exist.
+Requirements satisfied:
+
+- **Ownership** — the entry is looked up filtered by `model.profile_id ==
+  profile.id` (`profile` from `get_owned_profile`), never a bare
+  `db.get`, so it's impossible to touch another user's diary/meal-plan
+  entry.
+- **Suggested recipe still accessible at apply time** — the replacement
+  recipe is re-resolved through `get_visible_recipe` inside the endpoint,
+  not trusted from whatever the original suggestion said; a recipe
+  deleted or made private between suggestion and apply is rejected with
+  404, and the entry is left untouched.
+- **Dietary/eligibility revalidated** — `assess_eligibility(profile, db)`
+  is re-checked at apply time; if recommendations are currently disabled
+  for the profile (medical/under-18/etc., prompt 5/11), the apply is
+  rejected (422) rather than silently applying a swap that was suggested
+  before the profile became ineligible.
+- **Stale-suggestion / duplicate-apply, one mechanism** — the request
+  must carry `expected_current_recipe_id`, checked against the entry's
+  *current* `recipe_id`; a mismatch is rejected with 409. This is
+  deliberately the same check for both failure modes: a suggestion goes
+  stale if the entry's recipe changed after the suggestion was generated
+  (edited elsewhere, or already substituted), and a replayed/duplicate
+  apply request no longer matches after the first one already changed
+  the recipe — so the second identical request 409s too. No new
+  schema/version column was needed; the recipe id already logged on the
+  entry doubles as the version signal.
+- **Non-atomic delete-then-create removed** — replaced by the single
+  UPDATE described above.
+- **Recommendation generation stays read-only** — `get_substitution_
+  suggestions` (the existing `GET /substitutions`) is untouched; this new
+  endpoint is the one and only write path for a substitution.
+
+`recommend_substitutions.py`'s module docstring (which used to explain
+*why there was no apply endpoint*) was updated to explain the reversal
+and point at the new endpoint, rather than leaving a stale claim in
+place.
+
+**Frontend**: both `applySubstitutionSuggestion()` functions now call
+the new `api.applySubstitution()` (a single POST) instead of `delete...`
++ `add...`. `lib/api.ts` gained `applySubstitution`; `lib/types.ts`
+gained `SubstitutionApplyResult`.
+
+**Apply semantics, stated plainly**: applying a substitution is a single
+atomic request; it succeeds once and only once per suggestion (a second
+identical request 409s, since the entry it targets has already changed);
+it fails closed (404/409/422) leaving the original entry fully intact in
+every rejection case, never partially applied.
+
+**Tests**: `test_diary_meal_plan_recipe_visibility.py` (new) — 7 cases
+covering the recipe-visibility fix across both `POST /api/diary` and
+`POST /api/meal-plan` (public recipe now loggable, shared recipe now
+loggable by the recipient, private/unshared recipe still correctly
+rejected) plus `copy-day` carrying over a public recipe owned by someone
+else. `test_recommendations_substitutions_api.py` gained a
+`TestApplySubstitution` class — successful atomic replacement, stale
+`expected_current_recipe_id` rejected with 409 (original untouched),
+duplicate apply rejected on replay, unauthorised apply against another
+user's entry (404, original untouched), inaccessible replacement recipe
+rejected (404, original untouched), plain-food entry rejected (422), and
+auth-required. `api.test.ts` gained a case confirming `applySubstitution`
+issues exactly one request with the correct snake_case body. Full
+backend suite: 930 passed (up from 916), 0 regressions. `svelte-check`
+(0 errors) and `vitest run` (17 passed, up from 16, +1 new `api.ts`
+case) both remain green.

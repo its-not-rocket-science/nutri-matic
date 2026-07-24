@@ -9,6 +9,7 @@ from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Profile, Recipe, User
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
+from ..recipe_access import is_recipe_visible
 from .diary import _compute_nutrient_gaps, _find_worst_gap, _rank_foods_by_nutrient, _rank_recipes_by_nutrient
 
 router = APIRouter(prefix="/api/meal-plan", tags=["meal-plan"])
@@ -35,7 +36,10 @@ def _validate_food_or_recipe(food_id: int | None, recipe_id: int | None, current
         raise HTTPException(status_code=422, detail=f"Unknown food id: {food_id}")
     if recipe_id is not None:
         recipe = db.get(Recipe, recipe_id)
-        if recipe is None or recipe.user_id != current_user.id:
+        # own, shared-with, or public/stock — see recipe_access.is_recipe_visible
+        # (hardening prompt 6: this used to be owner-only, blocking logging of
+        # any suggested stock/shared recipe)
+        if recipe is None or not is_recipe_visible(recipe, current_user, db):
             raise HTTPException(status_code=422, detail=f"Unknown recipe id: {recipe_id}")
 
 

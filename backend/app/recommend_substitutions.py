@@ -11,12 +11,16 @@ servings count chosen to keep energy similar to what's being removed
 servings count, same convention as every other `recommend_*` module.
 
 This module only ever proposes — it has no apply/write path of its own.
-Prompt 8 is explicit that a substitution must be reviewable, then applied
-through the *existing* meal-plan/diary update endpoints (delete the old
-entry, log the new one) — adding a bespoke "commit this swap" endpoint
-here would be a second, redundant way to mutate a diary/meal-plan entry,
-exactly the kind of duplicate source of truth the whole feature is
-supposed to avoid.
+Prompt 8 originally had a substitution applied through the *existing*
+meal-plan/diary update endpoints (delete the old entry, log the new
+one), reasoning that a bespoke "commit this swap" endpoint would be a
+second, redundant way to mutate a diary/meal-plan entry. Hardening
+prompt 6 revisited that: the two-call delete-then-recreate the frontend
+did to imitate "replace" was not atomic — a failure between the two
+calls silently lost the entry — so `POST /api/recommendations/
+substitutions/apply` (routers/recommendations.py) now does the mutation
+itself, as a single in-place UPDATE of the target entry. It's still the
+only write path for a substitution; this module remains read-only.
 """
 
 from __future__ import annotations

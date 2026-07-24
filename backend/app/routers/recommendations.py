@@ -495,6 +495,63 @@ def get_substitution_suggestions(
     )
 
 
+@router.post("/substitutions/apply", response_model=schemas.SubstitutionApplyOut)
+def apply_substitution(
+    body: schemas.SubstitutionApplyIn,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Applies a previously-shown substitution suggestion — hardening
+    prompt 6. Replaces the two-call delete-then-recreate pattern the
+    frontend used to do itself (a real data-loss risk: if the second
+    call failed after the first succeeded, the entry was just gone) with
+    a single in-place mutation of the target entry's `recipe_id`/
+    `quantity_servings`, committed once. That single UPDATE is what makes
+    this atomic — there's no window where the entry doesn't exist.
+
+    `expected_current_recipe_id` must still match the entry's current
+    recipe (409 if not), which rejects both a stale suggestion (the
+    entry changed since it was generated) and a duplicate apply (the
+    second, replayed request no longer matches after the first one
+    already swapped the recipe) with the same check.
+
+    The entry is looked up scoped to the caller's own profile (never a
+    bare `db.get`), so this can't touch another user's diary/meal-plan
+    entry. The replacement recipe is re-resolved through
+    `get_visible_recipe` at apply time, not trusted from whatever the
+    suggestion said earlier, so a recipe that was deleted or made
+    private between suggestion and apply can't be logged. Recommendation
+    generation itself stays read-only; this is the one write path, and
+    it's the only one."""
+    model = MealPlanEntry if body.source == "meal_plan" else DiaryEntry
+    entry = db.query(model).filter(model.id == body.entry_id, model.profile_id == profile.id).one_or_none()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    if entry.recipe_id is None:
+        raise HTTPException(status_code=422, detail="Entry has no recipe to substitute — it's a plain food entry")
+    if entry.recipe_id != body.expected_current_recipe_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Entry's current recipe has changed since this suggestion was generated",
+        )
+
+    replacement = get_visible_recipe(body.replacement_recipe_id, current_user, db)
+
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        raise HTTPException(status_code=422, detail="Recommendations are currently disabled for this profile")
+
+    entry.recipe_id = replacement.id
+    entry.quantity_servings = body.replacement_servings
+    db.commit()
+
+    return schemas.SubstitutionApplyOut(
+        entry_id=entry.id, source=body.source, recipe_id=replacement.id,
+        recipe_name=replacement.name, quantity_servings=entry.quantity_servings,
+    )
+
+
 @router.get("/pairs", response_model=schemas.PairSuggestionsOut)
 def get_pair_suggestions(
     entry_date: date,

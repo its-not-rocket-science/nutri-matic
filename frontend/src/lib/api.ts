@@ -56,6 +56,7 @@ import type {
 	Score,
 	SearchRequest,
 	ShoppingList,
+	SubstitutionApplyResult,
 	SubstitutionSuggestions,
 	TokenResponse,
 	TrendGroupBy,
@@ -338,6 +339,23 @@ export const api = {
 		if (options.energyToleranceKcal != null) params.set('energy_tolerance_kcal', String(options.energyToleranceKcal));
 		return request<SubstitutionSuggestions>(withProfile(`/api/recommendations/substitutions?${params}`));
 	},
+	applySubstitution: (args: {
+		entryId: number;
+		source: 'diary' | 'meal_plan';
+		expectedCurrentRecipeId: number;
+		replacementRecipeId: number;
+		replacementServings: number;
+	}) =>
+		request<SubstitutionApplyResult>(withProfile('/api/recommendations/substitutions/apply'), {
+			method: 'POST',
+			body: JSON.stringify({
+				entry_id: args.entryId,
+				source: args.source,
+				expected_current_recipe_id: args.expectedCurrentRecipeId,
+				replacement_recipe_id: args.replacementRecipeId,
+				replacement_servings: args.replacementServings
+			})
+		}),
 
 	listDiaryMealTemplates: () => request<DiaryMealTemplate[]>(withProfile('/api/diary-meal-templates')),
 	createDiaryMealTemplate: (name: string, entryDate: string, meal: Meal) =>

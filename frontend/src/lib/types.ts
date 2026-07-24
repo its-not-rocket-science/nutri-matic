@@ -806,6 +806,14 @@ export interface SubstitutionSuggestions {
 	disabled_reason_code: string | null;
 }
 
+export interface SubstitutionApplyResult {
+	entry_id: number;
+	source: 'diary' | 'meal_plan';
+	recipe_id: number;
+	recipe_name: string;
+	quantity_servings: number;
+}
+
 export type FilterOp = 'gte' | 'lte' | 'eq';
 
 export interface FilterKey {

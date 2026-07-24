@@ -35,6 +35,7 @@ from ..entitlements import (
 from ..food_chemistry import compute_meal_protein_distribution, estimate_sodium_potassium, leucine_threshold_for_age
 from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
 from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Profile, Recipe, RecipeIngredient, RecipeShare, User
+from ..recipe_access import is_recipe_visible
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..protein_absorption import compute_absorbed_protein_with_coverage
@@ -120,7 +121,12 @@ def create_entry(
         raise HTTPException(status_code=422, detail=f"Unknown food id: {body.food_id}")
     if body.recipe_id is not None:
         recipe = db.get(Recipe, body.recipe_id)
-        if recipe is None or recipe.user_id != current_user.id:
+        # own, shared-with, or public/stock — hardening prompt 6: this used
+        # to require outright ownership, which made a suggested stock or
+        # shared recipe impossible to actually log. Still a plain 422 (not
+        # get_visible_recipe's 404) to match this endpoint's existing
+        # "invalid create body reference" convention for food_id above.
+        if recipe is None or not is_recipe_visible(recipe, current_user, db):
             raise HTTPException(status_code=422, detail=f"Unknown recipe id: {body.recipe_id}")
 
     entry = DiaryEntry(
@@ -165,7 +171,7 @@ def copy_day(
         # than fail the whole copy for one stale entry
         if source_entry.recipe_id is not None:
             recipe = db.get(Recipe, source_entry.recipe_id)
-            if recipe is None or recipe.user_id != current_user.id:
+            if recipe is None or not is_recipe_visible(recipe, current_user, db):
                 continue
 
         entry = DiaryEntry(
