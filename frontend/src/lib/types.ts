@@ -688,7 +688,33 @@ export interface IngredientSuggestion {
 	new_warnings: string[];
 	extra_energy_kcal: number;
 	data_coverage: number;
+	// hardening prompt 4 — food-data provenance
+	fdc_id: number | null;
+	data_type: string | null;
+	candidate_source: string;
 	explanation: string;
+}
+
+// One recommendation_provenance.RecipeQualitySummary (hardening prompt
+// 4) — a recipe's aggregate ingredient-mapping quality, reused from
+// persisted provenance only (matching is never re-run). `null` fields
+// mean "not applicable" (a plain user-built recipe has no ingredient-
+// mapping system involved at all), not zero.
+export interface RecipeQualitySummary {
+	ingredient_count: number;
+	unmapped_count: number;
+	exact_or_regional_count: number;
+	analogue_count: number;
+	proxy_or_reviewed_count: number;
+	fuzzy_unclassified_count: number;
+	proportion_exact_or_regional: number | null;
+	proportion_analogue: number | null;
+	proportion_proxy_or_reviewed: number | null;
+	min_mapping_confidence: number | null;
+	weighted_mapping_confidence: number | null;
+	fallback_resolution_count: number;
+	unresolved_or_low_confidence_count: number;
+	nutrient_coverage: number | null;
 }
 
 export interface IngredientSuggestions {
@@ -716,6 +742,8 @@ export interface RecipeSuggestion {
 	source_name: string | null;
 	match_coverage_lines: number | null;
 	robustness_rating: number | null;
+	robustness_model_version: string | null;
+	quality_summary: RecipeQualitySummary;
 	robustness_note: string | null;
 	explanation: string;
 }
@@ -748,6 +776,8 @@ export interface SubstitutionSuggestion {
 	is_stock: boolean;
 	match_coverage_lines: number | null;
 	robustness_rating: number | null;
+	robustness_model_version: string | null;
+	quality_summary: RecipeQualitySummary;
 	provenance_note: string | null;
 	explanation: string;
 }

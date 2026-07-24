@@ -35,6 +35,7 @@ from .models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, R
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
 from .nutrient_targets import AnalysisPeriod, NutrientTarget, adjust_target_for_remaining, resolve_nutrient_target
 from .nutrients import NUTRIENTS
+from .recommendation_provenance import RecipeQualitySummary, compute_recipe_quality_summary
 from .recommendation_scoring import PracticalityInput, ScoreBreakdown, ScoringWeights, score_candidate
 
 CANDIDATE_POOL_PER_NUTRIENT = 10
@@ -73,7 +74,17 @@ class RecipeSuggestion:
     source_name: str | None
     match_coverage_lines: float | None
     robustness_rating: int | None
+    # stock_recipes/robustness.py's ROBUSTNESS_MODEL_VERSION at the time
+    # this rating was computed — None alongside robustness_rating=None
+    # (hardening prompt 3/4: a rating without its model version can't be
+    # meaningfully compared against a future re-analysis)
+    robustness_model_version: str | None
     robustness_note: str | None
+    # ingredient-mapping quality summary (hardening prompt 4) — reused
+    # persisted provenance, never re-run matching. See
+    # recommendation_provenance.py's own docstring for what each field
+    # means and why "reviewed_substitution" is never bucketed as exact.
+    quality_summary: RecipeQualitySummary
     explanation: str
 
 
@@ -321,13 +332,16 @@ def suggest_recipes(
         new_warnings = [g.key for g in after_gaps if g.key in score.nutrients_worsened]
 
         items_by_recipe_id[recipe.id] = recipe_items_at_1_serving
+        quality_summary = compute_recipe_quality_summary(db, recipe, ingredients_by_recipe.get(recipe.id, []))
         scored.append(RecipeSuggestion(
             recipe_id=recipe.id, recipe_name=recipe.name, suggested_servings=servings,
             energy_added_kcal=energy_added, protein_added_g=protein_after_g - protein_before_g,
             score=score, nutrients_improved=score.nutrients_improved, remaining_shortfalls=remaining,
             new_warnings=new_warnings, is_stock=is_system_owner.get(recipe.user_id, False), source_name=recipe.source_name,
             match_coverage_lines=recipe.match_coverage_lines, robustness_rating=robustness_rating,
+            robustness_model_version=robustness.model_version if robustness else None,
             robustness_note=_robustness_note(recipe, robustness_rating),
+            quality_summary=quality_summary,
             explanation=_explain(recipe.name, servings, score),
         ))
 

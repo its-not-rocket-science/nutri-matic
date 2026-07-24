@@ -37,6 +37,7 @@ from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
 from .nutrient_targets import AnalysisPeriod, NutrientTarget, resolve_nutrient_target
 from .nutrients import NUTRIENTS
 from .recommend_recipes import LOW_ROBUSTNESS_THRESHOLD, load_recipe_ingredients, visible_recipes
+from .recommendation_provenance import RecipeQualitySummary, compute_recipe_quality_summary
 from .recommendation_scoring import PracticalityInput, ScoreBreakdown, ScoringWeights, score_candidate
 
 DEFAULT_MAX_SUGGESTIONS = 3
@@ -79,6 +80,8 @@ class SubstitutionSuggestion:
     is_stock: bool
     match_coverage_lines: float | None
     robustness_rating: int | None
+    robustness_model_version: str | None
+    quality_summary: RecipeQualitySummary
     provenance_note: str | None
     explanation: str
 
@@ -278,6 +281,7 @@ def suggest_substitutions(
         if (ingredient_confidence or 1.0) < 0.9 or (candidate_data_coverage or 1.0) < 0.9:
             provenance_note = "This replacement's own ingredient-match/data confidence is lower than the recipe it would replace may have."
 
+        quality_summary = compute_recipe_quality_summary(db, recipe, ingredients)
         scored.append(SubstitutionSuggestion(
             current_recipe_id=current_recipe.id, current_recipe_name=current_recipe.name,
             current_servings=current_servings, replacement_recipe_id=recipe.id, replacement_recipe_name=recipe.name,
@@ -288,7 +292,8 @@ def suggest_substitutions(
             protein_quality_after=protein_quality_after.score.score if protein_quality_after and protein_quality_after.score else None,
             score=score, remaining_shortfalls=remaining, new_warnings=new_warnings,
             is_stock=is_system_owner.get(recipe.user_id, False), match_coverage_lines=recipe.match_coverage_lines,
-            robustness_rating=robustness_rating, provenance_note=provenance_note,
+            robustness_rating=robustness_rating, robustness_model_version=robustness.model_version if robustness else None,
+            quality_summary=quality_summary, provenance_note=provenance_note,
             explanation=_explain(current_recipe.name, recipe.name, energy_difference, score),
         ))
 

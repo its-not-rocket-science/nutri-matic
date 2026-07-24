@@ -1077,6 +1077,16 @@ class IngredientSuggestionOut(BaseModel):
     new_warnings: list[str]
     extra_energy_kcal: float
     data_coverage: float
+    # hardening prompt 4 — food-data provenance. fdc_id is a stable
+    # cross-reference id (None for a manually-entered food), never this
+    # app's own nutritional truth. candidate_source is candidate_
+    # metadata.py's curation tier ("curated" | "category_default") — this
+    # mode's own analogue of a mapping-relationship confidence signal,
+    # since a direct food suggestion involves no ingredient-alias
+    # matching at all (see recommend_ingredients.IngredientSuggestion).
+    fdc_id: int | None
+    data_type: str | None
+    candidate_source: str
     explanation: str
 
 
@@ -1094,9 +1104,35 @@ class IngredientSuggestionsOut(BaseModel):
     disabled_reason: str | None = None
 
 
+class RecipeQualitySummaryOut(BaseModel):
+    """One `recommendation_provenance.RecipeQualitySummary` — hardening
+    prompt 4. Aggregated from persisted `RecipeIngredientProvenance` rows
+    only (matching is never re-run). Every `None` field means "not
+    applicable" — a plain user-built recipe has no ingredient-mapping
+    system involved at all, which is a different claim from "0%"."""
+
+    ingredient_count: int
+    unmapped_count: int
+    exact_or_regional_count: int
+    analogue_count: int
+    proxy_or_reviewed_count: int
+    fuzzy_unclassified_count: int
+    proportion_exact_or_regional: float | None
+    proportion_analogue: float | None
+    proportion_proxy_or_reviewed: float | None
+    min_mapping_confidence: float | None
+    weighted_mapping_confidence: float | None
+    fallback_resolution_count: int
+    unresolved_or_low_confidence_count: int
+    nutrient_coverage: float | None
+
+
 class RecipeSuggestionOut(BaseModel):
     """One `recommend_recipes.RecipeSuggestion` — prompt 7. `score_
-    breakdown` (hardening prompt 3) — see IngredientSuggestionOut."""
+    breakdown` (hardening prompt 3) — see IngredientSuggestionOut.
+    `quality_summary` (hardening prompt 4) is the recipe's aggregate
+    ingredient-mapping quality — expand for detail, the compact default
+    view is just `robustness_rating`/`robustness_note` as before."""
 
     recipe_id: int
     recipe_name: str
@@ -1112,6 +1148,8 @@ class RecipeSuggestionOut(BaseModel):
     source_name: str | None
     match_coverage_lines: float | None
     robustness_rating: int | None
+    robustness_model_version: str | None
+    quality_summary: RecipeQualitySummaryOut
     robustness_note: str | None
     explanation: str
 
@@ -1150,6 +1188,8 @@ class SubstitutionSuggestionOut(BaseModel):
     is_stock: bool
     match_coverage_lines: float | None
     robustness_rating: int | None
+    robustness_model_version: str | None
+    quality_summary: RecipeQualitySummaryOut
     provenance_note: str | None
     explanation: str
 

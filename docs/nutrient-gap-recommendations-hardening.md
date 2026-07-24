@@ -205,3 +205,75 @@ with a human label and a rounded (display-only) value, closed by
 default so it doesn't overwhelm the existing "Explanation & remaining
 gaps" disclosure. Verified with a clean `svelte-check` (0 errors),
 `vitest run` (13 passed), and a successful production build.
+
+## Prompt 4: expose data quality, provenance and mapping confidence
+
+Everything this prompt asks to *reuse* already existed and was already
+persisted (from the earlier alias/provenance rounds): `models.
+RecipeIngredientProvenance` (`match_method`/`match_relationship`/
+`match_confidence`/`match_rationale`/`match_used_fallback`/
+`match_validation_warning`/`match_preferred_fdc_id`/
+`match_preferred_food_id`), `Recipe.match_coverage_lines`/
+`match_coverage_mass`/`unresolved_ingredients`, and `RobustnessResult.
+model_version`. Nothing here reruns ingredient matching — every number
+below is aggregated from rows the stock-recipe import pipeline already
+wrote.
+
+**Direct food suggestions** (`recommend_ingredients.IngredientSuggestion`)
+gained `fdc_id` (USDA FoodData Central id, `None` for a manually-entered
+food), `data_type` (`Food.data_type` verbatim), and `candidate_source`
+(`candidate_metadata.py`'s `"curated"`/`"category_default"` tier). A
+direct food suggestion involves no ingredient-*alias* matching at all —
+that system is specific to stock-recipe ingredient-to-`Food` resolution
+— so `candidate_source` is this mode's own analogue of a mapping-
+confidence signal, documented as such rather than adding permanently-
+`None` `mapping_relationship`/`mapping_confidence` fields that could
+never actually apply here.
+
+**Recipe and substitution suggestions** gained a new
+`recommendation_provenance.RecipeQualitySummary` (`quality_summary` on
+both `RecipeSuggestionOut` and `SubstitutionSuggestionOut`), aggregating
+every ingredient's `RecipeIngredientProvenance` row (where one exists)
+into: counts and proportions of exact-or-regional / analogue / proxy-or-
+reviewed-substitution / fuzzy-unclassified ingredients, min and mass-
+weighted mapping confidence, a fallback-resolution count, an unresolved-
+or-low-confidence count (`Recipe.unresolved_ingredients` line count plus
+any resolved ingredient below `LOW_CONFIDENCE_THRESHOLD`=0.5), and
+`nutrient_coverage` (`Recipe.match_coverage_mass`, reused verbatim — see
+`recommendation_provenance.py`'s docstring for why this isn't recomputed
+or defaulted to 1.0 here, unlike the *scoring* engine's own separate
+coverage-fallback policy). Both suggestion types also gained
+`robustness_model_version` alongside the existing `robustness_rating`.
+
+**A `reviewed_substitution` is never bucketed with `exact`** — per the
+prompt's explicit instruction, `_PROXY_RELATIONSHIPS = {"category_proxy",
+"reviewed_substitution"}` groups a human-reviewed pairing with a
+proxy match, never with `exact`/`regional_equivalent`, regardless of how
+confident the reviewer was. This was true of the *scoring* engine
+already (an uncertainty penalty doesn't care about review status
+specifically) — this prompt makes it explicit and visible in the
+exposed summary too.
+
+**Tests**: `test_recommendation_provenance.py` — 14 cases covering
+exact, regional (bucketed with exact), canonical/exact_name non-alias
+methods (also bucketed with exact), analogue, category_proxy,
+reviewed_substitution (confirmed never exact), fallback-resolved, mixed-
+quality proportions, mass-weighted-vs-flat-average confidence, legacy-
+null (a stock recipe with zero provenance rows at all), a plain user
+recipe (no coverage concept at all), unresolved ingredient lines, fuzzy-
+unclassified, and `nutrient_coverage` reuse. Plus
+`test_recommendations_provenance_api.py` — 7 end-to-end HTTP tests
+covering exact-match, high-robustness, mixed-quality (regional+proxy+
+fallback), missing-robustness (no `RobustnessResult` row at all),
+legacy-null, ingredient `fdc_id`/`data_type`/`candidate_source`, and
+substitution wiring. Full backend suite: 904 passed (up from 883), 0
+regressions.
+
+**Frontend**: `lib/types.ts` gained a `RecipeQualitySummary` interface
+and the new fields on `IngredientSuggestion`/`RecipeSuggestion`/
+`SubstitutionSuggestion`; no new UI surface was added this prompt (the
+existing "Why this ranked here" disclosure from prompt 3 covers the
+score, not ingredient provenance) — the types are ready for a future
+"data quality" expandable section to consume. `svelte-check` (0
+errors), `vitest run` (13 passed), and the production build all remain
+green.

@@ -54,6 +54,22 @@ class IngredientSuggestion:
     new_warnings: list[str]
     extra_energy_kcal: float
     data_coverage: float
+    # USDA FoodData Central id, None for a manually-entered food — a
+    # stable cross-reference identifier, not this app's own nutritional
+    # truth (hardening prompt 4)
+    fdc_id: int | None
+    # "sr_legacy_food" | "foundation_food" | "branded_food" | None — same
+    # raw provenance tag Food.data_type already carries
+    data_type: str | None
+    # candidate_metadata.CandidateMetadata.source — "curated" or
+    # "category_default" (never "unknown_excluded": those never reach a
+    # suggestion at all). This module's own analogue of a "mapping
+    # relationship": a direct food suggestion involves no ingredient-
+    # alias matching at all (that system is stock-recipe-ingredient-
+    # specific, see recommendation_provenance.py), so "how confidently
+    # was this candidate identified as a sensible standalone suggestion"
+    # is answered by candidate_metadata's curation tier instead.
+    candidate_source: str
     explanation: str
 
 
@@ -219,6 +235,7 @@ def suggest_ingredients(
             food_id=food.id, food_name=food.name, quantity_g=trial_quantity, candidate_kind=metadata.kind.value,
             score=score, nutrients_improved=score.nutrients_improved, remaining_shortfalls=remaining,
             new_warnings=new_warnings, extra_energy_kcal=energy_added, data_coverage=coverage,
+            fdc_id=food.fdc_id, data_type=food.data_type, candidate_source=metadata.source,
             explanation=_explain(food.name, trial_quantity, score),
         ))
 
