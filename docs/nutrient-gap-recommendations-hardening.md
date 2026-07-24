@@ -471,3 +471,59 @@ issues exactly one request with the correct snake_case body. Full
 backend suite: 930 passed (up from 916), 0 regressions. `svelte-check`
 (0 errors) and `vitest run` (17 passed, up from 16, +1 new `api.ts`
 case) both remain green.
+
+## Prompt 7: permanent security/validation regression suite
+
+New file, `tests/test_hardening_regression_suite.py` — a single,
+permanent, table-organised suite covering every scenario the prompt
+lists, grouped under its own five headings (access control, input
+validation, auditability, safety, mutation). This is a consolidation
+layer, not a replacement for the exhaustive per-prompt suites already
+built in prompts 1–6: its module docstring points at
+`test_recipe_access.py`, `test_recommendations_param_validation.py`,
+`test_recommendations_score_breakdown_api.py`,
+`test_recommendation_provenance.py`, `test_recommendation_safety.py`/
+`test_recommendations_safety_api.py`, and
+`test_recommendations_substitutions_api.py` for the deeper versions of
+each area, so a future change to any of those doesn't leave this file as
+the only place a regression would surface — but this file is the one
+place that guarantees *every* named scenario from the prompt has at
+least one direct, permanent, real-endpoint test, independent of whether
+a more specific test file gets refactored or renamed later.
+
+Every test goes through a real HTTP call (`TestClient`) against the real
+FastAPI app, never a synthetic/mocked stand-in for the endpoint itself —
+the one exception being `test_candidate_engine_not_called_when_disabled`,
+which necessarily monkeypatches `suggest_ingredients` to prove it's
+*never invoked*, the same technique prompt 5's own equivalent test uses.
+
+**Coverage, 21 tests total:**
+
+- **Access control** (4): a private recipe can't be analysed via
+  `recipe_id` by another user; an inaccessible-private and a
+  nonexistent recipe id return byte-identical 404s; a public recipe and
+  a recipe explicitly shared with the caller both remain accessible;
+  `POST /substitutions/apply` against another user's diary entry 404s
+  and leaves it untouched.
+- **Input validation** (6): invalid servings (zero/negative/fractional-
+  negative), `max_suggestions` above the cap, negative
+  `max_additional_energy`, a reversed date range and an oversized one
+  (both against the multi-day range mode), an unknown
+  `priority_nutrients` key, and `recipe_id`+`entry_date` given together.
+- **Auditability** (4): every ingredient suggestion's `score_breakdown`
+  sums to its own `total`, which equals the top-level `score`;
+  `model_version` matches `RECOMMENDATION_MODEL_VERSION`; a recipe
+  suggestion's `quality_summary` carries the documented provenance
+  fields; a plain user recipe with zero `RecipeIngredientProvenance`
+  rows (the legacy-null case) doesn't error.
+- **Safety** (4): an under-18 profile disables the engine with
+  `under_minimum_age`; an unacknowledged medical constraint disables it
+  with `unacknowledged_medical_constraint`; a pregnant-and-lactating
+  profile keeps both warning codes; the candidate service is never
+  invoked while disabled.
+- **Mutation** (3): a successful substitution leaves exactly one diary
+  entry, correctly updated, never a stray duplicate; a stale
+  `expected_current_recipe_id` 409s and leaves the entry untouched; a
+  replayed/duplicate apply 409s on the second attempt.
+
+Full backend suite: 951 passed (up from 930), 0 regressions.
