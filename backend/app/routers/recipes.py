@@ -26,42 +26,13 @@ from ..nutrients import NUTRIENTS, resolve_drv
 from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
 from ..reference_patterns import DEFAULT_PATTERN
+from ..recipe_access import get_owned_recipe as _get_owned_recipe
+from ..recipe_access import get_visible_recipe as _get_visible_recipe
+from ..recipe_access import is_shared_with as _is_shared_with
 from ..scoring import UnknownReferencePattern
 from ..search import NutrientFilter, UnknownFilterKey, search_recipes
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
-
-
-def _is_shared_with(recipe_id: int, user_id: int, db: Session) -> bool:
-    return (
-        db.query(RecipeShare)
-        .filter(RecipeShare.recipe_id == recipe_id, RecipeShare.shared_with_user_id == user_id)
-        .first()
-        is not None
-    )
-
-
-def _get_owned_recipe(recipe_id: int, current_user: User, db: Session) -> Recipe:
-    """For mutating operations (delete, share management) — owner only."""
-    recipe = db.get(Recipe, recipe_id)
-    if recipe is None or recipe.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Recipe not found")
-    return recipe
-
-
-def _get_visible_recipe(recipe_id: int, current_user: User, db: Session) -> Recipe:
-    """For read-only operations (view, score, nutrients, copy) — owner,
-    anyone the recipe has been shared with, or anyone at all if it's public."""
-    recipe = db.get(Recipe, recipe_id)
-    if recipe is None:
-        raise HTTPException(status_code=404, detail="Recipe not found")
-    if (
-        recipe.user_id != current_user.id
-        and not recipe.is_public
-        and not _is_shared_with(recipe_id, current_user.id, db)
-    ):
-        raise HTTPException(status_code=404, detail="Recipe not found")
-    return recipe
 
 
 def _rating_summary(recipe_id: int, user_id: int, db: Session) -> schemas.RecipeRatingSummary:

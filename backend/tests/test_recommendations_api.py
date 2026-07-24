@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
-from app.models import Food, FoodNutrient
+from app.models import Food, FoodNutrient, Recipe
 from app.reference_patterns import AMINO_ACIDS
 
 
@@ -183,6 +183,75 @@ def test_recipe_source_rejects_meal_param(client):
         headers=headers,
     )
     assert res.status_code == 422
+
+
+def test_recipe_source_rejects_another_users_private_recipe(client):
+    """Hardening prompt 1: recipe_id must be a separate access boundary
+    from profile ownership — an authenticated user must not be able to
+    analyse another user's private recipe just by guessing its id."""
+    owner_token = register_and_token(client, "owner@example.com")
+    reg = client.post(
+        "/api/recipes",
+        json={"name": "Owner's private recipe", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=auth_headers(owner_token),
+    )
+    private_recipe_id = reg.json()["id"]
+
+    attacker_token = register_and_token(client, "attacker@example.com")
+    res = client.get(
+        "/api/recommendations/ingredients",
+        params={"recipe_id": private_recipe_id},
+        headers=auth_headers(attacker_token),
+    )
+    assert res.status_code == 404
+
+
+def test_recipe_source_nonexistent_and_inaccessible_return_identical_404(client):
+    """A guessed private recipe id must not be distinguishable from a
+    nonexistent one — same status and body either way."""
+    owner_token = register_and_token(client, "owner2@example.com")
+    reg = client.post(
+        "/api/recipes",
+        json={"name": "Another private recipe", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=auth_headers(owner_token),
+    )
+    private_recipe_id = reg.json()["id"]
+
+    attacker_token = register_and_token(client, "attacker2@example.com")
+    headers = auth_headers(attacker_token)
+    private_res = client.get(
+        "/api/recommendations/ingredients", params={"recipe_id": private_recipe_id}, headers=headers,
+    )
+    missing_res = client.get(
+        "/api/recommendations/ingredients", params={"recipe_id": 999999}, headers=headers,
+    )
+    assert private_res.status_code == missing_res.status_code == 404
+    assert private_res.json() == missing_res.json()
+
+
+def test_recipe_source_allows_public_recipe_from_another_user(client):
+    owner_token = register_and_token(client, "publicowner@example.com")
+    reg = client.post(
+        "/api/recipes",
+        json={"name": "Public recipe", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+        headers=auth_headers(owner_token),
+    )
+    recipe_id = reg.json()["id"]
+    # no PATCH field exists for is_public (only ever set directly in the
+    # DB for curated stock recipes) — simulate that here via a direct
+    # DB update through the same override_get_db session the app uses
+    db = next(app.dependency_overrides[get_db]())
+    recipe = db.get(Recipe, recipe_id)
+    recipe.is_public = True
+    db.commit()
+
+    other_token = register_and_token(client, "viewer@example.com")
+    res = client.get(
+        "/api/recommendations/ingredients",
+        params={"recipe_id": recipe_id},
+        headers=auth_headers(other_token),
+    )
+    assert res.status_code == 200
 
 
 def test_multi_day_meal_plan_range(client):

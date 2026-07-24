@@ -20,6 +20,7 @@ from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, RecipeIngredient, User
 from ..nutrient_targets import AnalysisPeriod
+from ..recipe_access import get_visible_recipe
 from ..recommendation_safety import assess_eligibility, recipe_warnings
 from ..recommend_ingredients import DEFAULT_MAX_SUGGESTIONS, suggest_ingredients
 from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SUGGESTIONS
@@ -74,15 +75,21 @@ def _load_entries_range(db: Session, profile: Profile, start_date: date, end_dat
     )
 
 
-def _recipe_as_items(db: Session, recipe_id: int, servings: float) -> tuple[Recipe, list]:
+def _recipe_as_items(db: Session, current_user: User, recipe_id: int, servings: float) -> tuple[Recipe, list]:
     """A recipe's own scaled ingredients, standing in for "the current
     meal" — lets the recipe-detail page ask "what could I add to this
     recipe" through the exact same suggest_ingredients used for a logged
     diary/meal-plan meal, without inventing a second candidate-generation
-    path."""
-    recipe = db.get(Recipe, recipe_id)
-    if recipe is None:
-        raise HTTPException(status_code=404, detail="Recipe not found")
+    path.
+
+    Recipe access is a separate boundary from profile ownership —
+    `get_visible_recipe` (owner, shared-with, or public/stock) is the
+    same canonical check `routers/recipes.py` uses everywhere else, so a
+    private recipe can't be inspected/analysed via recommendations just
+    because its numeric id was guessed (hardening prompt 1). 404 for both
+    "doesn't exist" and "exists but not yours" — never 403 — matching
+    this app's existing anti-enumeration convention."""
+    recipe = get_visible_recipe(recipe_id, current_user, db)
     ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe_id).all()
     if not ingredients:
         return recipe, []
@@ -155,7 +162,7 @@ def get_ingredient_suggestions(
     if recipe_id is not None:
         if meal is not None:
             raise HTTPException(status_code=422, detail="meal is not compatible with recipe_id")
-        _recipe, items = _recipe_as_items(db, recipe_id, servings)
+        _recipe, items = _recipe_as_items(db, current_user, recipe_id, servings)
         period = AnalysisPeriod.MEAL
         day_count = 1
         nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
@@ -350,9 +357,13 @@ def get_substitution_suggestions(
     if entry.recipe_id is None:
         raise HTTPException(status_code=422, detail="Entry has no recipe to substitute — it's a plain food entry")
 
-    current_recipe = db.get(Recipe, entry.recipe_id)
-    if current_recipe is None:
-        raise HTTPException(status_code=404, detail="Recipe not found")
+    # entry.recipe_id came from the caller's own already-profile-scoped
+    # entry, not a directly attacker-suppliable parameter, but this still
+    # goes through the canonical resolver rather than db.get() directly —
+    # consistent policy, and it degrades to a clean 404 (rather than
+    # exposing a recipe the user no longer has rights to) if the recipe
+    # was deleted or made private after being logged.
+    current_recipe = get_visible_recipe(entry.recipe_id, current_user, db)
 
     eligibility = assess_eligibility(profile, db)
     if not eligibility.enabled:
