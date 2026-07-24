@@ -1027,19 +1027,51 @@ class ClinicianClientSummaryOut(BaseModel):
     day: DiarySummaryOut
 
 
+class ScoreBreakdownOut(BaseModel):
+    """Every term `recommendation_scoring.score_candidate` actually
+    calculated — hardening prompt 3. `total` matches the suggestion's own
+    top-level `score` field (kept for backwards compatibility — existing
+    clients reading `score` alone are unaffected). Benefits are positive
+    (added to `total`); penalties are also positive magnitudes (named
+    `..._penalty`, subtracted from `total`) — never a sign a reader has
+    to interpret. Not rounded here — round only for display, per the
+    hardening prompt's own instruction.
+
+    `model_version` is `recommendation_scoring.RECOMMENDATION_MODEL_
+    VERSION` at the time this suggestion was scored — bump that constant
+    (see its docstring) whenever the formula/weights change materially;
+    this field lets a client detect when a previously-seen suggestion was
+    scored under a different model."""
+
+    weighted_gap_reduction: float
+    multi_nutrient_bonus: float
+    protein_quality_benefit: float
+    dietary_fit: float
+    practicality: float
+    upper_limit_penalty: float
+    above_preferred_penalty: float
+    energy_overshoot_penalty: float
+    uncertainty_penalty: float
+    implausible_serving_penalty: float
+    total: float
+    model_version: int
+
+
 class IngredientSuggestionOut(BaseModel):
     """One `recommend_ingredients.IngredientSuggestion` — prompt 6.
-    `score` is the total from `recommendation_scoring.ScoreBreakdown`;
-    the full breakdown isn't exposed here to keep the default response
-    compact (prompt 10's "do not overwhelm users with every nutrient by
-    default") — see the /ingredients/{food_id}/explain-style detail if a
-    future prompt needs the full breakdown surfaced."""
+    `score` is the total from `recommendation_scoring.ScoreBreakdown`,
+    kept for backwards compatibility; `score_breakdown` (hardening
+    prompt 3) exposes every term behind it, for an expandable "why this
+    ranked here" view — the compact default response (prompt 10's "do
+    not overwhelm users by default") is unaffected, since a client that
+    only reads `score` sees no difference."""
 
     food_id: int
     food_name: str
     quantity_g: float
     candidate_kind: str
     score: float
+    score_breakdown: ScoreBreakdownOut
     nutrients_improved: list[str]
     remaining_shortfalls: list[str]
     new_warnings: list[str]
@@ -1063,7 +1095,8 @@ class IngredientSuggestionsOut(BaseModel):
 
 
 class RecipeSuggestionOut(BaseModel):
-    """One `recommend_recipes.RecipeSuggestion` — prompt 7."""
+    """One `recommend_recipes.RecipeSuggestion` — prompt 7. `score_
+    breakdown` (hardening prompt 3) — see IngredientSuggestionOut."""
 
     recipe_id: int
     recipe_name: str
@@ -1071,6 +1104,7 @@ class RecipeSuggestionOut(BaseModel):
     energy_added_kcal: float
     protein_added_g: float
     score: float
+    score_breakdown: ScoreBreakdownOut
     nutrients_improved: list[str]
     remaining_shortfalls: list[str]
     new_warnings: list[str]
@@ -1110,6 +1144,7 @@ class SubstitutionSuggestionOut(BaseModel):
     protein_quality_before: float | None
     protein_quality_after: float | None
     score: float
+    score_breakdown: ScoreBreakdownOut
     remaining_shortfalls: list[str]
     new_warnings: list[str]
     is_stock: bool
@@ -1138,12 +1173,16 @@ class PairSuggestionOut(BaseModel):
     """One `recommend_pairs.PairSuggestion` — prompt 9. `score` is the
     *combined* pair's score, not the sum of `first.solo_score` +
     `second.solo_score` — see recommend_pairs.py's module docstring for
-    why those can differ."""
+    why those can differ. `score_breakdown` (hardening prompt 3) is the
+    breakdown behind that same combined score — `first`/`second`'s own
+    `solo_score` stay bare floats (never the ranking metric, see
+    recommend_pairs.py) rather than gaining their own full breakdown."""
 
     first: PairContributionOut
     second: PairContributionOut
     combined_energy_kcal: float
     score: float
+    score_breakdown: ScoreBreakdownOut
     nutrients_improved: list[str]
     remaining_shortfalls: list[str]
     new_warnings: list[str]

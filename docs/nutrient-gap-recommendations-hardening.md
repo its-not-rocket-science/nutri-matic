@@ -139,3 +139,69 @@ boundary values (e.g. `max_suggestions` at exactly 1 and 10 must still
 succeed). Full backend suite: 877 passed (up from 814), 0 regressions.
 No frontend change needed — `lib/api.ts` never sends a value outside any
 of these bounds.
+
+## Prompt 3: expose the full explainable score breakdown
+
+`recommendation_scoring.ScoreBreakdown` already carried every term the
+formula calculates (prompt 4) — this prompt is about *exposing* it
+through the public API, plus one genuine gap it surfaced: the
+"multi-nutrient bonus" the conceptual formula names was never its own
+number, just a multiplier folded silently into `weighted_gap_reduction`
+inside `_gap_reduction()`.
+
+**Real decomposition, not just plumbing**: `_gap_reduction()` now
+returns `(base_reduction, multi_nutrient_bonus, improved)` instead of a
+single bundled figure — `ScoreBreakdown` gained a `multi_nutrient_bonus`
+field, and `weighted_gap_reduction` now reports the *base* per-nutrient
+weight sum on its own. `weighted_gap_reduction + multi_nutrient_bonus`
+together equal what the single bundled figure meant before this split;
+`total` (and every existing caller reading only `total`/`score`) is
+numerically unaffected. This deliberately changed `test_score_breakdown_
+total_equals_component_sum`'s expected-sum formula (added `+ result.
+multi_nutrient_bonus`) — a documented consequence of the split, not a
+regression, and a second scenario (`..._with_multi_nutrient_bonus`) was
+added specifically because the original test's fixture never actually
+triggered a nonzero bonus, so it wouldn't have caught a missing term.
+
+`ScoreBreakdown` also gained `model_version: int =
+RECOMMENDATION_MODEL_VERSION` (prompt 12's constant), stamped on every
+breakdown at creation time — a client can now tell which scoring-formula
+version produced a given suggestion.
+
+**API schema**: a new `schemas.ScoreBreakdownOut` (all ten numeric terms
++ `total` + `model_version`, deliberately excluding `nutrients_improved`/
+`nutrients_worsened` — already exposed as each suggestion's own top-level
+fields, so the breakdown never duplicates them) is now a `score_
+breakdown` field on `IngredientSuggestionOut`, `RecipeSuggestionOut`,
+`SubstitutionSuggestionOut`, and `PairSuggestionOut` (the combined pair
+score only — `PairContributionOut.solo_score` stays a bare float, never
+the ranking metric, per `recommend_pairs.py`'s own docstring). The
+existing top-level `score` field is untouched — a client reading only
+`score` sees no difference at all.
+
+`routers/recommendations.py` gained one shared `_score_breakdown_out()`
+converter, used by all four endpoints, so the mapping is written once.
+
+**Tests**: `test_recommendations_score_breakdown_api.py` — one test per
+suggestion mode (ingredient/recipe/substitution/pair), each asserting:
+`score_breakdown.total == score` (the backwards-compatibility
+invariant), every breakdown field is a plain JSON number (no leaked
+internal object), `model_version` matches
+`RECOMMENDATION_MODEL_VERSION`, and `total` equals the sum of the ten
+named components computed from the *API response itself* (not just the
+Python dataclass) — genuinely checking what a real client would receive.
+Plus two new `test_recommendation_scoring.py` cases (the multi-nutrient-
+bonus sum invariant, and `model_version` presence). Full backend suite:
+883 passed (up from 877), 0 regressions.
+
+**Frontend**: `lib/types.ts` gained a `ScoreBreakdown` interface and a
+`score_breakdown` field on `IngredientSuggestion`/`RecipeSuggestion`/
+`SubstitutionSuggestion` (no `PairSuggestion` type exists frontend-side —
+pairs were never wired into the UI in prompt 10, a stated scope
+decision, unchanged here). `RecommendationCard.svelte` gained an
+optional `scoreBreakdown` prop and a second, separately-collapsed
+`<details>` — "Why this ranked here" — listing only the *nonzero* terms
+with a human label and a rounded (display-only) value, closed by
+default so it doesn't overwhelm the existing "Explanation & remaining
+gaps" disclosure. Verified with a clean `svelte-check` (0 errors),
+`vitest run` (13 passed), and a successful production build.

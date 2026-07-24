@@ -208,6 +208,7 @@ def test_score_breakdown_total_equals_component_sum():
     )
     expected = (
         result.weighted_gap_reduction
+        + result.multi_nutrient_bonus
         + result.protein_quality_benefit
         + result.dietary_fit
         + result.practicality
@@ -218,6 +219,39 @@ def test_score_breakdown_total_equals_component_sum():
         - result.implausible_serving_penalty
     )
     assert result.total == pytest.approx(expected)
+
+
+def test_score_breakdown_total_equals_component_sum_with_multi_nutrient_bonus():
+    """Same invariant as above, but for a scenario that actually triggers
+    the multi-nutrient bonus (hardening prompt 3 split it into its own
+    field) — the previous test's two-nutrient scenario doesn't exercise a
+    nonzero bonus (sodium is a ceiling nutrient, not an "improved" one),
+    so this covers the case that would have caught a missing term."""
+    before = [gap("vitamin_c", 5.0), gap("calcium", 200.0), gap("iron", 2.0)]
+    after = [gap("vitamin_c", 40.0), gap("calcium", 800.0), gap("iron", 10.0)]
+    result = score_candidate(before, after)
+    assert len(result.nutrients_improved) > 1
+    assert result.multi_nutrient_bonus > 0
+    expected = (
+        result.weighted_gap_reduction
+        + result.multi_nutrient_bonus
+        + result.protein_quality_benefit
+        + result.dietary_fit
+        + result.practicality
+        - result.upper_limit_penalty
+        - result.above_preferred_penalty
+        - result.energy_overshoot_penalty
+        - result.uncertainty_penalty
+        - result.implausible_serving_penalty
+    )
+    assert result.total == pytest.approx(expected)
+
+
+def test_model_version_stamped_on_every_breakdown():
+    from app.recommendation_scoring import RECOMMENDATION_MODEL_VERSION
+
+    result = score_candidate([], [])
+    assert result.model_version == RECOMMENDATION_MODEL_VERSION
 
 
 def test_custom_weights_override_defaults():

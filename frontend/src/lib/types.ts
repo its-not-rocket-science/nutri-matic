@@ -655,12 +655,34 @@ export interface PlanOptimization {
 // "deficiency", only below/near/within/above-preferred/above-upper-limit
 // against the app's own target.
 
+// Every term recommendation_scoring.score_candidate calculates
+// (hardening prompt 3) — `total` matches the suggestion's own `score`
+// field (kept for backwards compatibility). Benefits are positive;
+// penalties are also positive magnitudes (named `..._penalty`,
+// subtracted from `total`) — never a sign to interpret. Not rounded —
+// round only for display.
+export interface ScoreBreakdown {
+	weighted_gap_reduction: number;
+	multi_nutrient_bonus: number;
+	protein_quality_benefit: number;
+	dietary_fit: number;
+	practicality: number;
+	upper_limit_penalty: number;
+	above_preferred_penalty: number;
+	energy_overshoot_penalty: number;
+	uncertainty_penalty: number;
+	implausible_serving_penalty: number;
+	total: number;
+	model_version: number;
+}
+
 export interface IngredientSuggestion {
 	food_id: number;
 	food_name: string;
 	quantity_g: number;
 	candidate_kind: string;
 	score: number;
+	score_breakdown: ScoreBreakdown;
 	nutrients_improved: string[];
 	remaining_shortfalls: string[];
 	new_warnings: string[];
@@ -686,6 +708,7 @@ export interface RecipeSuggestion {
 	energy_added_kcal: number;
 	protein_added_g: number;
 	score: number;
+	score_breakdown: ScoreBreakdown;
 	nutrients_improved: string[];
 	remaining_shortfalls: string[];
 	new_warnings: string[];
@@ -719,6 +742,7 @@ export interface SubstitutionSuggestion {
 	protein_quality_before: number | null;
 	protein_quality_after: number | null;
 	score: number;
+	score_breakdown: ScoreBreakdown;
 	remaining_shortfalls: string[];
 	new_warnings: string[];
 	is_stock: boolean;

@@ -104,6 +104,14 @@ class ScoreBreakdown:
     score"."""
 
     weighted_gap_reduction: float
+    # the *additional* amount contributed by the multi-nutrient bonus
+    # multiplier — split out from weighted_gap_reduction (hardening
+    # prompt 3) so a caller can see how much of the gap-reduction term
+    # came from touching more than one prioritised nutrient, versus the
+    # raw per-nutrient weight sum itself. weighted_gap_reduction + this
+    # field together equal what a single bundled "weighted_gap_reduction"
+    # figure meant before this split — `total` is unaffected either way.
+    multi_nutrient_bonus: float
     protein_quality_benefit: float
     dietary_fit: float
     practicality: float
@@ -118,11 +126,18 @@ class ScoreBreakdown:
     uncertainty_penalty: float
     implausible_serving_penalty: float
     total: float
+    # which scoring-formula version produced this breakdown — hardening
+    # prompt 3, same constant every ScoreBreakdown this module produces
+    # is stamped with; see RECOMMENDATION_MODEL_VERSION's own docstring
+    # above for the versioning contract.
+    model_version: int = RECOMMENDATION_MODEL_VERSION
     nutrients_improved: list[str] = field(default_factory=list)
     nutrients_worsened: list[str] = field(default_factory=list)
 
 
-def _gap_reduction(before: list[NutrientGapResult], after: list[NutrientGapResult], weights: ScoringWeights) -> tuple[float, list[str]]:
+def _gap_reduction(
+    before: list[NutrientGapResult], after: list[NutrientGapResult], weights: ScoringWeights,
+) -> tuple[float, float, list[str]]:
     """Sum of optimisation_weight actually reduced by this candidate,
     across every nutrient the caller resolved gaps for. A nutrient already
     at/above target before (weight already 0) can contribute nothing here
@@ -135,7 +150,11 @@ def _gap_reduction(before: list[NutrientGapResult], after: list[NutrientGapResul
     *diluted coverage* for a nutrient it carries no data for (more total
     mass, no new information), not that the shortfall was addressed.
     Counting that as a "reduction" would reward a candidate for making
-    this app less able to judge a gap, exactly backwards."""
+    this app less able to judge a gap, exactly backwards.
+
+    Returns (base_reduction, multi_nutrient_bonus, improved) — the two
+    figures sum to what a single bundled figure meant before hardening
+    prompt 3 split them into separate ScoreBreakdown fields."""
     after_by_key = {g.key: g for g in after}
     total = 0.0
     improved: list[str] = []
@@ -148,11 +167,13 @@ def _gap_reduction(before: list[NutrientGapResult], after: list[NutrientGapResul
             total += reduction
             improved.append(b.key)
 
+    base = total * weights.gap_reduction_weight
+    bonus = 0.0
     if len(improved) > 1:
         bonus_nutrients = min(len(improved) - 1, weights.multi_nutrient_bonus_max_extra)
-        total *= 1 + weights.multi_nutrient_bonus_per_extra * bonus_nutrients
+        bonus = base * (weights.multi_nutrient_bonus_per_extra * bonus_nutrients)
 
-    return total * weights.gap_reduction_weight, improved
+    return base, bonus, improved
 
 
 @dataclass(frozen=True)
@@ -264,7 +285,7 @@ def score_candidate(
     or provenance data simply gets no contribution from that term, not a
     guessed one.
     """
-    gap_reduction, improved = _gap_reduction(before_gaps, after_gaps, weights)
+    gap_reduction, multi_nutrient_bonus, improved = _gap_reduction(before_gaps, after_gaps, weights)
     excess = _excess_penalty(before_gaps, after_gaps, weights)
     upper_limit_penalty, above_preferred_penalty, worsened = (
         excess.upper_limit_penalty, excess.above_preferred_penalty, excess.worsened,
@@ -278,6 +299,7 @@ def score_candidate(
 
     total = (
         gap_reduction
+        + multi_nutrient_bonus
         + protein_quality_benefit
         + dietary_fit
         + practicality_bonus
@@ -290,6 +312,7 @@ def score_candidate(
 
     return ScoreBreakdown(
         weighted_gap_reduction=gap_reduction,
+        multi_nutrient_bonus=multi_nutrient_bonus,
         protein_quality_benefit=protein_quality_benefit,
         dietary_fit=dietary_fit,
         practicality=practicality_bonus,
