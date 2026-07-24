@@ -44,6 +44,21 @@ def test_curated_food_resolves_with_real_serving_range():
     assert metadata.serving.default_g > 0
 
 
+def test_more_specific_curated_key_wins_over_a_shorter_shadowing_one():
+    """"orange" and "orange juice" are both real CURATED_FOODS keys, and
+    "orange" is a substring of "orange juice" — a food named "Orange
+    juice, unsweetened" must resolve against the more specific "orange
+    juice" entry (a beverage), never fall through to plain "orange" (a
+    whole standalone fruit) just because that key happens to be checked
+    first. Found by recommend_validate.py's duplicate-key check."""
+    metadata = resolve_candidate_metadata(make_food("Orange juice, unsweetened"))
+    assert metadata.food_group == FoodGroup.BEVERAGE
+    assert metadata.kind == CandidateKind.BEVERAGE
+
+    plain_orange = resolve_candidate_metadata(make_food("Oranges, raw"))
+    assert plain_orange.kind == CandidateKind.STANDALONE_FOOD
+
+
 def test_branded_food_excluded_even_if_name_would_otherwise_match():
     metadata = resolve_candidate_metadata(make_food("Banana, raw", data_type="branded_food"))
     assert metadata.suitable_for_direct_suggestion is False

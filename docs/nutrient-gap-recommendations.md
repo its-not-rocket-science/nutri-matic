@@ -793,3 +793,118 @@ This is where prompt 14's "adding regression scenarios" maintainer
 instruction points a future contributor — add a new `test_scenario_NN_*`
 function here, following the same pattern (small fixture catalogue,
 assert the invariant, not the score).
+
+## Prompt 14: documentation and maintainer tooling
+
+### Reference index
+
+The detail for every one of these already exists prompt-by-prompt above;
+this is a quick map from topic to where to actually look.
+
+| Topic | Module | Where above |
+|---|---|---|
+| Feature scope | — | This file's intro + prompt 1's audit |
+| Target resolution | `nutrient_targets.py` | Prompt 2 |
+| Gap analysis | `nutrient_gap_analysis.py` | Prompt 3 |
+| Scoring components | `recommendation_scoring.py` | Prompt 4 |
+| Hard constraints vs soft preferences | `dietary_filter.py`/`dietary_tags.py` (hard); `recommendation_scoring.py`'s `dietary_fit` (soft) | Prompt 4 |
+| Upper-limit handling | `nutrients.resolve_upper_limit`, `nutrient_targets.py` | Prompt 2, prompt 11's pregnancy/lactation margin |
+| Energy handling | `energy_goal.py` (personalised target), `recommendation_scoring.py`'s energy-overshoot penalty | Prompt 2, 4 |
+| Missing-data handling | `nutrient_gap_analysis.py`'s coverage/`insufficient_data`, `recommendation_scoring.py`'s uncertainty penalty | Prompt 3, 4, the prompt-6 coverage-dilution bugfix |
+| Provenance/alias-confidence penalties | `stock_recipes/ingredient_aliases.py`/`food_matching.py` (existing system, reused as a scoring input) | Prompt 4, 7 |
+| Practical candidate metadata | `candidate_metadata.py` | Prompt 5 |
+| Serving-size rules | `candidate_metadata.ServingRange`/`is_plausible_serving` | Prompt 5 |
+| Food suggestions | `recommend_ingredients.py` | Prompt 6 |
+| Recipe suggestions | `recommend_recipes.py` | Prompt 7 |
+| Substitutions | `recommend_substitutions.py` | Prompt 8 |
+| Pair recommendations | `recommend_pairs.py` | Prompt 9 |
+| Frontend "Improve this…" | `ImproveThis.svelte`/`RecommendationCard.svelte` | Prompt 10 |
+| Safety boundaries | `recommendation_safety.py` | Prompt 11 |
+| Cache/version behaviour | `recommendation_scoring.RECOMMENDATION_MODEL_VERSION`; no cache exists, see decision below | Prompt 12 |
+| Testing strategy | Per-module unit tests (prompts 2-9) + `test_recommendation_quality_fixtures.py` (prompt 13, ranking invariants) + `test_recommendation_performance.py` (prompt 12, bounds) + `test_recommendations_*_api.py` (HTTP wiring) | Throughout |
+
+### Maintainer how-to
+
+- **Add a candidate food** — see "Maintainer guide: extending the
+  curated candidate table" under prompt 5, above. Short version: add a
+  `CURATED_FOODS` entry keyed by a lowercase `Food.name` substring via
+  `_curated()`, run `test_candidate_metadata.py`.
+- **Set a serving range** — `candidate_metadata.ServingRange(minimum_g,
+  default_g, maximum_g)`, all in grams, `minimum <= default <= maximum`
+  enforced at construction. Use a quantity a person would actually
+  measure/eat ("100g", "one medium item"), never a mathematically
+  convenient number.
+- **Mark a food unsuitable** — add its name substring to
+  `candidate_metadata.EXCLUDED_KEYWORDS` (checked before any category
+  default, so it can't slip through one) rather than simply omitting it
+  from `CURATED_FOODS` — omission alone still lets an uncurated food fall
+  through to a `_CATEGORY_DEFAULTS` match.
+- **Add pairing metadata** — for a condiment/spread-style pairing, set
+  `normally_added_to_another_meal=True` on its `CandidateMetadata` (this
+  alone makes `recommend_pairs._pair_allowed` consider it pairable with
+  any non-condiment). For a specific named pair that isn't a condiment
+  relationship (e.g. "lentils + spinach"), add a
+  `frozenset({key_a, key_b})` to `recommend_pairs.CURATED_PAIRS`, where
+  `key_a`/`key_b` are `CURATED_FOODS` keys.
+- **Adjust weights** — every scoring coefficient is a named field on
+  `recommendation_scoring.ScoringWeights`, documented inline where it's
+  declared. Change a default there (never scatter a magic number into
+  `score_candidate` itself), bump `RECOMMENDATION_MODEL_VERSION` (see
+  below), and re-run `test_recommendation_scoring.py` +
+  `test_recommendation_quality_fixtures.py` — the latter is what would
+  actually catch a weight change breaking a real ranking invariant.
+- **Introduce a nutrient target** — add/edit its `NutrientDef` in
+  `nutrients.py` (`drv`, `target_type`, optionally `upper_limit`). No
+  change needed in `nutrient_targets.py`/`nutrient_gap_analysis.py`
+  themselves — both are already generic over every key in `NUTRIENTS`.
+  Run `python -m app.recommend_validate` afterwards (see below) — it
+  flags a nutrient marked `optimisation_eligible` with no real `drv`
+  figures, the most common mistake when adding one.
+- **Increment the recommendation model version** — bump
+  `recommendation_scoring.RECOMMENDATION_MODEL_VERSION` whenever
+  `ScoringWeights`' defaults or the scoring formula itself changes
+  materially enough that a previous result shouldn't be trusted/reused.
+  Not tied to this feature's own prompt numbering.
+- **Add a regression scenario** — see prompt 13's closing note, above:
+  a new `test_scenario_NN_*` function in
+  `test_recommendation_quality_fixtures.py`, asserting a ranking
+  invariant with a small fixture catalogue, not an exact score.
+
+### Validation CLI
+
+`python -m app.recommend_validate` — read-only, never modifies
+`candidate_metadata.py` or the database. Reports (see
+`app/recommend_validate.py`'s module docstring for the full rationale
+behind each check):
+
+- candidate foods without serving metadata / with invalid serving ranges
+- recipes missing meal categories (a count — a standing app-wide
+  limitation, not a per-recipe defect)
+- unsupported nutrient targets (`optimisation_eligible=True` with no
+  real `drv` figures)
+- duplicate/overlapping candidate keys (informational — `candidate_
+  metadata.py` resolves these deterministically by specificity, see the
+  bugfix below)
+- the current `RECOMMENDATION_MODEL_VERSION` (informational — no cache
+  exists to go stale)
+- candidates with poor nutrient-data coverage (a curated key's best-
+  matching real `Food` row has data for under half of this app's tracked
+  nutrients)
+- candidates based on low-confidence proxies (a stock recipe with
+  `match_coverage_lines` under 0.5)
+
+**A real bug this CLI found immediately on first run**: `"orange"` and
+`"orange juice"` are both genuine `CURATED_FOODS` keys, and `"orange"` is
+a substring of `"orange juice"`. Since `resolve_candidate_metadata`
+previously returned the *first* dict-iteration match, and `"orange"` is
+declared before `"orange juice"` in the source, a food named e.g.
+`"Orange juice, unsweetened"` was silently resolving as a whole
+standalone orange (default 130g) rather than a beverage (default 150ml)
+— wrong `CandidateKind`/`FoodGroup`/serving range for every juice-like
+food, never caught because no existing test named an orange-juice-like
+food. Fixed by making both `resolve_candidate_metadata` and
+`curated_key_for` pick the *longest* matching key (`_longest_matching_
+key`) rather than the first one found, so the more specific entry always
+wins regardless of declaration order. Regression test:
+`test_more_specific_curated_key_wins_over_a_shorter_shadowing_one`
+(`test_candidate_metadata.py`).
