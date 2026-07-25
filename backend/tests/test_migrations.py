@@ -11,7 +11,16 @@ this always runs there. Locally, it targets the same DATABASE_URL the
 app itself defaults to, but only ever creates/drops its own throwaway
 database (never the real `nutrimatic` one), so it's safe to run against
 a real local Postgres — it just self-skips if that role isn't allowed
-to create databases."""
+to create databases.
+
+Operational-hardening prompt 1's explicit acceptance criterion is
+"backend migration tests execute rather than skip" — a silent skip in
+CI would defeat that without anyone noticing. So the skip above is only
+ever a *skip* outside CI; under CI (detected via the `CI` env var
+GitHub Actions always sets) the same condition raises at collection
+time instead, failing the whole run loudly. CI's own workflow also
+verifies CREATEDB in a dedicated step before tests run at all (see
+.github/workflows/ci.yml) — this is the second, independent guard."""
 
 import os
 import subprocess
@@ -59,8 +68,18 @@ def _postgres_available_with_createdb() -> bool:
         return False
 
 
+_HAS_CREATEDB = _postgres_available_with_createdb()
+
+if not _HAS_CREATEDB and os.environ.get("CI"):
+    raise RuntimeError(
+        "Migration tests cannot run in CI: no Postgres reachable with CREATEDB "
+        "privilege. This must never happen in CI — check the Postgres service "
+        "configuration in .github/workflows/ci.yml rather than letting these "
+        "tests silently skip."
+    )
+
 pytestmark = pytest.mark.skipif(
-    not _postgres_available_with_createdb(),
+    not _HAS_CREATEDB,
     reason="no Postgres reachable with CREATEDB privilege for migration tests",
 )
 
