@@ -28,14 +28,14 @@ matters — i.e. anywhere that isn't your own laptop.
    **Every existing database needs a one-time `alembic stamp
    aac138c38096` before its first Alembic-enabled deploy** — see that
    doc for exactly why and how.
-5. Build and run the frontend with `@sveltejs/adapter-node` (operational-
-   hardening prompt 6 — resolved; the adapter is chosen and committed,
-   not left to `adapter-auto`'s guess). It talks to the backend over
-   `VITE_API_URL`, baked in at build time (see `frontend/.env`) — a
-   different backend origin needs a rebuild, not just a new env var at
-   runtime. See `docs/frontend-deployment.md` for the exact build/run
-   commands, required runtime environment variables (`PORT`, `ORIGIN`),
-   and the smoke tests this was verified against.
+5. Build with `@sveltejs/adapter-vercel` (operational-hardening prompt
+   6 — resolved; this repo has a live Vercel project already connected
+   via GitHub, so this is the adapter that actually matches current
+   hosting, not a guess). It talks to the backend over `VITE_API_URL`,
+   baked in at build time — set per-environment in the Vercel project's
+   own dashboard, not this repo's `.env`. See
+   `docs/frontend-deployment.md` for the build command, Vercel project
+   configuration, and the smoke tests this was verified against.
 
 ## Deployment checklist (production-hardening prompt 4)
 
