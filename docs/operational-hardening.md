@@ -64,24 +64,35 @@ it were one.
 
 ## Prompt 2: branch protection
 
-**Not applied.** This is a repository-admin action affecting every
-future contributor's workflow — pushing code (already pre-authorised,
-repeatedly, this session) and changing access-control/branch-protection
-settings are different classes of consequence, and the latter needs the
-repository owner's explicit go-ahead in the moment, not inference from
-"execute the prompts". Exact required settings, for when that's given:
+**Applied**, on the repository owner's explicit confirmation (this is a
+repo-admin action affecting every future contributor's workflow —
+pushing code and changing access-control settings are different classes
+of consequence, so this one specifically waited for a yes rather than
+being inferred from "execute the prompts"). Verified by reading the
+rule back immediately after applying it, not just trusting the API call
+returned `200`:
 
-- Require a pull request before merging into `main`.
-- Require status checks **`Backend tests`** and **`Frontend checks`**
-  (the exact names from prompt 1's `ci.yml`) to pass before merging.
-- Require branches to be up to date with `main` before merging.
-- Restrict force pushes and branch deletion on `main`.
-- Require conversation resolution before merging.
-- Consider requiring at least one approving review — left to the
-  repository owner's judgement on team size/workflow.
-- No admin bypass unless explicitly wanted.
+- Required status checks: **`Backend tests`**, **`Frontend checks`**
+  (exact job names from `ci.yml`) — confirmed present.
+- `strict: true` — branches must be up to date with `main` before
+  merging — confirmed.
+- `enforce_admins: true` — no bypass, including for repo admins —
+  confirmed. **Consequence worth stating plainly**: every direct-to-
+  `origin/main` push this entire session used (including every commit
+  in this hardening round) is no longer possible for *anyone*, admin or
+  not, once a branch has diverged — merges now have to go through a
+  pull request with the two checks green. This is exactly what the
+  prompt asked for ("prevent direct merging or pushing of unvalidated
+  code"), but it's a real, immediate workflow change from how this
+  session has been operating, not a no-op.
+- `allow_force_pushes: false`, `allow_deletions: false` — confirmed.
+- `required_conversation_resolution: true` — confirmed.
+- `required_pull_request_reviews.required_approving_review_count: 0` —
+  a PR is required (this alone blocks direct pushes), but no second
+  human approval is mandated. Chosen because nothing in this repository
+  indicates more than one contributor; raise this if that changes.
 
-Via `gh`: `gh api repos/its-not-rocket-science/nutri-matic/branches/main/protection --method PUT --input <payload>` with a JSON payload encoding the settings above (`required_status_checks.contexts: ["Backend tests", "Frontend checks"]`, `enforce_admins`, `required_pull_request_reviews`, `restrictions: null`, `allow_force_pushes: false`, `allow_deletions: false`, `required_conversation_resolution: true`). Or via the UI: Settings → Branches → Add branch protection rule → `main`, ticking the equivalent boxes and selecting the two check names from the dropdown (only available after prompt 1's workflow has run at least once on the repo, since GitHub only offers checks it's actually seen).
+Applied via `gh api repos/its-not-rocket-science/nutri-matic/branches/main/protection --method PUT` with a JSON payload encoding the settings above.
 
 **If job names ever change**: branch protection's required-check list
 must be updated to match — it does not track `ci.yml` automatically.
@@ -322,10 +333,12 @@ prompt 1's section above for the full account.
 
 **4. Required branch-protection check names**: `Backend tests`,
 `Frontend checks` — exact job names from `.github/workflows/ci.yml`
-(prompt 1), now confirmed against a real successful run, not just the
-YAML source. Not yet configured as required checks (prompt 2 — a
-repo-admin action pending the owner's explicit go-ahead, not applied
-unilaterally).
+(prompt 1), confirmed against a real successful run, not just the YAML
+source. **Applied and verified** (prompt 2, on the owner's explicit
+confirmation) — read back directly from the GitHub API after applying,
+not just trusted from the request succeeding: both contexts required,
+`strict`/`enforce_admins`/conversation-resolution all `true`, force
+pushes and deletions blocked.
 
 **5. Backend and frontend test counts**: backend — **991 passed, 0
 skipped, 0 failed**, run against real Postgres
@@ -394,9 +407,13 @@ plus new ones this round surfaced):
 - **Resolved**: this round's commits are now pushed and CI is verified
   green on GitHub itself (see point 3 above) — no longer a risk, kept
   here only to mark it closed relative to earlier drafts of this report.
-- **Branch protection is not configured.** Exact settings and check
-  names are specified (prompt 2's section) but not applied — a
-  repo-admin action pending the owner's explicit go-ahead.
+- **Resolved**: branch protection is applied and verified (prompt 2's
+  section) — `main` now requires a passing PR (both status checks
+  green, up to date, conversation resolution) for everyone, including
+  admins; force pushes and deletion are blocked. No longer a risk;
+  note the workflow consequence in that section (direct pushes to
+  `main`, used throughout this session, no longer work once the branch
+  has diverged).
 - **The `docker-compose` Postgres does not actually match the baseline
   it's stamped at** — real, verified drift (29 missing objects),
   found by this round's own tooling, not remediated. Do not treat that
