@@ -604,17 +604,30 @@ class DiaryEntry(Base):
     recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # bumped on every mutation (currently only the substitution-apply
-    # endpoint mutates an existing row rather than delete+recreate) — the
-    # entry-version signal `SubstitutionApplyIn.expected_updated_at` checks
-    # against, hardening prompt 6/8's "full entry-version or timestamp
-    # checking" requirement, broader than comparing recipe_id alone (which
-    # wouldn't catch some other field changing without the recipe itself
-    # changing).
+    # audit metadata — bumped on every mutation (currently only the
+    # substitution-apply endpoint mutates an existing row rather than
+    # delete+recreate). No longer the optimistic-concurrency check itself
+    # (see `version` below, production-hardening prompt 3) — kept as a
+    # plain "when was this last touched" timestamp, which `version` alone
+    # doesn't give a caller.
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
         default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    # the optimistic-concurrency check `SubstitutionApplyIn.expected_
+    # version` compares against (production-hardening prompt 3, replacing
+    # the timestamp-based check hardening prompt 6/8 used). Every row
+    # starts at 1; incremented explicitly alongside every mutation
+    # (currently just the substitution-apply endpoint) — not an ORM-level
+    # `onupdate`, deliberately, since "increment by 1 from the current
+    # value" needs the current value, which an `onupdate` callable can't
+    # see without a second round-trip; a plain explicit `entry.version +=
+    # 1` at the one mutation site is simpler and exactly as correct.
+    # Prefer this over `updated_at` for concurrency checks specifically:
+    # an integer equality comparison has none of a timestamp's
+    # precision/timezone-normalisation edge cases.
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
 
 class DiarySnapshot(Base):
@@ -733,12 +746,13 @@ class MealPlanEntry(Base):
     recipe_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("recipes.id"), nullable=True)
     quantity_servings: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # see DiaryEntry.updated_at's own docstring — same entry-version signal,
-    # same reason.
+    # see DiaryEntry.updated_at/.version's own docstrings — same audit
+    # timestamp + optimistic-concurrency version, same reasons.
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False,
         default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),
     )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
 
 class FoodPrice(Base):

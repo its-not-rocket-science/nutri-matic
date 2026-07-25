@@ -29,6 +29,7 @@ def _entry_out(
         recipe_name=recipes_by_id[entry.recipe_id].name if entry.recipe_id else None,
         quantity_servings=entry.quantity_servings,
         updated_at=entry.updated_at,
+        version=entry.version,
     )
 
 
@@ -321,4 +322,5 @@ def mark_eaten(
         recipe_name=recipes_by_id[diary_entry.recipe_id].name if diary_entry.recipe_id else None,
         quantity_servings=diary_entry.quantity_servings,
         updated_at=diary_entry.updated_at,
+        version=diary_entry.version,
     )

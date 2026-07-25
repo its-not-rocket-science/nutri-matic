@@ -784,6 +784,13 @@ No core hardening requirement from `prompts.txt` was left as a TODO.
 
 ## Follow-up: closing two remaining limitations from Prompt 8
 
+> **Superseded, partially**: the `expected_updated_at`/`current_entry_
+> updated_at` timestamp-based concurrency check this section describes
+> was later replaced by an integer `expected_version`/`current_entry_
+> version` check — see `docs/production-hardening.md`, prompt 3. Kept
+> here as an accurate record of what shipped at the time; don't build
+> against `expected_updated_at` — it no longer exists.
+
 Prompt 8's "Remaining limitations" section named two specific gaps in
 the substitution-apply endpoint. Both are now closed:
 

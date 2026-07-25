@@ -343,7 +343,7 @@ export const api = {
 		entryId: number;
 		source: 'diary' | 'meal_plan';
 		expectedCurrentRecipeId: number;
-		expectedUpdatedAt: string;
+		expectedVersion: number;
 		replacementRecipeId: number;
 		replacementServings: number;
 	}) =>
@@ -353,7 +353,7 @@ export const api = {
 				entry_id: args.entryId,
 				source: args.source,
 				expected_current_recipe_id: args.expectedCurrentRecipeId,
-				expected_updated_at: args.expectedUpdatedAt,
+				expected_version: args.expectedVersion,
 				replacement_recipe_id: args.replacementRecipeId,
 				replacement_servings: args.replacementServings
 			})
