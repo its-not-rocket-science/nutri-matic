@@ -9,6 +9,7 @@ total — see routers/diary.py's `_compute_nutrient_gaps` for the precedent
 this mirrors.
 """
 
+import logging
 from datetime import date
 from typing import Literal
 
@@ -37,6 +38,12 @@ from ..recommendation_provenance import RecipeQualitySummary
 from ..recommendation_scoring import ScoreBreakdown
 
 router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
+
+# Operational-hardening prompt 5: "substitution apply outcomes — success;
+# 409 stale conflict; 422 dietary rejection; 404 inaccessible/missing
+# resource". One structured log line per outcome in apply_substitution,
+# never including recipe/entry contents — ids and the outcome only.
+logger = logging.getLogger(__name__)
 
 
 def _score_breakdown_out(score: ScoreBreakdown) -> schemas.ScoreBreakdownOut:
@@ -551,25 +558,36 @@ def apply_substitution(
     "revalidate at apply time" principle already applied to visibility
     and eligibility below. Recommendation generation itself stays
     read-only; this is the one write path, and it's the only one."""
+    log_context = {"entry_id": body.entry_id, "source": body.source}
+
     model = MealPlanEntry if body.source == "meal_plan" else DiaryEntry
     entry = db.query(model).filter(model.id == body.entry_id, model.profile_id == profile.id).one_or_none()
     if entry is None:
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "404_not_found"})
         raise HTTPException(status_code=404, detail="Entry not found")
     if entry.recipe_id is None:
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "422_plain_food_entry"})
         raise HTTPException(status_code=422, detail="Entry has no recipe to substitute — it's a plain food entry")
     if entry.recipe_id != body.expected_current_recipe_id:
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "409_stale_recipe_id"})
         raise HTTPException(
             status_code=409,
             detail="Entry's current recipe has changed since this suggestion was generated",
         )
     if entry.version != body.expected_version:
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "409_stale_version"})
         raise HTTPException(
             status_code=409,
             detail="Entry has changed since this suggestion was generated",
         )
 
-    replacement = get_visible_recipe(body.replacement_recipe_id, current_user, db)
+    try:
+        replacement = get_visible_recipe(body.replacement_recipe_id, current_user, db)
+    except HTTPException:
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "404_inaccessible_replacement"})
+        raise
     if not filter_excluded_recipes([replacement], db, profile):
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "422_dietary_rejection"})
         raise HTTPException(
             status_code=422,
             detail="Replacement recipe conflicts with a dietary exclusion for this profile",
@@ -577,6 +595,7 @@ def apply_substitution(
 
     eligibility = assess_eligibility(profile, db)
     if not eligibility.enabled:
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "422_recommendations_disabled"})
         raise HTTPException(status_code=422, detail="Recommendations are currently disabled for this profile")
 
     entry.recipe_id = replacement.id
@@ -584,11 +603,13 @@ def apply_substitution(
     try:
         commit_entry_mutation(db)
     except EntryConflict:
+        logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "409_concurrent_conflict"})
         raise HTTPException(
             status_code=409,
             detail="Entry has changed since this suggestion was generated",
         )
 
+    logger.info("substitution_apply_outcome", extra={**log_context, "outcome": "200_success"})
     return schemas.SubstitutionApplyOut(
         entry_id=entry.id, source=body.source, recipe_id=replacement.id,
         recipe_name=replacement.name, quantity_servings=entry.quantity_servings,

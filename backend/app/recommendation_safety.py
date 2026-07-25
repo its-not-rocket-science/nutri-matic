@@ -46,6 +46,7 @@ re-decide them:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -53,6 +54,18 @@ from enum import Enum
 from sqlalchemy.orm import Session
 
 from .energy import calculate_age
+
+# Operational-hardening prompt 5: "disabled recommendation responses by
+# reason code" — logged once, here, at the single point every disabled
+# response actually gets decided, rather than duplicated at each of the
+# four /api/recommendations/* endpoints that call this function. Never
+# logs the medical constraint's free-text note or any other profile
+# content — only the profile id (an integer, not personal data on its
+# own) and the structured reason code. Sentry's LoggingIntegration (see
+# app/monitoring.py) turns a WARNING-level record into a captured event
+# when monitoring is configured; this is a plain stdlib logger call
+# either way, so it's equally useful in local/self-hosted logs.
+logger = logging.getLogger(__name__)
 from .models import DietaryConstraint, MedicalRecommendationAcknowledgement, Profile
 
 # Below this age, the app's personalised energy (Mifflin-St Jeor-style EER)
@@ -207,6 +220,10 @@ def revoke_medical_acknowledgements(profile: Profile, db: Session) -> int:
 def assess_eligibility(profile: Profile, db: Session) -> RecommendationEligibility:
     age = calculate_age(profile)
     if age is not None and age < MINIMUM_RECOMMENDATION_AGE:
+        logger.warning(
+            "recommendation_disabled",
+            extra={"profile_id": profile.id, "reason_code": DisabledReasonCode.UNDER_MINIMUM_AGE.value},
+        )
         return RecommendationEligibility(
             enabled=False,
             disabled_reason=(
@@ -228,6 +245,13 @@ def assess_eligibility(profile: Profile, db: Session) -> RecommendationEligibili
     if has_medical_constraint(profile, db):
         warnings.append(SafetyWarningCode.MEDICAL_CONSTRAINT_PRESENT)
         if not has_active_medical_acknowledgement(profile, db):
+            logger.warning(
+                "recommendation_disabled",
+                extra={
+                    "profile_id": profile.id,
+                    "reason_code": DisabledReasonCode.UNACKNOWLEDGED_MEDICAL_CONSTRAINT.value,
+                },
+            )
             return RecommendationEligibility(
                 enabled=False,
                 disabled_reason=(
