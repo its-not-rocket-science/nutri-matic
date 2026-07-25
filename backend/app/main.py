@@ -2,9 +2,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
 
-from .database import Base, engine
 from .routers import (
     account,
     api_keys,
@@ -27,16 +25,12 @@ from .routers import (
     weight,
 )
 
-Base.metadata.create_all(bind=engine)
-
-# pg_trgm powers search.py's typo-tolerant fuzzy fallback for food-name
-# search — Postgres-only (no SQLite equivalent, which is why that code path
-# is gated on the live dialect rather than assumed available). A no-op on
-# non-Postgres engines, and idempotent, so safe to run on every startup.
-if engine.dialect.name == "postgresql":
-    with engine.connect() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-        conn.commit()
+# Schema creation/evolution is Alembic's job now (see docs/migrations.md),
+# not this module's — `alembic upgrade head` (run before this process
+# starts; see the Dockerfile) creates every table and the pg_trgm
+# extension search.py's fuzzy fallback needs. Production-hardening
+# prompt 1 replaced the previous `Base.metadata.create_all()` +
+# opportunistic `CREATE EXTENSION` pair that used to live here.
 
 app = FastAPI(
     title="Nutri-Matic API",
