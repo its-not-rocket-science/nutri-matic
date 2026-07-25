@@ -218,3 +218,56 @@ contains a database URL's password or host under any of those outcomes.
 Full backend suite: 977 passed (up from 962), 14 skipped (the same
 migration/verifier tests, correctly self-skipping locally), 0
 regressions.
+
+## Prompt 6: select the correct SvelteKit production adapter
+
+Full detail in `docs/frontend-deployment.md` — summary here.
+`frontend/vite.config.ts` (this project configures the adapter via the
+`sveltekit()` Vite plugin's options, not a separate `svelte.config.js` —
+`DEPLOYMENT.md`'s earlier reference to `svelte.config.js` was
+inaccurate and has been corrected) swapped `@sveltejs/adapter-auto` for
+`@sveltejs/adapter-node`. Chosen, not guessed: this repo's only actual
+deployment story is the backend's own `Dockerfile`/`docker-compose.yml`
+— a plain Node server is the standard adapter for that kind of Docker/VM
+deploy, and nothing in this repo points at Vercel/Netlify/Cloudflare.
+
+**Verification, real not inferred**:
+
+- `npm run build` — `adapter-auto`'s "Could not detect a supported
+  production environment" warning is gone; build output confirms `Using
+  @sveltejs/adapter-node`.
+- The built server, run locally, correctly served the root route,
+  `/login`, and a nested route hit directly (`/diary` — proving
+  refresh-on-a-nested-route works, since a raw GET returning real SSR
+  HTML rather than a 404 is exactly what that needs), 404s a genuinely
+  nonexistent route, and serves static assets — checked via direct HTTP
+  requests, not assumed from the adapter's general reputation.
+- **A full browser smoke test against a temporary, fully isolated
+  backend** (its own throwaway Postgres database, migrated to head,
+  `CORS_ORIGINS` scoped to the preview server's origin — the real
+  `docker-compose` backend and its data were never touched): registered
+  a real account through the actual UI, confirmed via the browser's own
+  network log that the CORS preflight and the real request both
+  succeeded for registration, session check, and profile load; opened
+  the diary page and expanded the recommendation panel, confirming
+  `GET /api/recommendations/ingredients` returned `200` — the panel
+  genuinely loads and calls the backend, not just renders an empty
+  shell. No console errors, no CORS failures. Everything temporary was
+  torn down afterward (server processes killed, throwaway database
+  dropped, browser tab closed).
+- `vitest run` (17 passed) and `svelte-check` (0 errors, same 1
+  pre-existing unrelated warning) both remain green after the
+  dependency swap.
+
+**Not done**: an actual external preview deployment on real hosting
+infrastructure — none is selected for this project yet. The smoke test
+above is real (a real built server, a real isolated backend, a real
+browser) but ran locally, not on production-equivalent infrastructure —
+stated plainly in `docs/frontend-deployment.md` rather than implied
+otherwise.
+
+**Also fixed while here**: `DEPLOYMENT.md` and `docs/production-
+hardening.md` both referenced this gap as "item 6" / pointed at a
+`frontend/svelte.config.js` that doesn't exist — updated both to point
+at `docs/frontend-deployment.md` and the real config file instead of a
+stale numbered reference and an inaccurate filename.
