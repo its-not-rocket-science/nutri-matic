@@ -156,3 +156,59 @@ interfaces for shape accuracy), `lib/api.ts` (`applySubstitution`'s
 +page.svelte` and `meal-plan/+page.svelte`'s `applySubstitutionSuggestion`
 now read `s.current_entry_version` instead of `s.current_entry_updated_
 at`. `vitest run` and `svelte-check` both remain green.
+
+## Prompt 4: deployment validation
+
+Full checklist added to `DEPLOYMENT.md` under "Deployment checklist" —
+backups, migration state verification (not just "it ran" but "`alembic
+current` matches `alembic heads`"), schema spot-checks, smoke tests
+naming the recommendation and substitution-apply endpoints specifically
+(the write path most recently restructured), rollback guidance with the
+two specific hazards already on record for this repo's own migrations
+(the `updated_at` migration's `downgrade()` loses data; the baseline's
+`downgrade()` must never run against real data), and monitoring
+guidance — including stating plainly that no monitoring/alerting stack
+is actually configured in this repository, rather than leaving that
+gap implicit.
+
+## Prompt 5: backend CI
+
+**Gap found**: `.github/workflows/ci.yml` already existed (from an
+earlier round) and ran the full backend `pytest -q` suite (which is the
+unit/API/security-regression coverage this prompt asks for — one suite,
+not three separate ones, since `test_hardening_regression_suite.py` and
+the `test_recommendations_*`/`test_recipe_access.py` files already *are*
+that coverage) plus frontend type-checking and the production build —
+but never actually ran the frontend's own unit tests (`vitest`,
+`frontend/lib/api.test.ts` etc.). "Frontend tests" was silently missing
+from a workflow whose job was already named to imply it covered
+everything. Fixed by adding an explicit `npm run test` step to the
+`frontend` job.
+
+Also added: `tests/test_migrations.py` (prompt 1) now runs for real in
+CI rather than self-skipping, since the CI Postgres service's user has
+`CREATEDB` by default (the official `postgres` image makes
+`POSTGRES_USER` a superuser) — unlike this project's own local-dev
+default role, which doesn't. Called out explicitly in a comment on the
+backend test step so a future reader doesn't have to work out why the
+same test behaves differently locally versus in CI.
+
+**Not done, and why**: the prompt's other requirement, "require
+successful checks before merge," is a GitHub branch-protection setting
+(Settings → Branches → branch protection rule for `main`, selecting the
+`backend` and `frontend` jobs as required status checks) — not
+something expressible inside the workflow YAML itself, and changing
+repository-level branch protection is a repo-admin action outside what
+a code change should do unilaterally. Documented directly in
+`ci.yml`'s own header comment as the one remaining manual step, with
+the exact setting and job names to select.
+
+**Verification**: `ci.yml` parses as valid YAML (checked directly);
+`npm run test` runs successfully outside CI (17 passed, same as every
+other check in this round); the backend step is unchanged in substance
+(still `pytest -q`), so its own behaviour was already verified via the
+957/958-passed runs earlier in this document. No CI run was actually
+triggered on GitHub as part of this work (that would require a push),
+so "verified" here means "confirmed correct by direct inspection and by
+running the equivalent commands locally," not "watched it go green on
+GitHub" — that only happens once this is pushed.
