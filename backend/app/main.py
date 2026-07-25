@@ -1,8 +1,11 @@
+import logging
 import os
+import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from .monitoring import init_monitoring
 from .routers import (
     account,
     api_keys,
@@ -14,6 +17,7 @@ from .routers import (
     entitlements,
     food_prices,
     foods,
+    health,
     meal_plan,
     meal_plan_templates,
     presets,
@@ -31,6 +35,10 @@ from .routers import (
 # extension search.py's fuzzy fallback needs. Production-hardening
 # prompt 1 replaced the previous `Base.metadata.create_all()` +
 # opportunistic `CREATE EXTENSION` pair that used to live here.
+
+# No-op unless SENTRY_DSN is set — see app/monitoring.py and
+# docs/monitoring.md (operational-hardening prompt 5).
+init_monitoring()
 
 app = FastAPI(
     title="Nutri-Matic API",
@@ -61,6 +69,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_request_logger = logging.getLogger("app.requests")
+
+
+@app.middleware("http")
+async def log_recommendation_endpoint_latency(request: Request, call_next):
+    """Operational-hardening prompt 5: "recommendation endpoint latency"
+    and "recommendation endpoint error rate". Scoped to `/api/
+    recommendations/*` specifically rather than every request — that's
+    the one prompt actually asks to be watched closely (it's the
+    heaviest read path and the one write path this feature has), not a
+    general-purpose request logger. A plain stdlib logger call, so it's
+    useful in self-hosted logs with or without Sentry configured; when
+    Sentry is active its own performance monitoring
+    (`traces_sample_rate`, see app/monitoring.py) captures per-request
+    timing for every endpoint independently of this."""
+    if not request.url.path.startswith("/api/recommendations"):
+        return await call_next(request)
+
+    started_at = time.monotonic()
+    response = await call_next(request)
+    duration_ms = (time.monotonic() - started_at) * 1000
+    _request_logger.info(
+        "recommendation_request",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "status_code": response.status_code,
+            "duration_ms": round(duration_ms, 1),
+        },
+    )
+    return response
+
+
 app.include_router(foods.router)
 app.include_router(auth.router)
 app.include_router(account.router)
@@ -80,8 +121,4 @@ app.include_router(api_keys.router)
 app.include_router(public_api.router)
 app.include_router(clinician.router)
 app.include_router(recommendations.router)
-
-
-@app.get("/api/health")
-def health():
-    return {"status": "ok"}
+app.include_router(health.router)

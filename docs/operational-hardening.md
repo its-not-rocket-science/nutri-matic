@@ -158,3 +158,63 @@ check alone can't close.
   (`test_transaction_rollback_leaves_no_partial_mutation`).
 
 Full backend suite result recorded in prompt 7's final report.
+
+## Prompt 5: production monitoring and alerting
+
+Full detail in `docs/monitoring.md` — summary here. **Honesty note
+first**: nothing here is actually live. There is no Sentry account (or
+equivalent) provisioned for this project, so `SENTRY_DSN` is unset
+everywhere, monitoring is a no-op, and the alerts/dashboards/log-
+retention/incident-response sections of `docs/monitoring.md` are a
+specification for the repository owner to complete, not a record of
+something already configured. What *is* real: the code is written,
+tested, and ready to activate the moment a real DSN is set, with zero
+further code changes needed.
+
+- **`app/monitoring.py`** — `init_monitoring()` (no-op without
+  `SENTRY_DSN`, called once at startup), `scrub_event` (Sentry's
+  `before_send` hook — strips anything key-matching authorization/
+  token/password/secret/jwt/cookie/note/medical, redacts a database
+  URL's password rather than removing it outright), and
+  `alembic_head_and_current()` (reads the live `alembic_version` table
+  plus the migration scripts on disk, for the readiness check below).
+- **`/api/health`** (liveness, moved here from an inline stub in
+  `main.py` — same path/response, not a breaking change) and
+  **`/api/ready`** (readiness — 503 if the database is unreachable, or
+  if its Alembic revision doesn't match head, with a short,
+  credential-free reason either way).
+- **Structured logging** at exactly the two points this prompt names
+  explicitly: `recommendation_safety.assess_eligibility` logs once,
+  centrally, whenever it disables the engine (covers all four
+  `/api/recommendations/*` endpoints, never the medical constraint's
+  free-text note); `apply_substitution` logs one line per outcome
+  (success, each 409/422/404 case, distinguished by an `outcome` code).
+  Plus a `/api/recommendations/*`-scoped latency/status-code logging
+  middleware in `main.py` (the specific endpoint family this prompt
+  asks to be watched, not a generic access log for the whole app).
+- `sentry_sdk` added to `requirements.txt` (already installed in this
+  environment; pinned to the installed version, `2.58.0`).
+
+**Tests**: `test_monitoring.py` — `init_monitoring()` is a no-op
+without `SENTRY_DSN` (and importing the whole app succeeds with no
+monitoring configuration at all, confirming "missing credentials do not
+break local development" isn't just true of the one function but of the
+app as a whole); initialises when a DSN is set; six scrubbing cases
+(auth headers, cookies, password/token body fields, medical/dietary
+note fields, `extra` context including a database URL, breadcrumb
+data). A dedicated fixture tears Sentry's global client back down after
+every test in this file — the SDK's own state is process-global, so
+leaving a fake DSN active would make unrelated tests' `WARNING`-level
+log calls attempt real network sends (caught directly: the very first
+run of this file printed "Sentry is attempting to send 6 pending
+events" before the teardown fix). `test_health.py` — liveness always
+`200`; readiness succeeds when the database responds and the revision
+matches head; fails with `503` (never a raw exception/500) when the
+database raises, when the revision is behind head, and when
+`alembic_version` doesn't exist yet at all (`current=None`); and a
+dedicated test confirming neither endpoint's response body ever
+contains a database URL's password or host under any of those outcomes.
+
+Full backend suite: 977 passed (up from 962), 14 skipped (the same
+migration/verifier tests, correctly self-skipping locally), 0
+regressions.
