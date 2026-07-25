@@ -162,6 +162,53 @@ class TestApplySubstitution:
         updated = next(e for e in day["entries"] if e["id"] == entry["id"])
         assert updated["recipe_id"] == replacement_recipe_id
         assert updated["quantity_servings"] == 2
+        # exactly +1, not +2 — operational-hardening prompt 4 moved the
+        # increment from an explicit `entry.version += 1` to SQLAlchemy's
+        # version_id_col; a regression here would mean both are firing
+        assert updated["version"] == entry["version"] + 1
+
+    def test_meal_plan_source_apply_works_identically(self, client):
+        """Prompt 4's explicit "diary and meal-plan paths both work" —
+        this file otherwise only exercises source="diary"."""
+        token = register_and_token(client, "owner-mealplan@example.com")
+        headers = auth_headers(token)
+        current_recipe_id = client.post(
+            "/api/recipes",
+            json={"name": "Rice Bowl", "servings": 1, "ingredients": [{"food_id": 1, "quantity_g": 200}]},
+            headers=headers,
+        ).json()["id"]
+        replacement_recipe_id = client.post(
+            "/api/recipes",
+            json={"name": "Lentil Bowl", "servings": 1, "ingredients": [{"food_id": 2, "quantity_g": 224}]},
+            headers=headers,
+        ).json()["id"]
+        entry = client.post(
+            "/api/meal-plan",
+            json={"plan_date": "2026-01-01", "meal": "lunch", "recipe_id": current_recipe_id, "quantity_servings": 1},
+            headers=headers,
+        ).json()
+
+        res = client.post(
+            "/api/recommendations/substitutions/apply",
+            json={
+                "entry_id": entry["id"], "source": "meal_plan",
+                "expected_current_recipe_id": current_recipe_id,
+                "expected_version": entry["version"],
+                "replacement_recipe_id": replacement_recipe_id,
+                "replacement_servings": 2,
+            },
+            headers=headers,
+        )
+        assert res.status_code == 200, res.json()
+        assert res.json()["recipe_id"] == replacement_recipe_id
+
+        week = client.get(
+            "/api/meal-plan?start_date=2026-01-01&end_date=2026-01-01", headers=headers
+        ).json()
+        updated = next(e for e in week if e["id"] == entry["id"])
+        assert updated["recipe_id"] == replacement_recipe_id
+        assert updated["quantity_servings"] == 2
+        assert updated["version"] == entry["version"] + 1
 
     def test_stale_expected_recipe_id_rejected_with_409(self, client):
         token = register_and_token(client, "owner2@example.com")

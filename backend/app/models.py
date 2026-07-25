@@ -617,17 +617,30 @@ class DiaryEntry(Base):
 
     # the optimistic-concurrency check `SubstitutionApplyIn.expected_
     # version` compares against (production-hardening prompt 3, replacing
-    # the timestamp-based check hardening prompt 6/8 used). Every row
-    # starts at 1; incremented explicitly alongside every mutation
-    # (currently just the substitution-apply endpoint) — not an ORM-level
-    # `onupdate`, deliberately, since "increment by 1 from the current
-    # value" needs the current value, which an `onupdate` callable can't
-    # see without a second round-trip; a plain explicit `entry.version +=
-    # 1` at the one mutation site is simpler and exactly as correct.
-    # Prefer this over `updated_at` for concurrency checks specifically:
-    # an integer equality comparison has none of a timestamp's
-    # precision/timezone-normalisation edge cases.
+    # the timestamp-based check hardening prompt 6/8 used — a plain
+    # integer equality comparison has none of a timestamp's
+    # precision/timezone-normalisation edge cases).
+    #
+    # Structurally enforced, not just conventionally incremented
+    # (operational-hardening prompt 4): `__mapper_args__["version_id_col"]`
+    # below tells SQLAlchemy to manage this column itself on every flush
+    # — every UPDATE it emits for this table gets `WHERE version =
+    # <the value this session loaded>` appended and `version = version +
+    # 1` added to SET, and if zero rows match (because some other
+    # transaction already changed this row and bumped its version first)
+    # SQLAlchemy raises `StaleDataError` instead of silently updating
+    # nothing. This is what actually closes the race a purely
+    # application-level "check then write" can't: two requests can both
+    # read the same version and both pass an equality check in Python,
+    # but only one of their UPDATEs can match the WHERE clause once the
+    # other has already committed — the loser's commit fails at the
+    # database, not by hoping every future mutation site remembers to
+    # increment this column itself. See `app/entry_mutation.py`, the one
+    # place that translates `StaleDataError` into this app's own
+    # `EntryConflict` for routers to catch.
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+
+    __mapper_args__ = {"version_id_col": version}
 
 
 class DiarySnapshot(Base):
@@ -753,6 +766,8 @@ class MealPlanEntry(Base):
         default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+
+    __mapper_args__ = {"version_id_col": version}
 
 
 class FoodPrice(Base):
