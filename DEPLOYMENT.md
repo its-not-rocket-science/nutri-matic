@@ -28,14 +28,14 @@ matters — i.e. anywhere that isn't your own laptop.
    **Every existing database needs a one-time `alembic stamp
    aac138c38096` before its first Alembic-enabled deploy** — see that
    doc for exactly why and how.
-5. Serve the frontend (`frontend/`) as a static SvelteKit build; it talks
-   to the backend over `VITE_API_URL` (see `frontend/.env`).
-6. Pick a real SvelteKit adapter before deploying. `frontend/svelte.config.js`
-   currently uses `@sveltejs/adapter-auto`, which only auto-detects known
-   platforms (Vercel, Netlify, Cloudflare) at build time — `npm run build`
-   prints "Could not detect a supported production environment" as-is.
-   Swap in `@sveltejs/adapter-node` (Docker/VM deploys) or the adapter for
-   whichever platform you're actually targeting.
+5. Build and run the frontend with `@sveltejs/adapter-node` (operational-
+   hardening prompt 6 — resolved; the adapter is chosen and committed,
+   not left to `adapter-auto`'s guess). It talks to the backend over
+   `VITE_API_URL`, baked in at build time (see `frontend/.env`) — a
+   different backend origin needs a rebuild, not just a new env var at
+   runtime. See `docs/frontend-deployment.md` for the exact build/run
+   commands, required runtime environment variables (`PORT`, `ORIGIN`),
+   and the smoke tests this was verified against.
 
 ## Deployment checklist (production-hardening prompt 4)
 

@@ -129,10 +129,11 @@ decide on the repository's behalf.
 ## Log retention
 
 Not configured — depends entirely on where production logs actually go
-(the deploy platform's own log aggregation), which isn't chosen yet
-(see `DEPLOYMENT.md` item 6, the SvelteKit adapter question, for the
-related "where does this actually run" gap). Revisit once a concrete
-hosting platform is chosen.
+(the deploy platform's own log aggregation), which isn't chosen yet.
+The frontend now has a concrete deployment story (`@sveltejs/
+adapter-node`, see `docs/frontend-deployment.md`) but no actual hosting
+platform has been selected for either the frontend or backend — revisit
+log retention once one is.
 
 ## Incident response
 

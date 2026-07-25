@@ -334,11 +334,16 @@ repo's own migrations), and monitoring guidance.
   stops working for that write path. Documented directly on the model
   field, but there's no structural guard (a test, a lint rule) that
   would catch a future mutation site forgetting it.
+  **Resolved** by `docs/operational-hardening.md` prompt 4 —
+  `version_id_col` makes SQLAlchemy manage the increment itself for
+  every future mutation, not just this one hand-written call site.
 - **`SvelteKit`'s adapter is still `adapter-auto`**, a pre-existing,
   already-documented gap (`DEPLOYMENT.md` item 6) — `npm run build`
   prints "Could not detect a supported production environment" as-is.
   Unrelated to this round's scope but still genuinely blocking a real
   deploy until a real adapter is chosen.
+  **Resolved** by `docs/operational-hardening.md` prompt 6 —
+  `@sveltejs/adapter-node`, see `docs/frontend-deployment.md`.
 - **The `docker-compose` Postgres and this project's native local-dev
   Postgres are both, as of this session, unstamped** — neither has had
   `alembic stamp aac138c38096` run against it. Both need that one-time
