@@ -322,14 +322,34 @@ adapter-vercel`. `npm run build` now produces `.vercel/output/`
 matching Vercel's Build Output API v3 shape (`config.json`,
 `functions/`, `static/`) rather than a standalone server bundle.
 `vitest run` (17 passed) and `svelte-check` (0 errors) both still
-green. Full detail, including what's still not independently
-re-verified against a real Vercel deployment (no Vercel CLI credentials
-available in this environment), in `docs/frontend-deployment.md`.
+green.
+
+**Then found a second, unrelated real bug while actually checking the
+live deployment**: the production URL 404'd — Vercel's own edge
+`NOT_FOUND`, not the app's 404 page, meaning Vercel wasn't finding any
+build output to serve at all. Root cause: the Vercel project's **Root
+Directory** setting (dashboard-only, not in git — this is a `frontend/`
++ `backend/` monorepo with no root-level `package.json`) wasn't set to
+`frontend`, so every build had been running against the repo root,
+finding nothing buildable, the entire time — unrelated to the
+adapter-node/adapter-vercel question, and predating this session
+entirely. Confirmed by elimination: checked Build Command/Output
+Directory overrides first (not the cause), then Root Directory (was
+the cause) — corrected in the dashboard by the repository owner, then
+verified fixed by triggering a fresh deployment (an empty commit via
+PR, since `main`'s branch protection blocks a direct push) and having
+the owner confirm the new preview actually loads, since deployment-
+protection SSO blocks this from being checked any other way from this
+environment. `adapter-vercel` itself was correct from the start; this
+was a separate, pre-existing dashboard misconfiguration this session
+happened to surface by actually looking at the deployment instead of
+stopping at "the build succeeded."
 
 Left as a durable note for next time: check a repo's connected
 platform integrations (PR status checks, or the hosting dashboard
 directly), not just its own committed config files, before concluding
-what "current hosting" is.
+what "current hosting" is — and a green build is not the same claim as
+a working deployment; check the latter too when it's checkable.
 
 ## Prompt 7: final operational validation
 
@@ -422,9 +442,13 @@ corrected from an initial, wrong `adapter-node` choice once this
 repo's existing live Vercel integration was discovered (see prompt 6's
 "Correction" subsection above). `npm run build` produces `.vercel/
 output/` matching Vercel's Build Output API v3 shape; `vitest run`/
-`svelte-check` both green. Not yet independently re-verified against
-an actual Vercel deployment from this environment (no Vercel CLI
-credentials available here) — see `docs/frontend-deployment.md`.
+`svelte-check` both green. **Confirmed working on a real Vercel
+deployment** — the first live check surfaced a second, unrelated real
+bug (the project's Root Directory dashboard setting wasn't `frontend`,
+so every deployment 404'd regardless of adapter); fixed by the
+repository owner in the Vercel dashboard, then confirmed by the owner
+after a fresh deployment that the app actually loads. See prompt 6's
+section above and `docs/frontend-deployment.md`.
 
 **11. Deployment and rollback commands**: `docs/migrations.md` (local/
 production migration commands, the mandatory `stamp` step for existing
@@ -470,13 +494,12 @@ plus new ones this round surfaced):
   platform beyond a working `Dockerfile`/`docker-compose.yml` — no
   actual production place it runs. Log retention and real alerting
   infrastructure still depend on that being decided.
-- **The Vercel `adapter-vercel` switch is not independently
-  re-verified against a real Vercel deployment from this environment**
-  — no Vercel CLI credentials available here. The build output shape is
-  confirmed correct (`.vercel/output/` matches Build Output API v3);
-  an actual deployed-and-working check needs either those credentials
-  or the repository owner checking the next PR's Vercel preview
-  directly.
+- **Resolved**: `adapter-vercel` confirmed working on a real Vercel
+  deployment by the repository owner, after also fixing an unrelated
+  real bug this surfaced — the project's Root Directory dashboard
+  setting wasn't `frontend`, so every deployment had been 404ing
+  regardless of adapter choice. No longer a risk; kept here only to
+  mark it closed.
 - **The `version` column's increment is now structurally enforced**
   (resolved this round, prompt 4) — no longer a risk, listed here only
   to mark it closed relative to the previous round's report.
