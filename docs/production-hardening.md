@@ -343,7 +343,9 @@ repo's own migrations), and monitoring guidance.
   Unrelated to this round's scope but still genuinely blocking a real
   deploy until a real adapter is chosen.
   **Resolved** by `docs/operational-hardening.md` prompt 6 —
-  `@sveltejs/adapter-node`, see `docs/frontend-deployment.md`.
+  `@sveltejs/adapter-vercel` (this repo's actual hosting platform,
+  corrected after an initial wrong `adapter-node` guess), see
+  `docs/frontend-deployment.md`.
 - **The `docker-compose` Postgres and this project's native local-dev
   Postgres are both, as of this session, unstamped** — neither has had
   `alembic stamp aac138c38096` run against it. Both need that one-time
