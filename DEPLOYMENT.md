@@ -22,10 +22,12 @@ matters — i.e. anywhere that isn't your own laptop.
 2. Set `APP_ENV=production` so a missing `JWT_SECRET` fails startup loudly
    instead of silently degrading auth security.
 3. Set `CORS_ORIGINS` to your actual frontend origin(s).
-4. Point `DATABASE_URL` at a real, backed-up Postgres instance — the app
-   only runs `Base.metadata.create_all()` on startup (creates missing
-   tables; does not migrate existing ones), so schema changes to existing
-   tables need a manual migration, not just a redeploy.
+4. Point `DATABASE_URL` at a real, backed-up Postgres instance and run
+   the Alembic migration workflow in `docs/migrations.md` — schema
+   creation and evolution is Alembic's job now, not a redeploy alone.
+   **Every existing database needs a one-time `alembic stamp
+   aac138c38096` before its first Alembic-enabled deploy** — see that
+   doc for exactly why and how.
 5. Serve the frontend (`frontend/`) as a static SvelteKit build; it talks
    to the backend over `VITE_API_URL` (see `frontend/.env`).
 6. Pick a real SvelteKit adapter before deploying. `frontend/svelte.config.js`
@@ -35,12 +37,18 @@ matters — i.e. anywhere that isn't your own laptop.
    Swap in `@sveltejs/adapter-node` (Docker/VM deploys) or the adapter for
    whichever platform you're actually targeting.
 
-## Manual migrations needed on an existing (pre-this-session) database
+## Historical manual migrations (frozen — superseded by Alembic)
 
-`Base.metadata.create_all()` creates missing tables but never alters or
-indexes existing ones (point 4 above). A fresh database gets all of this
-automatically; a database that already existed before this round of work
-needs these run by hand once:
+**This section is a frozen historical record, not a live process.** Every
+schema change from production-hardening prompt 1 onward is an Alembic
+migration under `backend/migrations/versions/` — see `docs/migrations.md`
+for the current workflow. The SQL below predates Alembic and is kept only
+so a database that somehow missed one of these along the way (this list
+was compiled by hand, over many rounds of work, before migrations
+existed to enforce it) has a reference for what it might still be
+missing; Alembic's own baseline migration (`aac138c38096`) already
+captures the end state of everything below for any database being
+migrated fresh.
 
 ```sql
 -- users.plan / users.plan_expires_at (Phase 3.1 entitlements)
