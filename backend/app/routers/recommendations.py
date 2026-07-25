@@ -9,7 +9,7 @@ total — see routers/diary.py's `_compute_nutrient_gaps` for the precedent
 this mirrors.
 """
 
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -87,15 +87,6 @@ def _disabled_reason_code_out(eligibility) -> str | None:
     """Hardening prompt 5's structured reason code, as a plain string for
     the API schema."""
     return eligibility.disabled_reason_code.value if eligibility.disabled_reason_code else None
-
-def _as_utc(dt: datetime) -> datetime:
-    """`DiaryEntry.updated_at`/`MealPlanEntry.updated_at` are always set
-    Python-side as timezone-aware UTC (see the models' own docstrings),
-    but a client-supplied `expected_updated_at` could in principle arrive
-    naive (no offset) — treat that as UTC too rather than letting Python
-    raise on a naive-vs-aware comparison, which would surface as a 500
-    instead of the intended 409."""
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
 Source = Literal["diary", "meal_plan"]
@@ -457,7 +448,7 @@ def get_substitution_suggestions(
     if not eligibility.enabled:
         return schemas.SubstitutionSuggestionsOut(
             current_recipe_id=current_recipe.id, current_recipe_name=current_recipe.name,
-            current_entry_updated_at=entry.updated_at,
+            current_entry_version=entry.version,
             suggestions=[], disabled_reason=eligibility.disabled_reason,
             disabled_reason_code=_disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
         )
@@ -485,11 +476,11 @@ def get_substitution_suggestions(
 
     return schemas.SubstitutionSuggestionsOut(
         current_recipe_id=result.current_recipe_id, current_recipe_name=result.current_recipe_name,
-        current_entry_updated_at=entry.updated_at,
+        current_entry_version=entry.version,
         suggestions=[
             schemas.SubstitutionSuggestionOut(
                 current_recipe_id=s.current_recipe_id, current_recipe_name=s.current_recipe_name,
-                current_servings=s.current_servings, current_entry_updated_at=entry.updated_at,
+                current_servings=s.current_servings, current_entry_version=entry.version,
                 replacement_recipe_id=s.replacement_recipe_id,
                 replacement_recipe_name=s.replacement_recipe_name, replacement_servings=s.replacement_servings,
                 energy_difference_kcal=s.energy_difference_kcal, protein_difference_g=s.protein_difference_g,
@@ -517,26 +508,30 @@ def apply_substitution(
     db: Session = Depends(get_db),
 ):
     """Applies a previously-shown substitution suggestion — hardening
-    prompt 6, extended by prompt 8's follow-up review. Replaces the
-    two-call delete-then-recreate pattern the frontend used to do itself
-    (a real data-loss risk: if the second call failed after the first
-    succeeded, the entry was just gone) with a single in-place mutation
-    of the target entry's `recipe_id`/`quantity_servings`, committed
-    once. That single UPDATE is what makes this atomic — there's no
-    window where the entry doesn't exist.
+    prompt 6, extended by prompt 8's follow-up review and production-
+    hardening prompt 3. Replaces the two-call delete-then-recreate
+    pattern the frontend used to do itself (a real data-loss risk: if
+    the second call failed after the first succeeded, the entry was
+    just gone) with a single in-place mutation of the target entry's
+    `recipe_id`/`quantity_servings`, committed once. That single UPDATE
+    is what makes this atomic — there's no window where the entry
+    doesn't exist.
 
     Two independent staleness checks, both against the entry, not the
     request: `expected_current_recipe_id` must match the entry's current
-    recipe, and `expected_updated_at` must match its current mutation
-    timestamp. Either mismatch means the entry moved on since the
-    suggestion was generated (edited some other way, already
+    recipe, and `expected_version` must match its current optimistic-
+    concurrency version. Either mismatch means the entry moved on since
+    the suggestion was generated (edited some other way, already
     substituted, or replayed) — rejected with 409 rather than silently
     overwriting whatever is there now. The recipe_id check alone also
     catches a duplicate/replayed apply (the second request no longer
-    matches after the first one already swapped the recipe); the
-    timestamp check is the broader "full entry-version" companion, since
-    a hypothetical future edit that left recipe_id unchanged but touched
-    some other field would still bump updated_at.
+    matches after the first one already swapped the recipe); the version
+    check is the broader "full entry-version" companion, since a
+    hypothetical future edit that left recipe_id unchanged but touched
+    some other field would still bump it. `version` (not `updated_at`,
+    which this used to compare) is the concurrency mechanism as of
+    production-hardening prompt 3 — a plain integer equality check, no
+    timestamp precision/timezone-normalisation edge cases.
 
     The entry is looked up scoped to the caller's own profile (never a
     bare `db.get`), so this can't touch another user's diary/meal-plan
@@ -561,7 +556,7 @@ def apply_substitution(
             status_code=409,
             detail="Entry's current recipe has changed since this suggestion was generated",
         )
-    if _as_utc(entry.updated_at) != _as_utc(body.expected_updated_at):
+    if entry.version != body.expected_version:
         raise HTTPException(
             status_code=409,
             detail="Entry has changed since this suggestion was generated",
@@ -580,6 +575,7 @@ def apply_substitution(
 
     entry.recipe_id = replacement.id
     entry.quantity_servings = body.replacement_servings
+    entry.version += 1
     db.commit()
 
     return schemas.SubstitutionApplyOut(

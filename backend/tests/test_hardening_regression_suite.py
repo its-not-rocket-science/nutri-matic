@@ -204,7 +204,7 @@ class TestAccessControl:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe["id"],
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": replacement_recipe["id"],
                 "replacement_servings": 1,
             },
@@ -459,7 +459,7 @@ class TestMutation:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe["id"],
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": replacement_recipe["id"],
                 "replacement_servings": 2,
             },
@@ -489,7 +489,7 @@ class TestMutation:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": replacement_recipe["id"],  # wrong on purpose
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": replacement_recipe["id"],
                 "replacement_servings": 1,
             },
@@ -524,7 +524,7 @@ class TestMutation:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe["id"],
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": beef_recipe["id"],
                 "replacement_servings": 1,
             },
@@ -545,7 +545,7 @@ class TestMutation:
         payload = {
             "entry_id": entry["id"], "source": "diary",
             "expected_current_recipe_id": current_recipe["id"],
-            "expected_updated_at": entry["updated_at"],
+            "expected_version": entry["version"],
             "replacement_recipe_id": replacement_recipe["id"],
             "replacement_servings": 1,
         }
@@ -554,11 +554,12 @@ class TestMutation:
         assert first.status_code == 200
         assert second.status_code == 409  # the replay no longer matches — defined, not silently repeated
 
-    def test_stale_expected_updated_at_alone_rejected(self, client):
+    def test_stale_expected_version_alone_rejected(self, client):
         """Companion to the recipe_id staleness check above: a correct
-        expected_current_recipe_id but wrong expected_updated_at must
-        still 409 — the broader "full entry-version" signal, not just
-        "did the recipe change" (prompt 8's follow-up review)."""
+        expected_current_recipe_id but wrong expected_version must still
+        409 — the broader "full entry-version" signal, not just "did the
+        recipe change" (prompt 8's follow-up review, then production-
+        hardening prompt 3)."""
         client_, _ = client
         token = register_and_token(client_, "mu-d@example.com")
         headers = auth_headers(token)
@@ -571,7 +572,7 @@ class TestMutation:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe["id"],
-                "expected_updated_at": "2020-01-01T00:00:00Z",
+                "expected_version": entry["version"] + 1,
                 "replacement_recipe_id": replacement_recipe["id"],
                 "replacement_servings": 1,
             },

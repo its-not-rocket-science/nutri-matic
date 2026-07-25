@@ -241,7 +241,7 @@
 			entryId,
 			source: 'meal_plan',
 			expectedCurrentRecipeId: s.current_recipe_id,
-			expectedUpdatedAt: s.current_entry_updated_at,
+			expectedVersion: s.current_entry_version,
 			replacementRecipeId: s.replacement_recipe_id,
 			replacementServings: s.replacement_servings
 		});

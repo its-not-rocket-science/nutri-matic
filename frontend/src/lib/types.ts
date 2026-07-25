@@ -365,6 +365,8 @@ export interface DiaryEntry {
 	recipe_id: number | null;
 	recipe_name: string | null;
 	quantity_servings: number | null;
+	updated_at: string;
+	version: number;
 }
 
 export interface DiaryEntryCreate {
@@ -524,6 +526,8 @@ export interface MealPlanEntry {
 	recipe_id: number | null;
 	recipe_name: string | null;
 	quantity_servings: number | null;
+	updated_at: string;
+	version: number;
 }
 
 export interface MealPlanEntryCreate {
@@ -773,7 +777,7 @@ export interface SubstitutionSuggestion {
 	current_recipe_id: number;
 	current_recipe_name: string;
 	current_servings: number;
-	current_entry_updated_at: string;
+	current_entry_version: number;
 	replacement_recipe_id: number;
 	replacement_recipe_name: string;
 	replacement_servings: number;
@@ -801,7 +805,7 @@ export interface SubstitutionSuggestion {
 export interface SubstitutionSuggestions {
 	current_recipe_id: number;
 	current_recipe_name: string;
-	current_entry_updated_at: string | null;
+	current_entry_version: number | null;
 	suggestions: SubstitutionSuggestion[];
 	warnings: string[];
 	disabled_reason: string | null;

@@ -169,6 +169,7 @@ def apply_template(
             recipe_name=recipes_by_id[e.recipe_id].name if e.recipe_id else None,
             quantity_servings=e.quantity_servings,
             updated_at=e.updated_at,
+            version=e.version,
         )
         for e in created
     ]

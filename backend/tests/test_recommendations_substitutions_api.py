@@ -145,7 +145,7 @@ class TestApplySubstitution:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe_id,
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": replacement_recipe_id,
                 "replacement_servings": 2,
             },
@@ -174,7 +174,7 @@ class TestApplySubstitution:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": replacement_recipe_id,  # wrong — entry is still current_recipe_id
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": replacement_recipe_id,
                 "replacement_servings": 1,
             },
@@ -187,11 +187,12 @@ class TestApplySubstitution:
         untouched = next(e for e in day["entries"] if e["id"] == entry["id"])
         assert untouched["recipe_id"] == current_recipe_id
 
-    def test_stale_expected_updated_at_rejected_with_409(self, client):
+    def test_stale_expected_version_rejected_with_409(self, client):
         """Broader companion to the recipe_id staleness check (prompt 8's
-        follow-up review): even with the *correct* expected_current_recipe_id,
-        a wrong expected_updated_at alone must still 409 — this is the "full
-        entry-version" check, not just "did the recipe change"."""
+        follow-up review, then production-hardening prompt 3): even with
+        the *correct* expected_current_recipe_id, a wrong expected_version
+        alone must still 409 — this is the "full entry-version" check, not
+        just "did the recipe change"."""
         token = register_and_token(client, "owner-stale-ts@example.com")
         headers = auth_headers(token)
         current_recipe_id, entry = _log_recipe_entry(client, headers, "Rice Bowl", 1, 200)
@@ -202,7 +203,7 @@ class TestApplySubstitution:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe_id,
-                "expected_updated_at": "2020-01-01T00:00:00Z",  # correct recipe_id, wrong timestamp
+                "expected_version": entry["version"] + 1,  # correct recipe_id, wrong version
                 "replacement_recipe_id": replacement_recipe_id,
                 "replacement_servings": 1,
             },
@@ -223,7 +224,7 @@ class TestApplySubstitution:
         payload = {
             "entry_id": entry["id"], "source": "diary",
             "expected_current_recipe_id": current_recipe_id,
-            "expected_updated_at": entry["updated_at"],
+            "expected_version": entry["version"],
             "replacement_recipe_id": replacement_recipe_id,
             "replacement_servings": 1,
         }
@@ -232,6 +233,52 @@ class TestApplySubstitution:
 
         second = client.post("/api/recommendations/substitutions/apply", json=payload, headers=headers)
         assert second.status_code == 409
+
+    def test_concurrent_update_second_writer_rejected_not_silently_overwritten(self, client):
+        """Production-hardening prompt 3's "concurrent updates" scenario,
+        distinct from a plain replay: two requests both read the entry at
+        the same version (as two browser tabs, or two suggestion fetches,
+        genuinely would), then race to apply *different* replacements. The
+        first writer wins; the second must not silently clobber it — it
+        has to fail loudly (409) with the first writer's change intact,
+        never overwrite it and never merge/guess."""
+        token = register_and_token(client, "owner-concurrent@example.com")
+        headers = auth_headers(token)
+        current_recipe_id, entry = _log_recipe_entry(client, headers, "Rice Bowl", 1, 200)
+        lentil_recipe_id, _ = _log_recipe_entry(client, headers, "Lentil Bowl", 2, 224, entry_date="2026-01-02")
+        beef_recipe_id, _ = _log_recipe_entry(client, headers, "Beef Bowl", 3, 200, entry_date="2026-01-03")
+
+        # both "clients" fetched the entry before either applied — same
+        # expected_version, different replacement choices
+        first = client.post(
+            "/api/recommendations/substitutions/apply",
+            json={
+                "entry_id": entry["id"], "source": "diary",
+                "expected_current_recipe_id": current_recipe_id,
+                "expected_version": entry["version"],
+                "replacement_recipe_id": lentil_recipe_id,
+                "replacement_servings": 1,
+            },
+            headers=headers,
+        )
+        assert first.status_code == 200
+
+        second = client.post(
+            "/api/recommendations/substitutions/apply",
+            json={
+                "entry_id": entry["id"], "source": "diary",
+                "expected_current_recipe_id": current_recipe_id,
+                "expected_version": entry["version"],  # stale now — the first writer already bumped it
+                "replacement_recipe_id": beef_recipe_id,
+                "replacement_servings": 1,
+            },
+            headers=headers,
+        )
+        assert second.status_code == 409
+
+        day = client.get("/api/diary?entry_date=2026-01-01", headers=headers).json()
+        settled = next(e for e in day["entries"] if e["id"] == entry["id"])
+        assert settled["recipe_id"] == lentil_recipe_id  # the first writer's change survived, unmolested
 
     def test_cannot_apply_to_another_users_entry(self, client):
         owner_token = register_and_token(client, "owner4@example.com")
@@ -249,7 +296,7 @@ class TestApplySubstitution:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe_id,
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": replacement_recipe_id,
                 "replacement_servings": 1,
             },
@@ -279,7 +326,7 @@ class TestApplySubstitution:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe_id,
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": private_recipe_id,
                 "replacement_servings": 1,
             },
@@ -305,7 +352,7 @@ class TestApplySubstitution:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": replacement_recipe_id,
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": replacement_recipe_id,
                 "replacement_servings": 1,
             },
@@ -336,7 +383,7 @@ class TestApplySubstitution:
             json={
                 "entry_id": entry["id"], "source": "diary",
                 "expected_current_recipe_id": current_recipe_id,
-                "expected_updated_at": entry["updated_at"],
+                "expected_version": entry["version"],
                 "replacement_recipe_id": beef_recipe_id,
                 "replacement_servings": 1,
             },
@@ -353,7 +400,7 @@ class TestApplySubstitution:
             "/api/recommendations/substitutions/apply",
             json={
                 "entry_id": 1, "source": "diary",
-                "expected_current_recipe_id": 1, "expected_updated_at": "2026-01-01T00:00:00Z",
+                "expected_current_recipe_id": 1, "expected_version": 1,
                 "replacement_recipe_id": 2, "replacement_servings": 1,
             },
         )
