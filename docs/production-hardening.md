@@ -212,3 +212,144 @@ triggered on GitHub as part of this work (that would require a push),
 so "verified" here means "confirmed correct by direct inspection and by
 running the equivalent commands locally," not "watched it go green on
 GitHub" — that only happens once this is pushed.
+
+## Prompt 6: final validation
+
+Every command below was actually run this session, in this order, with
+real output captured — not assumed from reading the code.
+
+### Migrations created
+
+```
+$ alembic history
+dba3649596f0 -> d7819c868cf4 (head), add diary and meal plan entry version
+aac138c38096 -> dba3649596f0, add diary and meal plan entry updated_at
+<base> -> aac138c38096, baseline
+```
+
+Three migrations: `aac138c38096` (baseline — full schema as it stood
+before Alembic), `dba3649596f0` (safe `updated_at` backfill, prompt 2),
+`d7819c868cf4` (integer `version` column, prompt 3).
+
+### Migrations tested
+
+`backend/tests/test_migrations.py`, run twice this session against real
+Postgres:
+
+1. At the default local `DATABASE_URL` (a local-dev role without
+   `CREATEDB`): all 4 tests **skip** with an explicit reason
+   (`no Postgres reachable with CREATEDB privilege for migration
+   tests`) — confirmed correct, not a false pass.
+2. Against this repo's own `docker-compose` Postgres (`DATABASE_URL=
+   postgresql://nutrimatic:nutrimatic@localhost:5433/nutrimatic`, a role
+   that does have `CREATEDB`): **4 passed** — fresh-install `upgrade
+   head`, `downgrade base` drops everything, the documented `stamp`-
+   then-`upgrade` workflow, and the `updated_at` backfill against a
+   table with real pre-existing rows.
+
+Beyond the automated tests, each migration was also driven manually
+against disposable databases in the same Postgres instance before the
+automated tests existed, confirming: a completely fresh database
+reaches the correct final schema (`updated_at`/`version` both `NOT
+NULL`, `pg_trgm` extension present); an existing database with real
+rows in `diary_entries`/`meal_plan_entries` gets them backfilled
+correctly, never dropped; and the `stamp`-then-`upgrade` sequence
+documented in `docs/migrations.md` works exactly as written.
+
+### Concurrency tests
+
+`test_recommendations_substitutions_api.py::TestApplySubstitution`:
+
+- `test_duplicate_apply_rejected_on_second_attempt` — the same apply
+  request sent twice; the second 409s (its `expected_version` no longer
+  matches after the first incremented it).
+- `test_concurrent_update_second_writer_rejected_not_silently_
+  overwritten` — two independent requests both read the entry at the
+  same version, then attempt *different* replacements; the second loses
+  with a 409, and the assertion confirms the first writer's change
+  survived untouched rather than being silently overwritten or merged.
+- `test_stale_expected_version_rejected_with_409` /
+  `test_stale_expected_recipe_id_rejected_with_409` — each of the two
+  independent staleness signals (`expected_version`,
+  `expected_current_recipe_id`) rejected on its own when wrong, with the
+  other held correct, proving neither check is redundant with the other.
+
+Mirrored in `test_hardening_regression_suite.py::TestMutation` for the
+permanent cross-file regression net.
+
+### CI status
+
+`.github/workflows/ci.yml` updated (prompt 5) to add the missing
+frontend `npm run test` step; validated as syntactically correct YAML
+via direct parsing (`python -c "import yaml; yaml.safe_load(...)"` —
+passed). **Not independently confirmed green on GitHub itself** — that
+requires a push, which hasn't happened as part of this work. What *has*
+been confirmed, by running the equivalent commands locally: the backend
+`pytest -q` step (962 passed, 0 skipped, 0 failed, run against a
+Postgres with `CREATEDB` so the migration tests execute for real rather
+than skip — matching what CI's own Postgres service grants), and the
+frontend's `check`/`test`/`build` steps (0 type errors, 17 passed, build
+succeeded) all individually succeed. "Require successful checks before
+merge" remains an unperformed manual step — see prompt 5's section
+above for exactly what to click and why it wasn't done here.
+
+### Deployment guide
+
+`DEPLOYMENT.md`'s "Deployment checklist" (prompt 4) plus
+`docs/migrations.md` (prompt 1) together cover: required environment
+variables, the one-time `stamp` step for pre-existing databases, local
+and production migration commands, backups, schema verification, smoke
+tests naming the specific endpoints most recently changed, rollback
+(with the two specific data-loss hazards already on record for this
+repo's own migrations), and monitoring guidance.
+
+### Full check results, this session's final run
+
+| Check | Command | Result |
+|---|---|---|
+| Backend full suite (incl. migration tests, for real) | `DATABASE_URL=postgresql://nutrimatic:nutrimatic@localhost:5433/nutrimatic pytest -q` (from `backend/`) | **962 passed**, 0 skipped, 0 failed |
+| Backend full suite (default local `DATABASE_URL`) | `pytest -q` (from `backend/`) | 958 passed, 4 skipped (migration tests self-skip — no `CREATEDB` on this role, as designed) |
+| Frontend unit tests | `npx vitest run` (from `frontend/`) | **17 passed** |
+| Frontend type check | `npx svelte-check --tsconfig ./tsconfig.json` | **0 errors**, 1 pre-existing unrelated warning |
+| Production build | `npm run build` (from `frontend/`) | **succeeded** |
+| CI workflow syntax | `python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"` | **valid** |
+| Linting/formatting | — | still no linter/formatter configured anywhere in this repo (pre-existing, unrelated to this round) |
+
+### Remaining operational risks
+
+- **No monitoring/alerting stack is configured** (no Sentry, Datadog, or
+  equivalent). `DEPLOYMENT.md`'s monitoring section names what to watch
+  manually; nothing pages anyone automatically. This is the single
+  largest gap this round leaves open.
+- **CI has never actually run against these changes** — everything
+  above was verified by running the equivalent commands locally, not by
+  observing a green GitHub Actions run, since nothing in this round has
+  been pushed yet.
+- **Branch protection is not configured** — "require successful checks
+  before merge" (prompt 5's explicit ask) needs a manual, one-time
+  GitHub repo-admin action this work deliberately didn't perform.
+- **The `version` column's increment is explicit, not automatic** — any
+  future endpoint that mutates a `DiaryEntry`/`MealPlanEntry` row must
+  remember to bump `version` itself, or optimistic concurrency silently
+  stops working for that write path. Documented directly on the model
+  field, but there's no structural guard (a test, a lint rule) that
+  would catch a future mutation site forgetting it.
+- **`SvelteKit`'s adapter is still `adapter-auto`**, a pre-existing,
+  already-documented gap (`DEPLOYMENT.md` item 6) — `npm run build`
+  prints "Could not detect a supported production environment" as-is.
+  Unrelated to this round's scope but still genuinely blocking a real
+  deploy until a real adapter is chosen.
+- **The `docker-compose` Postgres and this project's native local-dev
+  Postgres are both, as of this session, unstamped** — neither has had
+  `alembic stamp aac138c38096` run against it. Both need that one-time
+  step before `alembic upgrade head` (or the `Dockerfile`'s automatic
+  migration-on-start) will work against them. Deliberately not done as
+  part of this work — see the git-safety note in the next paragraph.
+- **This round's commits have not been pushed to `origin/main`** as of
+  this report, and no live database (including this repo's own running
+  `docker-compose` backend container) was migrated or restarted —
+  intentional: stamping or migrating a database, and restarting a
+  running service, are actions with real operational consequences this
+  work stopped short of taking without being asked.
+
+No core requirement from this round's `prompts.txt` was left as a TODO.
