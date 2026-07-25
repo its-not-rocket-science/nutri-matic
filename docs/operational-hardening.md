@@ -41,10 +41,26 @@ lacked several things this prompt asks for explicitly:
   informational vulnerability-scan steps use `|| true`, unchanged from
   before and clearly commented as intentional.
 
-**Not yet done**: triggering a real run on GitHub and recording its URL,
-job names, and conclusions — that requires pushing this round's commits,
-which hadn't happened as of writing this section. See prompt 7's final
-report for whether that happened and what it showed.
+**Done, after this round's commits were pushed** — and it immediately
+earned its keep: the first real run
+(https://github.com/its-not-rocket-science/nutri-matic/actions/runs/30164523528)
+failed the `Backend tests` job with `ModuleNotFoundError: No module
+named 'app'` on every test file. Real, pre-existing bug, not introduced
+by this round: `ci.yml` ran a bare `pytest -q`, which — unlike `python
+-m pytest`, the form every local run of this suite has ever used —
+doesn't add the working directory to `sys.path`. This has apparently
+been failing on every CI run going back before this hardening round
+even started (confirmed by checking prior run history). Fixed by
+changing to `python -m pytest -q`; reproduced the failure locally with
+a bare `pytest` invocation first, to be sure the fix addressed the real
+cause rather than papering over a flake. Second run, after the fix
+(https://github.com/its-not-rocket-science/nutri-matic/actions/runs/30164682584):
+both jobs green — `Backend tests` in 4m12s (**991 passed, 0 skipped, 0
+failed** — matches the local real-Postgres run exactly, migration/
+verifier/health/concurrency tests all executed for real, not skipped),
+`Frontend checks` in 33s (**17 passed**, clean type-check, successful
+build). This is genuine GitHub evidence, not a local run reported as if
+it were one.
 
 ## Prompt 2: branch protection
 
@@ -280,29 +296,36 @@ requirement asked for GitHub evidence, tested against SQLite when
 PostgreSQL behaviour matters, or documented without being configured.
 Where that applies, it's stated explicitly rather than glossed over.
 
-**1. Commit SHA**: `544a5a21a14a8164e8aebe648e82e67ac20e581c` (the last
-commit before this report; this report's own commit will be one past
-it — check `git log` for the actual current tip, this SHA is a
-snapshot, not a moving reference).
+**1. Commit SHA**: `061e78a` (the CI-fix commit; this report's own
+commit lands one past it — check `git log` for the actual current tip,
+this SHA is a snapshot, not a moving reference). This round's full
+range on `origin/main`: `da53c9b..061e78a`.
 
 **2. Alembic head revision**: `d7819c868cf4` (`add diary and meal plan
 entry version`). Full chain: `aac138c38096` (baseline) → `dba3649596f0`
 (`updated_at` backfill) → `d7819c868cf4` (head).
 
-**3. CI run URL and results**: **not available.** No commit from this
-round has been pushed to `origin/main` as of this report, so no GitHub
-Actions run has actually executed against this work — everything
-reported below ran locally, which this prompt is explicit is not the
-same thing as GitHub evidence. Pushing (and, separately, applying
-branch protection) are actions this work has consistently held back on
-pending the repository owner's explicit go-ahead in the moment, per
-this session's own established pattern — see prompt 2's section above
-for why branch protection specifically wasn't applied unilaterally.
+**3. CI run URL and results**: **real, after push — and it found a real
+bug.** First run
+(https://github.com/its-not-rocket-science/nutri-matic/actions/runs/30164523528)
+failed: `ci.yml` invoked a bare `pytest -q`, which doesn't add the
+working directory to `sys.path`, so every test file's `from app...`
+import failed with `ModuleNotFoundError`. Pre-existing, not introduced
+by this round — reproduced locally to confirm, then fixed
+(`python -m pytest -q`) and pushed as a follow-up commit. Second run,
+after the fix
+(https://github.com/its-not-rocket-science/nutri-matic/actions/runs/30164682584):
+**both jobs green** — `Backend tests` (991 passed, 0 skipped, 0 failed,
+4m12s — matches the local real-Postgres run exactly) and `Frontend
+checks` (17 passed, clean type-check, successful build, 33s). See
+prompt 1's section above for the full account.
 
 **4. Required branch-protection check names**: `Backend tests`,
 `Frontend checks` — exact job names from `.github/workflows/ci.yml`
-(prompt 1). Not yet configured as required checks (prompt 2, same
-reason as above).
+(prompt 1), now confirmed against a real successful run, not just the
+YAML source. Not yet configured as required checks (prompt 2 — a
+repo-admin action pending the owner's explicit go-ahead, not applied
+unilaterally).
 
 **5. Backend and frontend test counts**: backend — **991 passed, 0
 skipped, 0 failed**, run against real Postgres
@@ -368,9 +391,9 @@ commands separately.
 hardening.md` where still open, updated where this round closed them,
 plus new ones this round surfaced):
 
-- **No commit from this round is on `origin/main` yet.** Everything
-  above is real, locally-verified evidence — it is not GitHub evidence,
-  and this prompt is explicit that those aren't interchangeable.
+- **Resolved**: this round's commits are now pushed and CI is verified
+  green on GitHub itself (see point 3 above) — no longer a risk, kept
+  here only to mark it closed relative to earlier drafts of this report.
 - **Branch protection is not configured.** Exact settings and check
   names are specified (prompt 2's section) but not applied — a
   repo-admin action pending the owner's explicit go-ahead.
