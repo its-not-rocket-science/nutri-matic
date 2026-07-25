@@ -299,6 +299,38 @@ hardening.md` both referenced this gap as "item 6" / pointed at a
 at `docs/frontend-deployment.md` and the real config file instead of a
 stale numbered reference and an inaccurate filename.
 
+### Correction: adapter-node was the wrong choice — this repo already has Vercel
+
+The "nothing in this repo points at Vercel/Netlify/Cloudflare" claim
+above was wrong — checked only repo-local files
+(`Dockerfile`/`docker-compose.yml`) and never checked *actual current
+hosting*, which task 1 of this prompt explicitly asks for
+("Identify the real deployment target from repository configuration
+**and current hosting**"). This repo has a live Vercel project
+(`pauls-projects-24d18deb/nutri-matic`) connected via GitHub, auto-
+deploying every push and PR — discovered only afterward, via the
+`Vercel`/`Vercel Preview Comments` status checks that appeared on an
+unrelated pull request (the first one this repo ever needed, once
+branch protection went in — see prompt 2). `adapter-node`'s build did
+report "Ready" when Vercel built it, but that's Vercel tolerating a
+plain Node server bundle, not the same thing as using its native Build
+Output API the way `adapter-vercel` does — never confirmed working
+end-to-end there.
+
+**Fixed**: swapped `@sveltejs/adapter-node` for `@sveltejs/
+adapter-vercel`. `npm run build` now produces `.vercel/output/`
+matching Vercel's Build Output API v3 shape (`config.json`,
+`functions/`, `static/`) rather than a standalone server bundle.
+`vitest run` (17 passed) and `svelte-check` (0 errors) both still
+green. Full detail, including what's still not independently
+re-verified against a real Vercel deployment (no Vercel CLI credentials
+available in this environment), in `docs/frontend-deployment.md`.
+
+Left as a durable note for next time: check a repo's connected
+platform integrations (PR status checks, or the hosting dashboard
+directly), not just its own committed config files, before concluding
+what "current hosting" is.
+
 ## Prompt 7: final operational validation
 
 Per this prompt's own instruction: nothing below is reported as passing
@@ -385,11 +417,14 @@ exhaustion, abnormal recommendation latency, substitution 409/422
 spike, failed deployment) is specified in `docs/monitoring.md`, not
 configured in any real alerting system.
 
-**10. Frontend adapter selected**: `@sveltejs/adapter-node`. Production
-build succeeds with it (`npm run build` → `Using @sveltejs/adapter-
-node`, no `adapter-auto` warning); verified with a real built server
-and a real browser smoke test against a temporary isolated backend —
-see prompt 6's section above and `docs/frontend-deployment.md`.
+**10. Frontend adapter selected**: `@sveltejs/adapter-vercel` —
+corrected from an initial, wrong `adapter-node` choice once this
+repo's existing live Vercel integration was discovered (see prompt 6's
+"Correction" subsection above). `npm run build` produces `.vercel/
+output/` matching Vercel's Build Output API v3 shape; `vitest run`/
+`svelte-check` both green. Not yet independently re-verified against
+an actual Vercel deployment from this environment (no Vercel CLI
+credentials available here) — see `docs/frontend-deployment.md`.
 
 **11. Deployment and rollback commands**: `docs/migrations.md` (local/
 production migration commands, the mandatory `stamp` step for existing
@@ -428,13 +463,20 @@ plus new ones this round surfaced):
   complete and tested but inert without a real `SENTRY_DSN`; no
   alerts, dashboards, or incident-response process exist outside the
   specification in `docs/monitoring.md`.
-- **No hosting platform is selected** for either the frontend or the
-  backend — the frontend now has a concrete adapter (`adapter-node`)
-  and the backend has a working `Dockerfile`, but neither has an actual
-  place it runs in production. Log retention, real alerting
-  infrastructure, and a genuine external "preview deployment" (as
-  opposed to this round's real-but-local smoke test) all depend on
-  this being decided first.
+- **Resolved for the frontend, still open for the backend**: the
+  frontend's actual hosting platform is Vercel (discovered, not chosen,
+  during this round — see prompt 6's correction) and now has the
+  matching adapter (`adapter-vercel`). The backend still has no hosting
+  platform beyond a working `Dockerfile`/`docker-compose.yml` — no
+  actual production place it runs. Log retention and real alerting
+  infrastructure still depend on that being decided.
+- **The Vercel `adapter-vercel` switch is not independently
+  re-verified against a real Vercel deployment from this environment**
+  — no Vercel CLI credentials available here. The build output shape is
+  confirmed correct (`.vercel/output/` matches Build Output API v3);
+  an actual deployed-and-working check needs either those credentials
+  or the repository owner checking the next PR's Vercel preview
+  directly.
 - **The `version` column's increment is now structurally enforced**
   (resolved this round, prompt 4) — no longer a risk, listed here only
   to mark it closed relative to the previous round's report.
