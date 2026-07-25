@@ -1,78 +1,89 @@
 # Frontend deployment
 
 Operational-hardening prompt 6. `frontend/` builds with `@sveltejs/
-adapter-node` — a plain Node.js server, chosen because this repo's only
-actual deployment story is the backend's own Docker/`docker-compose`
-setup; `adapter-node` is the standard choice for that kind of Docker/VM
-deploy, not a guess about a platform (Vercel/Netlify/Cloudflare) nothing
-else in this repo uses. `adapter-auto`'s "Could not detect a supported
-production environment" build warning is gone as a result — the adapter
-is chosen and committed (`frontend/vite.config.ts`), not auto-detected.
+adapter-vercel` — this repo has a live Vercel project
+(`pauls-projects-24d18deb/nutri-matic`) already connected to GitHub,
+auto-deploying every push and pull request (visible as the `Vercel`/
+`Vercel Preview Comments` status checks on any PR). `adapter-vercel`
+targets Vercel's Build Output API directly, which is what that
+integration actually expects.
 
-## Build and run
+> **Corrected after initially shipping `adapter-node`.** The first pass
+> at this prompt picked `adapter-node` from repo-local configuration
+> alone (the backend's `Dockerfile`/`docker-compose.yml`) without
+> checking *actual current hosting* — which the prompt explicitly asks
+> for, and which this missed. The existing Vercel integration was only
+> discovered afterward, via the status checks on an unrelated PR.
+> `adapter-node`'s build reported "Ready" on Vercel too (Vercel can run
+> a Node server build, just not through its native Build Output API
+> path), but was never actually confirmed working end-to-end there
+> before being corrected. Kept as a matter of record, not to relitigate
+> it — the adapter actually installed and committed is `adapter-vercel`.
+
+## Build
 
 ```bash
 cd frontend
-npm run build      # writes build/ — a self-contained Node server, not static files
-node build/index.js
+npm run build      # writes .vercel/output/ — Vercel's Build Output API v3
+                    # (config.json + functions/ + static/), not a standalone server
 ```
+
+There is no local `npm run build && node ...` run step the way
+`adapter-node` had — `.vercel/output/` is consumed by Vercel's own
+platform (or `vercel dev`/`vercel build` tooling), not run directly with
+plain `node`. Local iteration during development still uses `npm run
+dev`, unaffected by the adapter choice.
 
 `VITE_API_URL` (see `frontend/.env`) is baked in **at build time** — it
 becomes part of the compiled client bundle, not something read at
-server startup. Pointing a build at a different backend origin needs a
-rebuild with that variable set, not just a different runtime
-environment variable.
+request time. Vercel's own project settings (Environment Variables)
+control what value is baked in for each of its own build contexts
+(production/preview/development) — this is Vercel's mechanism, not
+something this repo's `.env` file controls for deployed builds.
 
-## Required runtime environment variables
+## Vercel project configuration
 
-| Variable | Required | Default | Purpose |
-|---|---|---|---|
-| `PORT` | No | `3000` | Port the Node server listens on. |
-| `ORIGIN` | Yes in production | none — SvelteKit warns/misbehaves on form actions and CSRF checks without it | The public URL this app is served at (e.g. `https://app.example.com`) — adapter-node needs this to correctly construct absolute URLs and validate same-origin requests. |
-| `HOST` | No | `0.0.0.0` | Interface to bind. |
-| `BODY_SIZE_LIMIT` | No | `512kb` | Raise if a route ever needs to accept a larger request body. |
+Set in the Vercel project's own dashboard (Settings → Environment
+Variables), not in this repo:
 
-(`VITE_API_URL` is **not** a runtime variable for the built server — see
-above.)
+| Variable | Environment(s) | Purpose |
+|---|---|---|
+| `VITE_API_URL` | Production, Preview | The backend origin this build's client bundle will call. Needs a real, reachable backend URL for each environment it's set for — a preview deployment with no backend to call will build fine and then fail every API request at runtime. |
+
+No other frontend-specific environment variables are required —
+`adapter-vercel` doesn't need the `PORT`/`ORIGIN`/`HOST` runtime
+variables `adapter-node` did, since Vercel's platform handles routing
+and doesn't run this as a conventional long-lived Node server process.
 
 ## Verification performed
 
-Real, not inferred — see the commit that introduced `adapter-node` for
-exact commands:
+Real, not inferred:
 
-- `npm run build` — succeeded, `adapter-auto`'s warning gone, confirmed
-  `Using @sveltejs/adapter-node` in the build output.
-- Started the built server locally (`PORT=4173 ORIGIN=http://localhost:4173
-  node build/index.js`) and confirmed via direct HTTP requests: the root
-  route, `/login`, a nested route (`/diary`) hit directly (proving
-  refresh-on-a-nested-route works — a raw GET on a nested path returning
-  real SSR HTML, not a 404, is exactly what a browser refresh needs),
-  and a deliberately-nonexistent route (correctly 404s, confirming
-  routing isn't just returning 200 for everything) — all through
-  `curl`, checking status codes and that real page HTML (not an error
-  page) came back.
-- Static assets (`/manifest.webmanifest`, an icon under `/icons/`)
-  served correctly.
-- **Full browser smoke test**, real evidence via the browser's own
-  network log, not inferred: built the frontend against a temporary,
-  isolated backend (its own throwaway Postgres database, migrated to
-  head, `CORS_ORIGINS` set to the preview server's origin — never the
-  real `docker-compose` backend or its data), then in an actual browser:
-  registered a new account, confirmed the CORS preflight (`OPTIONS`) and
-  the real request both returned `200`/`201` for `/api/auth/register`,
-  `/api/auth/me`, and `/api/profiles`; navigated to `/diary`, expanded
-  the "Improve this day" recommendation panel, and confirmed
-  `/api/recommendations/ingredients` returned `200` — the recommendation
-  panel genuinely loads and calls the backend successfully, not just
-  renders an empty shell. No console errors, no CORS failures. The
-  temporary backend, its database, and the browser tab were all torn
-  down afterward; nothing about this test touched the real
-  `docker-compose` service or its data.
+- `npm run build` — succeeded, confirmed `Using @sveltejs/
+  adapter-vercel` in the build output, and confirmed the resulting
+  `.vercel/output/` directory matches Vercel's Build Output API v3
+  shape (`config.json`, `functions/`, `static/`).
+- `vitest run` (17 passed) and `svelte-check` (0 errors, same 1
+  pre-existing unrelated warning) both remain green after the
+  dependency swap.
+- **Not independently re-verified with a full browser smoke test**
+  against a real Vercel deployment — the earlier `adapter-node` pass
+  did run that (registration, CORS, recommendation panel, all against
+  a real isolated backend — see the commit history for that test if
+  useful as a reference), but re-running an equivalent test against an
+  *actual* Vercel deployment needs either Vercel CLI credentials (not
+  available in this environment) or waiting for this change's own PR
+  preview deployment and checking it manually — the repository owner is
+  better placed to do the latter than a from-this-machine local repeat.
 
-**Not done**: an actual external "preview deployment" on real hosting
-infrastructure — this repo has no hosting platform selected yet (see
-`DEPLOYMENT.md`), so "deploy a preview and smoke-test it" was performed
-as a local, not external, smoke test. The verification above is real
-(a real built server, a real isolated backend, a real browser, real
-network requests) but ran on this machine, not on production-equivalent
-infrastructure.
+## What "current hosting" actually is, for future reference
+
+This is the fact this prompt's first pass got wrong by not checking for
+it: the frontend's real deployment target is Vercel, connected via
+GitHub integration, not chosen or configured from anything in this
+repository's own files. Check the PR status checks (`Vercel`, `Vercel
+Preview Comments`) or the Vercel dashboard directly — not just
+`Dockerfile`/`docker-compose.yml` — before concluding what "current
+hosting" is for either half of this app in the future. The backend
+still has no such integration as of this writing; `docker-compose.yml`
+remains its only concrete deployment story.
