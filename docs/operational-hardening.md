@@ -271,3 +271,136 @@ hardening.md` both referenced this gap as "item 6" / pointed at a
 `frontend/svelte.config.js` that doesn't exist — updated both to point
 at `docs/frontend-deployment.md` and the real config file instead of a
 stale numbered reference and an inaccurate filename.
+
+## Prompt 7: final operational validation
+
+Per this prompt's own instruction: nothing below is reported as passing
+if it was skipped, inferred from code, run only locally when the
+requirement asked for GitHub evidence, tested against SQLite when
+PostgreSQL behaviour matters, or documented without being configured.
+Where that applies, it's stated explicitly rather than glossed over.
+
+**1. Commit SHA**: `544a5a21a14a8164e8aebe648e82e67ac20e581c` (the last
+commit before this report; this report's own commit will be one past
+it — check `git log` for the actual current tip, this SHA is a
+snapshot, not a moving reference).
+
+**2. Alembic head revision**: `d7819c868cf4` (`add diary and meal plan
+entry version`). Full chain: `aac138c38096` (baseline) → `dba3649596f0`
+(`updated_at` backfill) → `d7819c868cf4` (head).
+
+**3. CI run URL and results**: **not available.** No commit from this
+round has been pushed to `origin/main` as of this report, so no GitHub
+Actions run has actually executed against this work — everything
+reported below ran locally, which this prompt is explicit is not the
+same thing as GitHub evidence. Pushing (and, separately, applying
+branch protection) are actions this work has consistently held back on
+pending the repository owner's explicit go-ahead in the moment, per
+this session's own established pattern — see prompt 2's section above
+for why branch protection specifically wasn't applied unilaterally.
+
+**4. Required branch-protection check names**: `Backend tests`,
+`Frontend checks` — exact job names from `.github/workflows/ci.yml`
+(prompt 1). Not yet configured as required checks (prompt 2, same
+reason as above).
+
+**5. Backend and frontend test counts**: backend — **991 passed, 0
+skipped, 0 failed**, run against real Postgres
+(`DATABASE_URL=postgresql://nutrimatic:nutrimatic@localhost:5433/nutrimatic`,
+a role with `CREATEDB`) so every migration/verifier/health test executed
+for real rather than self-skipping. Frontend — **17 passed** (`vitest
+run`), **0 type errors** (`svelte-check`, 1 pre-existing unrelated
+warning).
+
+**6. Migration test results**: `tests/test_migrations.py` — **4/4
+passed** against real Postgres: fresh-install `upgrade head` (creates
+the full schema including the `pg_trgm` extension), `downgrade base`
+(drops everything back down), the documented `stamp`-then-`upgrade`
+workflow, and the `updated_at` backfill against a table with real
+pre-existing rows (confirmed backfilled, not left `NULL`, not lost).
+
+**7. Concurrency test results**: `tests/test_entry_optimistic_
+concurrency.py` — **3/3 passed**, proving the database-level predicate
+(not a Python check) rejects a second writer that lost the race, that
+the app-facing `EntryConflict` wrapper leaves the session usable
+afterward, and that a lost race leaves zero partial mutation (every
+field the loser tried to change confirmed absent from the final row).
+`tests/test_recommendations_substitutions_api.py::TestApplySubstitution`
+— **17/17 passed**, including the explicit concurrent-update scenario
+(two "clients" holding the same version, racing different replacements)
+and both diary and meal-plan source paths.
+
+**8. Pre-stamp verifier result**: `tests/test_verify_pre_alembic_
+schema.py` — **10/10 passed** (exact-match pass, and each of a missing
+table/column/type-mismatch/missing-unique-index/missing-`pg_trgm`
+independently confirmed to fail with a specific message, plus
+redaction and exit-code checks). **Separately, run for real against
+this repo's own `docker-compose` Postgres**: `FAIL`, 29 issues — see
+prompt 3's section above. This remains open; it was not remediated as
+part of this round (the database holds real data and fixing it wasn't
+requested).
+
+**9. Monitoring provider and alert list**: Sentry, **not provisioned**
+(no `SENTRY_DSN` configured anywhere real) — code is written and
+tested (`tests/test_monitoring.py`, `tests/test_health.py`) to activate
+the moment a real DSN is set. Alert list (sustained 5xx, backend
+unavailable, readiness failure, migration failure, connection
+exhaustion, abnormal recommendation latency, substitution 409/422
+spike, failed deployment) is specified in `docs/monitoring.md`, not
+configured in any real alerting system.
+
+**10. Frontend adapter selected**: `@sveltejs/adapter-node`. Production
+build succeeds with it (`npm run build` → `Using @sveltejs/adapter-
+node`, no `adapter-auto` warning); verified with a real built server
+and a real browser smoke test against a temporary isolated backend —
+see prompt 6's section above and `docs/frontend-deployment.md`.
+
+**11. Deployment and rollback commands**: `docs/migrations.md` (local/
+production migration commands, the mandatory `stamp` step for existing
+databases, and rollback — including the two specific data-loss/
+destructive-downgrade hazards already on record for this repo's actual
+migrations) and `DEPLOYMENT.md`'s "Deployment checklist" (backups,
+schema verification, smoke tests, rollback, monitoring) together cover
+this. `docs/frontend-deployment.md` covers the frontend's own build/run
+commands separately.
+
+**12. Remaining risks** (carried forward from `docs/production-
+hardening.md` where still open, updated where this round closed them,
+plus new ones this round surfaced):
+
+- **No commit from this round is on `origin/main` yet.** Everything
+  above is real, locally-verified evidence — it is not GitHub evidence,
+  and this prompt is explicit that those aren't interchangeable.
+- **Branch protection is not configured.** Exact settings and check
+  names are specified (prompt 2's section) but not applied — a
+  repo-admin action pending the owner's explicit go-ahead.
+- **The `docker-compose` Postgres does not actually match the baseline
+  it's stamped at** — real, verified drift (29 missing objects),
+  found by this round's own tooling, not remediated. Do not treat that
+  database as trustworthy until `python -m app.verify_pre_alembic_
+  schema` shows `PASS` against it.
+- **This project's native local-dev Postgres role lacks `CREATEDB`** —
+  by design/pre-existing, not a defect, but it means migration/
+  verifier tests only run for real locally when explicitly pointed at
+  a Postgres that has it (documented, not hidden — see `docs/
+  migrations.md`).
+- **No monitoring is actually live** — Sentry integration is code-
+  complete and tested but inert without a real `SENTRY_DSN`; no
+  alerts, dashboards, or incident-response process exist outside the
+  specification in `docs/monitoring.md`.
+- **No hosting platform is selected** for either the frontend or the
+  backend — the frontend now has a concrete adapter (`adapter-node`)
+  and the backend has a working `Dockerfile`, but neither has an actual
+  place it runs in production. Log retention, real alerting
+  infrastructure, and a genuine external "preview deployment" (as
+  opposed to this round's real-but-local smoke test) all depend on
+  this being decided first.
+- **The `version` column's increment is now structurally enforced**
+  (resolved this round, prompt 4) — no longer a risk, listed here only
+  to mark it closed relative to the previous round's report.
+
+No core requirement from this round's `prompts.txt` was left as a TODO
+— every one of the 7 prompts has either a completed, tested
+implementation, or (prompts 2 and the GitHub-evidence portions of 1/7)
+an explicit, specific statement of exactly what remains and why it
+wasn't done unilaterally.
