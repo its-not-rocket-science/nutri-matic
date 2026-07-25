@@ -54,10 +54,16 @@ change should walk through, in order.
 **2. Migrations**
 - If this is the database's first Alembic-enabled deploy, confirm it's
   been stamped: `alembic current` should show `aac138c38096` (or later)
-  — if it shows nothing, stop and run `alembic stamp aac138c38096`
-  first (see `docs/migrations.md`; running `upgrade head` on an
-  unstamped pre-existing database fails loudly, which is correct, but
-  don't let that be the first time you discover it needed stamping).
+  — if it shows nothing, **run `python -m app.verify_pre_alembic_schema`
+  first and confirm PASS** before stamping (see `docs/migrations.md` —
+  `stamp` doesn't check anything itself, it just records a claim; this
+  repo's own `docker-compose` database was stamped without this check
+  before the tool existed and turned out not to actually match the
+  baseline — a real, not hypothetical, mistake this step exists to
+  prevent repeating). Only once it passes, run `alembic stamp
+  aac138c38096` (running `upgrade head` on an unstamped pre-existing
+  database fails loudly, which is correct, but don't let that be the
+  first time you discover it needed stamping).
 - Where practical, run `alembic upgrade head` against a staging copy of
   the database first.
 - In production, `alembic upgrade head` runs automatically before
