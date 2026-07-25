@@ -128,12 +128,13 @@ decide on the repository's behalf.
 
 ## Log retention
 
-Not configured — depends entirely on where production logs actually go
-(the deploy platform's own log aggregation), which isn't chosen yet.
-The frontend now has a concrete deployment story (`@sveltejs/
-adapter-node`, see `docs/frontend-deployment.md`) but no actual hosting
-platform has been selected for either the frontend or backend — revisit
-log retention once one is.
+Not configured. The frontend's hosting platform is Vercel (`@sveltejs/
+adapter-vercel`, see `docs/frontend-deployment.md`) — Vercel has its
+own build/runtime log retention, on whatever plan this project's
+Vercel account is on, not configured or controlled from this
+repository. The backend still has no hosting platform selected beyond
+a working `Dockerfile`/`docker-compose.yml` — revisit backend log
+retention once one is chosen.
 
 ## Incident response
 
