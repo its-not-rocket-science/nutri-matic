@@ -83,7 +83,19 @@ jobs:
         # user CREATEDB by default, so those tests run for real here
         # rather than self-skipping the way they do against a locally
         # restricted role — see docs/migrations.md.
-        run: pytest -q
+        #
+        # `python -m pytest`, not a bare `pytest` — this is not
+        # stylistic. A bare `pytest` invocation does not add the current
+        # working directory to sys.path, so `from app...` inside every
+        # test file fails with "No module named 'app'"; `python -m
+        # pytest` does add it, same as every local run of this suite
+        # this whole project has ever used. This was a real, pre-existing
+        # bug — CI's backend job has been failing at collection on every
+        # run, going back before this hardening round — found by
+        # operational-hardening prompt 1's "trigger a real run and record
+        # results" requirement actually being followed through on, not
+        # inferred from reading the YAML.
+        run: python -m pytest -q
       - name: Dependency vulnerability scan (informational)
         working-directory: backend
         # Non-blocking: reports known CVEs in dependencies without failing
