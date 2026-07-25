@@ -37,6 +37,99 @@ matters — i.e. anywhere that isn't your own laptop.
    Swap in `@sveltejs/adapter-node` (Docker/VM deploys) or the adapter for
    whichever platform you're actually targeting.
 
+## Deployment checklist (production-hardening prompt 4)
+
+The "Minimal production checklist" above is what a first deploy needs.
+This is what every deploy that touches the database or ships a schema
+change should walk through, in order.
+
+**1. Backups**
+- Confirm automated Postgres backups are configured and recent (point-
+  in-time recovery is ideal; at minimum, a scheduled `pg_dump`).
+- Take a manual backup immediately before this deploy regardless —
+  automated backup timing won't necessarily line up with the exact
+  moment you're about to run a migration, and a fresh, known-good
+  restore point costs little.
+
+**2. Migrations**
+- If this is the database's first Alembic-enabled deploy, confirm it's
+  been stamped: `alembic current` should show `aac138c38096` (or later)
+  — if it shows nothing, stop and run `alembic stamp aac138c38096`
+  first (see `docs/migrations.md`; running `upgrade head` on an
+  unstamped pre-existing database fails loudly, which is correct, but
+  don't let that be the first time you discover it needed stamping).
+- Where practical, run `alembic upgrade head` against a staging copy of
+  the database first.
+- In production, `alembic upgrade head` runs automatically before
+  `uvicorn` starts (`backend/Dockerfile`'s `CMD`) — after the deploy,
+  confirm it actually reached head: `alembic current` should match
+  `alembic heads` exactly. A container that's serving traffic on an
+  old revision (migration silently failed but the process kept running
+  some other way) is worse than one that failed to start.
+
+**3. Schema verification**
+- Spot-check the columns/constraints the deploy's migrations touch —
+  `\d <table>` in `psql`, or query `information_schema.columns` — matches
+  what the migration claims (nullability in particular; a migration that
+  claims to set `NOT NULL` but didn't reach that step is a silent bug).
+- On a from-scratch database, confirm the `pg_trgm` extension exists
+  (`\dx` in `psql`) — the baseline migration creates it, but it's cheap
+  to double check on a deploy that matters.
+
+**4. Smoke tests** (after the new version is serving traffic, before
+   declaring the deploy done)
+- `GET /api/recommendations/ingredients?entry_date=<today>` for a real
+  or throwaway account returns `200` with a well-formed body (exercises
+  the DB connection, the profile/eligibility path, and — if the account
+  has any diary entries — the `DiaryEntry.updated_at`/`version` columns
+  most recently added).
+- Full substitution-apply round trip: log a recipe to the diary, fetch
+  `GET /api/recommendations/substitutions?entry_id=...`, apply the top
+  suggestion via `POST /api/recommendations/substitutions/apply`, and
+  confirm the diary entry's `recipe_id` changed and `version`
+  incremented by exactly 1. This is the one write path recommendation
+  suggestions have, and the one most recently restructured (production-
+  hardening prompt 3) — worth a real end-to-end check, not just a
+  reachability ping.
+- Register a throwaway account end-to-end (register → log a diary
+  entry → load the diary page) to confirm the frontend can actually
+  reach the backend (`VITE_API_URL` correctly pointed, `CORS_ORIGINS`
+  includes the frontend's real deployed origin — a CORS misconfiguration
+  won't show up in a backend-only health check).
+
+**5. Rollback**
+- **Application code**: redeploying the previous release is safe as
+  long as its code tolerates the *current* (possibly newer) schema —
+  true for every migration in this repo so far, since each only adds
+  nullable-then-backfilled or safely-defaulted columns, never removes
+  or repurposes one. Check the specific migrations involved before
+  assuming this holds for a future one.
+- **Database**: prefer `alembic downgrade -1` for undoing only the most
+  recent migration, and only alongside rolling back the application
+  code that depends on it — see `docs/migrations.md`'s own rollback
+  section for two specific hazards already on record: the `updated_at`
+  migration's `downgrade()` genuinely loses data (drops the column), and
+  the baseline's `downgrade()` drops every table in the application and
+  must never run against a database with real data. For anything beyond
+  the single most recent migration, restore from the backup taken in
+  step 1 rather than chaining `alembic downgrade` calls.
+
+**6. Monitoring**
+- Watch error rates on `/api/recommendations/*`, `/api/diary`, and
+  `/api/meal-plan` specifically for the first hour after any deploy that
+  touches the database — these are the endpoints most recently changed.
+- Watch migration duration and lock time during the `alembic upgrade
+  head` step itself. The `version` column migration is a fast,
+  metadata-only operation (constant default, no table rewrite — see its
+  own docstring); the `updated_at` migration backfills every existing
+  row, so its duration scales with `diary_entries`/`meal_plan_entries`
+  row counts and is the one worth watching on a database with real
+  usage history.
+- **No monitoring/alerting stack (Sentry, Datadog, or equivalent) is
+  configured in this repository** — this is a documented gap, not a
+  claim of coverage. See the "remaining operational risks" in
+  `docs/production-hardening.md`'s final validation report.
+
 ## Historical manual migrations (frozen — superseded by Alembic)
 
 **This section is a frozen historical record, not a live process.** Every
