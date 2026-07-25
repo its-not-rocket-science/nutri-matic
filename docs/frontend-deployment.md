@@ -66,15 +66,20 @@ Real, not inferred:
 - `vitest run` (17 passed) and `svelte-check` (0 errors, same 1
   pre-existing unrelated warning) both remain green after the
   dependency swap.
-- **Not independently re-verified with a full browser smoke test**
-  against a real Vercel deployment — the earlier `adapter-node` pass
-  did run that (registration, CORS, recommendation panel, all against
-  a real isolated backend — see the commit history for that test if
-  useful as a reference), but re-running an equivalent test against an
-  *actual* Vercel deployment needs either Vercel CLI credentials (not
-  available in this environment) or waiting for this change's own PR
-  preview deployment and checking it manually — the repository owner is
-  better placed to do the latter than a from-this-machine local repeat.
+- **Confirmed on a real Vercel deployment, by the repository owner**
+  (deployment-protection SSO blocks checking this any other way from
+  this environment — no Vercel CLI credentials available here either).
+  The first live check actually 404'd — Vercel's own edge `NOT_FOUND`,
+  not the app's 404 page. Root cause, found by elimination: the
+  project's **Root Directory** dashboard setting (outside git — this is
+  a `frontend/`+`backend/` monorepo with no root `package.json`) wasn't
+  set to `frontend`, so every prior deployment had been building
+  against the repo root and finding nothing, unrelated to the adapter
+  choice and predating this session. Build Command/Output Directory
+  overrides were checked first and ruled out. Fixed in the dashboard by
+  the owner; confirmed fixed by triggering a fresh deployment (an empty
+  commit via PR — `main`'s branch protection blocks a direct push) and
+  the owner confirming the new preview actually loads.
 
 ## What "current hosting" actually is, for future reference
 
@@ -87,3 +92,12 @@ Preview Comments`) or the Vercel dashboard directly — not just
 hosting" is for either half of this app in the future. The backend
 still has no such integration as of this writing; `docker-compose.yml`
 remains its only concrete deployment story.
+
+Also: this repo's Vercel project's **Root Directory** must be set to
+`frontend` in the dashboard — there's no `vercel.json` or other
+git-tracked place this is recorded, and it was wrong (unset/pointing at
+the repo root) until this round's own live-deployment check caught it.
+A green build proves the adapter's output shape is correct; it does not
+prove the project is pointed at the right directory to build from in
+the first place — check an actual deployed URL, not just build status,
+when it matters.
