@@ -53,9 +53,29 @@ a database is brand new or already exists:
   of guessing, which is the correct failure mode for a schema
   operation.
 
-  Immediately after stamping, run `alembic upgrade head` — this applies
-  every migration *after* the baseline for real, starting with the
-  `updated_at` backfill.
+  `stamp` itself doesn't check that the database *actually* matches the
+  baseline it's being told it's at — a database missing a table, column,
+  index, or the `pg_trgm` extension (because a historical manual
+  migration from `DEPLOYMENT.md`'s frozen list was never run against it)
+  would get stamped anyway, silently. **Run the read-only verifier
+  first, every time, before stamping any existing database**:
+
+  ```bash
+  python -m app.verify_pre_alembic_schema
+  # or, for a database other than DATABASE_URL's default:
+  python -m app.verify_pre_alembic_schema --database-url postgresql://...
+  ```
+
+  `PASS` means safe to stamp. `FAIL` lists exactly what's missing or
+  incompatible — do not stamp until every issue is resolved (bring the
+  database up to the baseline schema by hand first, using
+  `DEPLOYMENT.md`'s frozen historical migration block as a reference for
+  what each missing piece was for). This tool is read-only — it never
+  modifies the database, and never stamps or upgrades anything itself.
+
+  Immediately after stamping (and only once the verifier passes), run
+  `alembic upgrade head` — this applies every migration *after* the
+  baseline for real, starting with the `updated_at` backfill.
 
 ## Local development commands
 
@@ -64,7 +84,8 @@ From `backend/`, with `DATABASE_URL` pointing at your local Postgres
 
 ```bash
 # One-time, only if this database already has tables (was ever run
-# against a pre-Alembic version of this app):
+# against a pre-Alembic version of this app) — verify first, always:
+python -m app.verify_pre_alembic_schema
 alembic stamp aac138c38096
 
 # Every time after that, including on a genuinely fresh database:
@@ -80,13 +101,21 @@ alembic history
 `docker compose up` now runs `alembic upgrade head` automatically before
 starting the backend (see `backend/Dockerfile`) — safe on every
 container start once the one-time `stamp` above has been done, since
-`upgrade head` is a no-op when already current. **The `docker-compose`
-Postgres container that ships with this repo already has tables from
-before Alembic existed** — run the `stamp` command above against it
-once (`DATABASE_URL=postgresql://nutrimatic:nutrimatic@localhost:5433/nutrimatic
-alembic stamp aac138c38096`, using the host-exposed port from
-`docker-compose.yml`) before the next `docker compose up`, or the
-backend container will fail to start.
+`upgrade head` is a no-op when already current.
+
+**This repo's own `docker-compose` Postgres was stamped without running
+the verifier first, before the verifier existed, and it turned out not
+to actually match the baseline** — real drift, not hypothetical: 29
+missing objects, including the entire `medical_recommendation_
+acknowledgements` table, every table's `profile_id` column, and several
+`recipe_ingredient_provenance` columns. Its `alembic_version` currently
+claims `d7819c868cf4` (head) but the underlying schema doesn't back that
+up. Do not treat that database as a working example to copy — it needs
+the missing objects added by hand (see `DEPLOYMENT.md`'s frozen
+historical migration block for what each one was for) before it can be
+trusted, and `python -m app.verify_pre_alembic_schema` should show PASS
+against the baseline before doing so was ever attempted, which is
+exactly the mistake this tool now exists to prevent happening again.
 
 ## Production commands
 
@@ -95,7 +124,8 @@ one-off task in your platform, etc.) with `DATABASE_URL` pointing at the
 real production database:
 
 ```bash
-# Once, before the first Alembic-enabled deploy:
+# Once, before the first Alembic-enabled deploy — verify first, always:
+python -m app.verify_pre_alembic_schema
 alembic stamp aac138c38096
 
 # On every deploy from then on, before the new app version starts
@@ -168,3 +198,11 @@ connecting Postgres role has `CREATEDB` (a plain local install's
 `nutrimatic` role may be reachable but not have it) — CI's Postgres
 service always grants this to its own user, so it always runs there
 (see `.github/workflows/ci.yml`).
+
+`tests/test_verify_pre_alembic_schema.py` covers the pre-stamp verifier
+itself the same way: an exact baseline schema passes cleanly, and each
+of a missing table, missing column, wrong column type, missing unique
+index, and missing `pg_trgm` extension is independently confirmed to
+fail with a specific, relevant message — plus credential redaction and
+correct process exit codes. Same skip/CI-hard-failure behaviour as
+`test_migrations.py`.
