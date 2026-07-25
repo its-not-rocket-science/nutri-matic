@@ -20,6 +20,7 @@ from ..aggregation import aggregate_nutrients, expand_entries_to_weighted_foods,
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..dietary_filter import filter_excluded_recipes
+from ..entry_mutation import EntryConflict, commit_entry_mutation
 from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Recipe, RecipeIngredient, User
 from ..nutrient_targets import AnalysisPeriod
 from ..recipe_access import get_visible_recipe
@@ -508,30 +509,35 @@ def apply_substitution(
     db: Session = Depends(get_db),
 ):
     """Applies a previously-shown substitution suggestion — hardening
-    prompt 6, extended by prompt 8's follow-up review and production-
-    hardening prompt 3. Replaces the two-call delete-then-recreate
-    pattern the frontend used to do itself (a real data-loss risk: if
-    the second call failed after the first succeeded, the entry was
-    just gone) with a single in-place mutation of the target entry's
-    `recipe_id`/`quantity_servings`, committed once. That single UPDATE
-    is what makes this atomic — there's no window where the entry
-    doesn't exist.
+    prompt 6, extended by prompt 8's follow-up review, production-
+    hardening prompt 3, and operational-hardening prompt 4. Replaces the
+    two-call delete-then-recreate pattern the frontend used to do itself
+    (a real data-loss risk: if the second call failed after the first
+    succeeded, the entry was just gone) with a single in-place mutation
+    of the target entry's `recipe_id`/`quantity_servings`, committed
+    once. That single UPDATE is what makes this atomic — there's no
+    window where the entry doesn't exist.
 
-    Two independent staleness checks, both against the entry, not the
-    request: `expected_current_recipe_id` must match the entry's current
-    recipe, and `expected_version` must match its current optimistic-
-    concurrency version. Either mismatch means the entry moved on since
-    the suggestion was generated (edited some other way, already
-    substituted, or replayed) — rejected with 409 rather than silently
-    overwriting whatever is there now. The recipe_id check alone also
-    catches a duplicate/replayed apply (the second request no longer
-    matches after the first one already swapped the recipe); the version
-    check is the broader "full entry-version" companion, since a
-    hypothetical future edit that left recipe_id unchanged but touched
-    some other field would still bump it. `version` (not `updated_at`,
-    which this used to compare) is the concurrency mechanism as of
-    production-hardening prompt 3 — a plain integer equality check, no
-    timestamp precision/timezone-normalisation edge cases.
+    Two staleness checks against the entry, not the request:
+    `expected_current_recipe_id` must match the entry's current recipe
+    (an early, friendly 409 with a specific message, checked in Python
+    against whatever this request's own SELECT just loaded); and
+    `expected_version` is both checked the same way *and* structurally
+    enforced at the database level — `entry.version`'s `version_id_col`
+    mapping (see `models.DiaryEntry.version`'s own docstring) makes
+    `commit_entry_mutation` raise `EntryConflict` if the row's version
+    no longer matches what this session loaded by the time the UPDATE
+    actually runs, which is what closes the real race a Python-level
+    check alone can't: two requests can both read the same version and
+    both pass the equality check, but only one of their UPDATEs can
+    match the database's own `WHERE version = ...` once the other has
+    already committed. The recipe_id check alone also catches a
+    duplicate/replayed apply (the second request no longer matches after
+    the first one already swapped the recipe); the version check is the
+    broader "full entry-version" companion, since a hypothetical future
+    edit that left recipe_id unchanged but touched some other field
+    would still bump it — and every future mutation of these rows gets
+    this guarantee automatically, not just this one hand-written check.
 
     The entry is looked up scoped to the caller's own profile (never a
     bare `db.get`), so this can't touch another user's diary/meal-plan
@@ -575,8 +581,13 @@ def apply_substitution(
 
     entry.recipe_id = replacement.id
     entry.quantity_servings = body.replacement_servings
-    entry.version += 1
-    db.commit()
+    try:
+        commit_entry_mutation(db)
+    except EntryConflict:
+        raise HTTPException(
+            status_code=409,
+            detail="Entry has changed since this suggestion was generated",
+        )
 
     return schemas.SubstitutionApplyOut(
         entry_id=entry.id, source=body.source, recipe_id=replacement.id,
