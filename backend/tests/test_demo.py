@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.demo_protection import reset_demo_rate_limits
 from app.main import app
 from app.models import Food
 from app.reference_patterns import AMINO_ACIDS
@@ -12,6 +13,7 @@ from app.reference_patterns import AMINO_ACIDS
 
 @pytest.fixture
 def client():
+    reset_demo_rate_limits()
     engine = create_engine(
         "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -47,7 +49,9 @@ def client():
     db.commit()
     db.close()
 
-    yield TestClient(app)
+    test_client = TestClient(app, raise_server_exceptions=False)
+    test_client.db_engine = engine
+    yield test_client
     app.dependency_overrides.clear()
 
 
@@ -112,3 +116,57 @@ def test_demo_account_tolerates_missing_foods(client):
     ingest)."""
     res = client.post("/api/auth/demo")
     assert res.status_code == 201
+
+
+def test_demo_rejects_requests_over_the_per_ip_limit(client, monkeypatch):
+    import app.demo_protection as demo_protection
+
+    monkeypatch.setattr(demo_protection, "DEMO_PER_IP_LIMIT", 3)
+
+    for _ in range(3):
+        assert client.post("/api/auth/demo").status_code == 201
+
+    res = client.post("/api/auth/demo")
+    assert res.status_code == 429
+    assert "Retry-After" in res.headers
+    # Generic message — must not reveal which limit (per-IP vs. global)
+    # tripped, or any count/threshold.
+    assert "5" not in res.json()["detail"]
+    assert "3" not in res.json()["detail"]
+
+
+def test_demo_global_circuit_breaker_trips_before_per_ip_limit(client, monkeypatch):
+    import app.demo_protection as demo_protection
+
+    monkeypatch.setattr(demo_protection, "DEMO_PER_IP_LIMIT", 1000)
+    monkeypatch.setattr(demo_protection, "DEMO_GLOBAL_LIMIT", 2)
+
+    assert client.post("/api/auth/demo").status_code == 201
+    assert client.post("/api/auth/demo").status_code == 201
+
+    res = client.post("/api/auth/demo")
+    assert res.status_code == 429
+
+
+def test_demo_creation_failure_leaves_no_partial_account(client, monkeypatch):
+    """create_demo_account does all its work in one session, committed
+    once at the end — an exception partway through must leave zero rows
+    behind (get_db's session.close() rolls back an uncommitted
+    transaction), not a half-seeded account."""
+    import app.demo_data as demo_data
+    from app.models import User
+
+    real_create_owner_profile = demo_data.create_owner_profile
+
+    def boom(db, user):
+        real_create_owner_profile(db, user)
+        raise RuntimeError("simulated failure after the user row is added")
+
+    monkeypatch.setattr(demo_data, "create_owner_profile", boom)
+
+    res = client.post("/api/auth/demo")
+    assert res.status_code == 500
+
+    db = sessionmaker(bind=client.db_engine)()
+    assert db.query(User).count() == 0
+    db.close()
