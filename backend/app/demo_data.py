@@ -13,11 +13,12 @@ and safe to purge later without touching real users.
 """
 
 import secrets
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
 from .auth import create_access_token, create_owner_profile, hash_password
+from .demo_lifecycle import demo_expiry_from
 from .models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Recipe, RecipeIngredient, User, WeightLog
 
 DEMO_EMAIL_DOMAIN = "demo.nutrimatic.local"
@@ -54,6 +55,7 @@ def create_demo_account(db: Session) -> str:
     """Creates the account, seeds it, and returns a ready-to-use bearer
     token — the caller never sees or needs the generated credentials."""
     email = f"demo-{secrets.token_hex(6)}@{DEMO_EMAIL_DOMAIN}"
+    created_at = datetime.now(timezone.utc)
     user = User(
         email=email,
         password_hash=hash_password(secrets.token_urlsafe(24)),
@@ -62,6 +64,9 @@ def create_demo_account(db: Session) -> str:
         activity_level="moderate",
         weight_kg=65.0,
         height_cm=168.0,
+        is_demo=True,
+        created_at=created_at,
+        expires_at=demo_expiry_from(created_at),
     )
     db.add(user)
     db.flush()

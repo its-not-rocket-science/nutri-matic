@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from .billing import billing_provider
 from .database import get_db
+from .demo_lifecycle import is_expired_demo
 from .models import ApiKey, User
 
 KEY_PREFIX_LENGTH = 12
@@ -57,6 +58,15 @@ def get_api_key_user(
     if api_key is None or api_key.revoked_at is not None:
         raise HTTPException(status_code=401, detail="Invalid or revoked API key")
 
+    user = db.get(User, api_key.user_id)
+    if user is None or is_expired_demo(user):
+        # An expired demo account must not keep working through a key it
+        # created before expiring — same generic rejection this endpoint
+        # already gives an invalid/revoked key, no distinguishing detail.
+        # Checked before touching quota state, so a rejected request here
+        # doesn't also burn part of the key's quota.
+        raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+
     _maybe_reset_period(api_key)
     if api_key.requests_this_period >= api_key.quota_limit:
         raise HTTPException(
@@ -66,10 +76,6 @@ def get_api_key_user(
 
     api_key.requests_this_period += 1
     db.commit()
-
-    user = db.get(User, api_key.user_id)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid or revoked API key")
 
     billing_provider.record_usage(user, api_key, request.url.path)
     return user

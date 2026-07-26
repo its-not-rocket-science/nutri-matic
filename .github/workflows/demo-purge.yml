@@ -1,0 +1,65 @@
+# Public-launch hardening prompt 2's "wire scheduling into the actual
+# deployment architecture" step. GitHub Actions is the only scheduling
+# mechanism this repository already has (see ci.yml) — there is no
+# cron/task-scheduler config anywhere else in this repo, so this is that
+# mechanism, not a new one invented for this.
+#
+# Deliberately NOT active out of the box: `PRODUCTION_DATABASE_URL`
+# is not set by this file (secrets can only be added via the repo's own
+# Settings -> Secrets, a repo-admin action outside what a workflow-file
+# change can or should do unilaterally). Without it, every scheduled run
+# just prints a message and exits — merging this file alone starts
+# nothing destructive.
+#
+# Before ever enabling this for real, see docs/demo-lifecycle.md's
+# runbook: a GitHub-hosted runner also needs actual network reachability
+# to wherever production Postgres lives (not guaranteed — a database
+# only reachable from a private network won't accept a connection from a
+# public runner without additional infrastructure this repo doesn't
+# have), and — per this round's EXECUTION SAFETY REQUIREMENTS — at least
+# one manual `python -m app.demo_purge purge` dry-run against production,
+# reviewed by a human, must happen before this workflow is ever pointed
+# at production with `--apply`.
+#
+# The daily schedule always runs dry-run only (`github.event.inputs.apply`
+# is unset/false for a `schedule` trigger, never true) — only a manual
+# `workflow_dispatch` run with the `apply` input checked can actually
+# delete anything. This is deliberate: routine reporting can run
+# unattended, but a real deletion always requires someone to explicitly
+# trigger it.
+name: Demo account purge
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # daily, off-the-hour to avoid the top-of-hour scheduling rush
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Actually delete (unchecked = dry-run report only)"
+        type: boolean
+        default: false
+
+jobs:
+  purge:
+    name: Demo purge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt
+      - name: Run purge (dry-run unless PRODUCTION_DATABASE_URL is configured and apply requested)
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "PRODUCTION_DATABASE_URL is not configured — see docs/demo-lifecycle.md. Skipping (no-op)."
+            exit 0
+          fi
+          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            python -m app.demo_purge purge --apply
+          else
+            python -m app.demo_purge purge
+          fi

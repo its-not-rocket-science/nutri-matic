@@ -169,6 +169,51 @@ def test_stamp_then_upgrade_on_pre_existing_schema(fresh_db):
     conn.close()
 
 
+def test_demo_lifecycle_columns_added_and_existing_users_marked_non_demo(fresh_db):
+    """Public-launch hardening prompt 2's migration (92158621e2f3): a
+    real pre-existing user row (standing in for production's real users
+    AND its pre-existing manual-testing demo accounts — see that
+    migration's docstring for why marking the latter is a deliberately
+    separate, human-reviewed step, not part of this migration) must come
+    through with is_demo=false and expires_at=NULL, never guessed at."""
+    _alembic(["upgrade", "d7819c868cf4"], fresh_db)
+
+    conn = psycopg2.connect(fresh_db)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO users (id, email, password_hash, created_at, is_pregnant, is_lactating) "
+        "VALUES (1, 'a@example.com', 'x', now(), false, false)"
+    )
+    conn.close()
+
+    _alembic(["upgrade", "head"], fresh_db)
+
+    conn = psycopg2.connect(fresh_db)
+    cur = conn.cursor()
+    assert _column_is_nullable(conn, "users", "is_demo") == "NO"
+    assert _column_is_nullable(conn, "users", "expires_at") == "YES"
+    cur.execute("SELECT is_demo, expires_at FROM users WHERE id = 1")
+    is_demo, expires_at = cur.fetchone()
+    assert is_demo is False
+    assert expires_at is None
+    conn.close()
+
+
+def test_demo_lifecycle_downgrade_drops_both_columns(fresh_db):
+    _alembic(["upgrade", "head"], fresh_db)
+    _alembic(["downgrade", "d7819c868cf4"], fresh_db)
+
+    conn = psycopg2.connect(fresh_db)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name = 'users' AND column_name IN ('is_demo', 'expires_at')"
+    )
+    assert cur.fetchall() == []
+    conn.close()
+
+
 def test_backfill_preserves_and_fills_existing_rows(fresh_db):
     """Prompt 2: adding updated_at to a table that already has rows must
     not lose the existing rows and must leave none of them NULL once

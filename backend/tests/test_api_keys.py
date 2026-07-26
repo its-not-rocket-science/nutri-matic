@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -5,11 +7,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.demo_protection import reset_demo_rate_limits
 from app.main import app
+from app.models import User
 
 
 @pytest.fixture
 def client():
+    reset_demo_rate_limits()
     engine = create_engine(
         "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -24,7 +29,9 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
+    test_client = TestClient(app, raise_server_exceptions=False)
+    test_client.db_engine = engine
+    yield test_client
     app.dependency_overrides.clear()
 
 
@@ -99,3 +106,38 @@ def test_new_key_quota_matches_free_plan_default(client):
     token = register_and_token(client, "a@example.com")
     res = client.post("/api/api-keys", json={"name": "free tier key"}, headers=auth_headers(token))
     assert res.json()["quota_limit"] == API_QUOTA_BY_PLAN[PLAN_FREE]
+
+
+def test_expired_demo_accounts_api_key_is_rejected(client):
+    """A demo account can create an API key before it expires — the
+    /api/v1/* key-auth path must reject it once expired the same way it
+    rejects an invalid/revoked key, not just the JWT session path (a
+    real gap caught by automated PR review: get_api_key_user checked
+    identity but not demo expiry)."""
+    token = client.post("/api/auth/demo").json()["access_token"]
+    raw_key = client.post(
+        "/api/api-keys", json={"name": "demo key"}, headers=auth_headers(token)
+    ).json()["key"]
+
+    # still active — a v1 call reaches past auth (422 for the unknown
+    # food id, not 401)
+    res = client.post(
+        "/api/v1/bioavailability/iron",
+        json={"items": [{"food_id": 999999, "quantity_g": 100}]},
+        headers={"x-api-key": raw_key},
+    )
+    assert res.status_code == 422
+
+    db = sessionmaker(bind=client.db_engine)()
+    demo_user = db.query(User).filter(User.is_demo.is_(True)).one()
+    demo_user.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    db.commit()
+    db.close()
+
+    res = client.post(
+        "/api/v1/bioavailability/iron",
+        json={"items": [{"food_id": 999999, "quantity_g": 100}]},
+        headers={"x-api-key": raw_key},
+    )
+    assert res.status_code == 401
+    assert res.json()["detail"] == "Invalid or revoked API key"
