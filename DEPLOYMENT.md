@@ -33,7 +33,8 @@ matters — i.e. anywhere that isn't your own laptop.
    via GitHub, so this is the adapter that actually matches current
    hosting, not a guess). It talks to the backend over `VITE_API_URL`,
    baked in at build time — set per-environment in the Vercel project's
-   own dashboard, not this repo's `.env`. See
+   own dashboard, not this repo's `.env`. Production is live at
+   **https://nutri-matic.vercel.app/**. See
    `docs/frontend-deployment.md` for the build command, Vercel project
    configuration, and the smoke tests this was verified against.
 
