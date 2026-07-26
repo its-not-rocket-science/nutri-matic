@@ -37,10 +37,11 @@ from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
 from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Profile, Recipe, RecipeIngredient, RecipeShare, User
 from ..recipe_access import is_recipe_visible
 from ..nutrients import NUTRIENTS, resolve_drv
+from ..nutrient_gap_analysis import coverage_for_nutrient
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
-from ..trends import GroupBy, bucket_day_totals
+from ..trends import GroupBy, bucket_bounds, bucket_day_totals
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
 
@@ -63,37 +64,40 @@ _PROTEIN_DRV_CONFIDENCE = "personalized_calculation"
 
 
 def _nutrient_amount_out(
-    key: str, nutrient_def, amount: float, drv: float | None, *, goal_adjusted: bool = False
+    key: str, nutrient_def, amount: float, drv: float | None, *, goal_adjusted: bool = False, coverage: float = 1.0
 ) -> schemas.NutrientAmountOut:
     if key == "energy":
         return schemas.NutrientAmountOut.build(
             key, nutrient_def, amount, drv,
             drv_source=_ENERGY_DEFICIT_DRV_SOURCE if goal_adjusted else _ENERGY_DRV_SOURCE,
             drv_confidence=_ENERGY_DRV_CONFIDENCE,
-            goal_adjusted=goal_adjusted,
+            goal_adjusted=goal_adjusted, coverage=coverage,
         )
     if key == "protein":
         return schemas.NutrientAmountOut.build(
-            key, nutrient_def, amount, drv, drv_source=_PROTEIN_DRV_SOURCE, drv_confidence=_PROTEIN_DRV_CONFIDENCE
+            key, nutrient_def, amount, drv, drv_source=_PROTEIN_DRV_SOURCE, drv_confidence=_PROTEIN_DRV_CONFIDENCE,
+            coverage=coverage,
         )
-    return schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv)
+    return schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv, coverage=coverage)
 
 
 def _trend_nutrient_out(
-    key: str, nutrient_def, avg_amount: float, drv: float | None, *, goal_adjusted: bool = False
+    key: str, nutrient_def, avg_amount: float, drv: float | None, *, goal_adjusted: bool = False,
+    coverage: float = 1.0,
 ) -> schemas.TrendNutrientOut:
     if key == "energy":
         return schemas.TrendNutrientOut.build(
             key, nutrient_def, avg_amount, drv,
             drv_source=_ENERGY_DEFICIT_DRV_SOURCE if goal_adjusted else _ENERGY_DRV_SOURCE,
             drv_confidence=_ENERGY_DRV_CONFIDENCE,
-            goal_adjusted=goal_adjusted,
+            goal_adjusted=goal_adjusted, coverage=coverage,
         )
     if key == "protein":
         return schemas.TrendNutrientOut.build(
-            key, nutrient_def, avg_amount, drv, drv_source=_PROTEIN_DRV_SOURCE, drv_confidence=_PROTEIN_DRV_CONFIDENCE
+            key, nutrient_def, avg_amount, drv, drv_source=_PROTEIN_DRV_SOURCE, drv_confidence=_PROTEIN_DRV_CONFIDENCE,
+            coverage=coverage,
         )
-    return schemas.TrendNutrientOut.build(key, nutrient_def, avg_amount, drv)
+    return schemas.TrendNutrientOut.build(key, nutrient_def, avg_amount, drv, coverage=coverage)
 
 
 def _entry_out(entry: DiaryEntry, foods_by_id: dict[int, Food], recipes_by_id: dict[int, Recipe]) -> schemas.DiaryEntryOut:
@@ -245,7 +249,8 @@ def _compute_nutrient_gaps(
             )
             continue
         drv = protein_target if key == "protein" else resolve_drv(key, drv_profile)
-        nutrients_out.append(_nutrient_amount_out(key, nutrient_def, amount, drv))
+        coverage = coverage_for_nutrient(items, by_food_id, key)
+        nutrients_out.append(_nutrient_amount_out(key, nutrient_def, amount, drv, coverage=coverage))
     nutrients_out.sort(key=lambda n: n.name)
     return NutrientGaps(nutrients_out=nutrients_out, totals=totals, by_food_id=by_food_id)
 
@@ -832,8 +837,18 @@ def _compute_trends(
         day: aggregate_nutrients(items, by_food_id) for day, items in day_items.items()
     }
 
+    # items grouped the same way bucket_day_totals groups day_totals, so
+    # coverage can be computed across every logged day in a bucket, not
+    # just one day at a time — a nutrient covered on 1 of a bucket's 7
+    # logged days must read as low-coverage for the bucket as a whole,
+    # not silently averaged away.
+    items_by_bucket: dict[tuple[date, date], list] = {}
+    for day, items in day_items.items():
+        items_by_bucket.setdefault(bucket_bounds(day, group_by), []).extend(items)
+
     buckets_out = []
     for bucket in bucket_day_totals(day_totals, group_by):
+        bucket_items = items_by_bucket[(bucket.bucket_start, bucket.bucket_end)]
         nutrients_out = []
         for key, avg_amount in bucket.avg_nutrients.items():
             nutrient_def = NUTRIENTS.get(key)
@@ -847,7 +862,8 @@ def _compute_trends(
                 )
                 continue
             drv = protein_target if key == "protein" else resolve_drv(key, drv_profile)
-            nutrients_out.append(_trend_nutrient_out(key, nutrient_def, avg_amount, drv))
+            coverage = coverage_for_nutrient(bucket_items, by_food_id, key)
+            nutrients_out.append(_trend_nutrient_out(key, nutrient_def, avg_amount, drv, coverage=coverage))
         nutrients_out.sort(key=lambda n: n.name)
         buckets_out.append(
             schemas.TrendBucketOut(

@@ -176,10 +176,12 @@
 						<h3>
 							{energy.amount.toFixed(0)} <span class="unit">kcal</span>
 						</h3>
-						{#if energy.adult_drv !== null}
+						{#if energy.adult_drv !== null && energy.percent_drv !== null}
 							<p class="muted">
-								of {energy.adult_drv.toFixed(0)} kcal target ({energy.percent_drv?.toFixed(0)}%)
+								of {energy.adult_drv.toFixed(0)} kcal target ({energy.percent_drv.toFixed(0)}%)
 							</p>
+						{:else if energy.adult_drv !== null && energy.insufficient_data_reason}
+							<p class="muted">Not enough reported data to estimate a percentage today.</p>
 						{:else}
 							<p class="muted">
 								Set weight, height, sex, birth year &amp; activity level in your profile for a target.

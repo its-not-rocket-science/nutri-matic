@@ -127,6 +127,15 @@ export interface NutrientAmount {
 	/** true only for the "energy" row when adult_drv reflects a weight-loss
 	 *  goal's calorie deficit rather than plain maintenance EER */
 	goal_adjusted?: boolean;
+	/** fraction (0-1) of the underlying amount that had known, plausible
+	 *  data for this nutrient — 1.0 for a single food, lower for an
+	 *  aggregated total (diary day, recipe, trend bucket) where some
+	 *  contributing item didn't report it at all */
+	coverage: number;
+	/** set instead of trusting a low-coverage percent_drv (which is null
+	 *  whenever this is set) — never show 0%/any percentage for a nutrient
+	 *  too little of the day's/recipe's mass actually reported */
+	insufficient_data_reason: string | null;
 }
 
 /** Account-level fields only — bio/dietary/goal fields live on Profile
@@ -603,6 +612,8 @@ export interface TrendNutrient {
 	drv_confidence: string | null;
 	drv_methodology_version: string;
 	goal_adjusted?: boolean;
+	coverage: number;
+	insufficient_data_reason: string | null;
 }
 
 export interface TrendBucket {
