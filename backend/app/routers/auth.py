@@ -1,13 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from .. import schemas
 from ..auth import create_access_token, create_owner_profile, get_current_user, hash_password, verify_password
 from ..database import get_db
 from ..demo_data import create_demo_account
+from ..demo_protection import enforce_demo_rate_limit
 from ..models import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+_demo_logger = logging.getLogger("app.demo")
 
 
 @router.post("/register", response_model=schemas.TokenOut, status_code=201)
@@ -38,11 +42,22 @@ def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/demo", response_model=schemas.TokenOut, status_code=201)
-def start_demo(db: Session = Depends(get_db)):
+def start_demo(request: Request, db: Session = Depends(get_db)):
     """Creates a fresh, private, pre-seeded account and logs the caller
     straight into it — see demo_data.py for what's seeded and why this is
-    a real per-visitor account rather than one shared login."""
-    return schemas.TokenOut(access_token=create_demo_account(db))
+    a real per-visitor account rather than one shared login.
+
+    Rate-limited (see demo_protection.py) — this is the one endpoint on
+    the API that creates a real account for a completely unauthenticated
+    caller, so it's the one most worth capping."""
+    enforce_demo_rate_limit(request)
+    try:
+        token = create_demo_account(db)
+    except Exception:
+        _demo_logger.exception("demo_creation_failed")
+        raise
+    _demo_logger.info("demo_created")
+    return schemas.TokenOut(access_token=token)
 
 
 @router.get("/me", response_model=schemas.UserOut)
