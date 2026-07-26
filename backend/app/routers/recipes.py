@@ -22,6 +22,7 @@ from ..models import (
     User,
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
+from ..nutrient_gap_analysis import coverage_for_nutrient
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
@@ -416,7 +417,8 @@ def recipe_nutrients(
             )
             continue
         drv = resolve_drv(key, drv_profile)
-        out.append(schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv))
+        coverage = coverage_for_nutrient(items, by_food_id, key)
+        out.append(schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv, coverage=coverage))
     out.sort(key=lambda n: n.name)
     return out
 

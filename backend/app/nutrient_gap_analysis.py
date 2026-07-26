@@ -98,7 +98,15 @@ class NutrientGapResult:
     explanation: str = ""
 
 
-def _coverage(items: list[WeightedFood], nutrients_by_food_id: dict[int, list[FoodNutrient]], key: str) -> float:
+def coverage_for_nutrient(
+    items: list[WeightedFood], nutrients_by_food_id: dict[int, list[FoodNutrient]], key: str
+) -> float:
+    """Fraction (0-1) of `items`' total mass that had a known, plausible
+    value for `key`. Public — this is the one place coverage is computed
+    at all, reused directly by diary.py/recipes.py's aggregated nutrient
+    displays (prompt 3: "make the canonical nutrient-gap analysis service
+    the single source of truth") rather than each display path silently
+    treating an unreported nutrient as a measured zero."""
     total_mass = sum(item.quantity_g for item in items)
     if total_mass <= 0:
         return 1.0  # nothing consumed at all — no basis to call this "uncovered" either
@@ -109,6 +117,11 @@ def _coverage(items: list[WeightedFood], nutrients_by_food_id: dict[int, list[Fo
                 covered_mass += item.quantity_g
                 break
     return covered_mass / total_mass
+
+
+# Backwards-compatible private alias — this module's own call sites below
+# used the underscore name before it was made public.
+_coverage = coverage_for_nutrient
 
 
 def _confidence_multiplier(target: NutrientTarget) -> float:

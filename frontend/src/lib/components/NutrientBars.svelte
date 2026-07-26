@@ -69,10 +69,12 @@
 		<div class="headline-nutrient" title={energy.drv_source ?? undefined}>
 			<strong>{energy.amount.toFixed(0)} kcal</strong>
 			<span class="muted">{per}</span>
-			{#if energy.adult_drv !== null}
+			{#if energy.adult_drv !== null && energy.percent_drv !== null}
 				<span class="muted">
-					of {energy.adult_drv.toFixed(0)} kcal target ({energy.percent_drv?.toFixed(0)}%)
+					of {energy.adult_drv.toFixed(0)} kcal target ({energy.percent_drv.toFixed(0)}%)
 				</span>
+			{:else if energy.adult_drv !== null && energy.insufficient_data_reason}
+				<span class="muted">— not enough reported data to estimate a percentage today</span>
 			{:else if per === 'per day'}
 				<span class="muted">— set weight, height, sex, birth year &amp; activity level in your profile for a target</span>
 			{/if}
@@ -92,10 +94,12 @@
 		<div class="headline-nutrient" title={protein.drv_source ?? undefined}>
 			<strong>{protein.amount.toFixed(1)}g protein</strong>
 			<span class="muted">{per}</span>
-			{#if protein.adult_drv !== null}
+			{#if protein.adult_drv !== null && protein.percent_drv !== null}
 				<span class="muted">
-					of {protein.adult_drv.toFixed(0)}g target ({protein.percent_drv?.toFixed(0)}%)
+					of {protein.adult_drv.toFixed(0)}g target ({protein.percent_drv.toFixed(0)}%)
 				</span>
+			{:else if protein.adult_drv !== null && protein.insufficient_data_reason}
+				<span class="muted">— not enough reported data to estimate a percentage today</span>
 			{:else if per === 'per day'}
 				<span class="muted">— set weight, birth year &amp; activity level in your profile for a target</span>
 			{/if}
@@ -128,6 +132,18 @@
 									<span class="muted">
 										Raw value as reported: {n.amount.toLocaleString()} {n.unit} per 100g. {n.implausible_reason}
 									</span>
+								</span>
+							</li>
+						{:else if n.insufficient_data_reason}
+							<li class="insufficient-data">
+								<span class="aa-name">{n.name}</span>
+								<span class="insufficient-data-note">
+									<strong>Insufficient data to estimate {n.name.toLowerCase()}</strong>
+									<span class="muted">Not enough reported data for this — showing the raw amount only, no percentage.</span>
+								</span>
+								<span class="aa-value">
+									{n.amount < 10 ? n.amount.toFixed(2) : n.amount.toFixed(0)}
+									{n.unit}
 								</span>
 							</li>
 						{:else}
@@ -255,6 +271,24 @@
 	}
 	.implausible-warning strong {
 		color: var(--color-danger);
+	}
+	.bars li.insufficient-data {
+		grid-template-columns: 12rem 1fr 9rem;
+		align-items: start;
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-sm);
+		padding: var(--space-2) var(--space-3);
+	}
+	.insufficient-data-note {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		font-size: var(--font-size-sm);
+	}
+	@media (max-width: 30rem) {
+		.bars li.insufficient-data {
+			grid-template-columns: 1fr auto;
+		}
 	}
 	.absorbed-note {
 		grid-column: 1 / -1;

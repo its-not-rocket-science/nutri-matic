@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from .data_quality import implausibility_reason
 from .methodology import DRV_METHODOLOGY_VERSION
+from .nutrient_gap_analysis import MINIMUM_COVERAGE_FOR_STATUS
 from .nutrients import NutrientDef
 
 Sex = Literal["male", "female"]
@@ -204,6 +205,19 @@ class NutrientAmountOut(BaseModel):
     # maintenance EER — the frontend shows a visible note (not just a
     # tooltip) whenever this is set, so the deficit is never applied silently
     goal_adjusted: bool = False
+    # Public-launch hardening prompt 3. Fraction (0-1) of the underlying
+    # mass that had a known, plausible value for this nutrient — 1.0 for a
+    # single food's own per-100g row (nothing to aggregate), lower for an
+    # aggregated total (diary day, recipe, trend bucket) where some
+    # contributing item didn't report this nutrient at all. Always present;
+    # callers that never aggregate anything just always pass/default 1.0.
+    coverage: float = 1.0
+    # Set instead of trusting a low-coverage percent_drv — see
+    # nutrient_gap_analysis.py's identical concept/wording (the canonical
+    # service this mirrors). When this is set, percent_drv is deliberately
+    # None: prompt 3's core fix is that missing data must never be
+    # presented as a confirmed 0% of target.
+    insufficient_data_reason: str | None = None
 
     @classmethod
     def build(
@@ -216,21 +230,30 @@ class NutrientAmountOut(BaseModel):
         drv_source: str | None = None,
         drv_confidence: str | None = None,
         goal_adjusted: bool = False,
+        coverage: float = 1.0,
     ) -> "NutrientAmountOut":
-        """Shared shaping logic for the four call sites that turn a
+        """Shared shaping logic for the call sites that turn a
         (nutrient_def, amount, drv) triple into this schema — food/recipe
         nutrients endpoints and the diary day/trends endpoints. Callers with
         a personalized override (currently just diary's/recipes' "energy"
         nutrient, whose source/confidence describe a BMR calculation rather
         than a table lookup) pass drv_source/drv_confidence explicitly;
-        everyone else gets them straight from nutrient_def."""
+        everyone else gets them straight from nutrient_def.
+
+        `coverage` matters only for an aggregated amount (diary day,
+        recipe, trend bucket) — see nutrient_gap_analysis.
+        MINIMUM_COVERAGE_FOR_STATUS. Below that bar, percent_drv is
+        withheld (set None) and insufficient_data_reason explains why,
+        rather than showing e.g. "0% of target" for a nutrient no
+        contributing food actually reported."""
+        insufficient = drv is not None and coverage < MINIMUM_COVERAGE_FOR_STATUS
         return cls(
             key=key,
             name=nutrient_def.name,
             unit=nutrient_def.unit,
             amount=amount,
             adult_drv=drv,
-            percent_drv=(amount / drv * 100) if drv else None,
+            percent_drv=(amount / drv * 100) if drv and not insufficient else None,
             drv_source=drv_source if drv_source is not None else (nutrient_def.drv_source or None),
             drv_confidence=(
                 drv_confidence
@@ -240,6 +263,13 @@ class NutrientAmountOut(BaseModel):
             drv_methodology_version=DRV_METHODOLOGY_VERSION,
             implausible_reason=implausibility_reason(key, amount),
             goal_adjusted=goal_adjusted,
+            coverage=coverage,
+            insufficient_data_reason=(
+                f"only {coverage:.0%} of the contributing amount has known {nutrient_def.name} data — "
+                "too little to compare reliably against a target"
+                if insufficient
+                else None
+            ),
         )
 
 
@@ -879,6 +909,8 @@ class TrendNutrientOut(BaseModel):
     drv_confidence: str | None
     drv_methodology_version: str
     goal_adjusted: bool = False
+    coverage: float = 1.0
+    insufficient_data_reason: str | None = None
 
     @classmethod
     def build(
@@ -891,16 +923,19 @@ class TrendNutrientOut(BaseModel):
         drv_source: str | None = None,
         drv_confidence: str | None = None,
         goal_adjusted: bool = False,
+        coverage: float = 1.0,
     ) -> "TrendNutrientOut":
-        """See NutrientAmountOut.build — same shaping logic, different
-        field names (avg_amount/avg_percent_drv) for the trends endpoint."""
+        """See NutrientAmountOut.build — same shaping logic (including the
+        coverage-gated avg_percent_drv), different field names
+        (avg_amount/avg_percent_drv) for the trends endpoint."""
+        insufficient = drv is not None and coverage < MINIMUM_COVERAGE_FOR_STATUS
         return cls(
             key=key,
             name=nutrient_def.name,
             unit=nutrient_def.unit,
             avg_amount=avg_amount,
             adult_drv=drv,
-            avg_percent_drv=(avg_amount / drv * 100) if drv else None,
+            avg_percent_drv=(avg_amount / drv * 100) if drv and not insufficient else None,
             drv_source=drv_source if drv_source is not None else (nutrient_def.drv_source or None),
             drv_confidence=(
                 drv_confidence
@@ -909,6 +944,13 @@ class TrendNutrientOut(BaseModel):
             ),
             drv_methodology_version=DRV_METHODOLOGY_VERSION,
             goal_adjusted=goal_adjusted,
+            coverage=coverage,
+            insufficient_data_reason=(
+                f"only {coverage:.0%} of the contributing amount has known {nutrient_def.name} data — "
+                "too little to compare reliably against a target"
+                if insufficient
+                else None
+            ),
         )
 
 
