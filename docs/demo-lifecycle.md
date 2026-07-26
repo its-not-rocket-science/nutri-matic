@@ -84,35 +84,65 @@ python -m app.demo_purge purge --apply --batch-size 200
 - **Dry-run reports every matching account** (`user_id` + `email`), not
   just a count — the whole point is a human being able to review
   exactly what would be deleted.
-- **Deletion order.** No FK to `users.id` in this schema declares `ON
-  DELETE CASCADE` (checked against every table in `app/models.py`), so
-  every dependent row is deleted in explicit application-code order
-  before the row it depends on:
+- **Deletion order.** No FK to `users.id` (or the tables hanging off a
+  recipe/profile) in this schema declares `ON DELETE CASCADE` (checked
+  against every table in `app/models.py`), so every dependent row is
+  deleted in explicit application-code order before the row it depends
+  on:
 
-  1. `recipe_ingredient_provenance` (via owned recipes' ingredients)
-  2. `recipe_ingredients` (owned recipes)
-  3. `recipe_ratings`, `recipe_comments` (owned recipes OR authored by this user)
-  4. `recipe_tags` (owned recipes)
-  5. `recipe_shares` (owned recipes OR shared *to* this user)
-  6. `collection_recipes` (owned recipes OR owned collections)
-  7. `robustness_results` (owned recipes)
-  8. `recipes`, then `collections`
-  9. `meal_plan_template_entries`, then `meal_plan_templates`
-  10. `diary_meal_template_items`, then `diary_meal_templates`
-  11. `diary_entries`, `diary_snapshots`, `meal_plan_entries`,
+  1. `diary_entries`, `meal_plan_entries`, `meal_plan_template_entries`,
+     `diary_meal_template_items` **referencing an owned recipe by
+     `recipe_id`, regardless of who logged them** — a demo-owned recipe
+     can be `is_public` or `RecipeShare`'d, so another real user can have
+     their own diary/meal-plan/template entry pointing at it. These must
+     go before the recipe delete or Postgres rejects it (a restrictive
+     FK) and aborts the whole batch. This is the one place purging a
+     demo account can remove a row belonging to a non-demo user — an
+     accepted, unavoidable tradeoff: the alternative is an orphaned
+     recipe with no owner, which isn't valid either (`Recipe.user_id` is
+     `NOT NULL`). Caught by automated PR review, not written correctly
+     the first time.
+  2. `recipe_ingredient_provenance` (via owned recipes' ingredients)
+  3. `recipe_ingredients` (owned recipes)
+  4. `recipe_ratings`, `recipe_comments` (owned recipes OR authored by this user)
+  5. `recipe_tags` (owned recipes)
+  6. `recipe_shares` (owned recipes OR shared *to* this user)
+  7. `collection_recipes` (owned recipes OR owned collections)
+  8. `robustness_results` (owned recipes)
+  9. `recipes`, then `collections`
+  10. `meal_plan_template_entries`, then `meal_plan_templates` (this
+      user's own templates — step 1 already cleared any cross-user
+      entries referencing a now-deleted recipe)
+  11. `diary_meal_template_items`, then `diary_meal_templates` (same note)
+  12. `diary_entries`, `diary_snapshots`, `meal_plan_entries`,
       `weight_logs`, `food_prices`, `saved_filter_presets`,
       `dietary_constraints`, `api_keys`
-  12. `clinician_client_links`, `clinician_notes` (either side of the link)
-  13. `profiles`
-  14. `users`
+  13. `clinician_client_links`, `clinician_notes` (either side of the link)
+  14. `medical_recommendation_acknowledgements` (via this user's profiles
+      — also caught by automated PR review; missing entirely would abort
+      the profile delete below for any profile with one)
+  15. `profiles`
+  16. `users`
 
   A demo account is a full account and can touch any feature via the
   API before expiring — this covers every table that can reference one,
   not just what `demo_data.py` seeds. Regression-tested in
-  `tests/test_demo_purge.py::test_purge_removes_every_dependent_row_across_the_full_schema`,
-  which builds one row in every table above and confirms the purge
-  clears all of it while a control (non-demo) user's equivalent rows
-  survive untouched.
+  `tests/test_demo_purge.py`: `test_purge_removes_every_dependent_row_across_the_full_schema`
+  builds one row in every table above and confirms the purge clears all
+  of it while a control (non-demo) user's equivalent rows survive
+  untouched; `test_purge_clears_another_users_reference_to_a_demo_owned_recipe`
+  and `test_purge_clears_medical_recommendation_acknowledgements_before_profile`
+  cover the two gaps above specifically.
+
+- **API-key auth also enforces expiry.** A demo account can create a
+  public-API key (`POST /api/api-keys`) before it expires —
+  `app/api_keys.py::get_api_key_user` checks `is_expired_demo` the same
+  way the JWT session path does, so an expired demo can't keep using a
+  key it created earlier. Also caught by automated PR review: this
+  prompt's first pass only wired expiry into the JWT path
+  (`auth.get_current_user`/`get_optional_current_user`), missing that
+  `/api/v1/*` authenticates independently through a separate credential
+  system.
 
 ### SAFETY GATE — read before ever running `--apply` against production
 
