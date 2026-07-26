@@ -30,6 +30,7 @@ from app.models import (
     MealPlanEntry,
     MealPlanTemplate,
     MealPlanTemplateEntry,
+    MedicalRecommendationAcknowledgement,
     Profile,
     Recipe,
     RecipeComment,
@@ -273,6 +274,84 @@ def test_purge_removes_every_dependent_row_across_the_full_schema(db):
     assert db.query(Recipe).filter(Recipe.id == other_recipe_id).one_or_none() is not None
     assert db.query(WeightLog).filter(WeightLog.user_id == other_id).count() == 1
     assert db.query(FoodPrice).filter(FoodPrice.user_id == other_id).count() == 1
+
+
+def test_purge_clears_another_users_reference_to_a_demo_owned_recipe(db):
+    """A demo-owned recipe can be logged by someone else's diary/meal-plan
+    if it was is_public or RecipeShare'd — those consumer rows must be
+    cleared before the recipe delete or Postgres rejects it (restrictive
+    FK) and aborts the whole batch. Real gap caught by automated PR
+    review."""
+    demo = make_demo_user(db, expired=True)
+    other = make_real_user(db)
+    db.add(Food(
+        id=1, name="Test food", data_type="sr_legacy_food", protein_g_per_100g=10,
+        amino_acids=dict.fromkeys(AMINO_ACIDS, 5),
+    ))
+    demo_recipe = Recipe(user_id=demo.id, name="Shared demo recipe", servings=1, is_public=True)
+    db.add(demo_recipe)
+    db.flush()
+
+    other_profile = Profile(user_id=other.id, name="Me", is_account_owner=True)
+    db.add(other_profile)
+    db.flush()
+
+    # OTHER user's own diary/meal-plan/template entries reference the
+    # demo's public recipe — none of these belong to the demo user.
+    db.add(DiaryEntry(
+        user_id=other.id, profile_id=other_profile.id, entry_date=datetime.now().date(),
+        meal="lunch", recipe_id=demo_recipe.id, quantity_servings=1,
+    ))
+    db.add(MealPlanEntry(
+        user_id=other.id, profile_id=other_profile.id, plan_date=datetime.now().date(),
+        meal="dinner", recipe_id=demo_recipe.id, quantity_servings=1,
+    ))
+    other_template = MealPlanTemplate(user_id=other.id, name="other's template")
+    db.add(other_template)
+    db.flush()
+    db.add(MealPlanTemplateEntry(
+        template_id=other_template.id, day_offset=0, meal="lunch", recipe_id=demo_recipe.id, quantity_servings=1,
+    ))
+    other_diary_template = DiaryMealTemplate(user_id=other.id, name="other's diary template")
+    db.add(other_diary_template)
+    db.flush()
+    db.add(DiaryMealTemplateItem(template_id=other_diary_template.id, recipe_id=demo_recipe.id, quantity_servings=1))
+    db.commit()
+
+    demo_recipe_id = demo_recipe.id
+    other_id = other.id
+
+    report = purge_expired_demo_accounts(db, dry_run=False)
+    assert report.total_users == 1
+    assert db.query(Recipe).filter(Recipe.id == demo_recipe_id).one_or_none() is None
+    # the other user's account itself is untouched, even though this one
+    # specific cross-referencing row of theirs had to go with the recipe
+    assert db.query(User).filter(User.id == other_id).one_or_none() is not None
+    assert db.query(DiaryEntry).filter(DiaryEntry.recipe_id == demo_recipe_id).count() == 0
+    assert db.query(MealPlanEntry).filter(MealPlanEntry.recipe_id == demo_recipe_id).count() == 0
+    assert db.query(MealPlanTemplateEntry).filter(MealPlanTemplateEntry.recipe_id == demo_recipe_id).count() == 0
+    assert db.query(DiaryMealTemplateItem).filter(DiaryMealTemplateItem.recipe_id == demo_recipe_id).count() == 0
+
+
+def test_purge_clears_medical_recommendation_acknowledgements_before_profile(db):
+    """medical_recommendation_acknowledgements.profile_id is a non-
+    cascading FK missing from an earlier version of _delete_batch —
+    deleting a profile with one would fail and abort the batch. Real gap
+    caught by automated PR review."""
+    demo = make_demo_user(db, expired=True)
+    profile = Profile(user_id=demo.id, name="Me", is_account_owner=True)
+    db.add(profile)
+    db.flush()
+    db.add(MedicalRecommendationAcknowledgement(profile_id=profile.id, policy_version=1))
+    db.commit()
+    profile_id = profile.id
+
+    report = purge_expired_demo_accounts(db, dry_run=False)
+    assert report.total_users == 1
+    assert db.query(MedicalRecommendationAcknowledgement).filter(
+        MedicalRecommendationAcknowledgement.profile_id == profile_id
+    ).count() == 0
+    assert db.query(Profile).filter(Profile.id == profile_id).one_or_none() is None
 
 
 def test_cli_report_prints_counts(db, monkeypatch, capsys):

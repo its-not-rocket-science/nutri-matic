@@ -24,6 +24,18 @@ removed before the row it depends on, in explicit application code
 rather than relying on the database to cascade for us. See
 docs/demo-lifecycle.md for the full dependency map this follows.
 
+Three gaps here were caught by an automated PR review, not written
+correctly the first time: (1) a demo-owned recipe can be logged in
+*another* user's diary/meal-plan/template via is_public/RecipeShare —
+those consumer rows must be cleared before the recipe is deleted,
+regardless of who owns them, or the delete aborts the whole batch; (2)
+`medical_recommendation_acknowledgements` (profile_id FK) was missing
+entirely and blocks deleting a profile that has one; (3) the API-key
+auth path (`api_keys.get_api_key_user`) checked identity but not demo
+expiry, so an expired demo could keep using a key it created before
+expiring, indefinitely if scheduled purges stay dry-run-only. All three
+fixed; see this module's git history / PR review for the exact findings.
+
 Batched by user id so a large backlog doesn't hold one long lock or one
 unbounded transaction — each batch of `--batch-size` expired users is
 deleted and committed independently, and a failure partway through
@@ -56,6 +68,7 @@ from .models import (
     MealPlanEntry,
     MealPlanTemplate,
     MealPlanTemplateEntry,
+    MedicalRecommendationAcknowledgement,
     Profile,
     Recipe,
     RecipeComment,
@@ -125,6 +138,27 @@ def _delete_batch(db: Session, user_ids: list[int]) -> dict[str, int]:
     recipe_ingredient_ids = [
         riid for (riid,) in db.query(RecipeIngredient.id).filter(RecipeIngredient.recipe_id.in_(recipe_ids)).all()
     ]
+
+    # Anyone (not just this batch's users) can have logged one of these
+    # recipes — a demo-owned recipe can be is_public or RecipeShare'd, so
+    # another real user's own diary/meal-plan/template entry can
+    # reference recipe_id here. Must clear regardless of whose row it is,
+    # or Postgres rejects the recipe delete below (restrictive FK) and
+    # aborts the whole batch. This is the one place purging a demo
+    # account can remove a non-demo user's row — an accepted, documented
+    # tradeoff (see docs/demo-lifecycle.md): the alternative is leaving
+    # an orphaned recipe with no owner, which isn't valid either
+    # (Recipe.user_id is NOT NULL).
+    _delete(db.query(DiaryEntry).filter(DiaryEntry.recipe_id.in_(recipe_ids)), "diary_entries")
+    _delete(db.query(MealPlanEntry).filter(MealPlanEntry.recipe_id.in_(recipe_ids)), "meal_plan_entries")
+    _delete(
+        db.query(MealPlanTemplateEntry).filter(MealPlanTemplateEntry.recipe_id.in_(recipe_ids)),
+        "meal_plan_template_entries",
+    )
+    _delete(
+        db.query(DiaryMealTemplateItem).filter(DiaryMealTemplateItem.recipe_id.in_(recipe_ids)),
+        "diary_meal_template_items",
+    )
 
     _delete(
         db.query(RecipeIngredientProvenance).filter(
@@ -204,7 +238,14 @@ def _delete_batch(db: Session, user_ids: list[int]) -> dict[str, int]:
         "clinician_notes",
     )
 
-    _delete(db.query(Profile).filter(Profile.user_id.in_(user_ids)), "profiles")
+    profile_ids = [pid for (pid,) in db.query(Profile.id).filter(Profile.user_id.in_(user_ids)).all()]
+    _delete(
+        db.query(MedicalRecommendationAcknowledgement).filter(
+            MedicalRecommendationAcknowledgement.profile_id.in_(profile_ids)
+        ),
+        "medical_recommendation_acknowledgements",
+    )
+    _delete(db.query(Profile).filter(Profile.id.in_(profile_ids)), "profiles")
     _delete(db.query(User).filter(User.id.in_(user_ids)), "users")
 
     return {k: v for k, v in counts.items() if v}
