@@ -1,5 +1,12 @@
 # Frontend deployment
 
+**Production URL: https://nutri-matic.vercel.app/** — a stable project
+alias set in the Vercel dashboard (Settings → Domains), pointing at
+whatever the current Production deployment is; it updates automatically
+on every merge to `main`. Public, no deployment-protection SSO wall (a
+per-deployment URL like `nutri-matic-<hash>-pauls-projects-24d18deb.
+vercel.app` does have that wall; this alias doesn't).
+
 Operational-hardening prompt 6. `frontend/` builds with `@sveltejs/
 adapter-vercel` — this repo has a live Vercel project
 (`pauls-projects-24d18deb/nutri-matic`) already connected to GitHub,
