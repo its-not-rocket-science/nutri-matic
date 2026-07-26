@@ -23,7 +23,14 @@ threshold, so there's nothing to probe for.
 
 The limiter is a plain in-memory sliding window (`collections.deque` per
 key, guarded by a `threading.Lock`) — there is no Redis or other shared
-store in this repo yet. This means:
+store in this repo yet. Total tracked keys are capped at
+`DEFAULT_MAX_TRACKED_KEYS` (10,000, in `app/rate_limit.py`), evicting the
+least-recently-used key once the cap is hit — this bounds memory even
+against a flood of one-off keys (e.g. a distributed/spoofed-IP flood
+that never repeats a source IP), which would otherwise grow the bucket
+dict forever since a key is only pruned when it's hit again. Found by
+an automated PR review during prompt 1, not anticipated up front — a
+real gap, fixed before merge. This means:
 
 - **Correct** for a single backend process/instance, which is this
   repo's actual current deployment shape (see `backend/Dockerfile` —
