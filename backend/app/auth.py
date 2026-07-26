@@ -23,6 +23,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from .database import get_db
+from .demo_lifecycle import is_expired_demo
 from .models import Profile, User
 
 DEV_JWT_SECRET = "dev-secret-change-me"  # never valid when APP_ENV=production — see _resolve_jwt_secret
@@ -124,7 +125,10 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid or expired token") from None
 
     user = db.get(User, user_id)
-    if user is None:
+    if user is None or is_expired_demo(user):
+        # Same generic message as an actually-expired/invalid JWT — an
+        # expired demo account must not be distinguishable from any other
+        # rejected token (see demo_lifecycle.py).
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     return user
 
@@ -175,7 +179,10 @@ def get_optional_current_user(
         user_id = decode_access_token(credentials.credentials)
     except InvalidToken:
         return None
-    return db.get(User, user_id)
+    user = db.get(User, user_id)
+    if user is not None and is_expired_demo(user):
+        return None
+    return user
 
 
 def get_optional_owned_profile(

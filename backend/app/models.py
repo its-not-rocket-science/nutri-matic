@@ -85,6 +85,18 @@ class User(Base):
     # convention as Recipe.is_public/Collection.is_public below.
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
+    # Public-launch hardening prompt 2 — demo-account lifecycle (see
+    # app/demo_lifecycle.py). is_demo is the unambiguous marker (never
+    # inferred from email domain at runtime, only at migration-backfill
+    # time — see that migration's docstring for why relying on the email
+    # pattern alone forever would be wrong: nothing stops a real
+    # registration from choosing an email under the same reserved
+    # domain). expires_at is set once, at creation, by
+    # demo_data.create_demo_account; null for every non-demo account and
+    # never recomputed afterward.
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 
 class Profile(Base):
     """One individual under an account — see routers/profiles.py. The
