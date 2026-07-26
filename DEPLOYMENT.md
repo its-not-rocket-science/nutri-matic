@@ -13,6 +13,8 @@ matters — i.e. anywhere that isn't your own laptop.
 | `JWT_SECRET` | Yes (enforced) | `dev-secret-change-me` | Signs auth tokens. The default is a fixed, public string committed to source — anyone can read it and forge a token for any user id. Generate a real one: `python -c "import secrets; print(secrets.token_hex(32))"`. |
 | `APP_ENV` | Yes — set to `production` | `development` | When `production`, the app refuses to start if `JWT_SECRET` isn't explicitly set, rather than silently falling back to the public dev value (see `backend/app/auth.py::_resolve_jwt_secret`). This is the enforcement mechanism, not just documentation — set it. |
 | `CORS_ORIGINS` | Yes | `http://localhost:5173` | Comma-separated list of frontend origins allowed to call the API (e.g. `https://app.example.com,https://staging.example.com`). |
+| `DEMO_RATE_LIMIT_PER_IP` / `DEMO_RATE_LIMIT_PER_IP_WINDOW_SECONDS` | No | `5` / `3600` | Per-IP cap on `POST /api/auth/demo`. See `docs/rate-limiting.md` — in-memory, per-process, resets on restart. |
+| `DEMO_RATE_LIMIT_GLOBAL` / `DEMO_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `300` / `3600` | Global circuit breaker on total demo-account creation. Same doc — becomes `limit × instance count` if the backend is ever scaled horizontally. |
 
 ## Minimal production checklist
 
