@@ -39,19 +39,44 @@
 	let prevButtonEl: HTMLButtonElement | undefined = $state();
 	let nextButtonEl: HTMLButtonElement | undefined = $state();
 	let pendingFocus: 'prev' | 'next' | null = null;
+	// Caught by PR review: rapid browser back/forward (or repeated clicks)
+	// can have two page requests in flight at once; without this, whichever
+	// one resolves LAST wins even if it's not the one matching the current
+	// URL, overwriting fresher state with stale data. Each load captures its
+	// own generation number and only applies its result if it's still the
+	// most recent one requested by the time it resolves.
+	let stockLoadGeneration = 0;
 
 	async function loadStockPage(pageNum: number) {
 		if (!auth.isLoggedIn) return;
+		const generation = ++stockLoadGeneration;
 		stockLoading = true;
 		stockError = null;
 		try {
 			const result = await api.listPublicRecipes(STOCK_PAGE_SIZE, (pageNum - 1) * STOCK_PAGE_SIZE);
+			if (generation !== stockLoadGeneration) return; // superseded by a later page load
+
+			// Caught by PR review: a stale/bookmarked/hand-edited stockPage
+			// beyond the real last page (e.g. the catalogue shrank, or
+			// ?stockPage=999) would otherwise render an empty list with no
+			// in-page way back — Previous alone works but is a long, unobvious
+			// slog. Silently correct the URL to the real last page instead of
+			// ever showing a request/response mismatch to the user.
+			const realTotalPages = Math.max(1, Math.ceil(result.total / STOCK_PAGE_SIZE));
+			if (pageNum > realTotalPages) {
+				stockTotal = result.total;
+				stockLoading = false;
+				goToStockPage(realTotalPages, null, true);
+				return;
+			}
+
 			stockRecipes = result.items;
 			stockTotal = result.total;
 		} catch (e) {
+			if (generation !== stockLoadGeneration) return;
 			stockError = e instanceof Error ? e.message : String(e);
 		} finally {
-			stockLoading = false;
+			if (generation === stockLoadGeneration) stockLoading = false;
 			// Verified directly (browser testing): despite `goto`'s own
 			// `keepFocus: true`, re-keying the `{#each stockRecipes}` list
 			// (every row's id changes between pages) still drops focus to
@@ -66,7 +91,7 @@
 			// clicked became disabled (e.g. Next landed on the last page).
 			const target = pendingFocus;
 			pendingFocus = null;
-			if (target) {
+			if (target && generation === stockLoadGeneration) {
 				await tick();
 				if (target === 'prev') (!prevButtonEl?.disabled ? prevButtonEl : nextButtonEl)?.focus();
 				else (!nextButtonEl?.disabled ? nextButtonEl : prevButtonEl)?.focus();
@@ -78,7 +103,9 @@
 		loadStockPage(stockPageNum);
 	});
 
-	function goToStockPage(pageNum: number, focusTarget: 'prev' | 'next' | null = null) {
+	function goToStockPage(
+		pageNum: number, focusTarget: 'prev' | 'next' | null = null, replaceState = false,
+	) {
 		pendingFocus = focusTarget;
 		const url = new URL(page.url);
 		if (pageNum <= 1) {
@@ -86,7 +113,7 @@
 		} else {
 			url.searchParams.set('stockPage', String(pageNum));
 		}
-		goto(url, { noScroll: true, keepFocus: true });
+		goto(url, { noScroll: true, keepFocus: true, replaceState });
 	}
 
 	onMount(async () => {
