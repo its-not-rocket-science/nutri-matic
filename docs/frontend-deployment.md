@@ -1,11 +1,16 @@
 # Frontend deployment
 
-**Production URL: https://nutri-matic.vercel.app/** — a stable project
-alias set in the Vercel dashboard (Settings → Domains), pointing at
-whatever the current Production deployment is; it updates automatically
-on every merge to `main`. Public, no deployment-protection SSO wall (a
-per-deployment URL like `nutri-matic-<hash>-pauls-projects-24d18deb.
-vercel.app` does have that wall; this alias doesn't).
+**Production URL: https://nutri-matic.uk/** — the canonical public
+origin as of public-launch hardening prompt 5 (see
+`docs/security-headers.md`). `https://nutri-matic.vercel.app/` (a stable
+project alias set in the Vercel dashboard, Settings → Domains, pointing
+at whatever the current Production deployment is — it updates
+automatically on every merge to `main`) now permanently redirects to the
+`.uk` origin (`frontend/src/hooks.server.ts`) rather than serving the
+app independently, which is what this doc used to call "production"
+before that prompt. Both are public, no deployment-protection SSO wall
+(a per-deployment URL like `nutri-matic-<hash>-pauls-projects-24d18deb.
+vercel.app` does have that wall; neither alias does).
 
 Operational-hardening prompt 6. `frontend/` builds with `@sveltejs/
 adapter-vercel` — this repo has a live Vercel project
