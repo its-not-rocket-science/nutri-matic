@@ -67,3 +67,18 @@ def test_login_rejects_wrong_password(client):
 def test_login_rejects_unknown_email(client):
     res = client.post("/api/auth/login", json={"email": "nobody@example.com", "password": "password123"})
     assert res.status_code == 401
+
+
+def test_login_failure_logs_a_reason_code_without_email_or_password(client, caplog):
+    """Public-launch hardening prompt 6: auth failures aggregate — a
+    reason code only, never the credentials themselves."""
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="app.auth"):
+        client.post("/api/auth/login", json={"email": "nobody@example.com", "password": "wrongpassword123"})
+    records = [r for r in caplog.records if r.message == "auth_login_failed"]
+    assert len(records) == 1
+    assert records[0].reason == "invalid_credentials"
+    logged_text = caplog.text
+    assert "nobody@example.com" not in logged_text
+    assert "wrongpassword123" not in logged_text

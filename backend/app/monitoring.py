@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,19 @@ _SENSITIVE_KEY_SUBSTRINGS = (
     "authorization", "token", "password", "secret", "jwt", "cookie",
     "note", "medical", "dietary_note",
 )
+
+# Public-launch hardening prompt 6 — this app's user-facing identifier
+# is an email address (there's no separate username), and the prompt
+# explicitly names emails alongside tokens/passwords/diary contents as
+# never to leak into telemetry. A key-name check alone (as used above)
+# isn't enough here: an email can show up under any key (login/register
+# bodies, a future "shared with" field, a free-text field that happens
+# to contain one) — matched and redacted by *pattern*, wherever it
+# appears in a string value, rather than only when the key itself looks
+# email-shaped. Operational-hardening prompt 5's own test suite
+# previously asserted email was deliberately left unscrubbed; that
+# policy is superseded here by this prompt's explicit instruction.
+_EMAIL_PATTERN = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 
 def _is_sensitive_key(key: str) -> bool:
@@ -57,11 +71,21 @@ def _redact_database_url(value: str) -> str:
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
 
 
+def _redact_emails(value: str) -> str:
+    return _EMAIL_PATTERN.sub("[redacted-email]", value)
+
+
 def _scrub_value(key: str, value: Any) -> Any:
     if _is_sensitive_key(key):
         return "[Scrubbed]"
     if isinstance(value, str) and "DATABASE_URL" in key.upper():
         return _redact_database_url(value)
+    if isinstance(value, dict):
+        return _scrub_mapping(value)
+    if isinstance(value, list):
+        return [_scrub_value(key, item) for item in value]
+    if isinstance(value, str):
+        return _redact_emails(value)
     return value
 
 
@@ -122,12 +146,28 @@ def init_monitoring() -> bool:
         release=os.environ.get("RELEASE_VERSION"),
         # WARNING+ log records become breadcrumbs; ERROR+ become events —
         # this is what turns the plain `logging` calls throughout the app
-        # (recommendation endpoint outcomes, disabled-reason responses,
-        # migration/startup failures) into Sentry data without any
-        # sentry_sdk-specific call at those sites.
+        # (recommendation endpoint outcomes, disabled-reason responses)
+        # into Sentry data without any sentry_sdk-specific call at those
+        # sites.
+        #
+        # An *uncaught* exception (an actual unhandled 500, not a logged
+        # WARNING/ERROR) is captured separately — sentry_sdk's
+        # `auto_enabling_integrations` (the default; not disabled here)
+        # detects that `starlette`/`fastapi` are installed and enables
+        # `StarletteIntegration`/`FastApiIntegration` automatically.
+        # Confirmed directly (not assumed): both appear in sentry_sdk's
+        # own `_AUTO_ENABLING_INTEGRATIONS` list, and
+        # `test_captures_uncaught_exceptions_via_the_auto_enabled_fastapi_
+        # integration` below raises a real unhandled exception through a
+        # live app and asserts it reaches `before_send`.
         integrations=[LoggingIntegration(level=logging.WARNING, event_level=logging.ERROR)],
         before_send=scrub_event,
         traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+        # Explicit, not just relying on the SDK's own default (which is
+        # also False): never attach IP address/user context Sentry would
+        # otherwise infer from the request, on top of this module's own
+        # scrub_event redaction.
+        send_default_pii=False,
     )
     _initialized = True
     return True

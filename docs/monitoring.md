@@ -1,145 +1,302 @@
 # Monitoring and alerting
 
-Operational-hardening prompt 5. Covers what's implemented in code
-(real, tested) versus what still needs an actual Sentry account/plan
-from the repository owner to become live (specification only, honestly
-labelled as such below — this doc does not claim monitoring is "on"
-anywhere; it isn't, until `SENTRY_DSN` is set somewhere real).
+Public-launch hardening prompt 6, building on operational-hardening
+prompt 5's original version of this document (kept below where still
+accurate; superseded parts are marked as such rather than silently
+rewritten).
 
-## What's implemented
+## Pre-flight reality check (done before any code this round)
 
-- **`app/monitoring.py`** — `init_monitoring()`, called once at startup
-  (`main.py`). No-op unless `SENTRY_DSN` is set: local development and
-  CI need zero monitoring configuration, ever (`tests/test_monitoring.py`
-  confirms this directly, including that importing the app at all
-  succeeds with no `SENTRY_DSN` in the environment).
-- **Event scrubbing** (`monitoring.scrub_event`, wired as Sentry's
-  `before_send` hook) — strips, from request headers, request body/query
-  data, and any `extra=`/breadcrumb context, anything whose key contains
-  `authorization`, `token`, `password`, `secret`, `jwt`, `cookie`,
-  `note`, or `medical` (case-insensitive) — replaced with `[Scrubbed]`.
-  A `DATABASE_URL`-shaped value has its password redacted rather than
-  removed outright (host/db name stay useful for triage). This is
-  deliberately a broad substring policy, not a narrow allowlist: a new
-  sensitive field added anywhere in the app is scrubbed by default
-  rather than silently leaking until someone remembers to extend a list.
-- **Structured logging at the specific points this prompt names**:
-  - `recommendation_safety.assess_eligibility` logs `WARNING
-    recommendation_disabled` with `profile_id` and `reason_code`
-    whenever it returns `enabled=False` — one place, covers all four
-    `/api/recommendations/*` endpoints that call it, never logs the
-    medical constraint's free-text note.
-  - `routers/recommendations.py`'s `apply_substitution` logs `INFO
-    substitution_apply_outcome` with `entry_id`/`source`/`outcome` at
-    every exit point: `404_not_found`, `422_plain_food_entry`,
-    `409_stale_recipe_id`, `409_stale_version`,
-    `404_inaccessible_replacement`, `422_dietary_rejection`,
-    `422_recommendations_disabled`, `409_concurrent_conflict`,
-    `200_success`.
-  - `main.py`'s `log_recommendation_endpoint_latency` middleware logs
-    `INFO recommendation_request` with path/method/status/duration for
-    every `/api/recommendations/*` request (not every request in the
-    app — this is the one prompt explicitly asks to be watched).
-  All of the above are plain `logging` calls — useful in self-hosted
-  logs whether or not Sentry is configured. When it is, its
-  `LoggingIntegration` (WARNING+ as breadcrumbs, ERROR+ as events) turns
-  them into Sentry data with no code change needed at the call sites.
-- **Health endpoints**:
-  - `GET /api/health` — liveness. Always `200 {"status": "ok"}` if the
-    process is serving requests at all; never touches the database.
-  - `GET /api/ready` — readiness. `200 {"status": "ready"}` only if the
-    database is reachable *and* its Alembic revision matches the
-    migration head on disk; `503` with a short, secret-free reason
-    otherwise (`database unavailable: <exception class name>`, or
-    `database schema not at migration head (current=..., head=...)`).
-    The migration-head check is what catches "the container started but
-    the migration step failed or was skipped" — see
-    `docs/migrations.md`.
-- **`SENTRY_TRACES_SAMPLE_RATE`** (default `0.1`) — when monitoring is
-  active, Sentry's own performance monitoring captures per-request
-  timing for every endpoint automatically (FastAPI/Starlette
-  auto-instrumentation), independent of the recommendation-specific
-  logging middleware above.
+The prompt's own explicit requirement: audit what actually exists, with
+evidence, before assuming the "current position" this prompt's brief
+described was still accurate. It wasn't, in two places — corrected
+below rather than carried forward.
+
+| Claim | Status | Evidence |
+|---|---|---|
+| CI passes on `main` | **True** | `gh run list` — latest run on `main` (`2026-07-27T13:30:13Z`) is `success`; branch protection (`gh api .../branches/main/protection`) requires `Backend tests`/`Frontend checks`, `enforce_admins: true`. |
+| Backend has no hosting platform (prior doc's claim) | **False — stale** | `curl https://api.nutri-matic.uk/api/health` → `{"status":"ok"}`, `/api/ready` → `{"status":"ready"}`, both live. The backend **is** deployed and reachable at `https://api.nutri-matic.uk` — this document (and `DEPLOYMENT.md`) previously said otherwise; corrected here. |
+| `SENTRY_DSN` configured anywhere real | **Not evidenced** | `gh secret list` / `gh variable list` on this repo — both empty. No proof either way for wherever the backend actually deploys from (unknown deploy pipeline, not GitHub Actions), but nothing here confirms it's set, so treated as unset. |
+| Sentry captures uncaught (not just logged) exceptions | **Was unverified — now checked and true** | `sentry_sdk`'s `FastApiIntegration`/`StarletteIntegration` are in its `_AUTO_ENABLING_INTEGRATIONS` list (checked directly against the installed `sentry-sdk==2.58.0`), so `sentry_sdk.init()` enables them automatically since `fastapi`/`starlette` are installed — confirmed empirically in `test_captures_uncaught_exceptions_via_the_auto_enabled_fastapi_integration`, which raises a real unhandled exception through a live app and checks it reaches `before_send`. This was previously *assumed* rather than checked; it holds, but wasn't free of doubt going in. |
+| Frontend error tracking | **Did not exist before this round** | No Sentry package anywhere in `frontend/package.json` prior to this prompt — added this round (see below). |
+| Any alerting (PagerDuty/Slack/etc.) configured | **Not configured** | No integration anywhere in the codebase or repo config; unchanged from prior doc's assessment. |
+| Alembic migration failures monitored | **Architecturally can't self-report** | `Dockerfile`'s `CMD` is `alembic upgrade head && uvicorn ...` — if the migration step fails, the process exits before any Python application code (including Sentry) ever runs. This has to be caught at the infra/orchestrator level (container exit code / crash-loop detection), not by this app's own code — documented as a real limitation, not solved by a workaround that can't actually work. |
+
+## What's implemented (real, tested)
+
+Everything from operational-hardening prompt 5 (health/readiness
+endpoints, `init_monitoring()`'s no-op-without-DSN guarantee, the
+original event-scrubbing policy, `recommendation_disabled`/
+`substitution_apply_outcome`/`recommendation_request` logging) still
+applies — see that section preserved near the bottom of this file. New
+this round:
+
+### Backend
+
+- **Uncaught-exception capture confirmed, not assumed** — see the
+  pre-flight table above.
+- **Email redaction** (`app/monitoring.py::scrub_event`) — this
+  prompt explicitly names emails alongside tokens/passwords/diary
+  contents; the prior policy deliberately left email unscrubbed (it's
+  this app's account identifier, not treated as a secret). Superseded:
+  emails are now redacted by *pattern* (regex match on any string
+  value, not just a key-name check — an email can show up under any
+  key), recursively through nested dicts/lists. `_scrub_mapping` is now
+  recursive (previously one level deep).
+- **`elevated_status_response`** (`app/main.py`) — a new, app-wide
+  middleware logging `WARNING` for any 5xx response, on any route (the
+  existing recommendation-specific middleware only ever covered `/api/
+  recommendations/*`). Deliberately silent on success — logging every
+  request at real traffic volume would be pure noise.
+- **`recommendation_request` now tags `mode`** (ingredients/recipes/
+  pairs/substitutions, parsed from the path) and logs at `WARNING`
+  instead of `INFO` when the response is a 5xx, so a recommendation
+  endpoint failure reaches Sentry as an event, not just a breadcrumb.
+- **`auth_login_failed`** (`app/routers/auth.py`) — a reason code only
+  (`invalid_credentials`), never the attempted email or password.
+  Aggregate signal for brute-force/credential-stuffing detection.
+  Deliberately *not* added to `get_current_user`'s per-request
+  invalid/expired-token check — that fires on every ordinary token
+  expiry (a normal, frequent, non-abusive event for any real user), and
+  logging it would be noise, not signal.
+- **`data_quality_flagged_in_aggregation`** (`app/aggregation.py`) —
+  once per `aggregate_nutrients()` call that actually excludes an
+  implausible row (never once per row — this function runs in hot
+  paths, especially `recommend_ingredients.py`'s per-candidate trial
+  loop, so per-row logging would flood). Silent when nothing's
+  flagged, which should be the common case given the curated/
+  non-branded candidate pool already in place.
+- **`slow_readiness_db_check`** (`app/routers/health.py`) — `/api/ready`
+  now times its own `SELECT 1` and logs `WARNING` if it takes ≥500ms
+  (`SLOW_READINESS_CHECK_THRESHOLD_MS`), the closest signal this app can
+  cheaply get for "database connection exhaustion/latency" without
+  adding new scraping infrastructure — an orchestrator already polls
+  `/api/ready` regularly, giving this a natural sampling cadence.
+- **`send_default_pii=False`** set explicitly on `sentry_sdk.init()` —
+  already the SDK's own default, but stated rather than relied upon
+  silently.
+
+### Frontend
+
+- **`@sentry/sveltekit`** added — `hooks.client.ts` (new) and
+  `hooks.server.ts` (extended) both call `Sentry.init()`, gated on
+  `PUBLIC_SENTRY_DSN` via `$env/dynamic/public` (not `$env/static/
+  public` — the point is exactly that it's allowed to be absent without
+  failing the build, mirroring `app/monitoring.py`'s own guarantee).
+  `hooks.server.ts`'s existing redirect/security-header logic
+  (renamed `canonicalAndSecurityHandle`, tested exactly as before) is
+  now composed with `Sentry.sentryHandle()` via `sequence()`.
+- **`frontend/src/lib/sentryScrub.ts`** — the same redaction policy as
+  the backend's `scrub_event` (sensitive key substrings + email-pattern
+  regex, recursive), wired as Sentry's `beforeSend` on both client and
+  server.
+- Environment/release tagging (`PUBLIC_SENTRY_ENVIRONMENT`,
+  `PUBLIC_RELEASE_VERSION`) and a configurable trace sample rate
+  (`PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, default `0.1`) — same shape as
+  the backend's equivalents.
+
+### Post-deploy smoke check — `app/smoke_check.py`
+
+```
+python -m app.smoke_check --backend-url https://api.nutri-matic.uk --frontend-url https://nutri-matic.uk
+```
+
+Checks backend `/api/health`/`/api/ready`, the frontend's home/`/about`/
+`/methodology` pages, and `robots.txt`/`sitemap.xml`/
+`manifest.webmanifest` (content-checked, not just status-checked — e.g.
+`robots.txt` must actually contain a `Sitemap:` line). Read-only by
+default.
+
+`--include-demo-flow` additionally creates one real demo account,
+verifies `/me`+`/profiles` through it, then **immediately deletes
+exactly that account** by reusing `demo_purge`'s own row-deletion logic
+— but only runs at all if `--database-url` is also given; without it,
+the check is skipped (not failed) rather than creating an account it
+can't guarantee cleanup for. This is the literal "must not create
+unbounded retained demo data" requirement, enforced structurally, not
+just by intention.
+
+**Actually run against real production this round** (read-only checks
+only — no `--database-url` available in this session, so
+`--include-demo-flow` was correctly skipped, not attempted): every
+check passed against `https://api.nutri-matic.uk` /
+`https://nutri-matic.uk` as of this writing.
 
 ## Required environment variables
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `SENTRY_DSN` | No | unset (monitoring disabled) | Enables Sentry. Unset means every check in this document that depends on Sentry is inactive — logging still happens locally, nothing is sent anywhere. |
-| `SENTRY_TRACES_SAMPLE_RATE` | No | `0.1` | Fraction of requests Sentry captures full performance traces for, once `SENTRY_DSN` is set. |
-| `RELEASE_VERSION` | No | unset | Tags Sentry events with a release identifier (e.g. a commit SHA) — set this in CI/deploy for "which deploy introduced this error" triage. |
-| `APP_ENV` | Already required (see `DEPLOYMENT.md`) | `development` | Reused as Sentry's `environment` tag — no separate variable needed. |
+| `SENTRY_DSN` | No | unset (backend monitoring disabled) | Enables backend Sentry. |
+| `SENTRY_TRACES_SAMPLE_RATE` | No | `0.1` | Backend performance-trace sampling once `SENTRY_DSN` is set. |
+| `RELEASE_VERSION` | No | unset | Backend release tag (e.g. a commit SHA) — set in CI/deploy for "which deploy introduced this error" triage. Nothing currently sets this automatically; it must be wired into whatever deploys the backend. |
+| `APP_ENV` | Already required (`DEPLOYMENT.md`) | `development` | Reused as Sentry's `environment` tag, backend and frontend both. |
+| `PUBLIC_SENTRY_DSN` | No | unset (frontend monitoring disabled) | Enables frontend Sentry (client + server). Set in Vercel's project env vars per environment, same mechanism as `VITE_API_URL` — see `docs/frontend-deployment.md`. |
+| `PUBLIC_SENTRY_ENVIRONMENT` | No | `development` | Frontend's `environment` tag. |
+| `PUBLIC_RELEASE_VERSION` | No | unset | Frontend release tag. Vercel exposes the deployed commit SHA as `VERCEL_GIT_COMMIT_SHA` at build time, but that's not a `PUBLIC_`-prefixed var SvelteKit exposes to the client automatically — set `PUBLIC_RELEASE_VERSION` explicitly (e.g. via a Vercel build-step env mapping) if release tagging is wanted. |
+| `PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | No | `0.1` | Frontend performance-trace sampling. |
 
 ## Local / default behaviour
 
-`SENTRY_DSN` unset (the default in every local/dev/CI environment, and
-in `docker-compose.yml`): `init_monitoring()` returns immediately,
-`sentry_sdk.init()` is never called, no network configuration is
-attempted, and the app behaves exactly as it did before this prompt
-except for the plain-logging calls above (which just go to stdout/
-wherever the process's normal logging is configured, same as any other
-`logging.getLogger(__name__)` call in this codebase).
+Every one of the above is unset by default in local/dev/CI — both
+backend and frontend behave exactly as they did before this prompt,
+confirmed by `test_importing_the_app_does_not_require_sentry_dsn`
+(backend) and the frontend build/preview/browser check performed this
+round with no `PUBLIC_SENTRY_DSN` set (zero console errors, all
+headers/functionality intact — see the prompt 5/6 verification trail
+in this repo's PR history).
 
-## Production setup
+## Production setup — what's still a manual step
 
-1. Create a Sentry project (or equivalent — see "provider" below) and
-   obtain its DSN.
-2. Set `SENTRY_DSN` in the production environment.
-3. Set `RELEASE_VERSION` to the deployed commit SHA in the same deploy
-   step that sets `SENTRY_DSN`, so events are attributable to a
-   specific release.
-4. Confirm activation: trigger any WARNING+ log line (e.g. hit a
-   recommendation endpoint for an under-18 test profile) and confirm it
-   appears in the Sentry project within a few minutes.
+1. Create a Sentry project (backend) and one for the frontend (or reuse
+   one project for both, tagged by `environment`/a service name — not
+   decided here, an operational choice for whoever runs this).
+2. Set `SENTRY_DSN` (backend) and `PUBLIC_SENTRY_DSN` (frontend, in
+   Vercel's dashboard) to their respective DSNs.
+3. Set `RELEASE_VERSION`/`PUBLIC_RELEASE_VERSION` to the deployed commit
+   SHA in the same deploy step, for both halves.
+4. Confirm activation: trigger a real WARNING+ (e.g. a failed login) and
+   confirm it reaches the Sentry project within a few minutes, for both
+   backend and frontend independently.
+5. **Source maps** (frontend): not configured this round — uploading
+   readable stack traces requires a `SENTRY_AUTH_TOKEN` (org-scoped,
+   must never be committed) wired into the build step, which this
+   session has no way to create or verify. Until that's done, frontend
+   Sentry events will show minified/bundled stack traces rather than
+   original source locations — usable for triage by message/tags, less
+   so for exact line numbers. Documented as a known gap, not silently
+   left unmentioned.
 
-**Provider**: this repo has no existing monitoring provider to prefer
-(`docs/production-readiness-audit.md` doesn't name one) — Sentry is
-used because the prompt names it as the lightweight default when
-nothing else is already in place. Swapping providers later only means
-changing `app/monitoring.py`'s `init_monitoring()`/`scrub_event`
-implementations; nothing else in the app talks to Sentry directly (see
-"what's implemented" above — application code only ever calls
-`logging`).
+**Provider**: unchanged reasoning from the prior version of this
+document — Sentry is what the prompt names as the lightweight default;
+swapping providers later only means changing `app/monitoring.py` and
+`frontend/src/lib/sentryScrub.ts`/the two `hooks.*.ts` files.
 
 ## Alerts, dashboards, alert ownership
 
-**Not configured** — these require an actual Sentry project (or
-equivalent) that doesn't exist yet, so nothing here has been created;
-this section is the specification for what to set up once one does,
-not a record of something already live. Do not read the presence of
-this document as evidence that alerting is active.
+**Still not configured** — same honest caveat as before: this section
+is the specification, not a record of something live. Confirmed again
+this round (`gh secret list`/`gh variable list` empty; no alerting
+integration anywhere in the codebase).
 
-Alerts to configure, matching this prompt's explicit list:
+| Condition | Suggested threshold | Where the signal comes from |
+|---|---|---|
+| Sustained 5xx errors | >1% of requests over 5 minutes | `elevated_status_response` (any route) / Sentry issue rate |
+| Backend unavailable | `/api/health` fails for >1 minute | Uptime check against `https://api.nutri-matic.uk/api/health` |
+| Readiness failure | `/api/ready` returns 503 for >2 minutes | Uptime check against `/api/ready` |
+| Migration failure | `alembic upgrade head` exits non-zero in `Dockerfile`'s `CMD` | **Infra-level only** — this app's own code never runs if this step fails (see pre-flight table); must be the container platform's own deploy-failure/crash-loop alert, not anything in this repo |
+| Demo-creation abuse | Sustained `demo_rate_limited`/`no_eligible_candidates`-style rejection rate, or the global circuit breaker (`demo_protection.py`) tripping repeatedly | Existing prompt-1 telemetry |
+| Purge failure / retained-demo backlog | `python -m app.demo_purge report`'s `expired_demo_accounts` count staying nonzero/growing across runs | Existing prompt-2 tooling — no scheduled alerting wraps this yet (`.github/workflows/demo-purge.yml` is dry-run-only on its schedule, per its own design) |
+| Database connection exhaustion | `slow_readiness_db_check` firing repeatedly, or `/api/ready`'s "database unavailable" outcome, sustained | New this round |
+| Abnormal recommendation latency (by mode) | `recommendation_request`'s `duration_ms` p95 exceeds a baseline, per `mode` tag | Baseline must come from real production traffic once available — no synthetic number here would be honest |
+| Sudden rise in substitution 409/422 | `substitution_apply_outcome` non-`200_success` rate spikes relative to a rolling baseline | Existing telemetry |
+| Data-quality contamination | `data_quality_flagged_in_aggregation` firing at a rate above near-zero | New this round |
+| Failed production deployment | CI/deploy pipeline failure notification (platform-native, not Sentry) | — |
 
-| Condition | Suggested threshold |
-|---|---|
-| Sustained 5xx errors | >1% of requests over 5 minutes |
-| Backend unavailable | `/api/health` fails for >1 minute |
-| Readiness failure | `/api/ready` returns 503 for >2 minutes (allows a brief window for a rolling deploy's old/new instances to overlap) |
-| Migration failure | the `alembic upgrade head` step in `Dockerfile`'s `CMD` exits non-zero (deploy-platform-level: fail the deploy, don't start serving) |
-| Database connection exhaustion | connection pool errors logged, or `/api/ready`'s "database unavailable" outcome, sustained |
-| Abnormal recommendation latency | `recommendation_request` `duration_ms` p95 exceeds a baseline (establish the baseline from real production traffic once available — no synthetic number here would be honest) |
-| Sudden rise in substitution 409/422 | `substitution_apply_outcome` non-`200_success` rate spikes relative to a rolling baseline |
-| Failed production deployment | CI/deploy pipeline failure notification (platform-native, not Sentry) |
+**Alert ownership**: still not assigned — an organisational decision
+for whoever operates this deployment.
 
-**Alert ownership**: not assigned — this is an organisational decision
-for whoever operates this deployment, not something a code change can
-decide on the repository's behalf.
+## Incident response runbook
+
+Real, usable now — even without live alerting wired up yet, this is
+what to actually do when one of the conditions above is noticed (by a
+human checking, in the meantime):
+
+**Sustained 5xx / abnormal error rate**
+1. Check `elevated_status_response`/`recommendation_request` logs (or
+   Sentry, once configured) for the failing path(s) and exception type.
+2. Check `/api/ready` — if it's also failing, this is a database issue,
+   not an application bug; see below.
+3. Mitigation: if traceable to the most recent deploy, redeploy the
+   previous release (`DEPLOYMENT.md`'s rollback section — safe as long
+   as the prior code tolerates the current schema, true for every
+   migration in this repo so far).
+4. Recovery confirmed when: `elevated_status_response` stops firing and
+   `python -m app.smoke_check` passes clean against production.
+
+**Readiness failure (`/api/ready` returning 503)**
+1. Read the response body — it names which check failed (`database
+   unavailable: <exception class>` or `schema not at migration head`).
+2. Database-unavailable: check the database's own health/connection
+   count directly; this app has no retry/backoff of its own here by
+   design (a 503 is the correct signal to stop routing traffic, not
+   something to paper over).
+3. Schema-behind-head: the container started but `alembic upgrade head`
+   didn't reach the expected revision — check the migration step's own
+   logs from that deploy; do not manually run `alembic upgrade head`
+   against production without rehearsing it against a restored copy
+   first (`docs/migrations.md`'s own rule, unchanged).
+4. Recovery confirmed when: `/api/ready` returns `200 {"status":
+   "ready"}` again.
+
+**Migration/deployment failure**
+1. This app's own logs won't show anything (see pre-flight table) —
+   check the container platform's deploy history/exit code directly.
+2. Mitigation: fix forward and redeploy, or roll back to the last
+   successfully-deployed image; do not attempt `alembic downgrade`
+   against production without reading `docs/migrations.md`'s specific
+   hazards first (the `updated_at` migration's downgrade genuinely loses
+   data; the baseline's downgrade drops every table).
+3. Recovery confirmed when: the deploy platform reports success and
+   `/api/ready` is green.
+
+**Demo-creation abuse**
+1. Check `demo_rate_limited`/the global circuit breaker's own logs
+   (`app/demo_protection.py`) for scope (`ip` vs `global`) and rate.
+2. `python -m app.demo_purge report` for current active/expired/total
+   counts — a sudden spike in `active` alongside the rate-limit logs
+   confirms real abuse rather than a false positive.
+3. Mitigation: the per-IP/global limits (`DEMO_RATE_LIMIT_*` env vars,
+   `docs/rate-limiting.md`) can be tightened without a code change; a
+   determined distributed attacker needs an edge/infra-level control
+   this app's own in-process limiter was already documented not to be a
+   full substitute for.
+4. Recovery confirmed when: the rate-limited/rejected rate returns to
+   baseline.
+
+**Purge failure / retained-demo backlog**
+1. `python -m app.demo_purge report` — if `expired_demo_accounts` is
+   nonzero and growing, purging isn't happening (scheduled or manual).
+2. Run `python -m app.demo_purge purge` (dry-run — the default) and
+   review the printed account list per this repo's own SAFETY GATE
+   (`docs/demo-lifecycle.md`) before ever running `--apply` against
+   production.
+3. Recovery confirmed when: `expired_demo_accounts` returns to (near)
+   zero after an authorised `--apply` run.
+
+**Data-quality contamination (`data_quality_flagged_in_aggregation`
+firing repeatedly)**
+1. `python -m app.data_quality_audit` for the specific rows/nutrients
+   involved (`docs/data-quality.md`).
+2. Decide whether the flagged rows need a per-nutrient threshold
+   adjustment (`data_quality.py`'s override dicts) or are a genuine new
+   data-entry error worth excluding at the source.
+3. Recovery confirmed when: the flagged rate returns to near-zero.
+
+**Escalation owner**: placeholder — not assigned, same as alert
+ownership above; an organisational decision, not a code change.
 
 ## Log retention
 
-Not configured. The frontend's hosting platform is Vercel (`@sveltejs/
-adapter-vercel`, see `docs/frontend-deployment.md`) — Vercel has its
-own build/runtime log retention, on whatever plan this project's
-Vercel account is on, not configured or controlled from this
-repository. The backend still has no hosting platform selected beyond
-a working `Dockerfile`/`docker-compose.yml` — revisit backend log
-retention once one is chosen.
+Not configured, unchanged from the prior version of this document:
+Vercel (frontend) has its own plan-dependent retention; the backend's
+actual hosting platform (confirmed live this round at
+`https://api.nutri-matic.uk`, though which specific hosting service —
+the EXECUTION SAFETY REQUIREMENTS context for this round mentions
+Hetzner as a *possible* backend host, unconfirmed from this session)
+has whatever retention its own logging setup provides, not configured
+or controlled from this repository.
 
-## Incident response
+## What this round explicitly did NOT do, and why
 
-Not written — a real incident-response runbook needs to reference real
-alert channels, on-call ownership, and a real dashboard, none of which
-exist yet (see above). Placeholder acknowledged rather than fabricated;
-write this once the alerts above are actually configured against a real
-provider.
+- **Migration/startup-failure self-reporting** — architecturally
+  impossible from inside this app (see pre-flight table); flagged as an
+  infra-level requirement, not implemented as a code workaround that
+  couldn't actually work.
+- **Source-map upload** for frontend Sentry — needs a `SENTRY_AUTH_TOKEN`
+  this session has no way to create or verify; documented as a manual
+  follow-up, not silently skipped.
+- **Live alert/dashboard configuration** — no Sentry/alerting account
+  exists to configure against (confirmed via the pre-flight check, not
+  assumed); the tables above are the specification for once one exists.
+- **Alert/escalation ownership** — an organisational decision, not a
+  code change.

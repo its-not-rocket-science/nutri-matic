@@ -14,9 +14,9 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-vercel": "^6.3.4",
-		"@types/node": "^20.17.0",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.3",
+		"@types/node": "^20.17.0",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
 		"typescript": "^5.7.2",
@@ -24,6 +24,7 @@
 		"vitest": "^4.1.10"
 	},
 	"dependencies": {
+		"@sentry/sveltekit": "^10.68.0",
 		"@zxing/browser": "^0.1.5",
 		"@zxing/library": "^0.21.3"
 	}
