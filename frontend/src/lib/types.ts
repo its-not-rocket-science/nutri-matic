@@ -307,6 +307,27 @@ export interface Recipe {
 	educational_note: string | null;
 }
 
+// Public-launch hardening prompt 7: what the stock-recipe catalogue
+// listing actually renders per row — deliberately narrower than Recipe,
+// matching backend/app/schemas.py's RecipeSummaryOut. No ingredients/
+// tags/owner_email: the catalogue page never shows them, and loading
+// them per recipe was the entire cost problem this pagination fixes.
+export interface RecipeSummary {
+	id: number;
+	name: string;
+	servings: number;
+	average_rating: number | null;
+	rating_count: number;
+	is_stock: boolean;
+}
+
+export interface PaginatedRecipes {
+	items: RecipeSummary[];
+	total: number;
+	limit: number;
+	offset: number;
+}
+
 export interface RecipeCreate {
 	name: string;
 	servings: number;

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -174,11 +175,72 @@ def list_shared_with_me(current_user: User = Depends(get_current_user), db: Sess
     return [_recipe_out(r, db, current_user) for r in recipes]
 
 
-@router.get("/public", response_model=list[schemas.RecipeOut])
-def list_public_recipes(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Stock recipes — visible to everyone, not just their owner."""
-    recipes = db.query(Recipe).filter(Recipe.is_public.is_(True)).order_by(Recipe.name).all()
-    return [_recipe_out(r, db, current_user) for r in recipes]
+@router.get("/public", response_model=schemas.PaginatedRecipesOut)
+def list_public_recipes(
+    limit: int = Query(24, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stock recipes — visible to everyone, not just their owner. Excludes
+    the caller's own recipes even if public (unchanged from the prior
+    unpaginated version's `not r.is_owner` filter) — today that's always
+    true for a system-owned stock recipe, but `is_public` could someday
+    also be set by a community "share" feature (see models.Recipe), and a
+    user's own public recipe belongs in "My recipes" above, not repeated
+    in this catalogue.
+
+    Public-launch hardening prompt 7: server-side paginated and built from
+    a batch-loaded summary (`_public_recipe_summaries`) rather than the
+    full `_recipe_out` per row — the catalogue listing page doesn't render
+    ingredients, tags, or owner details at all (see `RecipeSummaryOut`'s
+    docstring), so loading them per recipe was pure waste that also scaled
+    the query count with the size of the whole catalogue rather than the
+    page actually being viewed. `Recipe.name, Recipe.id` ordering (not
+    `Recipe.name` alone) makes the LIMIT/OFFSET pagination itself
+    deterministic — two recipes can share a name, and an ORDER BY that
+    isn't fully unique can reorder or skip rows between pages."""
+    base_query = db.query(Recipe).filter(Recipe.is_public.is_(True), Recipe.user_id != current_user.id)
+    total = base_query.with_entities(func.count(Recipe.id)).scalar() or 0
+    page = base_query.order_by(Recipe.name, Recipe.id).offset(offset).limit(limit).all()
+    return schemas.PaginatedRecipesOut(
+        items=_public_recipe_summaries(page, db), total=total, limit=limit, offset=offset,
+    )
+
+
+def _public_recipe_summaries(recipes: list[Recipe], db: Session) -> list[schemas.RecipeSummaryOut]:
+    """Batch-loads ratings and stock ownership for exactly the given page
+    of recipes — two queries total regardless of page size, instead of
+    the ~6 queries per recipe `_recipe_out` does (ingredients, foods,
+    owner, ratings, tags, provenance — none of which this summary needs)."""
+    if not recipes:
+        return []
+
+    recipe_ids = [r.id for r in recipes]
+    rating_rows = (
+        db.query(RecipeRating.recipe_id, func.avg(RecipeRating.rating), func.count(RecipeRating.id))
+        .filter(RecipeRating.recipe_id.in_(recipe_ids))
+        .group_by(RecipeRating.recipe_id)
+        .all()
+    )
+    ratings_by_recipe_id = {recipe_id: (avg, count) for recipe_id, avg, count in rating_rows}
+
+    owner_ids = {r.user_id for r in recipes}
+    is_system_by_user_id = {
+        u.id: u.is_system for u in db.query(User.id, User.is_system).filter(User.id.in_(owner_ids)).all()
+    }
+
+    summaries = []
+    for r in recipes:
+        avg_rating, rating_count = ratings_by_recipe_id.get(r.id, (None, 0))
+        summaries.append(
+            schemas.RecipeSummaryOut(
+                id=r.id, name=r.name, servings=r.servings,
+                average_rating=avg_rating, rating_count=rating_count,
+                is_stock=is_system_by_user_id.get(r.user_id, False),
+            )
+        )
+    return summaries
 
 
 @router.post("/search", response_model=list[schemas.RecipeOut])

@@ -698,6 +698,44 @@ dish, not copied from any specific page — then run
 `discover → fetch → parse → match → analyse → review-export`, review, and
 `import-approved`.
 
+## Catalogue listing performance (public-launch hardening prompt 7)
+
+`GET /api/recipes/public` — the "Stock recipes" section on `/recipes` —
+is server-side paginated (`limit`/`offset` query params, default page
+size 24, capped at 100) and built from a batch-loaded summary
+(`RecipeSummaryOut`/`_public_recipe_summaries` in
+`app/routers/recipes.py`), not the full `_recipe_out` per row. The
+catalogue listing page only ever renders a recipe's name, servings, and
+rating — not its ingredients, tags, owner, or provenance — so loading
+those per recipe (`_recipe_out`'s ingredients/foods/owner/ratings/tags/
+provenance queries, ~6 per recipe) was pure waste that also scaled the
+query count and payload with the size of the *whole* catalogue, not the
+one page actually being viewed.
+
+Measured directly (`tests/test_stock_recipe_pagination.py`, against a
+realistic 250-recipe/8-ingredient-each catalogue matching this repo's
+own manifest scale — see "Running the importer" above):
+
+| | Before | After (one 24-item page) |
+|---|---|---|
+| SQL queries for one request | 1502 | 5 |
+| Response payload | 272KB | ~2.6KB |
+
+Ordered by `(Recipe.name, Recipe.id)`, not `Recipe.name` alone — two
+recipes can share a name, and an `ORDER BY` that isn't fully unique can
+reorder or skip rows across a LIMIT/OFFSET page boundary.
+
+The frontend (`routes/recipes/+page.svelte`) keeps the current page
+number in the URL (`?stockPage=N`), so a specific page is a real deep
+link and the browser's back/forward buttons move between pages, same
+as any other paginated view in this app. The Previous/Next buttons stay
+mounted (not swapped for a "Loading…" placeholder) across a page
+change and are explicitly refocused once the new page's rows are in —
+verified directly in a real browser that this is necessary: SvelteKit's
+`goto({ keepFocus: true })` alone isn't enough here, because re-keying
+the recipe list (every row's id changes between pages) still drops
+focus to `<body>` during Svelte's reconciliation.
+
 ## Migrations and deployment
 
 New tables (`recipe_ingredient_provenance`, `robustness_results`) are
