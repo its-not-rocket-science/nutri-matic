@@ -2,7 +2,7 @@
 	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api, type RecommendationScope } from '$lib/api';
 	import RecommendationCard from '$lib/components/RecommendationCard.svelte';
-	import { safetyWarningMessage } from '$lib/recommendationSafety';
+	import { noSuggestionReasonMessage, safetyWarningMessage } from '$lib/recommendationSafety';
 	import type { IngredientSuggestion, RecipeSuggestion, SubstitutionSuggestion } from '$lib/types';
 
 	/** Restrained "Improve this…" panel used on the diary day, meal-plan
@@ -75,6 +75,7 @@
 	let warnings: string[] = $state([]);
 	let disabledReason: string | null = $state(null);
 	let disabledReasonCode: string | null = $state(null);
+	let noSuggestionReasonCode: string | null = $state(null);
 	let acknowledging = $state(false);
 
 	function priorityNutrients(): string[] | undefined {
@@ -95,6 +96,7 @@
 				warnings = res.warnings;
 				disabledReason = res.disabled_reason;
 				disabledReasonCode = res.disabled_reason_code;
+				noSuggestionReasonCode = res.no_suggestion_reason_code;
 			} else if (mode === 'recipes') {
 				const res = await api.getRecipeSuggestions(scope, {
 					goal: goalKey,
@@ -104,6 +106,7 @@
 				warnings = res.warnings;
 				disabledReason = res.disabled_reason;
 				disabledReasonCode = res.disabled_reason_code;
+				noSuggestionReasonCode = null;
 			} else if (substitutionEntryId !== null) {
 				const res = await api.getSubstitutionSuggestions(substitutionEntryId, substitutionSource, {
 					priorityNutrients: priorityNutrients()
@@ -112,6 +115,7 @@
 				warnings = res.warnings;
 				disabledReason = res.disabled_reason;
 				disabledReasonCode = res.disabled_reason_code;
+				noSuggestionReasonCode = null;
 			}
 			hasFetchedOnce = true;
 		} catch (e) {
@@ -282,7 +286,11 @@
 				<p class="muted">Looking for improvements…</p>
 			{:else if mode === 'ingredients'}
 				{#if ingredientSuggestions.length === 0}
-					<p class="muted">No safe or useful addition found for the current priorities.</p>
+					<p class="muted">
+						{noSuggestionReasonCode
+							? noSuggestionReasonMessage(noSuggestionReasonCode)
+							: 'No safe or useful addition found for the current priorities.'}
+					</p>
 				{:else}
 					<ul class="recommendation-list">
 						{#each ingredientSuggestions as s (s.food_id)}
