@@ -1,3 +1,16 @@
-# allow crawling everything by default
+# Public-launch hardening prompt 5. Only genuinely public, indexable
+# routes are allowed — every authenticated-app route (diary, meal-plan,
+# profile, search, recipes, collections, trends, weight-log,
+# food-prices, clinician, foods/*) and anything demo-account-specific
+# has no useful content to a signed-out crawler and must not be
+# indexed. Keep in sync with frontend/src/lib/site.ts's PUBLIC_ROUTES
+# (same list, read by the sitemap).
 User-agent: *
-Disallow:
+Allow: /$
+Allow: /about$
+Allow: /methodology$
+Allow: /login$
+Allow: /register$
+Disallow: /
+
+Sitemap: https://nutri-matic.uk/sitemap.xml

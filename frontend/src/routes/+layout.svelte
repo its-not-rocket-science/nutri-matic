@@ -6,6 +6,7 @@
 	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import { canonicalUrl } from '$lib/site';
 	import { theme, type ThemeChoice } from '$lib/theme.svelte';
 
 	let { children } = $props();
@@ -134,28 +135,36 @@
 	/>
 	<link rel="icon" href={favicon} />
 
+	<!-- Public-launch hardening prompt 5: one canonical link, centrally,
+	     reactive to whatever route is currently rendered — every
+	     indexable page gets a route-correct canonical URL without each
+	     one needing its own <link rel="canonical">. Query strings are
+	     deliberately dropped (pathname only) — the canonical form of a
+	     page, not whatever transient params happened to be on this
+	     particular visit. -->
+	<link rel="canonical" href={canonicalUrl(page.url.pathname)} />
+
 	<!-- Open Graph / Twitter Card — image and description are static app-wide
 	     defaults; individual routes (methodology, about, a food/recipe page)
-	     override title/description via their own <svelte:head>. og:image
-	     is intentionally a root-relative path: there's no production domain
-	     configured yet (no PUBLIC_SITE_URL), and most crawlers resolve it
-	     against the page URL correctly in practice — set an absolute URL
-	     here once one exists. -->
+	     override title/description via their own <svelte:head>. Absolute,
+	     canonical-origin URLs (prompt 5) — og:image/twitter:image used to be
+	     root-relative because no production domain was configured; one is now. -->
 	<meta property="og:site_name" content="Nutri-Matic" />
 	<meta property="og:type" content="website" />
+	<meta property="og:url" content={canonicalUrl(page.url.pathname)} />
 	<meta property="og:title" content="Nutri-Matic — Nutritional Analysis & Optimisation Instrument" />
 	<meta
 		property="og:description"
 		content="Protein quality (DIAAS/PDCAAS), bioavailability-adjusted micronutrients, and computed food complementarity — not a calorie counter."
 	/>
-	<meta property="og:image" content="/og-image.png" />
+	<meta property="og:image" content={canonicalUrl('/og-image.png')} />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Nutri-Matic — Nutritional Analysis & Optimisation Instrument" />
 	<meta
 		name="twitter:description"
 		content="Protein quality (DIAAS/PDCAAS), bioavailability-adjusted micronutrients, and computed food complementarity — not a calorie counter."
 	/>
-	<meta name="twitter:image" content="/og-image.png" />
+	<meta name="twitter:image" content={canonicalUrl('/og-image.png')} />
 </svelte:head>
 
 <a class="skip-link" href="#main-content">Skip to content</a>
