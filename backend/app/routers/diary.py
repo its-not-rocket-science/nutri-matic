@@ -66,19 +66,22 @@ _PROTEIN_DRV_CONFIDENCE = "personalized_calculation"
 def _nutrient_amount_out(
     key: str, nutrient_def, amount: float, drv: float | None, *, goal_adjusted: bool = False, coverage: float = 1.0
 ) -> schemas.NutrientAmountOut:
+    # A diary day total is never a per-100g figure — see NutrientAmountOut.
+    # build's amount_is_per_100g docstring for why implausibility_reason
+    # must not be checked against it directly.
     if key == "energy":
         return schemas.NutrientAmountOut.build(
             key, nutrient_def, amount, drv,
             drv_source=_ENERGY_DEFICIT_DRV_SOURCE if goal_adjusted else _ENERGY_DRV_SOURCE,
             drv_confidence=_ENERGY_DRV_CONFIDENCE,
-            goal_adjusted=goal_adjusted, coverage=coverage,
+            goal_adjusted=goal_adjusted, coverage=coverage, amount_is_per_100g=False,
         )
     if key == "protein":
         return schemas.NutrientAmountOut.build(
             key, nutrient_def, amount, drv, drv_source=_PROTEIN_DRV_SOURCE, drv_confidence=_PROTEIN_DRV_CONFIDENCE,
-            coverage=coverage,
+            coverage=coverage, amount_is_per_100g=False,
         )
-    return schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv, coverage=coverage)
+    return schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv, coverage=coverage, amount_is_per_100g=False)
 
 
 def _trend_nutrient_out(
@@ -244,8 +247,12 @@ def _compute_nutrient_gaps(
         # sex/life-stage table lookup — resolve_drv() correctly returns None
         # for them (see nutrients.py), so they're handled separately here
         if key == "energy":
+            energy_coverage = coverage_for_nutrient(items, by_food_id, key)
             nutrients_out.append(
-                _nutrient_amount_out(key, nutrient_def, amount, energy_target, goal_adjusted=energy_goal_adjusted)
+                _nutrient_amount_out(
+                    key, nutrient_def, amount, energy_target, goal_adjusted=energy_goal_adjusted,
+                    coverage=energy_coverage,
+                )
             )
             continue
         drv = protein_target if key == "protein" else resolve_drv(key, drv_profile)
@@ -855,9 +862,11 @@ def _compute_trends(
             if nutrient_def is None:
                 continue
             if key == "energy":
+                energy_coverage = coverage_for_nutrient(bucket_items, by_food_id, key)
                 nutrients_out.append(
                     _trend_nutrient_out(
-                        key, nutrient_def, avg_amount, energy_target, goal_adjusted=energy_goal_adjusted
+                        key, nutrient_def, avg_amount, energy_target, goal_adjusted=energy_goal_adjusted,
+                        coverage=energy_coverage,
                     )
                 )
                 continue
