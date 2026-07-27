@@ -318,3 +318,40 @@ def test_diary_day_combines_direct_food_and_recipe_entries():
     # recipe: food a scaled to 200g -> 10*200/100=20; food b scaled to 100g -> 20*100/100=20
     # total = 150 + 20 + 20 = 190
     assert totals["calcium"] == pytest.approx(190.0)
+
+
+def test_aggregate_nutrients_logs_once_when_an_implausible_row_is_excluded(caplog):
+    """Public-launch hardening prompt 6: data-quality quarantine/outlier
+    counts. One WARNING per call (not per row) — bounded, since this
+    function runs in hot paths called many times per logical request."""
+    import logging
+
+    food = Food(id=1, name="Branded outlier", protein_g_per_100g=1, amino_acids=dict.fromkeys(AMINO_ACIDS))
+    nutrients = {
+        1: [
+            FoodNutrient(food_id=1, nutrient_key="biotin", amount_per_100g=29733.0),  # excluded — implausible
+            FoodNutrient(food_id=1, nutrient_key="iron", amount_per_100g=2.0),  # kept — plausible
+        ]
+    }
+
+    with caplog.at_level(logging.WARNING, logger="app.data_quality"):
+        totals = aggregate_nutrients([WeightedFood(food, quantity_g=100)], nutrients)
+
+    assert "biotin" not in totals
+    assert totals["iron"] == pytest.approx(2.0)
+    records = [r for r in caplog.records if r.message == "data_quality_flagged_in_aggregation"]
+    assert len(records) == 1
+    assert records[0].nutrient_keys == ["biotin"]
+    assert records[0].row_count == 1
+
+
+def test_aggregate_nutrients_is_silent_when_nothing_is_flagged(caplog):
+    import logging
+
+    food = Food(id=1, name="Ordinary food", protein_g_per_100g=1, amino_acids=dict.fromkeys(AMINO_ACIDS))
+    nutrients = {1: [FoodNutrient(food_id=1, nutrient_key="iron", amount_per_100g=2.0)]}
+
+    with caplog.at_level(logging.WARNING, logger="app.data_quality"):
+        aggregate_nutrients([WeightedFood(food, quantity_g=100)], nutrients)
+
+    assert [r for r in caplog.records if r.message == "data_quality_flagged_in_aggregation"] == []

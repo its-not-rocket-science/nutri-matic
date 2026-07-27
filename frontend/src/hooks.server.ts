@@ -1,5 +1,24 @@
+import * as Sentry from '@sentry/sveltekit';
 import type { Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
+import { env } from '$env/dynamic/public';
 import { CANONICAL_ORIGIN, REDIRECT_FROM_HOSTS } from '$lib/site';
+import { scrubSentryEvent } from '$lib/sentryScrub';
+
+// Public-launch hardening prompt 6 — server-side half of the frontend
+// Sentry integration (see hooks.client.ts for the client-side half and
+// its no-DSN no-op guarantee, identical here).
+if (env.PUBLIC_SENTRY_DSN) {
+	Sentry.init({
+		dsn: env.PUBLIC_SENTRY_DSN,
+		environment: env.PUBLIC_SENTRY_ENVIRONMENT || 'development',
+		release: env.PUBLIC_RELEASE_VERSION || undefined,
+		tracesSampleRate: env.PUBLIC_SENTRY_TRACES_SAMPLE_RATE
+			? Number(env.PUBLIC_SENTRY_TRACES_SAMPLE_RATE)
+			: 0.1,
+		beforeSend: scrubSentryEvent
+	});
+}
 
 // Public-launch hardening prompt 5.
 //
@@ -27,7 +46,7 @@ import { CANONICAL_ORIGIN, REDIRECT_FROM_HOSTS } from '$lib/site';
 //    value too, so the guarantee doesn't depend on that alone). CSP is
 //    handled separately, by SvelteKit's own kit.csp config (see
 //    vite.config.ts) — not duplicated here.
-export const handle: Handle = async ({ event, resolve }) => {
+export const canonicalAndSecurityHandle: Handle = async ({ event, resolve }) => {
 	if (REDIRECT_FROM_HOSTS.includes(event.url.hostname)) {
 		const target = new URL(event.url);
 		target.protocol = 'https:';
@@ -53,3 +72,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
 	return response;
 };
+
+// Sentry's own handle first (a no-op pass-through when PUBLIC_SENTRY_DSN
+// isn't set — Sentry.init() above was never called in that case, and
+// sentryHandle() checks for an active client before doing anything),
+// then this app's redirect/security-header logic.
+export const handle: Handle = sequence(Sentry.sentryHandle(), canonicalAndSecurityHandle);

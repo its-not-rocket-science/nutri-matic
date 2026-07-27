@@ -72,6 +72,16 @@ app.add_middleware(
 _request_logger = logging.getLogger("app.requests")
 
 
+def _recommendation_mode(path: str) -> str:
+    """Public-launch hardening prompt 6 item 2: "recommendation latency
+    and error rates BY MODE" — the prior log line had path/status/
+    duration but never pulled out which of the four recommendation
+    modes a request was for, leaving that buried in the path string
+    rather than a queryable field."""
+    suffix = path.removeprefix("/api/recommendations").lstrip("/")
+    return suffix.split("/")[0] if suffix else "unknown"
+
+
 @app.middleware("http")
 async def log_recommendation_endpoint_latency(request: Request, call_next):
     """Operational-hardening prompt 5: "recommendation endpoint latency"
@@ -83,22 +93,48 @@ async def log_recommendation_endpoint_latency(request: Request, call_next):
     useful in self-hosted logs with or without Sentry configured; when
     Sentry is active its own performance monitoring
     (`traces_sample_rate`, see app/monitoring.py) captures per-request
-    timing for every endpoint independently of this."""
+    timing for every endpoint independently of this.
+
+    Public-launch hardening prompt 6: also tags `mode`
+    (ingredients/recipes/pairs/substitutions — see `_recommendation_mode`),
+    and logs at WARNING (not INFO) when the response is a server error,
+    so a 5xx here reaches Sentry as more than a breadcrumb without
+    needing a second log call."""
     if not request.url.path.startswith("/api/recommendations"):
         return await call_next(request)
 
     started_at = time.monotonic()
     response = await call_next(request)
     duration_ms = (time.monotonic() - started_at) * 1000
-    _request_logger.info(
-        "recommendation_request",
-        extra={
-            "path": request.url.path,
-            "method": request.method,
-            "status_code": response.status_code,
-            "duration_ms": round(duration_ms, 1),
-        },
-    )
+    log_extra = {
+        "path": request.url.path,
+        "method": request.method,
+        "mode": _recommendation_mode(request.url.path),
+        "status_code": response.status_code,
+        "duration_ms": round(duration_ms, 1),
+    }
+    if response.status_code >= 500:
+        _request_logger.warning("recommendation_request", extra=log_extra)
+    else:
+        _request_logger.info("recommendation_request", extra=log_extra)
+    return response
+
+
+@app.middleware("http")
+async def log_elevated_status_responses(request: Request, call_next):
+    """Public-launch hardening prompt 6 item 2: "elevated 5xx responses"
+    — general, app-wide (unlike the recommendation-specific middleware
+    above), but deliberately silent on success: logging every request at
+    INFO app-wide would be pure noise at real traffic volume with no
+    signal this app's own telemetry needs. Only a 5xx gets a WARNING
+    log line here, which is also what makes it reach Sentry as an event
+    via LoggingIntegration when monitoring is active."""
+    response = await call_next(request)
+    if response.status_code >= 500:
+        _request_logger.warning(
+            "elevated_status_response",
+            extra={"path": request.url.path, "method": request.method, "status_code": response.status_code},
+        )
     return response
 
 
