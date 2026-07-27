@@ -322,8 +322,10 @@ def test_diary_day_combines_direct_food_and_recipe_entries():
 
 def test_aggregate_nutrients_logs_once_when_an_implausible_row_is_excluded(caplog):
     """Public-launch hardening prompt 6: data-quality quarantine/outlier
-    counts. One WARNING per call (not per row) — bounded, since this
-    function runs in hot paths called many times per logical request."""
+    counts. One log line per call (not per row) — bounded, since this
+    function runs in hot paths called many times per logical request.
+    Logged at ERROR (see aggregation.py's comment) so it actually reaches
+    Sentry as an event rather than sitting as a breadcrumb only."""
     import logging
 
     food = Food(id=1, name="Branded outlier", protein_g_per_100g=1, amino_acids=dict.fromkeys(AMINO_ACIDS))
@@ -343,6 +345,7 @@ def test_aggregate_nutrients_logs_once_when_an_implausible_row_is_excluded(caplo
     assert len(records) == 1
     assert records[0].nutrient_keys == ["biotin"]
     assert records[0].row_count == 1
+    assert records[0].levelno == logging.ERROR
 
 
 def test_aggregate_nutrients_is_silent_when_nothing_is_flagged(caplog):

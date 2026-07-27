@@ -63,13 +63,15 @@ def test_recommendation_request_logs_mode_and_duration_at_info_on_success(test_c
     assert hasattr(records[0], "duration_ms")
 
 
-def test_recommendation_request_logs_at_warning_on_5xx(test_client, caplog):
+def test_recommendation_request_logs_at_error_on_5xx(test_client, caplog):
+    # ERROR, not WARNING: LoggingIntegration's event_level=ERROR is what
+    # actually turns this into a Sentry event rather than a breadcrumb.
     with caplog.at_level(logging.INFO, logger="app.requests"):
         res = test_client.get("/api/recommendations/recipes")
     assert res.status_code == 500
     records = [r for r in caplog.records if r.message == "recommendation_request"]
     assert len(records) == 1
-    assert records[0].levelno == logging.WARNING
+    assert records[0].levelno == logging.ERROR
     assert records[0].mode == "recipes"
 
 
@@ -79,7 +81,7 @@ def test_general_elevated_status_middleware_logs_5xx_for_any_path(test_client, c
     assert res.status_code == 500
     records = [r for r in caplog.records if r.message == "elevated_status_response"]
     assert len(records) == 1
-    assert records[0].levelno == logging.WARNING
+    assert records[0].levelno == logging.ERROR
     assert records[0].path == "/api/other"
 
 

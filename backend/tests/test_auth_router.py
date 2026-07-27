@@ -79,6 +79,9 @@ def test_login_failure_logs_a_reason_code_without_email_or_password(client, capl
     records = [r for r in caplog.records if r.message == "auth_login_failed"]
     assert len(records) == 1
     assert records[0].reason == "invalid_credentials"
+    # ERROR, not WARNING: LoggingIntegration's event_level=ERROR is what
+    # actually turns this into a Sentry event rather than a breadcrumb.
+    assert records[0].levelno == logging.ERROR
     logged_text = caplog.text
     assert "nobody@example.com" not in logged_text
     assert "wrongpassword123" not in logged_text

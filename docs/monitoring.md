@@ -44,14 +44,13 @@ this round:
   key), recursively through nested dicts/lists. `_scrub_mapping` is now
   recursive (previously one level deep).
 - **`elevated_status_response`** (`app/main.py`) — a new, app-wide
-  middleware logging `WARNING` for any 5xx response, on any route (the
-  existing recommendation-specific middleware only ever covered `/api/
+  middleware logging for any 5xx response, on any route (the existing
+  recommendation-specific middleware only ever covered `/api/
   recommendations/*`). Deliberately silent on success — logging every
   request at real traffic volume would be pure noise.
 - **`recommendation_request` now tags `mode`** (ingredients/recipes/
-  pairs/substitutions, parsed from the path) and logs at `WARNING`
-  instead of `INFO` when the response is a 5xx, so a recommendation
-  endpoint failure reaches Sentry as an event, not just a breadcrumb.
+  pairs/substitutions, parsed from the path) and escalates severity
+  when the response is a 5xx, instead of always logging at `INFO`.
 - **`auth_login_failed`** (`app/routers/auth.py`) — a reason code only
   (`invalid_credentials`), never the attempted email or password.
   Aggregate signal for brute-force/credential-stuffing detection.
@@ -67,11 +66,20 @@ this round:
   flagged, which should be the common case given the curated/
   non-branded candidate pool already in place.
 - **`slow_readiness_db_check`** (`app/routers/health.py`) — `/api/ready`
-  now times its own `SELECT 1` and logs `WARNING` if it takes ≥500ms
+  now times its own `SELECT 1` and logs if it takes ≥500ms
   (`SLOW_READINESS_CHECK_THRESHOLD_MS`), the closest signal this app can
   cheaply get for "database connection exhaustion/latency" without
   adding new scraping infrastructure — an orchestrator already polls
   `/api/ready` regularly, giving this a natural sampling cadence.
+- **Severity correction, caught by PR review**: all five signals above
+  are logged at `ERROR`, not `WARNING`. `init_monitoring()`'s
+  `LoggingIntegration` is configured with `event_level=logging.ERROR` —
+  a `WARNING` only ever becomes a breadcrumb attached to some later,
+  unrelated captured event, never a Sentry event/alert of its own. The
+  first version of this round's code logged these at `WARNING` on the
+  (wrong) assumption that alone was enough to reach Sentry as an event;
+  every one of the five call sites, and their tests, were corrected to
+  assert `ERROR` before this was merged.
 - **`send_default_pii=False`** set explicitly on `sentry_sdk.init()` —
   already the SDK's own default, but stated rather than relied upon
   silently.
@@ -94,6 +102,17 @@ this round:
   `PUBLIC_RELEASE_VERSION`) and a configurable trace sample rate
   (`PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, default `0.1`) — same shape as
   the backend's equivalents.
+- **CSP fix, caught by PR review**: `vite.config.ts`'s `connect-src`
+  now also allows the origin derived from `PUBLIC_SENTRY_DSN` (when
+  set). The Sentry browser SDK posts error/trace envelopes straight to
+  the DSN's own ingest origin, not the backend origin already
+  allowlisted there — without this, the CSP this app already enforces
+  would have silently blocked every envelope the moment a real DSN was
+  configured, so client-side Sentry would have been wired up but never
+  actually delivered anything. Verified directly: rebuilt with a real
+  DSN shape set, ran the built preview server, and curled the
+  `Content-Security-Policy` header to confirm the ingest origin
+  actually appears in `connect-src`.
 
 ### Post-deploy smoke check — `app/smoke_check.py`
 
@@ -115,6 +134,24 @@ the check is skipped (not failed) rather than creating an account it
 can't guarantee cleanup for. This is the literal "must not create
 unbounded retained demo data" requirement, enforced structurally, not
 just by intention.
+
+**Two safety fixes, caught by PR review, before this was merged:**
+1. The account's id is now read directly from the returned token's
+   `sub` claim (no signature verification needed — it's the check's own
+   freshly-issued token) rather than from a follow-up `/me` call, and
+   cleanup runs in a `finally` block. Previously, a timeout/error on
+   `/me` would skip identifying the account entirely and leave it
+   behind — cleanup could not depend on the verification calls
+   succeeding.
+2. `_cleanup_demo_account` now **refuses to delete** anything that
+   isn't actually a demo account (`is_demo` true and the email under
+   `demo_data.py`'s reserved domain) before calling `demo_purge`'s
+   deletion logic, which does not filter on `is_demo` itself. Without
+   this, pointing `--database-url` at the wrong environment by mistake
+   — one that happened to have an unrelated real user at the same
+   numeric id — would have deleted that real account and its data. A
+   refused or failed cleanup now also fails the overall `demo_flow`
+   check, not just a passing result with a buried failure detail.
 
 **Actually run against real production this round** (read-only checks
 only — no `--database-url` available in this session, so

@@ -355,7 +355,9 @@ def aggregate_nutrients(
     flood at real traffic volume) when at least one row was actually
     excluded. Silent otherwise — this should be rare given the curated/
     non-branded candidate pool upstream, so a nonzero rate here is
-    itself the signal worth alerting on, not routine noise."""
+    itself the signal worth alerting on, not routine noise. Logged at
+    ERROR, not WARNING: `LoggingIntegration`'s `event_level=logging.
+    ERROR` means only ERROR+ reaches Sentry as an actual event."""
     totals: dict[str, float] = {}
     flagged_keys: set[str] = set()
     flagged_count = 0
@@ -368,7 +370,7 @@ def aggregate_nutrients(
             contribution = fn.amount_per_100g * item.quantity_g / 100
             totals[fn.nutrient_key] = totals.get(fn.nutrient_key, 0.0) + contribution
     if flagged_count:
-        _data_quality_logger.warning(
+        _data_quality_logger.error(
             "data_quality_flagged_in_aggregation",
             extra={"nutrient_keys": sorted(flagged_keys), "row_count": flagged_count},
         )
