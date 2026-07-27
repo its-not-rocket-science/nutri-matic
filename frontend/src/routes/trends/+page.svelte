@@ -198,9 +198,13 @@
 					{#if nutrient}
 						<rect {x} {y} width={BAR_WIDTH} {height} class="bar" />
 						<text x={x + BAR_WIDTH / 2} y={y - 4} class="value-label" text-anchor="middle">
-							{nutrient.avg_percent_drv !== null
-								? `${Math.round(nutrient.avg_percent_drv)}%`
-								: `${value.toFixed(1)}${nutrient.unit}`}
+							{#if nutrient.avg_percent_drv !== null}
+								{Math.round(nutrient.avg_percent_drv)}%
+							{:else if nutrient.insufficient_data_reason}
+								insufficient data
+							{:else}
+								{value.toFixed(1)}{nutrient.unit}
+							{/if}
 						</text>
 					{/if}
 					<text x={x + BAR_WIDTH / 2} y={CHART_HEIGHT + 38} class="bucket-label" text-anchor="middle">
