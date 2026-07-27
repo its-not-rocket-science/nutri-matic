@@ -68,6 +68,15 @@ CANDIDATE_POOL_PER_NUTRIENT = 12
 # window is filtered out (branded/exotic/implausible rows are common
 # among the highest raw values for many nutrients).
 CANDIDATE_FETCH_MULTIPLIER = 25
+# How many CANDIDATE_FETCH_MULTIPLIER-sized pages to page through, at
+# most, before giving up on a shortfall nutrient — real "over-fetch/
+# refill" (prompt 4 item 1's own wording) rather than one fixed-size
+# window: a page that's still short after every filter tries the next
+# page, up to this cap, instead of accepting "not enough eligible rows
+# in the first window" as final. Still a small constant number of
+# queries per nutrient (bounded, independent of catalogue size), just a
+# constant greater than one.
+CANDIDATE_FETCH_MAX_PAGES = 4
 DEFAULT_MAX_SUGGESTIONS = 2
 
 
@@ -167,59 +176,97 @@ def _candidate_pool(
     Scoring/tie-breaking (item 2's last stage) happens in the caller,
     same as before.
 
-    Bounded query count/runtime (item 4): exactly one FoodNutrient+Food
-    query per shortfall key, each capped at CANDIDATE_POOL_PER_NUTRIENT *
-    CANDIDATE_FETCH_MULTIPLIER rows regardless of catalogue size, plus
-    one constraint-tags query total (not per key).
+    "Over-fetches/refills until a sufficient number of practical
+    candidates survive" (item 1's own wording): a single fixed-size
+    over-fetch isn't actually that — if every row in that one window is
+    ineligible, the pool still comes up short even though eligible rows
+    exist further down. Paginates in bounded pages instead (up to
+    CANDIDATE_FETCH_MAX_PAGES), stopping as soon as
+    CANDIDATE_POOL_PER_NUTRIENT eligible candidates are found or a page
+    comes back short (nothing further to fetch for this nutrient) —
+    still a small constant number of queries per shortfall key, not
+    unbounded, but a real refill rather than one fixed-size guess.
+
+    A food rejected for an implausible/dietary/impractical/meal-type
+    reason on one nutrient's row is only added to `seen_ids` — and so
+    excluded from every later nutrient's consideration — when the
+    reason is a property of the FOOD itself (dietary exclusion,
+    practicality, meal-type: all invariant across which nutrient
+    triggered the check). An implausible VALUE is specific to that one
+    (food, nutrient) row (`is_implausible` takes both) — a food with a
+    corrupted zinc measurement can still have perfectly good, useful
+    iron data, and must still be considered when iron is the shortfall
+    being evaluated.
+
+    Bounded query count/runtime (item 4): at most CANDIDATE_FETCH_MAX_
+    PAGES FoodNutrient+Food queries per shortfall key (each capped at
+    CANDIDATE_POOL_PER_NUTRIENT * CANDIDATE_FETCH_MULTIPLIER rows),
+    regardless of catalogue size, plus one constraint-tags query total
+    (not per key).
     """
     seen_ids = set(excluded_food_ids)
     candidates: list[Food] = []
     rejected: list[RejectedCandidate] = []
     constraint_tags = load_constraint_tags(db, profile)
-    fetch_limit = CANDIDATE_POOL_PER_NUTRIENT * CANDIDATE_FETCH_MULTIPLIER
+    page_size = CANDIDATE_POOL_PER_NUTRIENT * CANDIDATE_FETCH_MULTIPLIER
 
     for key in target_keys:
-        rows = (
-            db.query(FoodNutrient, Food)
-            .join(Food, FoodNutrient.food_id == Food.id)
-            .filter(
-                FoodNutrient.nutrient_key == key,
-                or_(Food.data_type.is_(None), Food.data_type != "branded_food"),
-            )
-            .order_by(FoodNutrient.amount_per_100g.desc())
-            .limit(fetch_limit)
-            .all()
-        )
         kept_for_key = 0
-        for fn, food in rows:
+        for page in range(CANDIDATE_FETCH_MAX_PAGES):
             if kept_for_key >= CANDIDATE_POOL_PER_NUTRIENT:
                 break
-            if food.id in seen_ids:
-                continue
-            if is_implausible(fn.nutrient_key, fn.amount_per_100g):
-                rejected.append(RejectedCandidate(food.name, "implausible source value", "implausible_value"))
-                seen_ids.add(food.id)
-                continue
-            if is_hard_excluded(food, profile.dietary_pattern if profile else None, constraint_tags):
-                rejected.append(RejectedCandidate(food.name, "excluded by dietary constraints", "dietary_exclusion"))
-                seen_ids.add(food.id)
-                continue
-            metadata = resolve_candidate_metadata(food)
-            if not metadata.suitable_for_direct_suggestion:
-                rejected.append(
-                    RejectedCandidate(food.name, "not suitable for a direct standalone suggestion", "impractical")
+            rows = (
+                db.query(FoodNutrient, Food)
+                .join(Food, FoodNutrient.food_id == Food.id)
+                .filter(
+                    FoodNutrient.nutrient_key == key,
+                    or_(Food.data_type.is_(None), Food.data_type != "branded_food"),
                 )
+                .order_by(FoodNutrient.amount_per_100g.desc())
+                .offset(page * page_size)
+                .limit(page_size)
+                .all()
+            )
+            if not rows:
+                break  # nothing further to fetch for this nutrient at all
+
+            for fn, food in rows:
+                if kept_for_key >= CANDIDATE_POOL_PER_NUTRIENT:
+                    break
+                if food.id in seen_ids:
+                    continue
+                if is_implausible(fn.nutrient_key, fn.amount_per_100g):
+                    # food-level seen_ids is NOT set here — see docstring
+                    rejected.append(RejectedCandidate(food.name, "implausible source value", "implausible_value"))
+                    continue
+                if is_hard_excluded(food, profile.dietary_pattern if profile else None, constraint_tags):
+                    rejected.append(
+                        RejectedCandidate(food.name, "excluded by dietary constraints", "dietary_exclusion")
+                    )
+                    seen_ids.add(food.id)
+                    continue
+                metadata = resolve_candidate_metadata(food)
+                if not metadata.suitable_for_direct_suggestion:
+                    rejected.append(
+                        RejectedCandidate(food.name, "not suitable for a direct standalone suggestion", "impractical")
+                    )
+                    seen_ids.add(food.id)
+                    continue
+                if (
+                    meal_type is not None and metadata.suitable_meal_types
+                    and meal_type not in metadata.suitable_meal_types
+                ):
+                    rejected.append(
+                        RejectedCandidate(food.name, f"not typically suited to {meal_type}", "meal_type_mismatch")
+                    )
+                    seen_ids.add(food.id)
+                    continue
+                candidates.append(food)
                 seen_ids.add(food.id)
-                continue
-            if meal_type is not None and metadata.suitable_meal_types and meal_type not in metadata.suitable_meal_types:
-                rejected.append(
-                    RejectedCandidate(food.name, f"not typically suited to {meal_type}", "meal_type_mismatch")
-                )
-                seen_ids.add(food.id)
-                continue
-            candidates.append(food)
-            seen_ids.add(food.id)
-            kept_for_key += 1
+                kept_for_key += 1
+
+            if len(rows) < page_size:
+                break  # short page — exhausted this nutrient's rows
 
     return candidates, rejected
 

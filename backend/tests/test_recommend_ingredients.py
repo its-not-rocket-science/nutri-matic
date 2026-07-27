@@ -304,10 +304,11 @@ def test_energy_limit_reason_code_when_every_eligible_candidate_exceeds_the_cap(
 
 
 def test_bounded_query_count_independent_of_junk_candidate_volume(db):
-    """Prompt 4 item 4: query count stays bounded (one FoodNutrient+Food
-    query per shortfall nutrient, plus one constraint-tags query) no
-    matter how many ineligible rows exist for that nutrient — never a
-    per-candidate query."""
+    """Prompt 4 item 4: query count stays bounded (at most
+    CANDIDATE_FETCH_MAX_PAGES FoodNutrient+Food queries per shortfall
+    nutrient, plus one constraint-tags query) no matter how many
+    ineligible rows exist for that nutrient — never a per-candidate
+    query, and never unbounded pagination."""
     from sqlalchemy import event
 
     current = make_food(db, "White rice, cooked", energy=130, fiber_total=0.5)
@@ -333,6 +334,68 @@ def test_bounded_query_count_independent_of_junk_candidate_volume(db):
     # generous fixed ceiling — the point is "doesn't scale with junk
     # count", not pinning an exact number that'll break on refactor
     assert len(queries) < 30
+
+
+def test_refills_across_pages_when_the_first_window_is_entirely_ineligible(db, monkeypatch):
+    """PR review finding: a single fixed-size over-fetch window can
+    itself be entirely ineligible, still starving out a real candidate
+    further down. Must page (bounded, not unbounded) until either the
+    pool fills or pages run out — real "over-fetch/refill", not a bigger
+    fixed guess."""
+    import app.recommend_ingredients as ri
+
+    monkeypatch.setattr(ri, "CANDIDATE_POOL_PER_NUTRIENT", 1)
+    monkeypatch.setattr(ri, "CANDIDATE_FETCH_MULTIPLIER", 2)  # page_size = 2
+    monkeypatch.setattr(ri, "CANDIDATE_FETCH_MAX_PAGES", 4)  # up to 8 rows considered
+
+    current = make_food(db, "White rice, cooked", energy=130, fiber_total=0.5)
+    # 6 ineligible rows outranking Lentils by value — spans 3 pages of the
+    # tiny page_size=2 above, so Lentils only surfaces on page 4
+    for i in range(6):
+        make_food(db, f"Generic Fiber Product #{i}", fiber_total=20.0, energy=50)
+    make_food(db, "Lentils", fiber_total=8.0, energy=116)
+
+    profile = make_profile(db)
+    result = run(db, profile, current)
+    assert any(s.food_name == "Lentils" for s in result.suggestions)
+
+
+def test_gives_up_after_max_pages_rather_than_paginating_forever(db, monkeypatch):
+    """The bound is real — enough ineligible rows to exceed
+    CANDIDATE_FETCH_MAX_PAGES * page_size must still come back empty
+    (with a stable reason), not hang or silently ignore the cap."""
+    import app.recommend_ingredients as ri
+
+    monkeypatch.setattr(ri, "CANDIDATE_POOL_PER_NUTRIENT", 1)
+    monkeypatch.setattr(ri, "CANDIDATE_FETCH_MULTIPLIER", 2)  # page_size = 2
+    monkeypatch.setattr(ri, "CANDIDATE_FETCH_MAX_PAGES", 2)  # only 4 rows ever considered
+
+    current = make_food(db, "White rice, cooked", energy=130, fiber_total=0.5)
+    for i in range(10):  # far more ineligible rows than the 4-row cap covers
+        make_food(db, f"Generic Fiber Product #{i}", fiber_total=20.0, energy=50)
+    make_food(db, "Lentils", fiber_total=8.0, energy=116)  # never reached
+
+    profile = make_profile(db)
+    result = run(db, profile, current)
+    assert result.suggestions == []
+    assert result.no_suggestion_reason is not None
+    assert result.no_suggestion_reason.value == "no_eligible_candidates"
+
+
+def test_implausible_value_on_one_nutrient_does_not_exclude_the_food_from_another(db):
+    """PR review finding: is_implausible is per (food, nutrient) row, not
+    per food — a food with a corrupted zinc value but perfectly good
+    iron data must still be considered when iron is the shortfall being
+    evaluated, not globally excluded the moment its zinc row is rejected."""
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1, zinc=0.1)
+    # zinc value absurd enough to be excluded outright (data_quality's
+    # default 100x ceiling) — real, valid iron data on the SAME (curated,
+    # practical) food
+    make_food(db, "Lentils", iron=6.0, zinc=5000.0, energy=100)
+
+    profile = make_profile(db)
+    result = run(db, profile, current, priority_nutrient_keys={"iron", "zinc"})
+    assert any(s.food_name == "Lentils" for s in result.suggestions)
 
 
 @pytest.fixture

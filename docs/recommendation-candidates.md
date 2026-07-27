@@ -57,6 +57,35 @@ checked afterward:
    `suggest_ingredients`'s main loop exactly as before (score
    descending, then food name).
 
+**Paginated, bounded refill, not a single fixed-size guess.** A first
+pass shipped this as one fixed-size over-fetch window
+(`CANDIDATE_POOL_PER_NUTRIENT * CANDIDATE_FETCH_MULTIPLIER` rows) — an
+automated PR review correctly pointed out that this only *mitigates*
+the original bug: if every row in that one window is ineligible, the
+pool still comes up short even though eligible rows exist further down,
+which is exactly the "over-fetches/**refills**" the prompt itself asked
+for, not delivered. `_candidate_pool` now pages (`OFFSET`-based, same
+page size) up to `CANDIDATE_FETCH_MAX_PAGES` (4) times per shortfall
+nutrient, stopping as soon as the pool fills or a page comes back
+shorter than a full page (nothing further to fetch). Still bounded — at
+most 4 queries per nutrient, not unbounded pagination — see
+`tests/test_recommend_ingredients.py::test_refills_across_pages_when_the_first_window_is_entirely_ineligible`
+and `::test_gives_up_after_max_pages_rather_than_paginating_forever`.
+
+**A food's `seen_ids` marking is scoped to *why* it was rejected.**
+Also caught by the same review: the first pass added a food to the
+global `seen_ids` set (excluding it from every *other* shortfall
+nutrient's consideration too) on **any** rejection, including an
+implausible-value one — but `data_quality.is_implausible` is a property
+of one specific `(food, nutrient)` row, not the food as a whole. A food
+with a corrupted zinc measurement can have perfectly good, useful iron
+data; rejecting it for zinc must not silently remove it from
+consideration when iron is the shortfall being evaluated. `seen_ids` is
+now only set for rejections that genuinely are food-level and therefore
+correctly nutrient-invariant (dietary exclusion, practicality, meal-type
+mismatch) — never for an implausible-value rejection. See
+`tests/test_recommend_ingredients.py::test_implausible_value_on_one_nutrient_does_not_exclude_the_food_from_another`.
+
 Every ineligible row encountered during pool-building is still recorded
 in `IngredientSuggestionResult.rejected` with a `reason_code`
 (`"implausible_value"` | `"dietary_exclusion"` | `"impractical"` |
@@ -66,11 +95,14 @@ discarded, matching this module's existing convention.
 
 ## Bounded query count/runtime (item 4)
 
-Exactly one `FoodNutrient` + `Food` join query per shortfall nutrient,
-each capped at `CANDIDATE_POOL_PER_NUTRIENT * CANDIDATE_FETCH_MULTIPLIER`
-(12 × 25 = 300) rows — a fixed ceiling, not a fraction of the catalogue,
-so cost doesn't grow as the ingested FDC catalogue grows. Plus one
-constraint-tags query total. Regression-tested in
+At most `CANDIDATE_FETCH_MAX_PAGES` (4) `FoodNutrient` + `Food` join
+queries per shortfall nutrient, each capped at `CANDIDATE_POOL_PER_
+NUTRIENT * CANDIDATE_FETCH_MULTIPLIER` (12 × 25 = 300) rows — a fixed
+ceiling either way, not a fraction of the catalogue, so cost doesn't
+grow as the ingested FDC catalogue grows (worst case 1,200 rows
+considered for one shortfall nutrient, regardless of how large that
+nutrient's real row count is). Plus one constraint-tags query total.
+Regression-tested in
 `tests/test_recommend_ingredients.py::test_bounded_query_count_independent_of_junk_candidate_volume`
 (asserts query count stays under a fixed ceiling regardless of how many
 ineligible rows exist for the shortfall nutrient).
