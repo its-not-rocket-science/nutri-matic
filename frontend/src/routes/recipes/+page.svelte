@@ -1,15 +1,28 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { page } from '$app/state';
+	import { onMount, tick } from 'svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import FilterBuilder from '$lib/components/FilterBuilder.svelte';
 	import PresetControls from '$lib/components/PresetControls.svelte';
-	import type { FilterKey, NutrientFilterInput, Recipe } from '$lib/types';
+	import type { FilterKey, NutrientFilterInput, Recipe, RecipeSummary } from '$lib/types';
+
+	// Public-launch hardening prompt 7: the stock-recipe catalogue no
+	// longer fetches every public recipe at once — see docs/stock-recipes.md
+	// for the measured before/after (1502 queries/272KB for the whole
+	// catalogue vs. 5 queries/~2.6KB for one page). `stockPage` lives in
+	// the URL (not just component state) so a specific page is a real
+	// deep link and the browser back/forward buttons move between pages,
+	// same as any other paginated view in this app.
+	const STOCK_PAGE_SIZE = 24;
 
 	let recipes: Recipe[] = $state([]);
 	let sharedRecipes: Recipe[] = $state([]);
-	let publicRecipes: Recipe[] = $state([]);
+	let stockRecipes: RecipeSummary[] = $state([]);
+	let stockTotal = $state(0);
+	let stockLoading = $state(true);
+	let stockError: string | null = $state(null);
 	let filterKeys: FilterKey[] = $state([]);
 	let filters: NutrientFilterInput[] = $state([]);
 	let myTags: string[] = $state([]);
@@ -20,22 +33,103 @@
 	let loading = $state(true);
 	let copyingId: number | null = $state(null);
 
+	const stockPageNum = $derived(Math.max(1, Math.floor(Number(page.url.searchParams.get('stockPage')) || 1)));
+	const stockTotalPages = $derived(Math.max(1, Math.ceil(stockTotal / STOCK_PAGE_SIZE)));
+
+	let prevButtonEl: HTMLButtonElement | undefined = $state();
+	let nextButtonEl: HTMLButtonElement | undefined = $state();
+	let pendingFocus: 'prev' | 'next' | null = null;
+	// Caught by PR review: rapid browser back/forward (or repeated clicks)
+	// can have two page requests in flight at once; without this, whichever
+	// one resolves LAST wins even if it's not the one matching the current
+	// URL, overwriting fresher state with stale data. Each load captures its
+	// own generation number and only applies its result if it's still the
+	// most recent one requested by the time it resolves.
+	let stockLoadGeneration = 0;
+
+	async function loadStockPage(pageNum: number) {
+		if (!auth.isLoggedIn) return;
+		const generation = ++stockLoadGeneration;
+		stockLoading = true;
+		stockError = null;
+		try {
+			const result = await api.listPublicRecipes(STOCK_PAGE_SIZE, (pageNum - 1) * STOCK_PAGE_SIZE);
+			if (generation !== stockLoadGeneration) return; // superseded by a later page load
+
+			// Caught by PR review: a stale/bookmarked/hand-edited stockPage
+			// beyond the real last page (e.g. the catalogue shrank, or
+			// ?stockPage=999) would otherwise render an empty list with no
+			// in-page way back — Previous alone works but is a long, unobvious
+			// slog. Silently correct the URL to the real last page instead of
+			// ever showing a request/response mismatch to the user.
+			const realTotalPages = Math.max(1, Math.ceil(result.total / STOCK_PAGE_SIZE));
+			if (pageNum > realTotalPages) {
+				stockTotal = result.total;
+				stockLoading = false;
+				goToStockPage(realTotalPages, null, true);
+				return;
+			}
+
+			stockRecipes = result.items;
+			stockTotal = result.total;
+		} catch (e) {
+			if (generation !== stockLoadGeneration) return;
+			stockError = e instanceof Error ? e.message : String(e);
+		} finally {
+			if (generation === stockLoadGeneration) stockLoading = false;
+			// Verified directly (browser testing): despite `goto`'s own
+			// `keepFocus: true`, re-keying the `{#each stockRecipes}` list
+			// (every row's id changes between pages) still drops focus to
+			// `<body>` — the button survives as the same DOM node but is
+			// briefly detached from the live tree during Svelte's each-block
+			// reconciliation, which blurs it without anything re-focusing it
+			// afterwards. `tick()` waits for that DOM update to actually
+			// apply before refocusing — refocusing synchronously here (before
+			// the pending state change is flushed) loses the race and gets
+			// clobbered by the same reconciliation right afterwards. Falls
+			// back to whichever button is still enabled if the one just
+			// clicked became disabled (e.g. Next landed on the last page).
+			const target = pendingFocus;
+			pendingFocus = null;
+			if (target && generation === stockLoadGeneration) {
+				await tick();
+				if (target === 'prev') (!prevButtonEl?.disabled ? prevButtonEl : nextButtonEl)?.focus();
+				else (!nextButtonEl?.disabled ? nextButtonEl : prevButtonEl)?.focus();
+			}
+		}
+	}
+
+	$effect(() => {
+		loadStockPage(stockPageNum);
+	});
+
+	function goToStockPage(
+		pageNum: number, focusTarget: 'prev' | 'next' | null = null, replaceState = false,
+	) {
+		pendingFocus = focusTarget;
+		const url = new URL(page.url);
+		if (pageNum <= 1) {
+			url.searchParams.delete('stockPage');
+		} else {
+			url.searchParams.set('stockPage', String(pageNum));
+		}
+		goto(url, { noScroll: true, keepFocus: true, replaceState });
+	}
+
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
 			return;
 		}
 		try {
-			const [recipeList, shared, publicList, keys, tags] = await Promise.all([
+			const [recipeList, shared, keys, tags] = await Promise.all([
 				api.listRecipes(),
 				api.listSharedWithMe(),
-				api.listPublicRecipes(),
 				api.getFilterKeys(),
 				api.listMyTags()
 			]);
 			recipes = recipeList;
 			sharedRecipes = shared;
-			publicRecipes = publicList.filter((r) => !r.is_owner);
 			filterKeys = keys.recipe;
 			myTags = tags;
 		} catch (e) {
@@ -167,10 +261,21 @@
 		</ul>
 	{/if}
 
-	{#if publicRecipes.length > 0}
-		<h2>Stock recipes</h2>
+	<h2>Stock recipes</h2>
+	{#if stockError}
+		<p class="error">{stockError}</p>
+	{:else if stockLoading && stockRecipes.length === 0}
+		<p class="muted">Loading stock recipes…</p>
+	{:else if stockTotal === 0}
+		<p class="muted">No stock recipes yet.</p>
+	{:else}
+		<!-- Deliberately stays mounted across a page change (not swapped for a
+		     "Loading…" placeholder mid-transition) — the Previous/Next buttons
+		     below keep keyboard focus across a page flip this way; briefly
+		     showing the outgoing page's rows while the next page loads reads
+		     better than losing focus/scroll position on every click. -->
 		<ul class="card">
-			{#each publicRecipes as recipe (recipe.id)}
+			{#each stockRecipes as recipe (recipe.id)}
 				<li>
 					<a href="/recipes/{recipe.id}">{recipe.name}</a>
 					<span class="muted">
@@ -190,6 +295,29 @@
 				</li>
 			{/each}
 		</ul>
+		{#if stockTotalPages > 1}
+			<nav class="pagination" aria-label="Stock recipes pages">
+				<button
+					bind:this={prevButtonEl}
+					type="button"
+					class="btn btn-secondary"
+					onclick={() => goToStockPage(stockPageNum - 1, 'prev')}
+					disabled={stockPageNum <= 1 || stockLoading}
+				>
+					&larr; Previous
+				</button>
+				<span class="muted">Page {stockPageNum} of {stockTotalPages}{stockLoading ? ' · loading…' : ''}</span>
+				<button
+					bind:this={nextButtonEl}
+					type="button"
+					class="btn btn-secondary"
+					onclick={() => goToStockPage(stockPageNum + 1, 'next')}
+					disabled={stockPageNum >= stockTotalPages || stockLoading}
+				>
+					Next &rarr;
+				</button>
+			</nav>
+		{/if}
 	{/if}
 
 	<h2>Shared with me</h2>
@@ -231,6 +359,12 @@
 	.actions {
 		display: flex;
 		gap: var(--space-2);
+	}
+	.pagination {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		margin: var(--space-3) 0 var(--space-5);
 	}
 	.tag-filter {
 		max-width: 16rem;

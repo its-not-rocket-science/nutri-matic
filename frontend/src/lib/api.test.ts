@@ -31,6 +31,33 @@ describe('api.listFoods', () => {
 	});
 });
 
+describe('api.listPublicRecipes (public-launch hardening prompt 7)', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({
+				ok: true,
+				status: 200,
+				json: async () => ({ items: [], total: 0, limit: 24, offset: 0 })
+			}))
+		);
+	});
+
+	it('defaults to a small bounded page instead of the full stock-recipe catalogue', async () => {
+		await api.listPublicRecipes();
+		const url = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+		expect(url).toContain('limit=24');
+		expect(url).toContain('offset=0');
+	});
+
+	it('passes through explicit limit/offset for a later page', async () => {
+		await api.listPublicRecipes(24, 48);
+		const url = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+		expect(url).toContain('limit=24');
+		expect(url).toContain('offset=48');
+	});
+});
+
 describe('api.getIngredientSuggestions', () => {
 	beforeEach(() => {
 		vi.stubGlobal(

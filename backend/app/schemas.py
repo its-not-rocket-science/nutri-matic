@@ -550,6 +550,34 @@ class RecipeOut(BaseModel):
     educational_note: str | None = None
 
 
+class RecipeSummaryOut(BaseModel):
+    """Public-launch hardening prompt 7: the stock-recipe catalogue listing
+    doesn't render ingredients, tags, or owner details (see
+    `frontend/src/routes/recipes/+page.svelte`'s stock section) — only
+    what's actually shown per row. Deliberately a separate, narrower model
+    from `RecipeOut` rather than reusing it with fields omitted at the call
+    site: this is what keeps `list_public_recipes` from ever needing the
+    per-recipe ingredient/tag/provenance queries `_recipe_out` does, which
+    is what made the unpaginated version of this endpoint cost ~6 SQL
+    queries per recipe regardless of whether the page displays any of that
+    data."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    servings: float
+    average_rating: float | None
+    rating_count: int
+    is_stock: bool = False
+
+
+class PaginatedRecipesOut(BaseModel):
+    items: list[RecipeSummaryOut]
+    total: int
+    limit: int
+    offset: int
+
+
 class RecipeShareCreate(BaseModel):
     email: str
 
