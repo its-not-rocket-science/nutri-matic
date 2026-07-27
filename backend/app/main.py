@@ -97,9 +97,13 @@ async def log_recommendation_endpoint_latency(request: Request, call_next):
 
     Public-launch hardening prompt 6: also tags `mode`
     (ingredients/recipes/pairs/substitutions — see `_recommendation_mode`),
-    and logs at WARNING (not INFO) when the response is a server error,
-    so a 5xx here reaches Sentry as more than a breadcrumb without
-    needing a second log call."""
+    and logs at ERROR (not INFO) when the response is a server error.
+    ERROR, not WARNING: `init_monitoring()`'s `LoggingIntegration` is
+    configured with `event_level=logging.ERROR` — a WARNING here would
+    only ever become a breadcrumb attached to some later, unrelated
+    captured event, never a Sentry event/alert of its own (caught by
+    review; verified directly against the `LoggingIntegration` config
+    rather than assumed)."""
     if not request.url.path.startswith("/api/recommendations"):
         return await call_next(request)
 
@@ -114,7 +118,7 @@ async def log_recommendation_endpoint_latency(request: Request, call_next):
         "duration_ms": round(duration_ms, 1),
     }
     if response.status_code >= 500:
-        _request_logger.warning("recommendation_request", extra=log_extra)
+        _request_logger.error("recommendation_request", extra=log_extra)
     else:
         _request_logger.info("recommendation_request", extra=log_extra)
     return response
@@ -126,12 +130,13 @@ async def log_elevated_status_responses(request: Request, call_next):
     — general, app-wide (unlike the recommendation-specific middleware
     above), but deliberately silent on success: logging every request at
     INFO app-wide would be pure noise at real traffic volume with no
-    signal this app's own telemetry needs. Only a 5xx gets a WARNING
-    log line here, which is also what makes it reach Sentry as an event
-    via LoggingIntegration when monitoring is active."""
+    signal this app's own telemetry needs. Only a 5xx gets a log line
+    here, at ERROR (not WARNING) — `LoggingIntegration`'s `event_level`
+    is ERROR, so this is what actually reaches Sentry as an event when
+    monitoring is active; WARNING would only ever be a breadcrumb."""
     response = await call_next(request)
     if response.status_code >= 500:
-        _request_logger.warning(
+        _request_logger.error(
             "elevated_status_response",
             extra={"path": request.url.path, "method": request.method, "status_code": response.status_code},
         )

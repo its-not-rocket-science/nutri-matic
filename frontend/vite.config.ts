@@ -20,6 +20,24 @@ function backendOrigin(viteApiUrl: string | undefined): string {
 	}
 }
 
+// Public-launch hardening prompt 6, caught by review: the Sentry
+// browser SDK POSTs error/trace envelopes directly to the DSN's own
+// ingest origin (not the backend origin above) — connect-src not
+// allowing it means the browser silently blocks every envelope, so
+// client-side Sentry would be wired up but never actually deliver
+// anything in production. Derived from the same PUBLIC_SENTRY_DSN
+// hooks.client.ts/hooks.server.ts read, so it can never drift from the
+// DSN actually in use. Returns null (added to connect-src only when
+// present) rather than a placeholder — no DSN means nothing to allow.
+function sentryIngestOrigin(publicSentryDsn: string | undefined): string | null {
+	if (!publicSentryDsn) return null;
+	try {
+		return new URL(publicSentryDsn).origin;
+	} catch {
+		return null;
+	}
+}
+
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
 
@@ -77,7 +95,13 @@ export default defineConfig(({ mode }) => {
 						// types each source as a template-literal pattern (Csp.HostSource) that a dynamically
 						// computed origin string can't be statically narrowed to, even though any real
 						// http(s)://host[:port] value satisfies it at runtime.
-						'connect-src': ['self', backendOrigin(env.VITE_API_URL) as any],
+						'connect-src': [
+							'self',
+							backendOrigin(env.VITE_API_URL) as any,
+							...(sentryIngestOrigin(env.PUBLIC_SENTRY_DSN)
+								? [sentryIngestOrigin(env.PUBLIC_SENTRY_DSN) as any]
+								: [])
+						],
 						'manifest-src': ['self'],
 						'worker-src': ['self'],
 						'object-src': ['none'],

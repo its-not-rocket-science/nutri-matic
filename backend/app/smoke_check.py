@@ -84,11 +84,35 @@ def check_frontend_static_asset(client: httpx.Client, frontend_url: str, path: s
     return CheckResult(f"frontend_static_{path}", True, "200 OK")
 
 
+def _decode_user_id_from_token(token: str) -> int | None:
+    """Reads the `sub` claim directly off the just-issued token —
+    informational only, no signature verification needed: this is the
+    smoke check reading its own freshly-received token to identify the
+    account for cleanup, not trusting untrusted external input. Doing
+    this instead of relying on a follow-up `/me` call means the account
+    can still be identified and deleted even if `/me` itself times out
+    or errors (caught by review: cleanup must not depend on the
+    verification calls succeeding)."""
+    import jwt as pyjwt
+
+    try:
+        payload = pyjwt.decode(token, options={"verify_signature": False})
+        return int(payload["sub"])
+    except Exception:  # noqa: BLE001 — any malformed/unexpected token shape just means "can't identify it"
+        return None
+
+
 def check_demo_flow(client: httpx.Client, backend_url: str, database_url: str | None) -> CheckResult:
     """Creates one real demo account, verifies the auth/me/profiles flow
     end to end, then deletes exactly that account — never left behind.
     Skipped (not failed) if no database connection is available to
-    guarantee the cleanup."""
+    guarantee the cleanup.
+
+    Cleanup is attempted for every path once an account is known to have
+    been created (a `finally` block, not just the happy path) and its
+    outcome — including a refused/failed deletion — is folded into the
+    overall pass/fail result, not silently reported as a passing check
+    with a failure detail buried in the text (caught by review)."""
     if not database_url:
         return CheckResult(
             "demo_flow", True,
@@ -102,21 +126,41 @@ def check_demo_flow(client: httpx.Client, backend_url: str, database_url: str | 
 
     if res.status_code != 201:
         return CheckResult("demo_flow", False, f"POST /api/auth/demo returned {res.status_code}: {res.text[:200]}")
-    token = res.json().get("access_token")
+
+    try:
+        token = res.json().get("access_token")
+    except ValueError as exc:
+        return CheckResult("demo_flow", False, f"POST /api/auth/demo returned invalid JSON: {exc}")
+
+    user_id = _decode_user_id_from_token(token) if token else None
     headers = {"Authorization": f"Bearer {token}"}
+    me_status: int | str = "not attempted"
+    profiles_status: int | str = "not attempted"
+    cleanup_detail = "no cleanup attempted (couldn't decode a user id from the returned token)"
 
-    me_res = client.get(f"{backend_url}/api/auth/me", headers=headers, timeout=10.0)
-    profiles_res = client.get(f"{backend_url}/api/profiles", headers=headers, timeout=10.0)
-    ok = me_res.status_code == 200 and profiles_res.status_code == 200
-    user_id = me_res.json().get("id") if me_res.status_code == 200 else None
+    try:
+        try:
+            me_res = client.get(f"{backend_url}/api/auth/me", headers=headers, timeout=10.0)
+            me_status = me_res.status_code
+        except httpx.HTTPError as exc:
+            me_status = f"request failed: {exc}"
 
-    cleanup_detail = "no cleanup attempted (couldn't identify the created account)"
-    if user_id is not None:
-        cleanup_detail = _cleanup_demo_account(database_url, user_id)
+        try:
+            profiles_res = client.get(f"{backend_url}/api/profiles", headers=headers, timeout=10.0)
+            profiles_status = profiles_res.status_code
+        except httpx.HTTPError as exc:
+            profiles_status = f"request failed: {exc}"
+    finally:
+        # Cleanup runs whenever an id was decoded, regardless of how the
+        # verification calls above went — a timeout on /me must not
+        # leave the account behind.
+        if user_id is not None:
+            cleanup_detail = _cleanup_demo_account(database_url, user_id)
 
+    ok = me_status == 200 and profiles_status == 200 and cleanup_detail.startswith("deleted")
     detail = (
-        f"created user_id={user_id}, /me status={me_res.status_code}, "
-        f"/profiles status={profiles_res.status_code}; cleanup: {cleanup_detail}"
+        f"created user_id={user_id}, /me status={me_status}, "
+        f"/profiles status={profiles_status}; cleanup: {cleanup_detail}"
     )
     return CheckResult("demo_flow", ok, detail)
 
@@ -125,16 +169,36 @@ def _cleanup_demo_account(database_url: str, user_id: int) -> str:
     """Deletes exactly the one account this check just created, reusing
     demo_purge's own dependent-row deletion — the same logic prompt 2's
     scheduled purge uses, just targeted at a single known-fresh account
-    instead of "everything expired"."""
+    instead of "everything expired".
+
+    Verifies the row is actually a demo account (`is_demo` true and the
+    email under demo_data.py's reserved `DEMO_EMAIL_DOMAIN`) before ever
+    deleting anything — `_delete_batch` itself doesn't filter on
+    `is_demo`, so if `--database-url` were ever pointed at a different
+    environment than `--backend-url`, the numeric id returned could
+    coincidentally belong to an unrelated real account there; refusing
+    to delete anything that doesn't look like a demo account is what
+    keeps that mismatch from being destructive (caught by review)."""
     import sqlalchemy as sa
     from sqlalchemy.orm import sessionmaker
 
+    from .demo_data import DEMO_EMAIL_DOMAIN
     from .demo_purge import _delete_batch
+    from .models import User
 
     engine = sa.create_engine(database_url)
     Session = sessionmaker(bind=engine)
     db = Session()
     try:
+        user = db.query(User).filter(User.id == user_id).one_or_none()
+        if user is None:
+            return f"FAILED to delete user_id={user_id}: no such user in this database"
+        if not user.is_demo or not user.email.endswith(f"@{DEMO_EMAIL_DOMAIN}"):
+            return (
+                f"REFUSED to delete user_id={user_id}: does not look like a demo account "
+                f"(is_demo={user.is_demo}, email={user.email!r}) — --database-url may point "
+                "at the wrong environment"
+            )
         _delete_batch(db, [user_id])
         db.commit()
         return f"deleted user_id={user_id}"
