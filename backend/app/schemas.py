@@ -231,6 +231,7 @@ class NutrientAmountOut(BaseModel):
         drv_confidence: str | None = None,
         goal_adjusted: bool = False,
         coverage: float = 1.0,
+        amount_is_per_100g: bool = True,
     ) -> "NutrientAmountOut":
         """Shared shaping logic for the call sites that turn a
         (nutrient_def, amount, drv) triple into this schema — food/recipe
@@ -245,7 +246,21 @@ class NutrientAmountOut(BaseModel):
         MINIMUM_COVERAGE_FOR_STATUS. Below that bar, percent_drv is
         withheld (set None) and insufficient_data_reason explains why,
         rather than showing e.g. "0% of target" for a nutrient no
-        contributing food actually reported."""
+        contributing food actually reported.
+
+        `amount_is_per_100g=False` (diary/recipe/trend callers — an
+        aggregated day/serving/bucket total, not a per-100g source
+        figure) skips the implausibility check entirely: data_quality's
+        thresholds are calibrated against a per-100g amount, and a
+        multi-hundred-gram serving or multi-item day total of a
+        perfectly plausible per-100g value can itself exceed that
+        multiple (a real gap: liver's ~65x-DRV-per-100g B12 becomes
+        ~130x in a 200g serving, which the tightened prompt-3 default
+        would otherwise flag as a false source-error). Any actually
+        implausible SOURCE row was already excluded before this
+        aggregate amount was ever summed — see aggregation.
+        aggregate_nutrients, which checks is_implausible per FoodNutrient
+        row, in per-100g terms, before adding its contribution."""
         insufficient = drv is not None and coverage < MINIMUM_COVERAGE_FOR_STATUS
         return cls(
             key=key,
@@ -261,7 +276,7 @@ class NutrientAmountOut(BaseModel):
                 else (nutrient_def.drv_confidence if nutrient_def.drv_source else None)
             ),
             drv_methodology_version=DRV_METHODOLOGY_VERSION,
-            implausible_reason=implausibility_reason(key, amount),
+            implausible_reason=implausibility_reason(key, amount) if amount_is_per_100g else None,
             goal_adjusted=goal_adjusted,
             coverage=coverage,
             insufficient_data_reason=(

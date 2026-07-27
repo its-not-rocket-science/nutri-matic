@@ -53,6 +53,17 @@ def register_and_token(client, email="a@example.com", password="password123"):
     return client.post("/api/auth/register", json={"email": email, "password": password}).json()["access_token"]
 
 
+def set_owner_bio(client, token, **fields):
+    profiles = client.get("/api/profiles", headers=auth_headers(token)).json()
+    owner = next(p for p in profiles if p["is_account_owner"])
+    payload = {
+        "name": owner["name"], "sex": None, "birth_year": None, "activity_level": None,
+        "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+        **fields,
+    }
+    return client.put(f"/api/profiles/{owner['id']}", json=payload, headers=auth_headers(token))
+
+
 def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
@@ -204,3 +215,52 @@ def test_concentrated_branded_outlier_is_excluded_from_the_day_total(client):
     row = biotin_row(get_day(client, token)["nutrients"])
     # only the ordinary food's 10.0 contributes — the outlier is excluded
     assert row["amount"] == pytest.approx(10.0)
+
+
+def energy_row(nutrients_out):
+    return next(n for n in nutrients_out if n["key"] == "energy")
+
+
+def test_energy_coverage_is_computed_not_defaulted_to_full(client):
+    """PR review finding on prompt 3: the energy branch in
+    _compute_nutrient_gaps special-cased before coverage was computed,
+    silently defaulting to 1.0 — a day where only a fraction of the
+    logged mass reports energy would still present a full-confidence
+    percentage. Must compute real coverage for energy exactly like every
+    other nutrient."""
+    db = sessionmaker(bind=client.db_engine)()
+    seed_food(db, 1, "Reports energy", energy=200.0)
+    seed_food(db, 2, "Doesn't report energy")  # no FoodNutrient row at all
+    db.commit()
+    db.close()
+
+    token = register_and_token(client)
+    set_owner_bio(client, token, sex="female", birth_year=1990, activity_level="moderate", weight_kg=65, height_cm=168)
+    log_entry(client, token, 1, quantity_g=10)  # tiny share of the day's mass
+    log_entry(client, token, 2, quantity_g=990)  # most of the day's mass has no energy data
+
+    row = energy_row(get_day(client, token)["nutrients"])
+    assert row["coverage"] < 0.5
+    assert row["insufficient_data_reason"] is not None
+
+
+def test_aggregate_day_total_is_not_checked_against_the_per_100g_plausibility_threshold(client):
+    """PR review finding on prompt 3: a per-100g value comfortably under
+    the exclude threshold can still exceed it once summed/scaled to a
+    real serving size (a 200g serving is already 2x whatever the
+    per-100g multiple was) — that's an artifact of aggregation, not a
+    source-data error, and must never be flagged as one. Vitamin B12 at
+    65x DRV per 100g (real, liver-level, itself unremarkable) becomes
+    ~130x in a 200g serving — over the 100x default if wrongly checked
+    against the per-100g-calibrated threshold directly."""
+    db = sessionmaker(bind=client.db_engine)()
+    seed_food(db, 1, "Liver, beef, cooked", vitamin_b12=97.5)  # ~65x a 1.5mcg DRV, well under EXCLUDE
+    db.commit()
+    db.close()
+
+    token = register_and_token(client)
+    log_entry(client, token, 1, quantity_g=200)  # 195mcg total -> ~130x if wrongly checked as-is
+
+    row = next(n for n in get_day(client, token)["nutrients"] if n["key"] == "vitamin_b12")
+    assert row["implausible_reason"] is None
+    assert row["amount"] == pytest.approx(195.0)
