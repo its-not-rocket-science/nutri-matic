@@ -61,6 +61,18 @@
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
+	// Public-launch hardening prompt 7: this illustrative example is static
+	// marketing copy for the logged-out homepage (no user/currency
+	// preference exists yet at this point), not a live per-user figure —
+	// unlike every other price display in this app (diary/meal-plan/
+	// food-prices), which already goes through formatCurrency with the
+	// signed-in user's own currency. Still routed through the same central
+	// formatter (GBP explicit) rather than a hand-concatenated symbol, so
+	// nutri-matic.uk's public presentation is pounds/pence, not the
+	// originally-hardcoded "10&cent;"/"+$0.09".
+	const costImprovementThreshold = formatCurrency(0.1, 'GBP');
+	const costImprovementAmount = formatCurrency(0.09, 'GBP');
+
 	const todayIso = toIsoDate(new Date());
 	let todaySummary: DiarySummary | null = $state(null);
 	let upcomingEntries: MealPlanEntry[] = $state([]);
@@ -391,11 +403,11 @@
 
 			<div class="card proof-card">
 				<p class="label-caps">Optimisation</p>
-				<h3>+27pp for &lt;10&cent;</h3>
+				<h3>+27pp for &lt;{costImprovementThreshold}</h3>
 				<p class="muted">Simulated against your actual pantry, not a generic suggestion</p>
 				<p class="proof-suggestion">
 					Add <strong>150g lentils, cooked</strong> to lunch<br />
-					<span class="muted">Iron: 64% &rarr; 91% of target (+27pp), +$0.09</span>
+					<span class="muted">Iron: 64% &rarr; 91% of target (+27pp), +{costImprovementAmount}</span>
 				</p>
 			</div>
 		</div>

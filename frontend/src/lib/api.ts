@@ -38,6 +38,7 @@ import type {
 	MealPlanTemplate,
 	MealPlanTemplateDetail,
 	NutrientAmount,
+	PaginatedRecipes,
 	PlanOptimization,
 	Profile,
 	ProfileCreate,
@@ -229,7 +230,8 @@ export const api = {
 
 	listRecipes: (tag?: string) => request<Recipe[]>(`/api/recipes${tag ? `?tag=${encodeURIComponent(tag)}` : ''}`),
 	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),
-	listPublicRecipes: () => request<Recipe[]>('/api/recipes/public'),
+	listPublicRecipes: (limit = 24, offset = 0) =>
+		request<PaginatedRecipes>(`/api/recipes/public?limit=${limit}&offset=${offset}`),
 	listMyTags: () => request<string[]>('/api/recipes/tags'),
 	addTag: (recipeId: number, tag: string) =>
 		request<Recipe>(`/api/recipes/${recipeId}/tags`, { method: 'POST', body: JSON.stringify({ tag }) }),

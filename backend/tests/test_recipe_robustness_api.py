@@ -152,10 +152,14 @@ def test_stock_recipe_visible_to_any_signed_in_user(client):
 
 
 def test_stock_recipe_appears_in_public_list(client):
+    """Public-launch hardening prompt 7: /api/recipes/public is now
+    paginated — a paginated response shape wrapping the recipe summaries,
+    not a bare array."""
     token = register_and_token(client, "user2@example.com")
     res = client.get("/api/recipes/public", headers=auth_headers(token))
     assert res.status_code == 200
-    names = [r["name"] for r in res.json()]
+    body = res.json()
+    names = [r["name"] for r in body["items"]]
     assert "Stock Bean Chilli" in names
 
 
