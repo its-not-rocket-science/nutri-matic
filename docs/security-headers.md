@@ -51,7 +51,7 @@ Set on every non-redirect response:
 
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
-- `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()` — this app uses none of these; deny by default rather than leaving the browser's permissive default.
+- `Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(), usb=()` — `camera=(self)` because `BarcodeScanner.svelte` (diary/meal-plan "Scan barcode") genuinely uses the camera via `@zxing/browser`'s `decodeFromVideoDevice`; a first pass shipped `camera=()` (deny everywhere, including same-origin), which would have silently broken that real feature — caught by automated PR review, not checked up front. Every other capability here has no real usage anywhere in this app (checked directly via `grep`, not assumed) — denied by default rather than left at the browser's own permissive default.
 - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` — Vercel's platform already adds a baseline HSTS header for custom domains with valid TLS (confirmed via a real request to both `nutri-matic.uk` and the Vercel alias before this prompt), but this sets an explicit, equally strong value too rather than relying on that alone.
 
 ## Content-Security-Policy — `frontend/vite.config.ts`'s `kit.csp`

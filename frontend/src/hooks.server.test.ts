@@ -50,4 +50,9 @@ describe('hooks.server handle — security headers', () => {
 		expect(res.headers.get('Permissions-Policy')).toContain('geolocation=()');
 		expect(res.headers.get('Strict-Transport-Security')).toContain('max-age=63072000');
 	});
+
+	it('allows same-origin camera access — BarcodeScanner.svelte genuinely uses it', async () => {
+		const res = await handle({ event: makeEvent('https://nutri-matic.uk/'), resolve: resolveOk });
+		expect(res.headers.get('Permissions-Policy')).toContain('camera=(self)');
+	});
 });
