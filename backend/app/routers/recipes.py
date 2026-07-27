@@ -22,6 +22,7 @@ from ..models import (
     User,
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
+from ..nutrient_gap_analysis import coverage_for_nutrient
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
@@ -392,6 +393,7 @@ def recipe_nutrients(
         # for them (see nutrients.py), so they're handled separately here,
         # same as diary.py's day/trend endpoints
         if key == "energy":
+            energy_coverage = coverage_for_nutrient(items, by_food_id, key)
             out.append(
                 schemas.NutrientAmountOut.build(
                     key, nutrient_def, amount, energy_target,
@@ -403,20 +405,28 @@ def recipe_nutrients(
                     ),
                     drv_confidence="personalized_calculation",
                     goal_adjusted=energy_goal_adjusted,
+                    coverage=energy_coverage, amount_is_per_100g=False,
                 )
             )
             continue
         if key == "protein":
+            protein_coverage = coverage_for_nutrient(items, by_food_id, key)
             out.append(
                 schemas.NutrientAmountOut.build(
                     key, nutrient_def, amount, protein_target,
                     drv_source="Personalized target: bodyweight x activity-level protein factor (see protein_requirement.py)",
                     drv_confidence="personalized_calculation",
+                    coverage=protein_coverage, amount_is_per_100g=False,
                 )
             )
             continue
         drv = resolve_drv(key, drv_profile)
-        out.append(schemas.NutrientAmountOut.build(key, nutrient_def, amount, drv))
+        coverage = coverage_for_nutrient(items, by_food_id, key)
+        out.append(
+            schemas.NutrientAmountOut.build(
+                key, nutrient_def, amount, drv, coverage=coverage, amount_is_per_100g=False,
+            )
+        )
     out.sort(key=lambda n: n.name)
     return out
 
