@@ -42,6 +42,49 @@ def test_init_monitoring_initialises_when_dsn_is_set(monkeypatch):
     assert monitoring.is_initialized() is True
 
 
+def test_captures_uncaught_exceptions_via_the_auto_enabled_fastapi_integration(monkeypatch):
+    """Public-launch hardening prompt 6's pre-flight check found that
+    monitoring.py only ever explicitly wires LoggingIntegration — an
+    actual unhandled 500 (as opposed to a logged WARNING/ERROR) was
+    never *verified* to reach Sentry at all. sentry_sdk's own
+    auto_enabling_integrations (on by default, not disabled here)
+    detects installed starlette/fastapi and enables their integrations
+    automatically — confirmed here by actually raising an uncaught
+    exception through a live FastAPI app and checking it reaches
+    before_send, not just by reading sentry_sdk's source."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    captured_events = []
+    original_scrub = monitoring.scrub_event
+
+    def spy_scrub(event, hint):
+        captured_events.append(event)
+        return original_scrub(event, hint)
+
+    monkeypatch.setattr(monitoring, "scrub_event", spy_scrub)
+    monkeypatch.setenv("SENTRY_DSN", "https://abc123@o0.ingest.sentry.io/123")
+    monitoring.init_monitoring()
+
+    test_app = FastAPI()
+
+    @test_app.get("/boom")
+    def boom():
+        raise RuntimeError("kaboom-test-uncaught-exception")
+
+    client = TestClient(test_app, raise_server_exceptions=False)
+    res = client.get("/boom")
+
+    assert res.status_code == 500
+    assert captured_events, "no event reached before_send for an uncaught exception"
+    exception_messages = [
+        v.get("value", "")
+        for event in captured_events
+        for v in event.get("exception", {}).get("values", [])
+    ]
+    assert any("kaboom-test-uncaught-exception" in msg for msg in exception_messages)
+
+
 def test_importing_the_app_does_not_require_sentry_dsn(monkeypatch):
     """The app must import and construct cleanly with no monitoring
     configuration at all — reload app.main fresh, with SENTRY_DSN
@@ -70,7 +113,29 @@ class TestScrubbing:
         scrubbed = monitoring.scrub_event(event, {})
         assert scrubbed["request"]["data"]["password"] == "[Scrubbed]"
         assert scrubbed["request"]["data"]["access_token"] == "[Scrubbed]"
-        assert scrubbed["request"]["data"]["email"] == "a@example.com"  # not sensitive by this policy
+        # Public-launch hardening prompt 6: emails are explicitly named
+        # alongside tokens/passwords — superseding operational-hardening
+        # prompt 5's original policy (which deliberately left email
+        # unscrubbed, on the reasoning that it's this app's own
+        # identifier rather than a secret). Redacted by pattern, not key
+        # name, since "email" here isn't even the key it's under.
+        assert scrubbed["request"]["data"]["email"] == "[redacted-email]"
+
+    def test_email_is_redacted_by_pattern_regardless_of_which_key_it_is_under(self):
+        event = {"request": {"data": {"message": "contact a@example.com for details"}}}
+        scrubbed = monitoring.scrub_event(event, {})
+        assert scrubbed["request"]["data"]["message"] == "contact [redacted-email] for details"
+
+    def test_nested_dict_values_are_scrubbed_recursively(self):
+        event = {"request": {"data": {"user": {"email": "nested@example.com", "id": 7}}}}
+        scrubbed = monitoring.scrub_event(event, {})
+        assert scrubbed["request"]["data"]["user"]["email"] == "[redacted-email]"
+        assert scrubbed["request"]["data"]["user"]["id"] == 7
+
+    def test_list_values_are_scrubbed(self):
+        event = {"extra": {"emails": ["a@example.com", "b@example.com"]}}
+        scrubbed = monitoring.scrub_event(event, {})
+        assert scrubbed["extra"]["emails"] == ["[redacted-email]", "[redacted-email]"]
 
     def test_medical_and_dietary_note_fields_are_scrubbed(self):
         event = {"request": {"data": {"note": "renal diet, low potassium", "category": "medical"}}}

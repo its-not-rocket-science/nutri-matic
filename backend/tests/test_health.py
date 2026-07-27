@@ -92,3 +92,34 @@ def test_readiness_when_alembic_version_table_missing(client, monkeypatch):
     monkeypatch.setattr(health_router, "alembic_head_and_current", lambda url: (None, "some_head"))
     res = client.get("/api/ready")
     assert res.status_code == 503
+
+
+def test_readiness_logs_a_slow_db_check(client, monkeypatch, caplog):
+    """Public-launch hardening prompt 6: database latency signal —
+    threshold monkeypatched down to 0 so the test doesn't need a real
+    slow database to trigger it."""
+    import logging
+
+    monkeypatch.setattr(health_router, "alembic_head_and_current", lambda url: ("abc123", "abc123"))
+    monkeypatch.setattr(health_router, "SLOW_READINESS_CHECK_THRESHOLD_MS", 0)
+
+    with caplog.at_level(logging.WARNING, logger="app.health"):
+        res = client.get("/api/ready")
+    assert res.status_code == 200
+    records = [r for r in caplog.records if r.message == "slow_readiness_db_check"]
+    assert len(records) == 1
+    assert hasattr(records[0], "duration_ms")
+    # ERROR, not WARNING: LoggingIntegration's event_level=ERROR is what
+    # actually turns this into a Sentry event rather than a breadcrumb.
+    assert records[0].levelno == logging.ERROR
+
+
+def test_readiness_does_not_log_when_db_check_is_fast(client, monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setattr(health_router, "alembic_head_and_current", lambda url: ("abc123", "abc123"))
+
+    with caplog.at_level(logging.WARNING, logger="app.health"):
+        res = client.get("/api/ready")
+    assert res.status_code == 200
+    assert [r for r in caplog.records if r.message == "slow_readiness_db_check"] == []
