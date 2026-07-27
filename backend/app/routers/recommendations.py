@@ -318,6 +318,7 @@ def get_ingredient_suggestions(
             for s in result.suggestions
         ],
         warnings=[w.value for w in eligibility.warnings],
+        no_suggestion_reason_code=result.no_suggestion_reason.value if result.no_suggestion_reason else None,
     )
 
 
