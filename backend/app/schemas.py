@@ -1177,6 +1177,13 @@ class IngredientSuggestionsOut(BaseModel):
     # valid — rather than guessing at a number that doesn't apply.
     disabled_reason: str | None = None
     disabled_reason_code: str | None = None
+    # Public-launch hardening prompt 4 item 6. Set only when suggestions
+    # is empty AND the engine wasn't disabled outright (disabled_reason_
+    # code covers that separate case) — recommend_ingredients.
+    # NoSuggestionReason's value: "no_shortfall" | "no_eligible_candidates"
+    # | "energy_limit" | "no_meaningful_improvement". "No safe or useful
+    # addition found" is a real, valid result; this is why, not a guess.
+    no_suggestion_reason_code: str | None = None
 
 
 class RecipeQualitySummaryOut(BaseModel):
