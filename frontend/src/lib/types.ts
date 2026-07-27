@@ -754,6 +754,10 @@ export interface IngredientSuggestions {
 	// is disabled outright for this profile — e.g. a child profile.
 	disabled_reason: string | null;
 	disabled_reason_code: string | null;
+	// set only when suggestions is empty and the engine wasn't disabled
+	// outright (disabled_reason_code covers that separate case) — see
+	// recommendationSafety.ts's noSuggestionReasonMessage.
+	no_suggestion_reason_code: string | null;
 }
 
 export interface RecipeSuggestion {

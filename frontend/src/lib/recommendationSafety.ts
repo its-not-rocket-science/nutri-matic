@@ -22,3 +22,21 @@ const WARNING_MESSAGES: Record<string, string> = {
 export function safetyWarningMessage(code: string): string {
 	return WARNING_MESSAGES[code] ?? code;
 }
+
+// Mirrors app/recommend_ingredients.py's NoSuggestionReason — public-
+// launch hardening prompt 4 item 6: "No safe or useful addition found"
+// is a real, valid result, but a bare version of that message with no
+// explanation is exactly the confusing dead end the prompt calls out.
+const NO_SUGGESTION_REASON_MESSAGES: Record<string, string> = {
+	no_shortfall: "Nothing tracked is currently below target for this — there's no gap to close.",
+	no_eligible_candidates:
+		'No practical, dietarily-suitable food in the catalogue stood out for this — try a different priority.',
+	energy_limit:
+		'Every food that would help was above the calorie limit set for this — try raising or removing it.',
+	no_meaningful_improvement:
+		"A few options were considered, but none would meaningfully move the needle — you're likely close to target already."
+};
+
+export function noSuggestionReasonMessage(code: string): string {
+	return NO_SUGGESTION_REASON_MESSAGES[code] ?? 'No safe or useful addition found for the current priorities.';
+}
