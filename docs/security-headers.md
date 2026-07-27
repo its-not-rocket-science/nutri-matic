@@ -116,17 +116,24 @@ Real, not inferred:
   `vite.config.ts`: SvelteKit's `CspDirectives` types each source as a
   template-literal pattern a dynamically computed origin string can't
   be statically narrowed to, documented inline at that cast).
-- **Still pending as of this commit**: verification against this PR's
-  actual Vercel preview deployment (the prompt's explicit instruction —
-  "test this against an actual preview deployment, not only in
-  theory"). Local `npm run dev`/`npm run preview` checks above stand in
-  for that until the PR itself is open and a real preview URL exists;
-  see the PR description for the specific preview URL checked and its
-  result before this is treated as merge-ready. The exact-hostname-
-  allowlist design (a per-deployment hostname never equals the literal
-  string in `REDIRECT_FROM_HOSTS`) is why no redirect is *expected*
-  there — this step confirms it, rather than trusting the design
-  argument alone.
+- **Confirmed against this PR's actual Vercel preview deployment**
+  (the prompt's explicit instruction — "test this against an actual
+  preview deployment, not only in theory"), found via the GitHub
+  Deployments API (never guessed): `https://nutri-matic-1ep5kfdd6-
+  pauls-projects-24d18deb.vercel.app/` returned a real `200` for `/`
+  (network-level status checked directly, not inferred from the
+  rendered page) and loaded the app normally — no redirect fired, per
+  the exact-hostname-allowlist design (a per-deployment hostname never
+  equals the literal string in `REDIRECT_FROM_HOSTS`). Header presence
+  wasn't independently re-verified on Vercel's infrastructure
+  specifically (the deployment-protection SSO wall on per-deployment
+  URLs makes an external `curl` check impossible without credentials
+  this session doesn't have, and injecting a same-origin `fetch()` to
+  read them from the browser was blocked as a cookie-adjacent
+  action) — `hooks.server.ts` is a plain SvelteKit hook with no
+  adapter-specific branching, so there's no mechanism by which it would
+  behave differently there than confirmed locally, but this is a
+  documented limit on what was directly checked versus inferred.
 
 ## robots.txt / sitemap.xml
 
