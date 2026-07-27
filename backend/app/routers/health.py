@@ -14,6 +14,9 @@ endpoint's failure modes (DB unreachable, schema behind head) are
 testable the normal way rather than needing to patch module-level
 globals."""
 
+import logging
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -22,6 +25,14 @@ from ..database import DATABASE_URL, get_db
 from ..monitoring import alembic_head_and_current
 
 router = APIRouter(prefix="/api", tags=["health"])
+_logger = logging.getLogger("app.health")
+
+# Public-launch hardening prompt 6 item 2 ("database connection
+# exhaustion/latency"). A plain `SELECT 1` taking this long is itself a
+# real signal something's wrong (pool exhaustion, a slow/overloaded
+# database) — an orchestrator polling /api/ready every few seconds gives
+# this a natural, cheap sampling cadence with no extra machinery needed.
+SLOW_READINESS_CHECK_THRESHOLD_MS = 500
 
 
 def get_database_url() -> str:
@@ -49,10 +60,18 @@ def readiness(db: Session = Depends(get_db), database_url: str = Depends(get_dat
     without it, a container could report healthy while every request
     that touches a table/column a pending migration was supposed to add
     fails with a real database error."""
+    started_at = time.monotonic()
     try:
         db.execute(text("SELECT 1"))
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"database unavailable: {type(exc).__name__}")
+    duration_ms = (time.monotonic() - started_at) * 1000
+    if duration_ms >= SLOW_READINESS_CHECK_THRESHOLD_MS:
+        # ERROR, not WARNING: init_monitoring()'s LoggingIntegration only
+        # turns ERROR+ into a Sentry event (WARNING is breadcrumb-only) —
+        # this signal needs to actually alert, not sit invisible until
+        # some unrelated exception happens to attach it as context.
+        _logger.error("slow_readiness_db_check", extra={"duration_ms": round(duration_ms, 1)})
 
     current, head = alembic_head_and_current(database_url)
     if current != head:

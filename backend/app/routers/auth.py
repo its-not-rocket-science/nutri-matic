@@ -12,6 +12,7 @@ from ..models import User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 _demo_logger = logging.getLogger("app.demo")
+_auth_logger = logging.getLogger("app.auth")
 
 
 @router.post("/register", response_model=schemas.TokenOut, status_code=201)
@@ -37,6 +38,17 @@ def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
     # generated once at bootstrap, same pattern as demo_data.py), but this
     # is a second, explicit layer rather than relying on secrecy alone.
     if user is None or user.is_system or not verify_password(body.password, user.password_hash):
+        # Public-launch hardening prompt 6: "authentication failures at
+        # an aggregate level" — a reason code only (never the email/
+        # password themselves, and monitoring.scrub_event redacts any
+        # email that somehow reached `extra=` regardless), so this is
+        # safe to log even with Sentry active. Logged at ERROR, not
+        # WARNING: `LoggingIntegration`'s `event_level=logging.ERROR`
+        # means a WARNING here would only ever be a breadcrumb, never an
+        # actual Sentry event/alert — Sentry groups identical events into
+        # one issue with a count, which is exactly the "aggregate level"
+        # signal this is meant to be.
+        _auth_logger.error("auth_login_failed", extra={"reason": "invalid_credentials"})
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     return schemas.TokenOut(access_token=create_access_token(user.id))
 

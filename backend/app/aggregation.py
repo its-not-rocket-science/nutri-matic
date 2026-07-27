@@ -29,6 +29,7 @@ feature unusable for the very common case of one ingredient lacking full
 micronutrient data.
 """
 
+import logging
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -38,6 +39,8 @@ from .data_quality import is_implausible
 from .models import Food, FoodNutrient, Recipe, RecipeIngredient
 from .reference_patterns import AMINO_ACIDS, DEFAULT_PATTERN
 from .scoring import IncompleteAminoAcidProfile, ScoreResult, UnknownReferencePattern, compute_diaas, compute_pdcaas
+
+_data_quality_logger = logging.getLogger("app.data_quality")
 
 
 @dataclass
@@ -343,14 +346,34 @@ def aggregate_nutrients(
     a source data error (see data_quality.py) would otherwise blow out
     the whole day's/recipe's total for that nutrient. The raw value is
     still visible on the food's own provenance page; it's just not
-    trustworthy as an input to a sum."""
+    trustworthy as an input to a sum.
+
+    Public-launch hardening prompt 6 item 2 ("data-quality quarantine/
+    outlier counts"): logs once per call (not once per skipped row —
+    this function runs in hot paths, once per candidate trial in
+    recommend_ingredients.py especially, so a per-row log here would
+    flood at real traffic volume) when at least one row was actually
+    excluded. Silent otherwise — this should be rare given the curated/
+    non-branded candidate pool upstream, so a nonzero rate here is
+    itself the signal worth alerting on, not routine noise. Logged at
+    ERROR, not WARNING: `LoggingIntegration`'s `event_level=logging.
+    ERROR` means only ERROR+ reaches Sentry as an actual event."""
     totals: dict[str, float] = {}
+    flagged_keys: set[str] = set()
+    flagged_count = 0
     for item in items:
         for fn in food_nutrients_by_food_id.get(item.food.id, []):
             if is_implausible(fn.nutrient_key, fn.amount_per_100g):
+                flagged_keys.add(fn.nutrient_key)
+                flagged_count += 1
                 continue
             contribution = fn.amount_per_100g * item.quantity_g / 100
             totals[fn.nutrient_key] = totals.get(fn.nutrient_key, 0.0) + contribution
+    if flagged_count:
+        _data_quality_logger.error(
+            "data_quality_flagged_in_aggregation",
+            extra={"nutrient_keys": sorted(flagged_keys), "row_count": flagged_count},
+        )
     if divide_by and divide_by != 1.0:
         totals = {k: v / divide_by for k, v in totals.items()}
     return totals
