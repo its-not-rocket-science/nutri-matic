@@ -39,11 +39,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
 	response.headers.set('X-Content-Type-Options', 'nosniff');
 	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-	// No feature this app uses needs any of these — deny by default
-	// rather than leaving them at the browser's own (permissive) default.
+	// camera=(self): BarcodeScanner.svelte (diary/meal-plan "Scan barcode")
+	// genuinely uses the camera via @zxing/browser's decodeFromVideoDevice
+	// — camera=() (deny everywhere, including same-origin) would silently
+	// break that real feature, caught by PR review rather than checked
+	// up front. Every other capability here has no real usage anywhere in
+	// this app (checked directly) — denied by default rather than left at
+	// the browser's own permissive default.
 	response.headers.set(
 		'Permissions-Policy',
-		'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+		'camera=(self), microphone=(), geolocation=(), payment=(), usb=()'
 	);
 	response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
 	return response;
