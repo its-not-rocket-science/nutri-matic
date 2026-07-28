@@ -29,6 +29,7 @@ services:
       # with its own secret (e.g. via an untracked .env file / host secret
       # manager), never reuse the value below outside local development.
       JWT_SECRET: "1596dfe31d13c3682f357d84658459591506c44c91bb23eb8e063d12087e4799"
+      CORS_ORIGINS: ${CORS_ORIGINS}
     ports:
       - "8000:8000"
     depends_on:
