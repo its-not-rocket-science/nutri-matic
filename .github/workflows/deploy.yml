@@ -109,12 +109,12 @@ jobs:
   deploy:
     needs: rehearse-migration
     runs-on: ubuntu-latest
-    # Configure this environment under Settings > Environments > production
+    # Configure this environment under Settings > Environments > Production
     # with "Required reviewers" set to yourself. The job will pause here and
     # wait for a manual approval click before proceeding — this is the human
     # gate that replaces you typing the deploy commands by hand.
     environment:
-      name: production
+      name: Production
     env:
       DEPLOY_SHA: ${{ needs.rehearse-migration.outputs.deploy_sha }}
     steps:
