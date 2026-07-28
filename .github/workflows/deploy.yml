@@ -109,12 +109,12 @@ jobs:
   deploy:
     needs: rehearse-migration
     runs-on: ubuntu-latest
-    # Configure this environment under Settings > Environments > Production
+    # Configure this environment under Settings > Environments > production
     # with "Required reviewers" set to yourself. The job will pause here and
     # wait for a manual approval click before proceeding — this is the human
     # gate that replaces you typing the deploy commands by hand.
     environment:
-      name: Production
+      name: production
     env:
       DEPLOY_SHA: ${{ needs.rehearse-migration.outputs.deploy_sha }}
     steps:
@@ -146,5 +146,17 @@ jobs:
 
       - name: Smoke test
         run: |
-          curl -sf https://api.nutri-matic.uk/api/health
-          curl -sf https://api.nutri-matic.uk/api/ready
+          for endpoint in health ready; do
+            for i in $(seq 1 12); do
+              if curl -sf "https://api.nutri-matic.uk/api/$endpoint" > /dev/null; then
+                echo "$endpoint OK (attempt $i)"
+                break
+              fi
+              if [ "$i" = 12 ]; then
+                echo "::error::$endpoint did not become healthy after 60s"
+                exit 1
+              fi
+              echo "$endpoint not ready yet, attempt $i, retrying in 5s..."
+              sleep 5
+            done
+          done
