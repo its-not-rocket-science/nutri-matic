@@ -14,6 +14,8 @@ jobs:
   rehearse-migration:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    outputs:
+      deploy_sha: ${{ steps.pin-sha.outputs.sha }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -27,7 +29,21 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+      # Pin the exact commit this run rehearses, so the deploy job later
+      # deploys THIS commit specifically — not whatever `main` has moved to
+      # by the time a human approves the deploy step.
+      - name: Determine commit to rehearse and deploy
+        id: pin-sha
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pin-sha.outputs.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -59,7 +75,7 @@ jobs:
       - name: Restore into the rehearsal database
         run: |
           export PGPASSWORD=rehearsal
-          pg_restore -h localhost -p 5432 -U postgres -d rehearsal --clean --if-exists rehearsal.dump
+          pg_restore -h localhost -p 5432 -U postgres -d rehearsal --clean --if-exists --no-owner --no-privileges rehearsal.dump
 
       - name: Verify schema before migrating
         working-directory: backend
@@ -99,8 +115,10 @@ jobs:
     # gate that replaces you typing the deploy commands by hand.
     environment:
       name: production
+    env:
+      DEPLOY_SHA: ${{ needs.rehearse-migration.outputs.deploy_sha }}
     steps:
-      - name: Deploy via SSH
+      - name: Deploy the exact rehearsed commit via SSH
         env:
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
           SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
@@ -108,16 +126,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" '
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" "
             set -e
             cd nutri-matic
             git fetch origin
-            git checkout main
-            git pull origin main
-            echo "Deploying commit: $(git rev-parse HEAD)"
+            git checkout $DEPLOY_SHA
+            echo 'Deploying commit: '\$(git rev-parse HEAD)
             docker compose build backend
             docker compose up -d backend
-          '
+          "
 
       - name: Verify migration reached head on the live server
         env:
