@@ -1,0 +1,133 @@
+name: Rehearse and Deploy Backend
+
+# Trigger: after your existing test/CI workflow succeeds on main.
+# Adjust `workflow_run` to match whatever your current CI workflow is named,
+# or switch to `push: branches: [main]` if this should run standalone.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch: {}   # allows manually re-running rehearsal/deploy on demand
+
+jobs:
+  rehearse-migration:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: rehearsal
+          POSTGRES_DB: rehearsal
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      # Secrets used here (add under Settings > Secrets and variables > Actions,
+      # scoped to this repo — NOT stored in this file):
+      #   PROD_SSH_KEY   — private key for a deploy-only user on the server,
+      #                    ideally restricted (see notes below) to running the
+      #                    pg_dump command and nothing else.
+      #   PROD_SSH_HOST  — e.g. root@138.199.160.26 (or a dedicated non-root user)
+      - name: Fetch a fresh production dump over SSH
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" \
+            "cd nutri-matic && docker compose exec -T postgres pg_dump -U nutrimatic -Fc nutrimatic" \
+            > rehearsal.dump
+
+      - name: Restore into the rehearsal database
+        run: |
+          export PGPASSWORD=rehearsal
+          pg_restore -h localhost -p 5432 -U postgres -d rehearsal --clean --if-exists rehearsal.dump
+
+      - name: Verify schema before migrating
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:rehearsal@localhost:5432/rehearsal
+        run: python -m app.verify_pre_alembic_schema
+
+      - name: Run alembic upgrade head
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:rehearsal@localhost:5432/rehearsal
+        run: |
+          python -m alembic current
+          python -m alembic upgrade head
+          python -m alembic current
+
+      - name: Confirm zero schema drift after migrating
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:rehearsal@localhost:5432/rehearsal
+        run: python check_schema_drift.py
+
+      - name: Rehearse downgrade and re-upgrade
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:rehearsal@localhost:5432/rehearsal
+        run: |
+          python -m alembic downgrade -1
+          python -m alembic upgrade head
+
+  deploy:
+    needs: rehearse-migration
+    runs-on: ubuntu-latest
+    # Configure this environment under Settings > Environments > production
+    # with "Required reviewers" set to yourself. The job will pause here and
+    # wait for a manual approval click before proceeding — this is the human
+    # gate that replaces you typing the deploy commands by hand.
+    environment:
+      name: production
+    steps:
+      - name: Deploy via SSH
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" '
+            set -e
+            cd nutri-matic
+            git fetch origin
+            git checkout main
+            git pull origin main
+            echo "Deploying commit: $(git rev-parse HEAD)"
+            docker compose build backend
+            docker compose up -d backend
+          '
+
+      - name: Verify migration reached head on the live server
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" \
+            "cd nutri-matic && docker compose exec -T backend alembic current"
+
+      - name: Smoke test
+        run: |
+          curl -sf https://api.nutri-matic.uk/api/health
+          curl -sf https://api.nutri-matic.uk/api/ready
