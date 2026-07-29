@@ -368,6 +368,27 @@ def test_search_recipes_by_name_ranks_own_ahead_of_public(db):
     assert [r.name for r in results] == ["Chicken Soup", "Chicken Stew"]
 
 
+def test_search_recipes_by_name_exact_public_match_survives_pool_truncation(db):
+    """PR review finding (P2): the public-tier candidate pool is capped at
+    limit*5 before ranking. Without exact/prefix-aware SQL ordering on that
+    cap, an exact match sorting late alphabetically among a flood of other
+    substring matches could be discarded before the real relevance ranking
+    ever saw it — i.e. the endpoint wouldn't reliably search the full
+    catalogue after all. Here `limit=1` makes the pool cap tiny (5) while
+    "Soup" (an exact match) sorts alphabetically after 5 "Aaa ... soup ..."
+    names, so it would be dropped by a plain `ORDER BY Recipe.name` cap."""
+    user = User(id=1, email="a@example.com", password_hash="x")
+    stock_owner = User(id=2, email="stock@system.local", password_hash="x", is_system=True)
+    db.add_all([user, stock_owner])
+    for i in range(5):
+        db.add(Recipe(id=i + 1, user_id=2, name=f"Aaa {i} soup", servings=2, is_public=True))
+    db.add(Recipe(id=6, user_id=2, name="Soup", servings=2, is_public=True))
+    db.commit()
+
+    results = search_recipes_by_name(db, user_id=1, query="soup", limit=1)
+    assert [r.name for r in results] == ["Soup"]
+
+
 def test_search_recipes_by_name_short_query_returns_empty(db):
     user = User(id=1, email="a@example.com", password_hash="x")
     db.add(user)

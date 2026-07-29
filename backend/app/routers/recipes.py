@@ -248,6 +248,7 @@ def recipe_search_by_name(
     q: str,
     limit: int = 20,
     current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
     db: Session = Depends(get_db),
 ):
     """Name autocomplete for the recipe picker (logging a diary/meal-plan
@@ -256,12 +257,21 @@ def recipe_search_by_name(
     catalogue, ranked own/shared first (see search_recipes_by_name's
     docstring for why). Prompt 1.1: the box previously called `GET
     /api/recipes` (own recipes only) and filtered client-side, so it never
-    found a stock recipe no matter what was typed."""
+    found a stock recipe no matter what was typed.
+
+    Runs the same filter_excluded_recipes hard-exclusion pass POST /search
+    already applies — without it, a caller with e.g. a peanut allergy could
+    have an excluded public/shared recipe surfaced and logged straight from
+    autocomplete."""
     shared_recipe_ids = {
         row[0]
         for row in db.query(RecipeShare.recipe_id).filter(RecipeShare.shared_with_user_id == current_user.id).all()
     }
-    results = search_recipes_by_name(db, current_user.id, q, limit=limit)
+    # Over-fetch before filtering, then truncate to `limit` afterward — the
+    # exclusion filter can otherwise shrink a full page below `limit` even
+    # when more eligible matches exist further down the ranking.
+    results = search_recipes_by_name(db, current_user.id, q, limit=limit * 3)
+    results = filter_excluded_recipes(results, db, profile)[:limit]
     recipe_ids = [r.id for r in results]
     rating_rows = (
         db.query(RecipeRating.recipe_id, func.avg(RecipeRating.rating), func.count(RecipeRating.id))

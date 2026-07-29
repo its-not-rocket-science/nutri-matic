@@ -203,7 +203,12 @@ def search_recipes_by_name(db: Session, user_id: int, query: str, limit: int = 2
     normally only a handful of either), so a real match there is never
     truncated away by an unrelated flood of public candidates; only the
     public tier is capped before ranking, same as search_foods_by_name caps
-    its branded-food-dominated candidate pool."""
+    its branded-food-dominated candidate pool. That cap is ordered
+    exact-match-first, then prefix-match-first, then alphabetically (not
+    plain alphabetical) — a public catalogue large enough to exceed the cap
+    could otherwise let an exact/near-exact match get discarded before the
+    real relevance ranking below ever sees it, just because its name sorts
+    late alphabetically among the other substring matches."""
     query = query.strip()
     if len(query) < 2:
         return []
@@ -219,10 +224,12 @@ def search_recipes_by_name(db: Session, user_id: int, query: str, limit: int = 2
     own_or_shared_filter = or_(Recipe.user_id == user_id, Recipe.id.in_(shared_recipe_ids))
     own_or_shared = db.query(Recipe).filter(own_or_shared_filter, name_conditions).all()
 
+    exact_match = case((Recipe.name.ilike(query), 0), else_=1)
+    prefix_match = case((Recipe.name.ilike(f"{query}%"), 0), else_=1)
     public_candidates = (
         db.query(Recipe)
         .filter(Recipe.is_public.is_(True), Recipe.user_id != user_id, name_conditions)
-        .order_by(Recipe.name)
+        .order_by(exact_match, prefix_match, Recipe.name)
         .limit(limit * 5)
         .all()
     )
