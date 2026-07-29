@@ -28,7 +28,17 @@ describe('trendBarValueLabel (prompt 4.1 — always show the raw amount)', () =>
 
 	it('falls back to the raw amount, not a placeholder string, when the percentage is withheld', () => {
 		const nutrient = makeNutrient({ avg_percent_drv: null });
-		expect(trendBarValueLabel(nutrient)).toBe('8.2mcg');
+		expect(trendBarValueLabel(nutrient)).toBe('8.21mcg');
+	});
+
+	it('uses whole numbers for amounts >= 10, matching NutrientBars', () => {
+		const nutrient = makeNutrient({ avg_percent_drv: null, avg_amount: 234.7 });
+		expect(trendBarValueLabel(nutrient)).toBe('235mcg');
+	});
+
+	it('never rounds a small-but-real amount down to an indistinguishable-from-zero "0.0"', () => {
+		const nutrient = makeNutrient({ avg_percent_drv: null, avg_amount: 0.04, unit: 'mg' });
+		expect(trendBarValueLabel(nutrient)).toBe('0.04mg');
 	});
 });
 
