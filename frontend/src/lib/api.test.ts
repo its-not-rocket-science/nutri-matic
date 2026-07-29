@@ -58,6 +58,35 @@ describe('api.listPublicRecipes (public-launch hardening prompt 7)', () => {
 	});
 });
 
+describe('api.searchRecipesByName (prompt 1.1 — search the full recipe catalogue, not just the caller\'s own)', () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: true, status: 200, json: async () => [] }))
+		);
+	});
+
+	it('hits the search-by-name endpoint, not GET /api/recipes', async () => {
+		await api.searchRecipesByName('chickpea');
+		const url = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+		expect(url).toContain('/api/recipes/search-by-name');
+		expect(url).toContain('q=chickpea');
+		expect(url).toContain('limit=15');
+	});
+
+	it('passes through an explicit limit', async () => {
+		await api.searchRecipesByName('lentil', 5);
+		const url = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+		expect(url).toContain('limit=5');
+	});
+
+	it('url-encodes the query', async () => {
+		await api.searchRecipesByName('mac & cheese');
+		const url = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+		expect(url).toContain(`q=${encodeURIComponent('mac & cheese')}`);
+	});
+});
+
 describe('api.getIngredientSuggestions', () => {
 	beforeEach(() => {
 		vi.stubGlobal(
