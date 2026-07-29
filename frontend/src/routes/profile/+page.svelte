@@ -25,7 +25,19 @@
 	let weightKg: number | null = $state(null);
 	let heightCm: number | null = $state(null);
 	let dietaryPattern: string | null = $state(null);
-	let goal: Goal | null = $state(null);
+	// Ordered by priority (index 0 = most important) — prompt 2.1. Toggling
+	// a checkbox appends to the end (newly picked = lowest priority so far)
+	// or removes; there's no separate reorder UI yet, so re-checking a
+	// goal after unchecking it moves it to the back of the line again.
+	let goals: Goal[] = $state([]);
+
+	function toggleGoal(g: Goal, checked: boolean) {
+		if (checked) {
+			if (!goals.includes(g)) goals = [...goals, g];
+		} else {
+			goals = goals.filter((x) => x !== g);
+		}
+	}
 	let error: string | null = $state(null);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -80,7 +92,7 @@
 		weightKg = profile.weight_kg;
 		heightCm = profile.height_cm;
 		dietaryPattern = profile.dietary_pattern;
-		goal = profile.goal as Goal | null;
+		goals = profile.goals as Goal[];
 	}
 
 	async function loadConstraints(profileId: number) {
@@ -155,7 +167,7 @@
 				weight_kg: weightKg,
 				height_cm: heightCm,
 				dietary_pattern: dietaryPattern,
-				goal
+				goals
 			};
 			const updated = await api.updateProfile(selectedId, body);
 			profiles = profiles.map((p) => (p.id === updated.id ? updated : p));
@@ -184,7 +196,7 @@
 				weight_kg: null,
 				height_cm: null,
 				dietary_pattern: null,
-				goal: null
+				goals: []
 			});
 			profiles = [...profiles, created];
 			activeProfile.setProfiles(profiles);
@@ -441,15 +453,27 @@
 				all five are needed for that; anything missing just means no calorie target shows up.
 			</p>
 
-			<div class="field">
-				<label for="goal">Main goal</label>
-				<select id="goal" bind:value={goal}>
-					<option value={null}>Not set</option>
-					{#each GOAL_OPTIONS as g (g.value)}
-						<option value={g.value}>{g.label}</option>
-					{/each}
-				</select>
-			</div>
+			<fieldset class="field goals-field">
+				<legend>Goals</legend>
+				<p class="muted">
+					Pick as many as apply — check order sets priority (first checked matters most when goals
+					pull in different directions).
+				</p>
+				{#each GOAL_OPTIONS as g (g.value)}
+					{@const rank = goals.indexOf(g.value)}
+					<label class="goal-checkbox">
+						<input
+							type="checkbox"
+							checked={goals.includes(g.value)}
+							onchange={(e) => toggleGoal(g.value, e.currentTarget.checked)}
+						/>
+						{g.label}
+						{#if rank !== -1}
+							<span class="muted">(priority {rank + 1})</span>
+						{/if}
+					</label>
+				{/each}
+			</fieldset>
 
 			{#if vocabulary}
 				<div class="field">
@@ -647,6 +671,21 @@
 	.profile-switcher {
 		max-width: 40rem;
 		margin-bottom: var(--space-5);
+	}
+	.goals-field {
+		border: none;
+		padding: 0;
+		margin: 0 0 var(--space-4);
+	}
+	.goals-field legend {
+		font-weight: 600;
+		padding: 0;
+	}
+	.goal-checkbox {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
 	}
 	.profile-pills {
 		display: flex;

@@ -351,8 +351,13 @@ class ProfileOut(BaseModel):
     height_cm: float | None = None
     dietary_pattern: str | None = None
     # onboarding's step-1 pick — null if never set (skipped onboarding, or a
-    # pre-this-feature account)
+    # pre-this-feature account). Kept as a read-only mirror of `goals[0]`
+    # (prompt 2.1) for any caller still reading the single-value field.
     goal: str | None = None
+    # prompt 2.1: a profile's full active goal set, highest priority
+    # (most important) first. `goal` above always equals `goals[0]` (or
+    # null if empty) — never a separate, driftable value.
+    goals: list[str] = []
 
 
 class ProfileCreate(BaseModel):
@@ -365,7 +370,12 @@ class ProfileCreate(BaseModel):
     weight_kg: float | None = None
     height_cm: float | None = None
     dietary_pattern: str | None = None
+    # legacy single-goal field — still honored (treated as goals=[goal])
+    # when `goals` isn't given, so an old client keeps working unchanged.
     goal: str | None = None
+    # prompt 2.1: preferred field going forward — an ordered list, highest
+    # priority first. Wins over `goal` if both are given.
+    goals: list[str] | None = None
 
 
 class EntitlementsOut(BaseModel):
@@ -385,6 +395,7 @@ class ProfileUpdate(BaseModel):
     height_cm: float | None = None
     dietary_pattern: str | None = None
     goal: str | None = None
+    goals: list[str] | None = None
 
 
 class DietaryConstraintCreate(BaseModel):
