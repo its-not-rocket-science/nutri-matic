@@ -74,6 +74,12 @@
 	let loadingShoppingList = $state(false);
 
 	let planOptimization: PlanOptimization | null = $state(null);
+	// Distinguishes "never run yet" (both false/null) from "ran and the API
+	// legitimately returned null" — GET /api/meal-plan/optimize returns null
+	// for two different reasons (no entries in range, or entries exist but
+	// no worthwhile gap to target) and gives no feedback either way if the
+	// UI doesn't tell them apart itself.
+	let optimizeRan = $state(false);
 	let optimizingPlan = $state(false);
 	let optimizeBudget: number | null = $state(null);
 	let applyingPlanSuggestionKey: string | null = $state(null);
@@ -164,6 +170,7 @@
 		optimizingPlan = true;
 		try {
 			planOptimization = await api.getPlanOptimization(weekDates[0], weekDates[6], optimizeBudget);
+			optimizeRan = true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -688,6 +695,14 @@
 						</li>
 					{/each}
 				</ul>
+			{/if}
+		{:else if optimizeRan}
+			{#if entries.length === 0}
+				<p class="muted">Add some meals to this week's plan first.</p>
+			{:else}
+				<p class="muted">
+					This week's plan already covers your nutrient targets well — no changes suggested.
+				</p>
 			{/if}
 		{/if}
 	</section>
