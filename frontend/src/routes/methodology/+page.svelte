@@ -299,6 +299,60 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 	</p>
 </section>
 
+<section id="goals">
+	<h2>Goals and nutrient-priority weighting</h2>
+	<p>
+		A profile can hold several goals at once, ranked by priority (the order you picked them in
+		the profile page). Where a goal actually changes something, each active goal contributes
+		independently, combined as a <strong>priority-weighted sum</strong>: your first-picked goal
+		gets full weight, your second gets half, your third a third, and so on. A lower-ranked goal
+		still nudges things, it just doesn't dominate over one you picked first.
+	</p>
+	<p>
+		<strong>Longevity</strong>, <strong>athletic stamina/endurance</strong>,
+		<strong>athletic strength</strong>, and <strong>athletic power</strong> each give extra
+		weight to a specific set of nutrients when gap-suggestions or meal-optimize pick which
+		nutrient to target — a modest boost (30%), deliberately small enough that a genuinely severe
+		gap in an unrelated nutrient still wins. Framed as "aligned with research on X", never a
+		promise about an individual outcome this app has no way to verify:
+	</p>
+	<ul>
+		<li>
+			<strong>Longevity:</strong> protein, fibre, EPA/DHA (omega-3), magnesium, potassium —
+			nutrients repeatedly associated with healthy-aging and cardiometabolic outcomes in
+			epidemiological literature (e.g. higher protein intake for sarcopenia prevention in older
+			adults; omega-3 intake and cardiovascular mortality).
+		</li>
+		<li>
+			<strong>Athletic stamina/endurance:</strong> iron, sodium, potassium — endurance
+			training's well-documented depletion risks (foot-strike haemolysis, sweat electrolyte
+			loss).
+		</li>
+		<li>
+			<strong>Athletic strength:</strong> protein, calcium, magnesium, zinc — muscle protein
+			synthesis, bone loading, and muscle-contraction function.
+		</li>
+		<li>
+			<strong>Athletic power:</strong> protein, phosphorus, zinc — phosphorus specifically for
+			the fast ATP/phosphocreatine energy system explosive, short-duration effort draws on,
+			distinct from strength training's more sustained contractions.
+		</li>
+	</ul>
+	<p>
+		<strong>Reduce carbon footprint</strong> is selectable but honestly doesn't change any
+		recommendation yet. USDA FoodData Central (this app's only data source) doesn't publish
+		per-food greenhouse-gas or land-use figures, and there's no supplementary emissions dataset
+		joined against the catalogue. Wiring this goal into candidate ranking is flagged as
+		follow-up work rather than forced in at low confidence now.
+	</p>
+	<p class="muted">
+		Not implemented, for the same honesty reasons: a blood-sugar-stability goal (would need
+		glycaemic-index/load data FDC doesn't publish for most foods) and a broader
+		recovery/anti-inflammatory goal beyond the omega-3 signal already covered under longevity
+		(would need polyphenol/antioxidant data FDC doesn't track at all).
+	</p>
+</section>
+
 <section id="food-chemistry">
 	<h2>Sodium:potassium ratio, leucine threshold, protein distribution, absorbed protein</h2>
 	<p>
@@ -359,6 +413,7 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 	<h2>What this app doesn't do</h2>
 	<ul>
 		<li>No phytate, tannin, oxalate, or polyphenol data — real inhibitors of mineral absorption that FDC simply doesn't track.</li>
+		<li>No per-food carbon-footprint/emissions data — the "reduce carbon footprint" goal is selectable but doesn't change recommendations yet; see the Goals section above.</li>
 		<li>Branded/packaged foods can't be scored for protein quality — nutrition labels don't publish amino acid profiles.</li>
 		<li>"Estimated" digestibility and iron-split values are broad category averages, not measurements of the specific food in front of you.</li>
 		<li>DRV confidence varies a lot by nutrient — some increments are confirmed against a live source, others are commonly-cited figures recalled from secondary sources. Hover any nutrient for its specific note.</li>
