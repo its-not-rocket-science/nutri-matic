@@ -105,6 +105,15 @@
 	async function loadWeek() {
 		loading = true;
 		error = null;
+		// Any previous "Optimize this plan" result is about the week/entries
+		// as they stood before this load — stale once the visible week
+		// changes or entries are added/removed, so it's cleared here rather
+		// than left showing a conclusion that was never computed for the
+		// data now on screen. handleApplyPlanSuggestion re-fetches a fresh
+		// result immediately after calling loadWeek(), so this doesn't
+		// affect that path.
+		planOptimization = null;
+		optimizeRan = false;
 		try {
 			entries = await api.listMealPlanEntries(weekDates[0], weekDates[6]);
 		} catch (e) {
@@ -701,7 +710,9 @@
 				<p class="muted">Add some meals to this week's plan first.</p>
 			{:else}
 				<p class="muted">
-					This week's plan already covers your nutrient targets well — no changes suggested.
+					No nutrient gap could be computed for this week's plan — either your targets are
+					already well covered, or there isn't enough nutrient data logged to tell. No changes
+					suggested.
 				</p>
 			{/if}
 		{/if}
