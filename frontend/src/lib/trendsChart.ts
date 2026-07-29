@@ -8,7 +8,13 @@ import type { TrendNutrient } from './types';
 // list.
 export function trendBarValueLabel(nutrient: TrendNutrient): string {
 	if (nutrient.avg_percent_drv !== null) return `${Math.round(nutrient.avg_percent_drv)}%`;
-	return `${nutrient.avg_amount.toFixed(1)}${nutrient.unit}`;
+	// Magnitude-aware precision, matching NutrientBars.svelte's amount
+	// formatting — a flat 1-decimal format would round a small-but-real
+	// reading (e.g. 0.04mg thiamin) down to "0.0", indistinguishable from
+	// an actual zero and defeating the point of showing the raw amount at
+	// all in this withheld-%DRV fallback path.
+	const amount = nutrient.avg_amount < 10 ? nutrient.avg_amount.toFixed(2) : nutrient.avg_amount.toFixed(0);
+	return `${amount}${nutrient.unit}`;
 }
 
 export function trendBarCaveat(nutrient: TrendNutrient): string | null {
