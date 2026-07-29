@@ -9,6 +9,11 @@
 	let results: RecipeSearchResult[] = $state([]);
 	let searching = $state(false);
 	let debounceHandle: ReturnType<typeof setTimeout> | undefined;
+	// Bumped on every new search kicked off; a response only gets applied if
+	// it's still the most recent one requested — otherwise a slower response
+	// for an older query could land after a faster one for the current query
+	// and silently replace the results the user is actually looking at.
+	let requestId = 0;
 
 	function handleInput() {
 		clearTimeout(debounceHandle);
@@ -16,16 +21,19 @@
 		if (q.length < 2) {
 			results = [];
 			searching = false;
+			requestId += 1;
 			return;
 		}
 		searching = true;
+		const thisRequestId = ++requestId;
 		debounceHandle = setTimeout(async () => {
 			try {
-				results = await api.searchRecipesByName(q);
+				const found = await api.searchRecipesByName(q);
+				if (thisRequestId === requestId) results = found;
 			} catch {
-				results = [];
+				if (thisRequestId === requestId) results = [];
 			} finally {
-				searching = false;
+				if (thisRequestId === requestId) searching = false;
 			}
 		}, 250);
 	}
