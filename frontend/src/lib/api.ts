@@ -48,6 +48,7 @@ import type {
 	RecipeComment,
 	RecipeCreate,
 	RecipeRatingSummary,
+	RecipeSearchResult,
 	RecipeShare,
 	RecipeSuggestions,
 	RecipeUpdate,
@@ -232,6 +233,8 @@ export const api = {
 	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),
 	listPublicRecipes: (limit = 24, offset = 0) =>
 		request<PaginatedRecipes>(`/api/recipes/public?limit=${limit}&offset=${offset}`),
+	searchRecipesByName: (q: string, limit = 15) =>
+		request<RecipeSearchResult[]>(`/api/recipes/search-by-name?q=${encodeURIComponent(q)}&limit=${limit}`),
 	listMyTags: () => request<string[]>('/api/recipes/tags'),
 	addTag: (recipeId: number, tag: string) =>
 		request<Recipe>(`/api/recipes/${recipeId}/tags`, { method: 'POST', body: JSON.stringify({ tag }) }),

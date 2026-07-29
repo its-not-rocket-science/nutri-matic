@@ -32,7 +32,7 @@ from ..recipe_access import get_owned_recipe as _get_owned_recipe
 from ..recipe_access import get_visible_recipe as _get_visible_recipe
 from ..recipe_access import is_shared_with as _is_shared_with
 from ..scoring import UnknownReferencePattern
-from ..search import NutrientFilter, UnknownFilterKey, search_recipes
+from ..search import NutrientFilter, UnknownFilterKey, search_recipes, search_recipes_by_name
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
@@ -241,6 +241,52 @@ def _public_recipe_summaries(recipes: list[Recipe], db: Session) -> list[schemas
             )
         )
     return summaries
+
+
+@router.get("/search-by-name", response_model=list[schemas.RecipeSearchResultOut])
+def recipe_search_by_name(
+    q: str,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Name autocomplete for the recipe picker (logging a diary/meal-plan
+    entry, or the meal-plan/diary "Search recipes" box) — searches the
+    user's own recipes, recipes shared with them, and the public/stock
+    catalogue, ranked own/shared first (see search_recipes_by_name's
+    docstring for why). Prompt 1.1: the box previously called `GET
+    /api/recipes` (own recipes only) and filtered client-side, so it never
+    found a stock recipe no matter what was typed."""
+    shared_recipe_ids = {
+        row[0]
+        for row in db.query(RecipeShare.recipe_id).filter(RecipeShare.shared_with_user_id == current_user.id).all()
+    }
+    results = search_recipes_by_name(db, current_user.id, q, limit=limit)
+    recipe_ids = [r.id for r in results]
+    rating_rows = (
+        db.query(RecipeRating.recipe_id, func.avg(RecipeRating.rating), func.count(RecipeRating.id))
+        .filter(RecipeRating.recipe_id.in_(recipe_ids))
+        .group_by(RecipeRating.recipe_id)
+        .all()
+    )
+    ratings_by_recipe_id = {recipe_id: (avg, count) for recipe_id, avg, count in rating_rows}
+    owner_ids = {r.user_id for r in results}
+    is_system_by_user_id = {
+        u.id: u.is_system for u in db.query(User.id, User.is_system).filter(User.id.in_(owner_ids)).all()
+    }
+    out = []
+    for r in results:
+        avg_rating, rating_count = ratings_by_recipe_id.get(r.id, (None, 0))
+        out.append(
+            schemas.RecipeSearchResultOut(
+                id=r.id, name=r.name, servings=r.servings,
+                average_rating=avg_rating, rating_count=rating_count,
+                is_stock=is_system_by_user_id.get(r.user_id, False),
+                is_owner=r.user_id == current_user.id,
+                is_shared=r.id in shared_recipe_ids,
+            )
+        )
+    return out
 
 
 @router.post("/search", response_model=list[schemas.RecipeOut])
