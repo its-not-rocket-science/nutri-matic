@@ -33,6 +33,8 @@ from ..entitlements import (
     effective_plan,
 )
 from ..food_chemistry import compute_meal_protein_distribution, estimate_sodium_potassium, leucine_threshold_for_age
+from ..goal_nutrient_priorities import nutrient_priority_multipliers
+from ..goals import goal_keys_of
 from ..methodology import DRV_METHODOLOGY_VERSION, SCORING_METHODOLOGY_VERSION
 from ..models import DiaryEntry, DiarySnapshot, Food, FoodNutrient, Profile, Recipe, RecipeIngredient, RecipeShare, User
 from ..recipe_access import is_recipe_visible
@@ -499,15 +501,27 @@ def get_snapshot(
     )
 
 
-def _find_worst_gap(nutrients_out: list[schemas.NutrientAmountOut]) -> schemas.NutrientAmountOut | None:
+def _find_worst_gap(
+    nutrients_out: list[schemas.NutrientAmountOut], goal_keys: list[str] | None = None,
+) -> schemas.NutrientAmountOut | None:
     """The single lowest-%DRV nutrient for a day, excluding energy — a
     calorie target isn't a "gap" in the same sense. Shared by
     /gap-suggestions and /meal-optimize so they always agree on what
-    "the" gap is."""
+    "the" gap is.
+
+    `goal_keys` (prompt 2.2 — a profile's active goals, from
+    goals.goal_keys_of) lets goals like "longevity" or "athletic_strength"
+    nudge which nutrient counts as "the" gap: candidates are ranked by
+    percent_drv divided by a goal-derived multiplier (see
+    goal_nutrient_priorities.py), so an emphasized nutrient effectively
+    looks more urgent — a real behavioural difference between goals,
+    not just a cosmetic label, while a genuinely severe unrelated gap can
+    still win (the boost is modest by design)."""
     candidates = [n for n in nutrients_out if n.percent_drv is not None and n.key != "energy"]
     if not candidates:
         return None
-    return min(candidates, key=lambda n: n.percent_drv)
+    multipliers = nutrient_priority_multipliers(goal_keys or [])
+    return min(candidates, key=lambda n: n.percent_drv / multipliers.get(n.key, 1.0))
 
 
 def _rank_foods_by_nutrient(
@@ -619,7 +633,7 @@ def get_gap_suggestions(
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
     gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, profile, db)
-    worst = _find_worst_gap(gaps.nutrients_out)
+    worst = _find_worst_gap(gaps.nutrients_out, goal_keys_of(profile))
     if worst is None:
         return None
 
@@ -667,7 +681,7 @@ def get_meal_optimization(
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
     gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, profile, db)
-    worst = _find_worst_gap(gaps.nutrients_out)
+    worst = _find_worst_gap(gaps.nutrients_out, goal_keys_of(profile))
     if worst is None:
         return None
 
