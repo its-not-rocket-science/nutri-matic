@@ -443,6 +443,18 @@ class DietaryPatternOut(BaseModel):
     excludes: list[str]
 
 
+class ConditionOut(BaseModel):
+    key: str
+    label: str
+    # a dietary_tags.TAGS key this condition should exclude/downweight the
+    # same way an allergy tag does, or null for an informational-only
+    # condition with no defensible food-exclusion list (see
+    # dietary_tags.CONDITIONS' docstring)
+    maps_to_tag: str | None
+    # "hard_exclude" | "avoid" | null (null only when maps_to_tag is null)
+    default_severity: str | None
+
+
 class DietaryVocabularyOut(BaseModel):
     """The full controlled vocabulary (dietary_tags.py), so the frontend
     never hardcodes tag keys/labels — a new tag added there shows up here
@@ -451,6 +463,8 @@ class DietaryVocabularyOut(BaseModel):
     allergen_tags: list[DietaryTagOut]
     religious_requirements: list[DietaryPatternOut]
     dietary_patterns: list[DietaryPatternOut]
+    # prompt 3.1
+    conditions: list[ConditionOut]
 
 
 class RecipeIngredientCreate(BaseModel):
