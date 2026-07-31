@@ -542,10 +542,11 @@ def _rank_foods_by_nutrient(
 
 def _rank_recipes_by_nutrient(
     db: Session, nutrient_key: str, limit: int, current_user: User, profile: Profile
-) -> list[tuple[Recipe, list[WeightedFood]]]:
+) -> list[tuple[Recipe, list[WeightedFood], float]]:
     """Real recipes (the user's own, shared with them, or public) carrying
     the most of a given nutrient per serving, paired with their ingredients
-    already expanded to 1 serving — the "add a whole recipe" counterpart to
+    already expanded to 1 serving, and the real simulated one-serving
+    amount itself — the "add a whole recipe" counterpart to
     _rank_foods_by_nutrient's "add one food". Ranked the same way: actually
     simulated per-serving nutrient totals, not an estimate. Recipe
     visibility (own/shared/public) is account-level; dietary filtering is
@@ -593,7 +594,7 @@ def _rank_recipes_by_nutrient(
         ranked.append((recipe, items, amount))
 
     ranked.sort(key=lambda t: t[2], reverse=True)
-    return [(recipe, items) for recipe, items, _amount in ranked[:limit]]
+    return ranked[:limit]
 
 
 @router.get("/gap-suggestions", response_model=schemas.GapSuggestionOut | None)
@@ -693,7 +694,7 @@ def get_meal_optimization(
     already_logged_recipe_ids = {e.recipe_id for e in meal_recipe_entries}
     recipe_gap_candidates = [
         (recipe, items)
-        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
+        for recipe, items, _amount in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
         if recipe.id not in already_logged_recipe_ids
     ]
 
