@@ -571,6 +571,23 @@ class RecipeSummaryOut(BaseModel):
     is_stock: bool = False
 
 
+class RecipeSearchResultOut(BaseModel):
+    """Result row for GET /api/recipes/search-by-name — same lightweight
+    shape as RecipeSummaryOut (the picker doesn't render ingredients/tags),
+    plus is_owner/is_shared so the frontend can label where a match came
+    from (own catalogue, shared with you, or the public/stock catalogue)."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    servings: float
+    average_rating: float | None
+    rating_count: int
+    is_stock: bool = False
+    is_owner: bool
+    is_shared: bool
+
+
 class PaginatedRecipesOut(BaseModel):
     items: list[RecipeSummaryOut]
     total: int
