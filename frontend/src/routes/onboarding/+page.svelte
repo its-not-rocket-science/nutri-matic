@@ -344,6 +344,8 @@
 				<p class="muted">Calibrating…</p>
 			{:else if optimizationError}
 				<p class="error">{optimizationError}</p>
+			{:else if optimization?.disabled_reason}
+				<p class="disabled-notice">{optimization.disabled_reason}</p>
 			{:else if optimization && optimization.suggestions.length > 0}
 				{@const top = optimization.suggestions[0]}
 				<h3>+{top.improvement.toFixed(1)}pp <span class="muted">{optimization.target_nutrient_name}</span></h3>
@@ -374,6 +376,10 @@
 	.onboarding {
 		max-width: 34rem;
 		margin: 0 auto;
+	}
+	.disabled-notice {
+		margin: 0;
+		color: var(--color-warning);
 	}
 	.progress-track {
 		height: 0.35rem;
