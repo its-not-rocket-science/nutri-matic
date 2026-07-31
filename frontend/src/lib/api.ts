@@ -38,7 +38,7 @@ import type {
 	MealPlanTemplate,
 	MealPlanTemplateDetail,
 	NutrientAmount,
-	NutrientSource,
+	NutrientSources,
 	PaginatedRecipes,
 	PlanOptimization,
 	Profile,
@@ -422,7 +422,7 @@ export const api = {
 
 	getFilterKeys: () => request<FilterKeysResponse>('/api/search/keys'),
 	getNutrientSources: (nutrientKey: string, limit = 10) =>
-		request<NutrientSource[]>(
+		request<NutrientSources>(
 			withProfile(`/api/search/nutrient-sources?nutrient_key=${encodeURIComponent(nutrientKey)}&limit=${limit}`)
 		),
 	searchFoods: (req: SearchRequest) =>

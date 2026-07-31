@@ -1052,8 +1052,19 @@ class NutrientSourceOut(BaseModel):
     unit: str
     # "100g" for a food (its raw per-100g content); "serving" for a
     # recipe (its real ingredient list simulated at 1 serving) — never
-    # the same number, so the caller must not compare the two directly
+    # the same number, so foods and recipes are ranked in separate lists
+    # (see NutrientSourcesOut), not merged into one sorted-by-amount list
     per: Literal["100g", "serving"]
+    # same "avoid"/"unknown" display-only badge food/recipe search already
+    # show (see dietary_filter.py) — an item retained past filter_excluded_
+    # foods/recipes (a soft "avoid" constraint, not a hard exclusion) must
+    # not render identically to a genuinely unconstrained result here either
+    dietary_status: DietaryStatusOut | None = None
+
+
+class NutrientSourcesOut(BaseModel):
+    foods: list[NutrientSourceOut]
+    recipes: list[NutrientSourceOut]
 
 
 class SavedFilterPresetCreate(BaseModel):

@@ -95,11 +95,11 @@ def test_ranks_curated_foods_by_amount(seeded):
     res = client.get("/api/search/nutrient-sources?nutrient_key=iron", headers=auth_headers(token))
     assert res.status_code == 200
     body = res.json()
-    names = [s["name"] for s in body]
+    names = [s["name"] for s in body["foods"]]
     assert names.index("Spinach, raw") < names.index("Broccoli, raw")
-    assert body[0]["kind"] == "food"
-    assert body[0]["per"] == "100g"
-    assert body[0]["unit"] == "mg"
+    assert body["foods"][0]["kind"] == "food"
+    assert body["foods"][0]["per"] == "100g"
+    assert body["foods"][0]["unit"] == "mg"
 
 
 def test_excludes_branded_foods(seeded):
@@ -111,7 +111,7 @@ def test_excludes_branded_foods(seeded):
 
     token = register_and_token(client, "a@example.com")
     res = client.get("/api/search/nutrient-sources?nutrient_key=iron", headers=auth_headers(token))
-    names = [s["name"] for s in res.json()]
+    names = [s["name"] for s in res.json()["foods"]]
     assert "Generic Brand Iron Blend 9000" not in names
 
 
@@ -126,7 +126,7 @@ def test_excludes_impractical_foods(seeded):
 
     token = register_and_token(client, "a@example.com")
     res = client.get("/api/search/nutrient-sources?nutrient_key=iron", headers=auth_headers(token))
-    names = [s["name"] for s in res.json()]
+    names = [s["name"] for s in res.json()["foods"]]
     assert "Baking powder, double acting" not in names
 
 
@@ -140,9 +140,35 @@ def test_respects_dietary_exclusions(seeded):
     token = register_and_token(client, "a@example.com")
     set_dietary_pattern(client, token, "vegan")
     res = client.get("/api/search/nutrient-sources?nutrient_key=iron", headers=auth_headers(token))
-    names = [s["name"] for s in res.json()]
+    names = [s["name"] for s in res.json()["foods"]]
     assert "Chicken breast" not in names
     assert "Spinach, raw" in names
+
+
+def test_avoid_severity_constraint_is_retained_but_flagged(seeded):
+    """filter_excluded_foods only ever drops a hard exclusion — an "avoid"-
+    severity preference is deliberately retained (dietary_filter.py's own
+    distinction), same as existing food/recipe search. It must still carry
+    a dietary_status here rather than rendering identically to a fully
+    unconstrained result."""
+    client, seed = seeded
+    seed([(1, "Almonds", 3.0, None)])  # curated; "almond" matches the tree_nut tag
+
+    token = register_and_token(client, "a@example.com")
+    profiles = client.get("/api/profiles", headers=auth_headers(token)).json()
+    owner = next(p for p in profiles if p["is_account_owner"])
+    res = client.post(
+        f"/api/profiles/{owner['id']}/dietary-constraints",
+        json={"category": "preference", "tag": "tree_nut", "severity": "avoid"},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 201
+
+    res = client.get("/api/search/nutrient-sources?nutrient_key=iron", headers=auth_headers(token))
+    body = res.json()
+    almonds = next(s for s in body["foods"] if s["name"] == "Almonds")
+    assert almonds["dietary_status"] is not None
+    assert almonds["dietary_status"]["status"] == "avoid"
 
 
 def test_includes_recipes(seeded):
@@ -158,7 +184,7 @@ def test_includes_recipes(seeded):
 
     res = client.get("/api/search/nutrient-sources?nutrient_key=iron", headers=auth_headers(token))
     body = res.json()
-    recipe_result = next((s for s in body if s["kind"] == "recipe"), None)
+    recipe_result = next((s for s in body["recipes"] if s["kind"] == "recipe"), None)
     assert recipe_result is not None
     assert recipe_result["recipe_id"] == recipe["id"]
     assert recipe_result["per"] == "serving"
@@ -177,4 +203,4 @@ def test_limit_is_respected(seeded):
     token = register_and_token(client, "a@example.com")
     res = client.get("/api/search/nutrient-sources?nutrient_key=iron&limit=2", headers=auth_headers(token))
     assert res.status_code == 200
-    assert len(res.json()) == 2
+    assert len(res.json()["foods"]) == 2
