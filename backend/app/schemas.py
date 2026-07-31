@@ -1043,6 +1043,19 @@ class FilterKeyOut(BaseModel):
 Scope = Literal["food", "recipe"]
 
 
+class NutrientSourceOut(BaseModel):
+    kind: Scope
+    food_id: int | None
+    recipe_id: int | None
+    name: str
+    amount: float
+    unit: str
+    # "100g" for a food (its raw per-100g content); "serving" for a
+    # recipe (its real ingredient list simulated at 1 serving) — never
+    # the same number, so the caller must not compare the two directly
+    per: Literal["100g", "serving"]
+
+
 class SavedFilterPresetCreate(BaseModel):
     name: str
     scope: Scope
