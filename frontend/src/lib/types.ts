@@ -667,11 +667,16 @@ export interface FoodNutrientRank {
 }
 
 export interface GapSuggestion {
-	nutrient_key: string;
-	nutrient_name: string;
-	unit: string;
-	percent_drv: number;
+	// all four null together only when disabled_reason is set (prompt 3.2
+	// — an unacknowledged medical dietary constraint disables this the
+	// same way it already disables /api/recommendations/*)
+	nutrient_key: string | null;
+	nutrient_name: string | null;
+	unit: string | null;
+	percent_drv: number | null;
 	foods: FoodNutrientRank[];
+	disabled_reason: string | null;
+	disabled_reason_code: string | null;
 }
 
 export interface OptimizationSuggestion {
@@ -696,17 +701,23 @@ export interface OptimizationSuggestion {
 
 export interface MealOptimization {
 	meal: Meal;
-	target_nutrient_key: string;
-	target_nutrient_name: string;
+	// null together only when disabled_reason is set (prompt 3.2)
+	target_nutrient_key: string | null;
+	target_nutrient_name: string | null;
 	suggestions: OptimizationSuggestion[];
+	disabled_reason: string | null;
+	disabled_reason_code: string | null;
 }
 
 export interface PlanOptimization {
 	start_date: string;
 	end_date: string;
-	target_nutrient_key: string;
-	target_nutrient_name: string;
+	// null together only when disabled_reason is set (prompt 3.2)
+	target_nutrient_key: string | null;
+	target_nutrient_name: string | null;
 	suggestions: OptimizationSuggestion[];
+	disabled_reason: string | null;
+	disabled_reason_code: string | null;
 }
 
 // --- nutrient-gap recommendations (prompts 6-10) ------------------------

@@ -566,7 +566,9 @@
 						<p class="muted">No worthwhile improvements found for this meal.</p>
 					{:else}
 						{@const opt = mealOptimizations[m]}
-						{#if opt && opt.suggestions.length > 0}
+						{#if opt?.disabled_reason}
+							<p class="disabled-notice">{opt.disabled_reason}</p>
+						{:else if opt && opt.suggestions.length > 0}
 							<div class="optimize-suggestions">
 								<p class="muted">Targeting: {opt.target_nutrient_name} (lowest %DRV in this day)</p>
 								<ul class="entries">
@@ -772,11 +774,15 @@
 
 	<NutrientBars nutrients={summary.nutrients} per="per day" absorbedIronMg={totalAbsorbedIronMg} />
 
-	{#if gapSuggestion}
+	{#if gapSuggestion?.disabled_reason}
+		<section class="gap-suggestion">
+			<p class="disabled-notice">{gapSuggestion.disabled_reason}</p>
+		</section>
+	{:else if gapSuggestion}
 		<section class="gap-suggestion">
 			<h3>
 				Today's biggest gap: {gapSuggestion.nutrient_name}
-				<span class="muted">({gapSuggestion.percent_drv.toFixed(0)}% of target)</span>
+				<span class="muted">({(gapSuggestion.percent_drv ?? 0).toFixed(0)}% of target)</span>
 			</h3>
 			<ul class="entries">
 				{#each gapSuggestion.foods as f (f.food_id)}
@@ -986,6 +992,10 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	.disabled-notice {
+		margin: 0;
+		color: var(--color-warning);
 	}
 	.iron-meal {
 		display: flex;

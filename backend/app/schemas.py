@@ -790,11 +790,18 @@ class FoodNutrientRankOut(BaseModel):
 
 
 class GapSuggestionOut(BaseModel):
-    nutrient_key: str
-    nutrient_name: str
-    unit: str
-    percent_drv: float
-    foods: list[FoodNutrientRankOut]
+    # all four are null together, only when disabled_reason is set (prompt
+    # 3.2 — this profile has an unacknowledged medical dietary constraint,
+    # the same guardrail routers/recommendations.py already enforces, see
+    # recommendation_safety.assess_eligibility) — never a real answer
+    # dressed up alongside a disabled response.
+    nutrient_key: str | None = None
+    nutrient_name: str | None = None
+    unit: str | None = None
+    percent_drv: float | None = None
+    foods: list[FoodNutrientRankOut] = []
+    disabled_reason: str | None = None
+    disabled_reason_code: str | None = None
 
 
 class OptimizationSuggestionOut(BaseModel):
@@ -821,9 +828,13 @@ class OptimizationSuggestionOut(BaseModel):
 
 class MealOptimizationOut(BaseModel):
     meal: Meal
-    target_nutrient_key: str
-    target_nutrient_name: str
-    suggestions: list[OptimizationSuggestionOut]
+    # null together only when disabled_reason is set (prompt 3.2 — see
+    # GapSuggestionOut's identical convention)
+    target_nutrient_key: str | None = None
+    target_nutrient_name: str | None = None
+    suggestions: list[OptimizationSuggestionOut] = []
+    disabled_reason: str | None = None
+    disabled_reason_code: str | None = None
 
 
 class PlanOptimizationOut(BaseModel):
@@ -833,9 +844,13 @@ class PlanOptimizationOut(BaseModel):
 
     start_date: date
     end_date: date
-    target_nutrient_key: str
-    target_nutrient_name: str
-    suggestions: list[OptimizationSuggestionOut]
+    # null together only when disabled_reason is set (prompt 3.2 — see
+    # GapSuggestionOut's identical convention)
+    target_nutrient_key: str | None = None
+    target_nutrient_name: str | None = None
+    suggestions: list[OptimizationSuggestionOut] = []
+    disabled_reason: str | None = None
+    disabled_reason_code: str | None = None
 
 
 class MealPlanEntryCreate(BaseModel):
