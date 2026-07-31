@@ -32,6 +32,7 @@ from app.models import (
     MealPlanTemplateEntry,
     MedicalRecommendationAcknowledgement,
     Profile,
+    ProfileGoal,
     Recipe,
     RecipeComment,
     RecipeIngredient,
@@ -351,6 +352,27 @@ def test_purge_clears_medical_recommendation_acknowledgements_before_profile(db)
     assert db.query(MedicalRecommendationAcknowledgement).filter(
         MedicalRecommendationAcknowledgement.profile_id == profile_id
     ).count() == 0
+    assert db.query(Profile).filter(Profile.id == profile_id).one_or_none() is None
+
+
+def test_purge_clears_profile_goals_before_profile(db):
+    """profile_goals.profile_id is a non-cascading FK like every other
+    table in this schema (prompt 2.1) — deleting a profile with at least
+    one selected goal would otherwise fail its FK constraint and abort
+    the batch, same class of gap as medical_recommendation_acknowledgements
+    above. Caught by automated PR review, not written correctly the first
+    time."""
+    demo = make_demo_user(db, expired=True)
+    profile = Profile(user_id=demo.id, name="Me", is_account_owner=True)
+    db.add(profile)
+    db.flush()
+    db.add(ProfileGoal(profile_id=profile.id, goal="budget", priority=1))
+    db.commit()
+    profile_id = profile.id
+
+    report = purge_expired_demo_accounts(db, dry_run=False)
+    assert report.total_users == 1
+    assert db.query(ProfileGoal).filter(ProfileGoal.profile_id == profile_id).count() == 0
     assert db.query(Profile).filter(Profile.id == profile_id).one_or_none() is None
 
 

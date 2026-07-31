@@ -138,6 +138,20 @@ export interface NutrientAmount {
 	insufficient_data_reason: string | null;
 }
 
+/** Prompt 5.1 — one of a recipe's most significant nutrient shortfalls,
+ * one serving vs. a typical daily target. Built from the same canonical
+ * gap-analysis service /api/recommendations/*'s "Improve this recipe"
+ * uses (see backend nutrient_gap_analysis.py). */
+export interface RecipeNutrientGap {
+	key: string;
+	name: string;
+	unit: string;
+	status: 'below_target' | 'near_target';
+	consumed_amount: number | null;
+	percent_shortfall: number | null;
+	absolute_shortfall: number | null;
+}
+
 /** Account-level fields only — bio/dietary/goal fields live on Profile
  * (an account can have more than one, see the household-profiles feature). */
 export interface User {
@@ -245,10 +259,21 @@ export interface DietaryPattern {
 	excludes: string[];
 }
 
+// prompt 3.1 — a curated shortcut onto the same DietaryConstraint
+// mechanism an allergy/intolerance entry already uses (see backend
+// dietary_tags.CONDITIONS' docstring).
+export interface Condition {
+	key: string;
+	label: string;
+	maps_to_tag: string | null;
+	default_severity: DietarySeverity | null;
+}
+
 export interface DietaryVocabulary {
 	allergen_tags: DietaryTag[];
 	religious_requirements: DietaryPattern[];
 	dietary_patterns: DietaryPattern[];
+	conditions: Condition[];
 }
 
 export interface WeightLog {
@@ -326,6 +351,21 @@ export interface RecipeSummary {
 	average_rating: number | null;
 	rating_count: number;
 	is_stock: boolean;
+}
+
+// GET /api/recipes/search-by-name result row — same shape as RecipeSummary
+// plus is_owner/is_shared, so the recipe-picker search box (meal-plan,
+// diary) can label where a match came from. See backend/app/schemas.py's
+// RecipeSearchResultOut.
+export interface RecipeSearchResult {
+	id: number;
+	name: string;
+	servings: number;
+	average_rating: number | null;
+	rating_count: number;
+	is_stock: boolean;
+	is_owner: boolean;
+	is_shared: boolean;
 }
 
 export interface PaginatedRecipes {
@@ -869,6 +909,22 @@ export interface FilterKey {
 	key: string;
 	label: string;
 	unit: string | null;
+}
+
+export interface NutrientSource {
+	kind: 'food' | 'recipe';
+	food_id: number | null;
+	recipe_id: number | null;
+	name: string;
+	amount: number;
+	unit: string;
+	per: '100g' | 'serving';
+	dietary_status?: DietaryStatus | null;
+}
+
+export interface NutrientSources {
+	foods: NutrientSource[];
+	recipes: NutrientSource[];
 }
 
 export interface NutrientFilterInput {

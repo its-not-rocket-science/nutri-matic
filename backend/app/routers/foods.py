@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..auth import get_optional_owned_profile
-from ..complement import suggest_complements
+from ..aggregation import WeightedFood
+from ..complement import PAIRING_QUANTITY_G, suggest_complements
 from ..data_quality import implausibility_reason
 from ..database import get_db
 from ..dietary_filter import filter_excluded_foods, foods_dietary_status
@@ -195,7 +196,9 @@ def complement_food(
         raise HTTPException(status_code=404, detail="Food not found")
 
     result = _compute_score(food, method, pattern)
-    suggestions = suggest_complements(food, result, method, pattern, db, profile=profile)
+    suggestions = suggest_complements(
+        [WeightedFood(food, PAIRING_QUANTITY_G)], result, method, pattern, db, profile=profile,
+    )
 
     return schemas.ComplementOut(
         original_score=result.score,
