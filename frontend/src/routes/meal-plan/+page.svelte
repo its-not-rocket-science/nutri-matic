@@ -7,6 +7,7 @@
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import ImproveThis from '$lib/components/ImproveThis.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
+	import RecipeSearchInput from '$lib/components/RecipeSearchInput.svelte';
 	import { downloadCsv } from '$lib/csv';
 	import { formatCurrency } from '$lib/currency';
 	import type {
@@ -17,7 +18,7 @@
 		MealPlanTemplate,
 		OptimizationSuggestion,
 		PlanOptimization,
-		Recipe,
+		RecipeSearchResult,
 		RecipeSuggestion,
 		ShoppingList,
 		SubstitutionSuggestion
@@ -50,14 +51,12 @@
 	});
 
 	let entries: MealPlanEntry[] = $state([]);
-	let allRecipes: Recipe[] = $state([]);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
 	let itemType: 'food' | 'recipe' = $state('food');
-	let search = $state('');
 	let selectedFood: Food | null = $state(null);
-	let selectedRecipe: Recipe | null = $state(null);
+	let selectedRecipe: RecipeSearchResult | null = $state(null);
 	let quantity = $state<number | null>(100);
 	// svelte(state_referenced_locally): intentional — this seeds the initial
 	// value only; shiftWeek() below explicitly re-syncs planDate whenever
@@ -74,6 +73,12 @@
 	let loadingShoppingList = $state(false);
 
 	let planOptimization: PlanOptimization | null = $state(null);
+	// Distinguishes "never run yet" (both false/null) from "ran and the API
+	// legitimately returned null" — GET /api/meal-plan/optimize returns null
+	// for two different reasons (no entries in range, or entries exist but
+	// no worthwhile gap to target) and gives no feedback either way if the
+	// UI doesn't tell them apart itself.
+	let optimizeRan = $state(false);
 	let optimizingPlan = $state(false);
 	let optimizeBudget: number | null = $state(null);
 	let applyingPlanSuggestionKey: string | null = $state(null);
@@ -90,15 +95,18 @@
 		return toIsoDate(d);
 	}
 
-	const searchResults = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (q.length < 2) return [];
-		return allRecipes.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
-	});
-
 	async function loadWeek() {
 		loading = true;
 		error = null;
+		// Any previous "Optimize this plan" result is about the week/entries
+		// as they stood before this load — stale once the visible week
+		// changes or entries are added/removed, so it's cleared here rather
+		// than left showing a conclusion that was never computed for the
+		// data now on screen. handleApplyPlanSuggestion re-fetches a fresh
+		// result immediately after calling loadWeek(), so this doesn't
+		// affect that path.
+		planOptimization = null;
+		optimizeRan = false;
 		try {
 			entries = await api.listMealPlanEntries(weekDates[0], weekDates[6]);
 		} catch (e) {
@@ -133,11 +141,6 @@
 			await goto('/login');
 			return;
 		}
-		try {
-			allRecipes = await api.listRecipes();
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-		}
 		await Promise.all([loadWeek(), loadTemplates()]);
 	});
 
@@ -147,11 +150,6 @@
 		weekStart = d;
 		planDate = weekDates[0];
 		loadWeek();
-	}
-
-	function selectItem(item: Recipe) {
-		selectedRecipe = item;
-		search = '';
 	}
 
 	async function toggleShoppingList() {
@@ -164,6 +162,7 @@
 		optimizingPlan = true;
 		try {
 			planOptimization = await api.getPlanOptimization(weekDates[0], weekDates[6], optimizeBudget);
+			optimizeRan = true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -488,7 +487,6 @@
 			<select
 				bind:value={itemType}
 				onchange={() => {
-					search = '';
 					selectedFood = null;
 					selectedRecipe = null;
 				}}
@@ -518,17 +516,7 @@
 		{:else if itemType === 'food'}
 			<FoodSearchInput onSelect={(food) => (selectedFood = food)} label="Search foods" />
 		{:else}
-			<label>
-				Search recipes
-				<input type="text" bind:value={search} placeholder="Search…" />
-			</label>
-			{#if searchResults.length > 0}
-				<ul class="search-results">
-					{#each searchResults as item (item.id)}
-						<li><button type="button" onclick={() => selectItem(item)}>{item.name}</button></li>
-					{/each}
-				</ul>
-			{/if}
+			<RecipeSearchInput onSelect={(recipe) => (selectedRecipe = recipe)} label="Search recipes" />
 		{/if}
 
 		<label>
@@ -689,6 +677,16 @@
 					{/each}
 				</ul>
 			{/if}
+		{:else if optimizeRan}
+			{#if entries.length === 0}
+				<p class="muted">Add some meals to this week's plan first.</p>
+			{:else}
+				<p class="muted">
+					No nutrient gap could be computed for this week's plan — either your targets are
+					already well covered, or there isn't enough nutrient data logged to tell. No changes
+					suggested.
+				</p>
+			{/if}
 		{/if}
 	</section>
 {/if}
@@ -792,17 +790,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-	}
-	.search-results {
-		list-style: none;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-	.search-results button {
-		width: 100%;
-		text-align: left;
 	}
 	.template-save {
 		display: flex;
