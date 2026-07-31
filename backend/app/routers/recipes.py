@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..aggregation import WeightedFood, aggregate_nutrients, compute_protein_quality_with_coverage, scale_recipe_ingredients
 from ..auth import get_current_user, get_owned_profile
+from ..complement import suggest_complements
 from ..database import get_db
 from ..dietary_filter import filter_excluded_recipes, recipes_dietary_status
 from ..energy_goal import calculate_energy_target
@@ -23,15 +24,17 @@ from ..models import (
     User,
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
-from ..nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps, coverage_for_nutrient
+from ..nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps, coverage_for_nutrient, worst_gap
 from ..nutrient_targets import AnalysisPeriod, NutrientTarget, resolve_nutrient_target
 from ..nutrients import NUTRIENTS, resolve_drv
+from ..optimizer import suggest_meal_optimizations
 from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
 from ..reference_patterns import DEFAULT_PATTERN
 from ..recipe_access import get_owned_recipe as _get_owned_recipe
 from ..recipe_access import get_visible_recipe as _get_visible_recipe
 from ..recipe_access import is_shared_with as _is_shared_with
+from .diary import _rank_foods_by_nutrient
 from ..scoring import UnknownReferencePattern
 from ..search import NutrientFilter, UnknownFilterKey, search_recipes
 
@@ -424,6 +427,59 @@ def score_recipe(
     )
 
 
+@router.get("/{recipe_id}/complement", response_model=schemas.ComplementOut)
+def complement_recipe(
+    recipe_id: int,
+    method: str = "diaas",
+    pattern: str = DEFAULT_PATTERN,
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Prompt 5.2: complementary ingredients that would raise this
+    recipe's own DIAAS/PDCAAS score if added — reuses complement.
+    suggest_complements, the exact same engine GET /api/foods/{id}/
+    complement already uses for a single food, generalized to a whole
+    recipe's own scoreable ingredient mix (quality.usable_items — the
+    same subset score_recipe above scores) rather than a new
+    protein-complementation implementation."""
+    if method not in ("diaas", "pdcaas"):
+        raise HTTPException(status_code=422, detail="method must be 'diaas' or 'pdcaas'")
+
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
+    try:
+        quality = compute_protein_quality_with_coverage(_weighted_foods(recipe, db), method, pattern)
+    except UnknownReferencePattern as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    if quality.score is None:
+        detail = (
+            f"Recipe has insufficient ingredient coverage to calculate {method.upper()} "
+            f"(only {quality.coverage_fraction:.0%} of protein-contributing ingredients have "
+            "amino acid data)"
+            if quality.total_protein_g > 0
+            else f"Recipe has no protein-contributing ingredients with amino acid data for {method.upper()}"
+        )
+        raise HTTPException(status_code=422, detail=detail)
+
+    suggestions = suggest_complements(quality.usable_items, quality.score, method, pattern, db, profile=profile)
+
+    return schemas.ComplementOut(
+        original_score=quality.score.score,
+        limiting_amino_acid=quality.score.limiting_amino_acid,
+        suggestions=[
+            schemas.ComplementSuggestionOut(
+                food_id=s.food.id,
+                food_name=s.food.name,
+                combined_score=s.combined_score,
+                score_improvement=s.score_improvement,
+            )
+            for s in suggestions
+        ],
+        methodology_version=SCORING_METHODOLOGY_VERSION,
+    )
+
+
 @router.get("/{recipe_id}/nutrients", response_model=list[schemas.NutrientAmountOut])
 def recipe_nutrients(
     recipe_id: int,
@@ -549,6 +605,81 @@ def recipe_nutrient_gaps(
             absolute_shortfall=g.absolute_shortfall,
         )
         for g in shortfalls[:limit]
+    ]
+
+
+@router.get("/{recipe_id}/ingredient-swaps", response_model=list[schemas.OptimizationSuggestionOut])
+def recipe_ingredient_swaps(
+    recipe_id: int,
+    limit: int = Query(3, ge=1, le=10),
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Prompt 5.2: same-family swaps within this recipe's own ingredients
+    that would reduce its biggest nutrient shortfall — reuses optimizer.
+    suggest_meal_optimizations's existing "swap" scoring (the same engine
+    GET /api/diary/meal-optimize and GET /api/meal-plan/optimize already
+    use for a logged meal's directly-added foods) against this recipe's
+    own ingredient list instead of a diary/meal-plan entry's, rather than
+    a new scoring implementation. Candidate foods come from
+    routers/diary.py's _rank_foods_by_nutrient — the same candidate pool
+    gap-suggestions/meal-optimize/plan-optimize already draw from (not
+    the separately-hardened recommend_ingredients.py pool; see prompt
+    6.1 for applying that same practicality fix here as follow-up work).
+
+    Only "swap" suggestions are returned — "add" suggestions are the
+    existing "Improve this recipe" panel's job (see ImproveThis on the
+    recipe detail page), not duplicated here."""
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
+    ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe_id).all()
+    if not ingredients:
+        return []
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([i.food_id for i in ingredients])).all()}
+    items = scale_recipe_ingredients(ingredients, recipe.servings, 1.0, foods_by_id)
+
+    food_ids = [item.food.id for item in items]
+    rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(food_ids)).all()
+    nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+    for row in rows:
+        nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+
+    totals = aggregate_nutrients(items, nutrients_by_food_id)
+    target_by_key: dict[str, NutrientTarget] = {}
+    for key in NUTRIENTS:
+        target = resolve_nutrient_target(key, profile, AnalysisPeriod.MEAL)
+        if target is not None:
+            target_by_key[key] = target
+
+    gaps = analyse_nutrient_gaps(items, nutrients_by_food_id, totals, target_by_key)
+    worst = worst_gap(gaps)
+    if worst is None or worst.target.preferred_target is None:
+        return []
+
+    already_in_recipe = {item.food.id for item in items}
+    gap_candidates = [
+        food for food, _amount in _rank_foods_by_nutrient(db, worst.key, 8, profile)
+        if food.id not in already_in_recipe
+    ]
+    if not gap_candidates:
+        return []
+
+    suggestions = suggest_meal_optimizations(
+        db, [], items, nutrients_by_food_id, worst.key, worst.target.preferred_target,
+        gap_candidates, limit=limit * 3, target_nutrient_name=worst.name,
+    )
+    swaps = [s for s in suggestions if s.action == "swap"][:limit]
+
+    return [
+        schemas.OptimizationSuggestionOut(
+            action=s.action, food_id=s.food_id, food_name=s.food_name, quantity_g=s.quantity_g,
+            replaces_food_id=s.replaces_food_id, replaces_food_name=s.replaces_food_name,
+            before_percent_drv=s.before_percent_drv, after_percent_drv=s.after_percent_drv,
+            improvement=s.improvement, calories_added=s.calories_added,
+            improvement_per_100kcal=s.improvement_per_100kcal, estimated_cost=s.estimated_cost,
+            rationale=s.rationale,
+        )
+        for s in swaps
     ]
 
 

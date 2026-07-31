@@ -119,6 +119,7 @@ def test_complement_skips_zero_protein_candidate():
     """A candidate with zero protein contributes nothing to the combined
     amino acid mixture — suggest_complements must skip it (aggregation
     would otherwise divide by zero total protein)."""
+    from app.aggregation import WeightedFood
     from app.complement import suggest_complements
     from app.scoring import compute_diaas
 
@@ -138,7 +139,7 @@ def test_complement_skips_zero_protein_candidate():
     db.commit()
 
     original_score = compute_diaas(grain.amino_acids, grain.digestibility_diaas, "child_3y_adult")
-    suggestions = suggest_complements(grain, original_score, "diaas", "child_3y_adult", db)
+    suggestions = suggest_complements([WeightedFood(grain, 100.0)], original_score, "diaas", "child_3y_adult", db)
     assert suggestions == []
 
 
@@ -147,6 +148,7 @@ def test_complement_skips_candidate_with_incomplete_amino_acid_profile():
     amino acid entirely can't be scored once combined — compute_diaas
     raises IncompleteAminoAcidProfile, which suggest_complements must
     catch and skip rather than propagate."""
+    from app.aggregation import WeightedFood
     from app.complement import suggest_complements
     from app.scoring import compute_diaas
 
@@ -168,5 +170,5 @@ def test_complement_skips_candidate_with_incomplete_amino_acid_profile():
     db.commit()
 
     original_score = compute_diaas(grain.amino_acids, grain.digestibility_diaas, "child_3y_adult")
-    suggestions = suggest_complements(grain, original_score, "diaas", "child_3y_adult", db)
+    suggestions = suggest_complements([WeightedFood(grain, 100.0)], original_score, "diaas", "child_3y_adult", db)
     assert suggestions == []
