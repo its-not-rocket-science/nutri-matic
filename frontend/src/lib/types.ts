@@ -166,8 +166,11 @@ export interface Profile {
 	weight_kg: number | null;
 	height_cm: number | null;
 	dietary_pattern: string | null;
-	/** onboarding's step-1 pick — null if never set */
+	/** onboarding's step-1 pick — null if never set. Mirrors goals[0]
+	 * (prompt 2.1); kept for any code still reading the single-value field. */
 	goal: string | null;
+	/** prompt 2.1: the profile's full active goal set, highest priority first. */
+	goals: string[];
 }
 
 export interface ProfileCreate {
@@ -180,7 +183,10 @@ export interface ProfileCreate {
 	weight_kg: number | null;
 	height_cm: number | null;
 	dietary_pattern: string | null;
+	/** legacy single-goal field — ignored if `goals` is also given */
 	goal?: string | null;
+	/** preferred field — an ordered list, highest priority first */
+	goals?: string[] | null;
 }
 
 export interface ProfileUpdate {
@@ -194,6 +200,7 @@ export interface ProfileUpdate {
 	height_cm: number | null;
 	dietary_pattern: string | null;
 	goal?: string | null;
+	goals?: string[] | null;
 }
 
 export type DietaryConstraintCategory = 'allergy' | 'intolerance' | 'religious' | 'medical' | 'preference';
@@ -330,6 +337,21 @@ export interface RecipeSummary {
 	average_rating: number | null;
 	rating_count: number;
 	is_stock: boolean;
+}
+
+// GET /api/recipes/search-by-name result row — same shape as RecipeSummary
+// plus is_owner/is_shared, so the recipe-picker search box (meal-plan,
+// diary) can label where a match came from. See backend/app/schemas.py's
+// RecipeSearchResultOut.
+export interface RecipeSearchResult {
+	id: number;
+	name: string;
+	servings: number;
+	average_rating: number | null;
+	rating_count: number;
+	is_stock: boolean;
+	is_owner: boolean;
+	is_shared: boolean;
 }
 
 export interface PaginatedRecipes {
@@ -873,6 +895,22 @@ export interface FilterKey {
 	key: string;
 	label: string;
 	unit: string | null;
+}
+
+export interface NutrientSource {
+	kind: 'food' | 'recipe';
+	food_id: number | null;
+	recipe_id: number | null;
+	name: string;
+	amount: number;
+	unit: string;
+	per: '100g' | 'serving';
+	dietary_status?: DietaryStatus | null;
+}
+
+export interface NutrientSources {
+	foods: NutrientSource[];
+	recipes: NutrientSource[];
 }
 
 export interface NutrientFilterInput {

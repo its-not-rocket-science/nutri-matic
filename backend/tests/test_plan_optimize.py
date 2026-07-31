@@ -31,7 +31,13 @@ def client():
     rice_white = Food(id=1, name="Rice, white, cooked", protein_g_per_100g=3, amino_acids=dict.fromkeys(AMINO_ACIDS, None))
     rice_brown = Food(id=2, name="Rice, brown, cooked", protein_g_per_100g=3, amino_acids=dict.fromkeys(AMINO_ACIDS, None))
     spinach = Food(id=3, name="Spinach, raw", protein_g_per_100g=3, amino_acids=dict.fromkeys(AMINO_ACIDS, None))
-    db.add_all([rice_white, rice_brown, spinach])
+    # No FoodNutrient rows at all — aggregate_nutrients only ever populates
+    # a key from an actual FoodNutrient row (protein_g_per_100g isn't one of
+    # its inputs), so a plan built only from this food produces an empty
+    # nutrients_out and _find_worst_gap has no candidate to return. Used by
+    # test_plan_optimize_none_when_entries_exist_but_no_computable_gap.
+    no_data_food = Food(id=4, name="Undocumented food", protein_g_per_100g=5.0, amino_acids=dict.fromkeys(AMINO_ACIDS, None))
+    db.add_all([rice_white, rice_brown, spinach, no_data_food])
     db.flush()
     db.add_all(
         [
@@ -85,6 +91,27 @@ def test_plan_optimize_returns_ranked_suggestions_across_the_week(client):
 
 def test_plan_optimize_none_when_no_entries(client):
     token = register_and_token(client, "a@example.com")
+    res = client.get(
+        "/api/meal-plan/optimize?start_date=2026-07-13&end_date=2026-07-19", headers=auth_headers(token)
+    )
+    assert res.status_code == 200
+    assert res.json() is None
+
+
+def test_plan_optimize_none_when_entries_exist_but_no_computable_gap(client):
+    """Prompt 1.2: GET /api/meal-plan/optimize returns None for two
+    genuinely different reasons — no entries in range (see
+    test_plan_optimize_none_when_no_entries), or entries exist but there's
+    no computable gap to target. Both are correct, by-design responses;
+    this pins down the second one specifically so the frontend fix that
+    tells them apart doesn't silently start conflating them again."""
+    token = register_and_token(client, "a@example.com")
+    client.post(
+        "/api/meal-plan",
+        json={"plan_date": "2026-07-13", "meal": "lunch", "food_id": 4, "quantity_g": 100},
+        headers=auth_headers(token),
+    )
+
     res = client.get(
         "/api/meal-plan/optimize?start_date=2026-07-13&end_date=2026-07-19", headers=auth_headers(token)
     )
