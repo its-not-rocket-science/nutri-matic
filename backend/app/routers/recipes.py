@@ -3,7 +3,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import schemas
-from ..aggregation import WeightedFood, aggregate_nutrients, compute_protein_quality_with_coverage
+from ..aggregation import WeightedFood, aggregate_nutrients, compute_protein_quality_with_coverage, scale_recipe_ingredients
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
 from ..dietary_filter import filter_excluded_recipes, recipes_dietary_status
@@ -23,7 +23,8 @@ from ..models import (
     User,
 )
 from ..methodology import SCORING_METHODOLOGY_VERSION
-from ..nutrient_gap_analysis import coverage_for_nutrient
+from ..nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps, coverage_for_nutrient
+from ..nutrient_targets import AnalysisPeriod, NutrientTarget, resolve_nutrient_target
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
@@ -491,6 +492,64 @@ def recipe_nutrients(
         )
     out.sort(key=lambda n: n.name)
     return out
+
+
+@router.get("/{recipe_id}/nutrient-gaps", response_model=list[schemas.RecipeNutrientGapOut])
+def recipe_nutrient_gaps(
+    recipe_id: int,
+    limit: int = Query(5, ge=1, le=20),
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Prompt 5.1: a recipe's most significant nutrient shortfalls — one
+    serving compared against a typical daily target, highest-weight gap
+    first. Reuses the exact same canonical gap-analysis service
+    (nutrient_gap_analysis.py + nutrient_targets.py) the /api/
+    recommendations/* engine's "Improve this recipe" already uses for
+    this recipe's own ingredients, rather than a second, divergent
+    gap-finding implementation — see recommend_ingredients.py's
+    before_gaps for the identical target-resolution pattern this
+    mirrors. Framed against AnalysisPeriod.MEAL (a flat daily-target
+    figure, same as any other single meal) since a recipe serving isn't
+    a whole day's worth of anything; only below/near-target nutrients
+    are returned, sorted by how much closing each one should matter
+    (optimisation_weight — coverage- and confidence-weighted percent
+    shortfall), not raw %DRV, so a low-confidence or low-coverage
+    nutrient doesn't crowd out a nutrient this recipe is genuinely and
+    reliably short on."""
+    recipe = _get_visible_recipe(recipe_id, current_user, db)
+    ingredients = db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe_id).all()
+    if not ingredients:
+        return []
+    foods_by_id = {f.id: f for f in db.query(Food).filter(Food.id.in_([i.food_id for i in ingredients])).all()}
+    items = scale_recipe_ingredients(ingredients, recipe.servings, 1.0, foods_by_id)
+
+    food_ids = [item.food.id for item in items]
+    rows = db.query(FoodNutrient).filter(FoodNutrient.food_id.in_(food_ids)).all()
+    nutrients_by_food_id: dict[int, list[FoodNutrient]] = {}
+    for row in rows:
+        nutrients_by_food_id.setdefault(row.food_id, []).append(row)
+
+    totals = aggregate_nutrients(items, nutrients_by_food_id)
+    target_by_key: dict[str, NutrientTarget] = {}
+    for key in NUTRIENTS:
+        target = resolve_nutrient_target(key, profile, AnalysisPeriod.MEAL)
+        if target is not None:
+            target_by_key[key] = target
+
+    gaps = analyse_nutrient_gaps(items, nutrients_by_food_id, totals, target_by_key)
+    shortfalls = [g for g in gaps if g.status in (NutrientStatus.BELOW_TARGET, NutrientStatus.NEAR_TARGET)]
+    shortfalls.sort(key=lambda g: g.optimisation_weight, reverse=True)
+
+    return [
+        schemas.RecipeNutrientGapOut(
+            key=g.key, name=g.name, unit=g.unit, status=g.status.value,
+            consumed_amount=g.consumed_amount, percent_shortfall=g.percent_shortfall,
+            absolute_shortfall=g.absolute_shortfall,
+        )
+        for g in shortfalls[:limit]
+    ]
 
 
 @router.get("/{recipe_id}/absorbed-protein", response_model=schemas.AbsorbedProteinOut | None)
