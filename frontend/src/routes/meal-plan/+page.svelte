@@ -7,6 +7,7 @@
 	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
 	import ImproveThis from '$lib/components/ImproveThis.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
+	import RecipeSearchInput from '$lib/components/RecipeSearchInput.svelte';
 	import { downloadCsv } from '$lib/csv';
 	import { formatCurrency } from '$lib/currency';
 	import type {
@@ -17,7 +18,7 @@
 		MealPlanTemplate,
 		OptimizationSuggestion,
 		PlanOptimization,
-		Recipe,
+		RecipeSearchResult,
 		RecipeSuggestion,
 		ShoppingList,
 		SubstitutionSuggestion
@@ -50,14 +51,12 @@
 	});
 
 	let entries: MealPlanEntry[] = $state([]);
-	let allRecipes: Recipe[] = $state([]);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
 	let itemType: 'food' | 'recipe' = $state('food');
-	let search = $state('');
 	let selectedFood: Food | null = $state(null);
-	let selectedRecipe: Recipe | null = $state(null);
+	let selectedRecipe: RecipeSearchResult | null = $state(null);
 	let quantity = $state<number | null>(100);
 	// svelte(state_referenced_locally): intentional — this seeds the initial
 	// value only; shiftWeek() below explicitly re-syncs planDate whenever
@@ -95,12 +94,6 @@
 		d.setUTCDate(d.getUTCDate() + days);
 		return toIsoDate(d);
 	}
-
-	const searchResults = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (q.length < 2) return [];
-		return allRecipes.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
-	});
 
 	async function loadWeek() {
 		loading = true;
@@ -148,11 +141,6 @@
 			await goto('/login');
 			return;
 		}
-		try {
-			allRecipes = await api.listRecipes();
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-		}
 		await Promise.all([loadWeek(), loadTemplates()]);
 	});
 
@@ -162,11 +150,6 @@
 		weekStart = d;
 		planDate = weekDates[0];
 		loadWeek();
-	}
-
-	function selectItem(item: Recipe) {
-		selectedRecipe = item;
-		search = '';
 	}
 
 	async function toggleShoppingList() {
@@ -504,7 +487,6 @@
 			<select
 				bind:value={itemType}
 				onchange={() => {
-					search = '';
 					selectedFood = null;
 					selectedRecipe = null;
 				}}
@@ -534,17 +516,7 @@
 		{:else if itemType === 'food'}
 			<FoodSearchInput onSelect={(food) => (selectedFood = food)} label="Search foods" />
 		{:else}
-			<label>
-				Search recipes
-				<input type="text" bind:value={search} placeholder="Search…" />
-			</label>
-			{#if searchResults.length > 0}
-				<ul class="search-results">
-					{#each searchResults as item (item.id)}
-						<li><button type="button" onclick={() => selectItem(item)}>{item.name}</button></li>
-					{/each}
-				</ul>
-			{/if}
+			<RecipeSearchInput onSelect={(recipe) => (selectedRecipe = recipe)} label="Search recipes" />
 		{/if}
 
 		<label>
@@ -818,17 +790,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-	}
-	.search-results {
-		list-style: none;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-	.search-results button {
-		width: 100%;
-		text-align: left;
 	}
 	.template-save {
 		display: flex;

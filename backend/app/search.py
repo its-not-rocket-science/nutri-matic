@@ -48,7 +48,7 @@ from sqlalchemy import case, or_, text
 from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
-from .models import Food, FoodNutrient, Recipe, RecipeIngredient
+from .models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare
 from .nutrients import NUTRIENTS
 from .reference_patterns import DEFAULT_PATTERN
 from .scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
@@ -181,6 +181,71 @@ def search_foods_by_name(db: Session, query: str, limit: int = 20) -> list[Food]
         ranked.extend(fuzzy_foods_by_id[i] for i in fuzzy_ids if i in fuzzy_foods_by_id)
 
     return ranked[:limit]
+
+
+def search_recipes_by_name(db: Session, user_id: int, query: str, limit: int = 20) -> list[Recipe]:
+    """Name autocomplete for the recipe picker (logging a diary/meal-plan
+    entry) — mirrors search_foods_by_name's synonym/plural-aware substring
+    matching and relevance ranking, but over a different scope: a user's own
+    recipes, recipes shared with them, and the public/stock catalogue,
+    *not* just their own (see prompt 1.1 — the previous behaviour only ever
+    searched `GET /api/recipes`, which is own-recipes-only, so it found
+    nothing for a demo account or any user with few personal recipes).
+
+    Own and shared recipes always rank ahead of public ones, regardless of
+    textual relevance — searching your own catalogue first is what a
+    returning user means by "search recipes" when they have matches there,
+    and the public catalogue is the fallback when they don't. Within each
+    tier, ranking is by the same exact/prefix/similarity heuristic
+    search_foods_by_name uses.
+
+    Own/shared matches are fetched without a pre-ranking cap (there are
+    normally only a handful of either), so a real match there is never
+    truncated away by an unrelated flood of public candidates; only the
+    public tier is capped before ranking, same as search_foods_by_name caps
+    its branded-food-dominated candidate pool. That cap is ordered
+    exact-match-first, then prefix-match-first, then alphabetically (not
+    plain alphabetical) — a public catalogue large enough to exceed the cap
+    could otherwise let an exact/near-exact match get discarded before the
+    real relevance ranking below ever sees it, just because its name sorts
+    late alphabetically among the other substring matches."""
+    query = query.strip()
+    if len(query) < 2:
+        return []
+
+    terms = expand_query_terms(query)
+    name_conditions = or_(*[Recipe.name.ilike(f"%{t}%") for t in terms])
+
+    shared_recipe_ids = {
+        row[0]
+        for row in db.query(RecipeShare.recipe_id).filter(RecipeShare.shared_with_user_id == user_id).all()
+    }
+
+    own_or_shared_filter = or_(Recipe.user_id == user_id, Recipe.id.in_(shared_recipe_ids))
+    own_or_shared = db.query(Recipe).filter(own_or_shared_filter, name_conditions).all()
+
+    exact_match = case((Recipe.name.ilike(query), 0), else_=1)
+    prefix_match = case((Recipe.name.ilike(f"{query}%"), 0), else_=1)
+    public_candidates = (
+        db.query(Recipe)
+        .filter(Recipe.is_public.is_(True), Recipe.user_id != user_id, name_conditions)
+        .order_by(exact_match, prefix_match, Recipe.name)
+        .limit(limit * 5)
+        .all()
+    )
+
+    query_lower = query.lower()
+
+    def sort_key(recipe: Recipe) -> tuple:
+        is_own_or_shared = recipe.user_id == user_id or recipe.id in shared_recipe_ids
+        name_lower = recipe.name.lower()
+        is_exact = name_lower == query_lower
+        is_prefix = name_lower.startswith(query_lower)
+        similarity = SequenceMatcher(None, query_lower, name_lower).ratio()
+        return (not is_own_or_shared, not is_exact, not is_prefix, -similarity)
+
+    candidates = own_or_shared + public_candidates
+    return sorted(candidates, key=sort_key)[:limit]
 
 
 @dataclass
