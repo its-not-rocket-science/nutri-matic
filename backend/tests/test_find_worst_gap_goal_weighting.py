@@ -61,3 +61,21 @@ def test_no_matching_candidates_for_active_goals_falls_back_to_plain_lowest():
     candidates = [amount("vitamin_c", 20.0), amount("thiamin", 25.0)]
     worst = _find_worst_gap(candidates, ["athletic_power"])  # emphasizes neither
     assert worst.key == "vitamin_c"
+
+
+def test_boost_never_promotes_an_adequate_nutrient_over_a_real_deficiency():
+    """PR review: with an unconditional boost, calcium at 90% (a real
+    deficiency) lost to magnesium at 110% (already adequate) once
+    magnesium's 110 was divided by 1.3 to ~84.6 — exactly backwards. The
+    boost must only ever apply while a nutrient is still below 100%."""
+    candidates = [amount("calcium", 90.0), amount("magnesium", 110.0)]
+    worst = _find_worst_gap(candidates, ["longevity"])  # emphasizes magnesium, not calcium
+    assert worst.key == "calcium"
+
+
+def test_boost_still_applies_normally_among_nutrients_all_below_target():
+    # sanity check that the >=100% guard doesn't accidentally neuter the
+    # boost for the ordinary case where every candidate is a real gap
+    candidates = [amount("calcium", 40.0), amount("magnesium", 45.0)]
+    worst = _find_worst_gap(candidates, ["longevity"])
+    assert worst.key == "magnesium"

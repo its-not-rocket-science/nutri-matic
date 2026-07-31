@@ -1,4 +1,5 @@
 from app.goal_nutrient_priorities import GOAL_NUTRIENT_EMPHASIS, nutrient_priority_multipliers
+from app.nutrients import NUTRIENTS
 
 
 def test_no_goals_returns_no_multipliers():
@@ -52,3 +53,19 @@ def test_carbon_footprint_goal_has_no_nutrient_emphasis():
     """reduce_carbon_footprint is a food-level, not nutrient-level,
     signal (see carbon_footprint.py) — it must not appear here."""
     assert "reduce_carbon_footprint" not in GOAL_NUTRIENT_EMPHASIS
+
+
+def test_every_emphasized_nutrient_is_actually_optimisation_eligible():
+    """PR review: epa/dha (no individual DRV — only a combined EPA+DHA
+    target) and sodium (a maximum-guideline nutrient with no upward
+    target) were in this dict but could never actually be selected by
+    _find_worst_gap, which only ever compares optimisation-eligible
+    candidates — an advertised boost that could never fire. Guards
+    against that class of bug recurring for any future goal."""
+    for goal, emphasis in GOAL_NUTRIENT_EMPHASIS.items():
+        for nutrient_key in emphasis:
+            nutrient_def = NUTRIENTS[nutrient_key]
+            assert nutrient_def.optimisation_eligible, (
+                f"{goal} emphasizes {nutrient_key}, which is never optimisation_eligible "
+                "and so can never be selected by _find_worst_gap"
+            )

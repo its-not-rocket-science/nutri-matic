@@ -53,9 +53,9 @@ export const GOAL_MESSAGES: Record<Goal, string> = {
 	visceral_fat_reduction:
 		"Recipe and diary calorie targets now reflect a calorie deficit (the same one used for general weight loss — there's no separate way to target visceral fat specifically), not plain maintenance.",
 	longevity:
-		'Gap-suggestions and meal-optimize now give extra weight to protein, fibre, omega-3s, magnesium, and potassium — nutrients aligned with healthy-aging research, not a promise about your own lifespan.',
+		'Gap-suggestions and meal-optimize now give extra weight to protein, fibre, ALA (omega-3), magnesium, and potassium — nutrients aligned with healthy-aging research, not a promise about your own lifespan.',
 	athletic_stamina:
-		'Gap-suggestions and meal-optimize now give extra weight to iron and electrolytes (sodium, potassium) — the nutrients endurance training depletes fastest.',
+		'Gap-suggestions and meal-optimize now give extra weight to iron and potassium — the nutrients endurance training depletes fastest.',
 	athletic_strength:
 		'Gap-suggestions and meal-optimize now give extra weight to protein, calcium, magnesium, and zinc — supporting muscle protein synthesis and bone loading.',
 	athletic_power:
