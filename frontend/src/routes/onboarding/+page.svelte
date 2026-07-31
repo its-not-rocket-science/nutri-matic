@@ -22,10 +22,16 @@
 	const STEP_LABELS = ['Goal', 'Profile', 'Dietary requirements', 'First meal', 'First optimisation'];
 	let step = $state(1);
 
-	// Step 1 — goal, persisted immediately on continue (see savingGoal below)
-	// so it survives even if the user abandons the wizard right after this
-	let goal: Goal | null = $state(null);
+	// Step 1 — goals, persisted immediately on continue (see savingGoal
+	// below) so they survive even if the user abandons the wizard right
+	// after this. Prompt 2.1: more than one can be picked; order picked is
+	// priority order (see toggleGoal).
+	let goals: Goal[] = $state([]);
 	let savingGoal = $state(false);
+
+	function toggleGoal(g: Goal) {
+		goals = goals.includes(g) ? goals.filter((x) => x !== g) : [...goals, g];
+	}
 
 	// Step 2 — profile basics
 	let ownerProfile: Profile | null = $state(null);
@@ -70,7 +76,7 @@
 	});
 
 	async function saveGoalStep() {
-		if (!goal || !ownerProfile) return;
+		if (goals.length === 0 || !ownerProfile) return;
 		savingGoal = true;
 		try {
 			ownerProfile = await api.updateProfile(ownerProfile.id, {
@@ -83,7 +89,7 @@
 				weight_kg: null,
 				height_cm: null,
 				dietary_pattern: null,
-				goal
+				goals
 			});
 		} catch {
 			// non-fatal — the goal just personalizes the dashboard/closing
@@ -110,7 +116,7 @@
 				weight_kg: weightKg,
 				height_cm: heightCm,
 				dietary_pattern: null,
-				goal
+				goals
 			});
 			step = 3;
 		} catch (e) {
@@ -135,7 +141,7 @@
 				weight_kg: weightKg,
 				height_cm: heightCm,
 				dietary_pattern: dietaryPattern,
-				goal
+				goals
 			});
 			if (allergyTag) {
 				await api.createDietaryConstraint(ownerProfile.id, {
@@ -197,20 +203,27 @@
 			An instrument for measuring protein quality and micronutrient sufficiency — not a calorie
 			counter. Five quick steps, then straight to your dashboard.
 		</p>
+		<p class="muted">Pick as many as apply — first picked matters most if any pull in different directions.</p>
 		<div class="card goal-grid">
 			{#each GOAL_OPTIONS as { value, label } (value)}
+				{@const rank = goals.indexOf(value)}
 				<button
 					type="button"
 					class="btn goal-option"
-					class:selected={goal === value}
-					onclick={() => (goal = value)}
+					class:selected={goals.includes(value)}
+					onclick={() => toggleGoal(value)}
 				>
-					{label}
+					{label}{rank !== -1 ? ` (${rank + 1})` : ''}
 				</button>
 			{/each}
 		</div>
 		<div class="wizard-actions">
-			<button type="button" class="btn btn-primary" disabled={!goal || savingGoal} onclick={saveGoalStep}>
+			<button
+				type="button"
+				class="btn btn-primary"
+				disabled={goals.length === 0 || savingGoal}
+				onclick={saveGoalStep}
+			>
 				{savingGoal ? 'Saving…' : 'Continue'}
 			</button>
 		</div>
@@ -335,9 +348,9 @@
 		</div>
 	{:else if step === 5}
 		<h1>Nicely done.</h1>
-		{#if goal}
-			<p class="muted">{GOAL_MESSAGES[goal]}</p>
-		{/if}
+		{#each goals as g (g)}
+			<p class="muted">{GOAL_MESSAGES[g]}</p>
+		{/each}
 		<div class="card">
 			<p class="label-caps">Highest-impact recommendation</p>
 			{#if loadingOptimization}

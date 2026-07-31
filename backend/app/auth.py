@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from .database import get_db
 from .demo_lifecycle import is_expired_demo
+from .goals import attach_goals, replace_goals
 from .models import Profile, User
 
 DEV_JWT_SECRET = "dev-secret-change-me"  # never valid when APP_ENV=production — see _resolve_jwt_secret
@@ -84,9 +85,14 @@ def create_owner_profile(db: Session, user: User, name: str = "Me") -> Profile:
         weight_kg=user.weight_kg,
         height_cm=user.height_cm,
         dietary_pattern=user.dietary_pattern,
-        goal=user.goal,
     )
     db.add(profile)
+    db.flush()
+    # prompt 2.1: ProfileGoal, not Profile.goal, is the real source of
+    # truth — without this, a demo account created with user.goal already
+    # set (see demo_data.py) would carry the legacy mirror column but no
+    # actual active goal, silently losing e.g. the weight-loss deficit.
+    replace_goals(db, profile, [user.goal] if user.goal else [])
     return profile
 
 
@@ -157,11 +163,11 @@ def get_owned_profile(
             # `python -m app.migrate_profiles` backfills pre-existing ones —
             # reaching this means that hasn't been run yet against this account
             raise HTTPException(status_code=500, detail="Account has no owner profile — run app.migrate_profiles")
-        return owner_profile
+        return attach_goals(db, owner_profile)
     profile = db.get(Profile, profile_id)
     if profile is None or profile.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return profile
+    return attach_goals(db, profile)
 
 
 def get_optional_current_user(
@@ -199,8 +205,9 @@ def get_optional_owned_profile(
     weight log, meal plan, dietary constraints)."""
     if current_user is None:
         return None
-    return (
+    profile = (
         db.query(Profile)
         .filter(Profile.user_id == current_user.id, Profile.is_account_owner.is_(True))
         .first()
     )
+    return attach_goals(db, profile) if profile is not None else None

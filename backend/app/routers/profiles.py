@@ -5,6 +5,7 @@ from .. import schemas
 from ..auth import get_current_user
 from ..database import get_db
 from ..dietary_tags import ALLERGEN_TAGS, CONDITIONS, DIETARY_PATTERNS, RELIGIOUS_REQUIREMENTS, TAGS
+from ..goals import VALID_GOALS, attach_goals, load_goal_keys_batch, replace_goals
 from ..models import (
     DiaryEntry,
     DiaryMealTemplate,
@@ -16,6 +17,7 @@ from ..models import (
     MealPlanTemplateEntry,
     MedicalRecommendationAcknowledgement,
     Profile,
+    ProfileGoal,
     SavedFilterPreset,
     User,
     WeightLog,
@@ -31,13 +33,6 @@ router = APIRouter(prefix="/api/profiles", tags=["profiles"])
 
 VALID_CATEGORIES = {"allergy", "intolerance", "religious", "medical", "preference"}
 VALID_SEVERITIES = {"hard_exclude", "avoid"}
-# must match the frontend's shared Goal type (lib/goals.ts). weight_loss/
-# visceral_fat_reduction additionally drive a real calculation — see
-# energy_goal.py's WEIGHT_LOSS_GOALS — the other four are purely UI framing.
-VALID_GOALS = {
-    "protein_quality", "nutrient_gaps", "budget", "exploring",
-    "weight_loss", "visceral_fat_reduction",
-}
 
 
 def _validate_profile_body(body: schemas.ProfileCreate | schemas.ProfileUpdate) -> None:
@@ -45,16 +40,34 @@ def _validate_profile_body(body: schemas.ProfileCreate | schemas.ProfileUpdate) 
         raise HTTPException(status_code=422, detail=f"Unknown dietary_pattern: {body.dietary_pattern}")
     if body.goal is not None and body.goal not in VALID_GOALS:
         raise HTTPException(status_code=422, detail=f"goal must be one of {sorted(VALID_GOALS)}")
+    if body.goals is not None:
+        unknown = [g for g in body.goals if g not in VALID_GOALS]
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"goal must be one of {sorted(VALID_GOALS)}")
+
+
+def _resolved_goals(body: schemas.ProfileCreate | schemas.ProfileUpdate) -> list[str]:
+    """`goals` (the ordered, priority-carrying field) wins if given at
+    all — including an explicit empty list, which clears every goal.
+    Falls back to wrapping the legacy single-value `goal` field so an
+    old client that only ever sends `goal` keeps working unchanged."""
+    if body.goals is not None:
+        return body.goals
+    return [body.goal] if body.goal else []
 
 
 @router.get("", response_model=list[schemas.ProfileOut])
 def list_profiles(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return (
+    profiles = (
         db.query(Profile)
         .filter(Profile.user_id == current_user.id)
         .order_by(Profile.is_account_owner.desc(), Profile.name)
         .all()
     )
+    goals_by_profile_id = load_goal_keys_batch(db, [p.id for p in profiles])
+    for p in profiles:
+        p.goals = goals_by_profile_id.get(p.id, [])
+    return profiles
 
 
 @router.post("", response_model=schemas.ProfileOut, status_code=201)
@@ -78,12 +91,13 @@ def create_profile(
         weight_kg=body.weight_kg,
         height_cm=body.height_cm,
         dietary_pattern=body.dietary_pattern,
-        goal=body.goal,
     )
     db.add(profile)
+    db.flush()
+    replace_goals(db, profile, _resolved_goals(body))
     db.commit()
     db.refresh(profile)
-    return profile
+    return attach_goals(db, profile)
 
 
 @router.get("/dietary-vocabulary", response_model=schemas.DietaryVocabularyOut)
@@ -113,7 +127,7 @@ def get_profile(profile_id: int, current_user: User = Depends(get_current_user),
     profile = db.get(Profile, profile_id)
     if profile is None or profile.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return profile
+    return attach_goals(db, profile)
 
 
 @router.put("/{profile_id}", response_model=schemas.ProfileOut)
@@ -137,10 +151,10 @@ def update_profile(
     profile.weight_kg = body.weight_kg
     profile.height_cm = body.height_cm
     profile.dietary_pattern = body.dietary_pattern
-    profile.goal = body.goal
+    replace_goals(db, profile, _resolved_goals(body))
     db.commit()
     db.refresh(profile)
-    return profile
+    return attach_goals(db, profile)
 
 
 @router.delete("/{profile_id}", status_code=204)
@@ -169,6 +183,7 @@ def delete_profile(profile_id: int, current_user: User = Depends(get_current_use
         )
 
     db.query(DietaryConstraint).filter(DietaryConstraint.profile_id == profile.id).delete(synchronize_session=False)
+    db.query(ProfileGoal).filter(ProfileGoal.profile_id == profile.id).delete(synchronize_session=False)
     db.query(MedicalRecommendationAcknowledgement).filter(
         MedicalRecommendationAcknowledgement.profile_id == profile.id
     ).delete(synchronize_session=False)
@@ -221,17 +236,28 @@ def create_dietary_constraint(
     if body.category in ("medical",) and body.tag is not None:
         raise HTTPException(status_code=422, detail="medical constraints are free-text only (tag must be null)")
 
-    existing = (
-        db.query(DietaryConstraint)
-        .filter(
-            DietaryConstraint.profile_id == profile.id,
-            DietaryConstraint.category == body.category,
-            DietaryConstraint.tag == body.tag,
+    # Dedup only makes sense for a tagged row (allergy/intolerance/
+    # religious) — exactly one row per (category, tag) is the intended
+    # invariant there. A free-text medical/preference row always has
+    # tag=None, so "duplicate" isn't a meaningful concept for it (two
+    # different notes are two different considerations, not a conflict);
+    # worse, checking category+tag alone for tag=None rows means a second
+    # medical/preference note of any kind would incorrectly 409 against
+    # the first, and a third would make .one_or_none() raise
+    # MultipleResultsFound (500) once a profile has 2+ (e.g. via prompt
+    # 3.1's condition picker, which can add several medical rows).
+    if body.tag is not None:
+        existing = (
+            db.query(DietaryConstraint)
+            .filter(
+                DietaryConstraint.profile_id == profile.id,
+                DietaryConstraint.category == body.category,
+                DietaryConstraint.tag == body.tag,
+            )
+            .one_or_none()
         )
-        .one_or_none()
-    )
-    if existing is not None:
-        raise HTTPException(status_code=409, detail="This constraint already exists")
+        if existing is not None:
+            raise HTTPException(status_code=409, detail="This constraint already exists")
 
     constraint = DietaryConstraint(
         user_id=current_user.id,

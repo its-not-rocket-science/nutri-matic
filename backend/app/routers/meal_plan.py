@@ -7,6 +7,7 @@ from .. import schemas
 from ..aggregation import aggregate_food_grams, expand_entries_to_weighted_foods
 from ..auth import get_current_user, get_owned_profile
 from ..database import get_db
+from ..goals import goal_keys_of
 from ..models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Profile, Recipe, User
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..recipe_access import is_recipe_visible
@@ -217,7 +218,7 @@ def get_plan_optimization(
     recipes_by_id = {r.id: r for r in db.query(Recipe).filter(Recipe.id.in_(recipe_ids)).all()}
 
     gaps = _compute_nutrient_gaps(entries, foods_by_id, recipes_by_id, profile, db)
-    worst = _find_worst_gap(gaps.nutrients_out)
+    worst = _find_worst_gap(gaps.nutrients_out, goal_keys_of(profile))
     if worst is None:
         return None
 
@@ -237,7 +238,7 @@ def get_plan_optimization(
     already_planned_recipe_ids = {e.recipe_id for e in recipe_entries}
     recipe_gap_candidates = [
         (recipe, items)
-        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
+        for recipe, items, _amount in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
         if recipe.id not in already_planned_recipe_ids
     ]
 
@@ -256,6 +257,7 @@ def get_plan_optimization(
         prices_by_food_id=prices_by_food_id,
         max_additional_cost=max_additional_cost,
         recipe_gap_candidates=recipe_gap_candidates,
+        profile=profile,
     )
 
     return schemas.PlanOptimizationOut(

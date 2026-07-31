@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import Food, FoodNutrient, Recipe, RecipeIngredient, User
+from app.models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, User
 from app.reference_patterns import AMINO_ACIDS
 from app.search import (
     NutrientFilter,
@@ -13,6 +13,7 @@ from app.search import (
     search_foods,
     search_foods_by_name,
     search_recipes,
+    search_recipes_by_name,
 )
 
 
@@ -299,3 +300,99 @@ def test_search_foods_by_name_no_postgres_fuzzy_fallback_on_sqlite(db):
     # correctly returns nothing rather than raising, since the fuzzy
     # fallback that WOULD catch this is Postgres-only
     assert search_foods_by_name(db, "chiken") == []
+
+
+# Prompt 1.1: "search recipes" previously only ever queried GET /api/recipes
+# (the current user's own recipes) and filtered client-side — a demo account
+# or any user with few personal recipes found nothing, no matter what was
+# typed, because the public/stock catalogue was never in scope at all.
+# search_recipes_by_name fixes that by searching own + shared + public.
+
+
+def test_search_recipes_by_name_finds_own_recipe(db):
+    user = User(id=1, email="a@example.com", password_hash="x")
+    db.add(user)
+    db.add(Recipe(id=1, user_id=1, name="Lentil Soup", servings=2))
+    db.commit()
+
+    results = search_recipes_by_name(db, user_id=1, query="lentil")
+    assert [r.name for r in results] == ["Lentil Soup"]
+
+
+def test_search_recipes_by_name_finds_public_stock_recipe(db):
+    """The actual reported bug: a user with no matching recipes of their own
+    should still find a public/stock recipe by name."""
+    user = User(id=1, email="a@example.com", password_hash="x")
+    stock_owner = User(id=2, email="stock@system.local", password_hash="x", is_system=True)
+    db.add_all([user, stock_owner])
+    db.add(Recipe(id=1, user_id=2, name="Chickpea Curry", servings=4, is_public=True))
+    db.commit()
+
+    results = search_recipes_by_name(db, user_id=1, query="chickpea")
+    assert [r.name for r in results] == ["Chickpea Curry"]
+
+
+def test_search_recipes_by_name_finds_recipe_shared_with_user(db):
+    owner = User(id=1, email="owner@example.com", password_hash="x")
+    viewer = User(id=2, email="viewer@example.com", password_hash="x")
+    db.add_all([owner, viewer])
+    db.add(Recipe(id=1, user_id=1, name="Miso Ramen", servings=2, is_public=False))
+    db.flush()
+    db.add(RecipeShare(recipe_id=1, shared_with_user_id=2))
+    db.commit()
+
+    results = search_recipes_by_name(db, user_id=2, query="ramen")
+    assert [r.name for r in results] == ["Miso Ramen"]
+
+
+def test_search_recipes_by_name_excludes_other_users_private_recipe(db):
+    owner = User(id=1, email="owner@example.com", password_hash="x")
+    other = User(id=2, email="other@example.com", password_hash="x")
+    db.add_all([owner, other])
+    db.add(Recipe(id=1, user_id=1, name="Secret Stew", servings=2, is_public=False))
+    db.commit()
+
+    results = search_recipes_by_name(db, user_id=2, query="secret")
+    assert results == []
+
+
+def test_search_recipes_by_name_ranks_own_ahead_of_public(db):
+    user = User(id=1, email="a@example.com", password_hash="x")
+    stock_owner = User(id=2, email="stock@system.local", password_hash="x", is_system=True)
+    db.add_all([user, stock_owner])
+    db.add(Recipe(id=1, user_id=2, name="Chicken Stew", servings=4, is_public=True))
+    db.add(Recipe(id=2, user_id=1, name="Chicken Soup", servings=2, is_public=False))
+    db.commit()
+
+    results = search_recipes_by_name(db, user_id=1, query="chicken")
+    assert [r.name for r in results] == ["Chicken Soup", "Chicken Stew"]
+
+
+def test_search_recipes_by_name_exact_public_match_survives_pool_truncation(db):
+    """PR review finding (P2): the public-tier candidate pool is capped at
+    limit*5 before ranking. Without exact/prefix-aware SQL ordering on that
+    cap, an exact match sorting late alphabetically among a flood of other
+    substring matches could be discarded before the real relevance ranking
+    ever saw it — i.e. the endpoint wouldn't reliably search the full
+    catalogue after all. Here `limit=1` makes the pool cap tiny (5) while
+    "Soup" (an exact match) sorts alphabetically after 5 "Aaa ... soup ..."
+    names, so it would be dropped by a plain `ORDER BY Recipe.name` cap."""
+    user = User(id=1, email="a@example.com", password_hash="x")
+    stock_owner = User(id=2, email="stock@system.local", password_hash="x", is_system=True)
+    db.add_all([user, stock_owner])
+    for i in range(5):
+        db.add(Recipe(id=i + 1, user_id=2, name=f"Aaa {i} soup", servings=2, is_public=True))
+    db.add(Recipe(id=6, user_id=2, name="Soup", servings=2, is_public=True))
+    db.commit()
+
+    results = search_recipes_by_name(db, user_id=1, query="soup", limit=1)
+    assert [r.name for r in results] == ["Soup"]
+
+
+def test_search_recipes_by_name_short_query_returns_empty(db):
+    user = User(id=1, email="a@example.com", password_hash="x")
+    db.add(user)
+    db.add(Recipe(id=1, user_id=1, name="Lentil Soup", servings=2))
+    db.commit()
+
+    assert search_recipes_by_name(db, user_id=1, query="l") == []
