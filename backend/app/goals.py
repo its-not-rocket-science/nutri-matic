@@ -26,11 +26,18 @@ from .models import Profile, ProfileGoal
 
 # must match the frontend's shared Goal type (lib/goals.ts). weight_loss/
 # visceral_fat_reduction additionally drive a real calculation — see
-# energy_goal.py's WEIGHT_LOSS_GOALS. Extended by prompt 2.2 with goals
-# that drive their own scoring emphasis (see recommendation_scoring.py).
+# energy_goal.py's WEIGHT_LOSS_GOALS. longevity/athletic_stamina/
+# athletic_strength/athletic_power drive nutrient-priority weighting in
+# gap-suggestions/meal-optimize — see goal_nutrient_priorities.py.
+# reduce_carbon_footprint is selectable but not yet wired into candidate
+# ranking — see carbon_footprint.py's module docstring for why that's a
+# deliberately separate, not-yet-done follow-up rather than forced in
+# here at low confidence.
 VALID_GOALS = {
     "protein_quality", "nutrient_gaps", "budget", "exploring",
     "weight_loss", "visceral_fat_reduction",
+    "longevity", "athletic_stamina", "athletic_strength", "athletic_power",
+    "reduce_carbon_footprint",
 }
 
 
