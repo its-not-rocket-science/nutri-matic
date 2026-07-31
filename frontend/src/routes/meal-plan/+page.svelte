@@ -639,7 +639,9 @@
 		</button>
 
 		{#if planOptimization !== null}
-			{#if planOptimization.suggestions.length === 0}
+			{#if planOptimization.disabled_reason}
+				<p class="disabled-notice">{planOptimization.disabled_reason}</p>
+			{:else if planOptimization.suggestions.length === 0}
 				<p class="muted">No worthwhile improvements found for this week's plan.</p>
 			{:else}
 				<p class="muted">
@@ -704,6 +706,10 @@
 	}
 	.error {
 		color: var(--color-danger);
+	}
+	.disabled-notice {
+		margin: 0;
+		color: var(--color-warning);
 	}
 	.muted {
 		color: var(--color-text-muted);
