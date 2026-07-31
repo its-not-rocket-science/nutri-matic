@@ -38,6 +38,7 @@ import type {
 	MealPlanTemplate,
 	MealPlanTemplateDetail,
 	NutrientAmount,
+	OptimizationSuggestion,
 	PaginatedRecipes,
 	PlanOptimization,
 	Profile,
@@ -262,6 +263,10 @@ export const api = {
 	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(withProfile(`/api/recipes/${id}/nutrients`)),
 	getRecipeNutrientGaps: (id: number, limit = 5) =>
 		request<RecipeNutrientGap[]>(withProfile(`/api/recipes/${id}/nutrient-gaps?limit=${limit}`)),
+	complementRecipe: (id: number, method: 'diaas' | 'pdcaas') =>
+		request<Complement>(withProfile(`/api/recipes/${id}/complement?method=${method}`)),
+	getIngredientSwaps: (id: number, limit = 3) =>
+		request<OptimizationSuggestion[]>(withProfile(`/api/recipes/${id}/ingredient-swaps?limit=${limit}`)),
 	getRecipeAbsorbedProtein: (id: number) =>
 		request<AbsorbedProtein | null>(withProfile(`/api/recipes/${id}/absorbed-protein`)),
 	getRecipeRobustness: (id: number) => request<Robustness | null>(`/api/recipes/${id}/robustness`),

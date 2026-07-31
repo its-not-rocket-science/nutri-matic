@@ -46,7 +46,7 @@ def _score(method: str, amino_acids: dict, digestibility, pattern: str) -> Score
 
 
 def suggest_complements(
-    food: Food,
+    items: list[WeightedFood],
     original_score: ScoreResult,
     method: str,
     pattern: str,
@@ -54,15 +54,21 @@ def suggest_complements(
     limit: int = 5,
     profile: Profile | None = None,
 ) -> list[ComplementSuggestion]:
-    """original_score is the caller's already-computed score for `food` —
-    callers need it anyway (to show the user their food's current score),
-    and recomputing it here would just be duplicate work. profile is
-    optional (this is reachable signed-out) — when present, candidates with
-    a hard dietary exclusion for that profile are dropped before ranking."""
+    """`items` is the subject's own weighted foods — a single 100g food
+    (prompt 6's original single-food complement) or a recipe's own
+    per-serving ingredient list (prompt 5.2, complementing a recipe as a
+    whole rather than one ingredient in isolation); either way this never
+    cares which. `original_score` is the caller's already-computed score
+    for `items` — callers need it anyway (to show the user the current
+    score), and recomputing it here would just be duplicate work. profile
+    is optional (this is reachable signed-out for the single-food case) —
+    when present, candidates with a hard dietary exclusion for that
+    profile are dropped before ranking."""
     limiting_aa = original_score.limiting_amino_acid
+    subject_food_ids = {item.food.id for item in items}
 
     digestibility_column = Food.digestibility_diaas if method == "diaas" else Food.digestibility_pdcaas
-    candidates = db.query(Food).filter(Food.id != food.id, digestibility_column.isnot(None)).all()
+    candidates = db.query(Food).filter(~Food.id.in_(subject_food_ids), digestibility_column.isnot(None)).all()
     candidates = filter_excluded_foods(candidates, db, profile)
 
     ranked_by_raw_content = sorted(
@@ -74,8 +80,7 @@ def suggest_complements(
 
     results: list[ComplementSuggestion] = []
     for candidate in shortlist:
-        items = [WeightedFood(food, PAIRING_QUANTITY_G), WeightedFood(candidate, PAIRING_QUANTITY_G)]
-        combo = aggregate_amino_acids(items)
+        combo = aggregate_amino_acids([*items, WeightedFood(candidate, PAIRING_QUANTITY_G)])
         if combo.total_protein_g <= 0:
             continue
 
