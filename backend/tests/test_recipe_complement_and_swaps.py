@@ -163,6 +163,29 @@ def test_ingredient_swap_suggests_higher_iron_alternative(client):
     assert swap["after_percent_drv"] > swap["before_percent_drv"]
 
 
+def test_ingredient_swap_quantity_g_is_full_batch_amount_not_per_serving(client):
+    """suggest_meal_optimizations is fed this recipe's ingredients scaled
+    to *one serving* (matching the per-serving gap comparison), so its
+    quantity_g is a one-serving amount. The endpoint must rescale that back
+    up by recipe.servings before returning it, since the frontend applies a
+    swap by removing/adding whole recipe-ingredient rows, which store
+    whole-batch quantities — not per-serving ones."""
+    token = register_and_token(client, "a@example.com")
+    set_owner_sex(client, token)
+    recipe = client.post(
+        "/api/recipes",
+        # 400g batch across 4 servings -> 100g/serving fed to the optimizer
+        json={"name": "Rice bowl", "servings": 4, "ingredients": [{"food_id": 3, "quantity_g": 400}]},
+        headers=auth_headers(token),
+    ).json()
+
+    res = client.get(f"/api/recipes/{recipe['id']}/ingredient-swaps", headers=auth_headers(token))
+    assert res.status_code == 200
+    body = res.json()
+    assert len(body) > 0
+    assert body[0]["quantity_g"] == pytest.approx(400.0)
+
+
 def test_ingredient_swap_empty_for_recipe_with_no_ingredients_data():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     Base.metadata.create_all(bind=engine)

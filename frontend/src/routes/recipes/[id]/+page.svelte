@@ -373,19 +373,41 @@
 
 	// Shared refresh after any ingredient-list mutation (add/swap) — recomputes
 	// everything downstream of the ingredient list: nutrient totals, gaps,
-	// and the complement/swap suggestions themselves (adding or swapping an
-	// ingredient can change the limiting amino acid or the worst gap).
+	// the complement/swap suggestions themselves (adding or swapping an
+	// ingredient can change the limiting amino acid or the worst gap), and
+	// the protein scores/absorbed-protein/robustness cards, which otherwise
+	// keep showing pre-mutation figures right next to a suggestion that was
+	// just applied.
 	async function refreshRecipeDerivedData() {
-		const [nutrientResult, gapsResult, complementResult, swapsResult] = await Promise.allSettled([
-			api.getRecipeNutrients(recipeId),
-			api.getRecipeNutrientGaps(recipeId),
-			api.complementRecipe(recipeId, 'diaas'),
-			api.getIngredientSwaps(recipeId)
-		]);
+		const [nutrientResult, gapsResult, complementResult, swapsResult, diaasResult, pdcaasResult, absorbedResult, robustnessResult] =
+			await Promise.allSettled([
+				api.getRecipeNutrients(recipeId),
+				api.getRecipeNutrientGaps(recipeId),
+				api.complementRecipe(recipeId, 'diaas'),
+				api.getIngredientSwaps(recipeId),
+				api.scoreRecipe(recipeId, 'diaas'),
+				api.scoreRecipe(recipeId, 'pdcaas'),
+				api.getRecipeAbsorbedProtein(recipeId),
+				api.getRecipeRobustness(recipeId)
+			]);
 		if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
 		if (gapsResult.status === 'fulfilled') nutrientGaps = gapsResult.value;
 		if (complementResult.status === 'fulfilled') complement = complementResult.value;
 		if (swapsResult.status === 'fulfilled') ingredientSwaps = swapsResult.value;
+		if (diaasResult.status === 'fulfilled') {
+			diaasScore = diaasResult.value;
+			diaasUnavailableReason = null;
+		} else {
+			diaasUnavailableReason = diaasResult.reason instanceof Error ? diaasResult.reason.message : String(diaasResult.reason);
+		}
+		if (pdcaasResult.status === 'fulfilled') {
+			pdcaasScore = pdcaasResult.value;
+			pdcaasUnavailableReason = null;
+		} else {
+			pdcaasUnavailableReason = pdcaasResult.reason instanceof Error ? pdcaasResult.reason.message : String(pdcaasResult.reason);
+		}
+		if (absorbedResult.status === 'fulfilled') absorbedProtein = absorbedResult.value;
+		if (robustnessResult.status === 'fulfilled') robustness = robustnessResult.value;
 	}
 
 	// "Improve this recipe" (prompt 10) — the recipe's own ingredients stand
@@ -413,20 +435,25 @@
 		}
 	}
 
-	// Prompt 5.2b — ingredient-swap CTA: remove the replaced ingredient and
-	// add the suggestion's food in its place. Matches the existing recipe
-	// ingredient by food_id (replaces_food_id) rather than ingredient row id,
-	// since OptimizationSuggestionOut only carries the food id.
+	// Prompt 5.2b — ingredient-swap CTA: add the suggestion's food first,
+	// then remove the replaced ingredient — deliberately in that order, not
+	// remove-then-add. If the add fails (e.g. a stale suggestion whose food
+	// is already an ingredient, which 409s), nothing has been removed yet
+	// and the recipe is untouched; the alternative ordering would have
+	// already deleted the original ingredient with no way back. Matches the
+	// existing recipe ingredient by food_id (replaces_food_id) rather than
+	// ingredient row id, since OptimizationSuggestionOut only carries the
+	// food id.
 	async function applyIngredientSwap(s: OptimizationSuggestion) {
 		if (s.replaces_food_id == null || s.food_id == null || s.quantity_g == null) return;
 		const key = `${s.replaces_food_id}-${s.food_id}`;
 		applyingSwapKey = key;
 		try {
 			const existing = recipe?.ingredients.find((i) => i.food_id === s.replaces_food_id);
+			recipe = await api.addIngredient(recipeId, s.food_id, s.quantity_g);
 			if (existing) {
 				recipe = await api.removeIngredient(recipeId, existing.id);
 			}
-			recipe = await api.addIngredient(recipeId, s.food_id, s.quantity_g);
 			await refreshRecipeDerivedData();
 		} catch (e) {
 			editError = e instanceof Error ? e.message : String(e);

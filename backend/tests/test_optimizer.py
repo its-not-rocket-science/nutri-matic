@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.aggregation import WeightedFood
 from app.database import Base
-from app.models import Food, FoodNutrient, Recipe
+from app.models import Food, FoodNutrient, Profile, Recipe, User
 from app.optimizer import suggest_meal_optimizations
 from app.reference_patterns import AMINO_ACIDS
 
@@ -258,6 +258,37 @@ def test_swap_only_matches_same_family(db):
     )
     assert all(s.food_id != quinoa.id for s in suggestions)
     assert suggestions == []  # no same-family "Rice, ..." candidates exist besides itself
+
+
+def test_swap_candidates_respect_dietary_exclusions(db):
+    """A vegan profile's same-family swap candidates must be filtered the
+    same way gap_candidates already are (via _rank_foods_by_nutrient) —
+    the optimizer's own same-family query doesn't go through that pool, so
+    it needs the profile passed in separately."""
+    broth_veg = make_food(db, 1, "Broth, vegetable, cooked", iron=1.0)
+    make_food(db, 2, "Broth, beef, cooked", iron=5.0)  # same family, but excluded for vegan
+    db.commit()
+
+    user = User(id=1, email="a@example.com", password_hash="x")
+    db.add(user)
+    db.flush()
+    profile = Profile(id=1, user_id=1, name="A", is_account_owner=True, dietary_pattern="vegan")
+    db.add(profile)
+    db.commit()
+
+    by_food_id = {1: db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).all()}
+    suggestions = suggest_meal_optimizations(
+        db,
+        other_items=[],
+        swappable_items=[WeightedFood(broth_veg, 100)],
+        by_food_id=by_food_id,
+        target_nutrient_key="iron",
+        target_drv=10.0,
+        gap_candidates=[],
+        limit=5,
+        profile=profile,
+    )
+    assert suggestions == []  # the only same-family candidate is a hard exclusion
 
 
 def test_other_meals_items_unaffected_by_swap(db):

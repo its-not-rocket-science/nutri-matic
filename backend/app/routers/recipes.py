@@ -666,13 +666,21 @@ def recipe_ingredient_swaps(
 
     suggestions = suggest_meal_optimizations(
         db, [], items, nutrients_by_food_id, worst.key, worst.target.preferred_target,
-        gap_candidates, limit=limit * 3, target_nutrient_name=worst.name,
+        gap_candidates, limit=limit * 3, target_nutrient_name=worst.name, profile=profile,
     )
     swaps = [s for s in suggestions if s.action == "swap"][:limit]
 
+    # items above were scaled to *one serving* (matching the gap analysis,
+    # which compares one serving against a daily target), so quantity_g on
+    # each swap is a one-serving amount too. The recipe's own ingredient
+    # rows store whole-batch quantities, so this rescales back to the batch
+    # amount actually being replaced/added — otherwise applying a swap to a
+    # multi-serving recipe would remove the full ingredient but add back
+    # only a fraction of it.
     return [
         schemas.OptimizationSuggestionOut(
-            action=s.action, food_id=s.food_id, food_name=s.food_name, quantity_g=s.quantity_g,
+            action=s.action, food_id=s.food_id, food_name=s.food_name,
+            quantity_g=s.quantity_g * recipe.servings if s.quantity_g is not None else None,
             replaces_food_id=s.replaces_food_id, replaces_food_name=s.replaces_food_name,
             before_percent_drv=s.before_percent_drv, after_percent_drv=s.after_percent_drv,
             improvement=s.improvement, calories_added=s.calories_added,
