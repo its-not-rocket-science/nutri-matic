@@ -156,6 +156,15 @@ class RecommendationEligibility:
     warnings: list[SafetyWarningCode] = field(default_factory=list)
 
 
+def disabled_reason_code_out(eligibility: RecommendationEligibility) -> str | None:
+    """The structured reason code as a plain string for an API schema —
+    shared by every endpoint that surfaces a `RecommendationEligibility`
+    (routers/recommendations.py, and prompt 3.2's gap-suggestions/
+    meal-optimize/plan-optimize, which reuse this exact guardrail rather
+    than building a parallel one)."""
+    return eligibility.disabled_reason_code.value if eligibility.disabled_reason_code else None
+
+
 def has_medical_constraint(profile: Profile, db: Session) -> bool:
     return (
         db.query(DietaryConstraint)

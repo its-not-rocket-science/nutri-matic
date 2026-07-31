@@ -359,6 +359,7 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 	<h2>What this app doesn't do</h2>
 	<ul>
 		<li>No phytate, tannin, oxalate, or polyphenol data — real inhibitors of mineral absorption that FDC simply doesn't track.</li>
+		<li>No glycaemic-index/load data — a type 2 diabetes condition is stored for reference (see Profile) but doesn't weight suggestions against high-glycaemic-load foods; FDC doesn't publish that figure for the large majority of foods.</li>
 		<li>Branded/packaged foods can't be scored for protein quality — nutrition labels don't publish amino acid profiles.</li>
 		<li>"Estimated" digestibility and iron-split values are broad category averages, not measurements of the specific food in front of you.</li>
 		<li>DRV confidence varies a lot by nutrient — some increments are confirmed against a live source, others are commonly-cited figures recalled from secondary sources. Hover any nutrient for its specific note.</li>

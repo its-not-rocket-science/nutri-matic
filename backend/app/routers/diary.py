@@ -41,6 +41,7 @@ from ..nutrient_gap_analysis import coverage_for_nutrient
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..protein_absorption import compute_absorbed_protein_with_coverage
 from ..protein_requirement import calculate_protein_target_g
+from ..recommendation_safety import assess_eligibility, disabled_reason_code_out
 from ..trends import GroupBy, bucket_bounds, bucket_day_totals
 
 router = APIRouter(prefix="/api/diary", tags=["diary"])
@@ -606,7 +607,21 @@ def get_gap_suggestions(
     """Picks the single nutrient with the lowest %DRV for the given day
     and ranks real foods by how much of that nutrient they carry per 100g.
     Returns None if nothing's logged yet, or if nothing logged has a DRV to
-    compare against."""
+    compare against.
+
+    Prompt 3.2: reuses the exact same medical-constraint guardrail
+    /api/recommendations/* already enforces (recommendation_safety.
+    assess_eligibility) — a profile with an unacknowledged medical dietary
+    constraint gets a non-None response with disabled_reason set instead
+    of silently computing a suggestion this feature has no way to know is
+    safe against a prescribed diet. Checked first, before any other query,
+    same ordering recommendations.py uses."""
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.GapSuggestionOut(
+            disabled_reason=eligibility.disabled_reason, disabled_reason_code=disabled_reason_code_out(eligibility),
+        )
+
     entries = (
         db.query(DiaryEntry)
         .filter(DiaryEntry.profile_id == profile.id, DiaryEntry.entry_date == entry_date)
@@ -651,7 +666,17 @@ def get_meal_optimization(
     same-family swaps for one logged meal that measurably close the day's
     single worst nutrient gap. See optimizer.py for the full design and
     what's deliberately out of scope (per-cost/per-serving ranking).
-    Returns None if the meal has no entries, or there's no gap to target."""
+    Returns None if the meal has no entries, or there's no gap to target.
+
+    Prompt 3.2: same medical-constraint guardrail as get_gap_suggestions
+    above — see its docstring."""
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.MealOptimizationOut(
+            meal=meal,
+            disabled_reason=eligibility.disabled_reason, disabled_reason_code=disabled_reason_code_out(eligibility),
+        )
+
     entries = (
         db.query(DiaryEntry)
         .filter(DiaryEntry.profile_id == profile.id, DiaryEntry.entry_date == entry_date)
