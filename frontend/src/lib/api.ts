@@ -38,6 +38,7 @@ import type {
 	MealPlanTemplate,
 	MealPlanTemplateDetail,
 	NutrientAmount,
+	NutrientSources,
 	PaginatedRecipes,
 	PlanOptimization,
 	Profile,
@@ -420,6 +421,10 @@ export const api = {
 	deleteFoodPrice: (foodId: number) => request<void>(`/api/food-prices/${foodId}`, { method: 'DELETE' }),
 
 	getFilterKeys: () => request<FilterKeysResponse>('/api/search/keys'),
+	getNutrientSources: (nutrientKey: string, limit = 10) =>
+		request<NutrientSources>(
+			withProfile(`/api/search/nutrient-sources?nutrient_key=${encodeURIComponent(nutrientKey)}&limit=${limit}`)
+		),
 	searchFoods: (req: SearchRequest) =>
 		request<Food[]>('/api/foods/search', { method: 'POST', body: JSON.stringify(req) }),
 	searchRecipes: (req: SearchRequest) =>
