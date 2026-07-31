@@ -6,7 +6,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { browserDefaultCurrency, CURRENCY_OPTIONS } from '$lib/currency';
 	import { GOAL_OPTIONS, type Goal } from '$lib/goals';
-	import type { DietaryConstraint, DietaryVocabulary, Profile, ProfileUpdate } from '$lib/types';
+	import type { Condition, DietaryConstraint, DietaryVocabulary, Profile, ProfileUpdate } from '$lib/types';
 
 	let currency: string | null = $state(null);
 	let accountError: string | null = $state(null);
@@ -213,6 +213,40 @@
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			deleting = false;
+		}
+	}
+
+	// prompt 3.1 — a condition is a curated shortcut onto the same
+	// DietaryConstraint rows the allergy/intolerance/medical sections below
+	// already manage directly; matching an existing row to a condition
+	// mirrors exactly what the backend's own dedup check does (category+tag
+	// for a tag-mapped condition, category=medical+note for an
+	// informational one — see dietary_tags.CONDITIONS' docstring).
+	let togglingConditionKey: string | null = $state(null);
+
+	function isConditionSet(condition: Condition): boolean {
+		return constraints.some((c) =>
+			condition.maps_to_tag !== null
+				? c.category === 'intolerance' && c.tag === condition.maps_to_tag
+				: c.category === 'medical' && c.note === condition.label
+		);
+	}
+
+	async function toggleCondition(condition: Condition, checked: boolean) {
+		if (selectedId === null) return;
+		togglingConditionKey = condition.key;
+		constraintsError = null;
+		try {
+			if (checked) {
+				await api.addCondition(selectedId, condition.key);
+			} else {
+				await api.removeCondition(selectedId, condition.key);
+			}
+			await loadConstraints(selectedId);
+		} catch (e) {
+			constraintsError = e instanceof Error ? e.message : String(e);
+		} finally {
+			togglingConditionKey = null;
 		}
 	}
 
@@ -493,6 +527,39 @@
 			<p class="error">{constraintsError}</p>
 		{/if}
 
+		{#if vocabulary}
+			<section class="card constraint-section">
+				<h2>Health conditions</h2>
+				<p class="muted field-note">
+					Why this exists: a shortcut for common conditions, onto the exact same mechanism as
+					allergies/intolerances below — nothing extra happens behind the scenes. Lactose intolerance
+					flags dairy as "avoid" (tolerance is often dose-dependent); gluten intolerance/coeliac
+					disease hard-excludes wheat/gluten (coeliac disease needs strict avoidance). The rest
+					(type 2 diabetes, hypertension, high cholesterol, IBS, kidney disease) are shown here for
+					reference only — none has a food-name-based exclusion list this app can defend, so none
+					is auto-filtered. This is dietary filtering assistance, not medical advice.
+				</p>
+				<ul class="condition-list">
+					{#each vocabulary.conditions as condition (condition.key)}
+						<li>
+							<label class="condition-checkbox">
+								<input
+									type="checkbox"
+									checked={isConditionSet(condition)}
+									disabled={togglingConditionKey === condition.key}
+									onchange={(e) => toggleCondition(condition, e.currentTarget.checked)}
+								/>
+								{condition.label}
+								{#if condition.maps_to_tag === null}
+									<span class="muted">(reference only)</span>
+								{/if}
+							</label>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+
 		<section class="card constraint-section">
 			<h2>Allergies &amp; intolerances</h2>
 			<p class="muted field-note">
@@ -706,6 +773,17 @@
 	}
 	.constraint-list li:last-child {
 		border-bottom: none;
+	}
+	.condition-list {
+		list-style: none;
+		padding: 0;
+		margin: var(--space-3) 0;
+	}
+	.condition-checkbox {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
 	}
 	.inline-form {
 		display: flex;

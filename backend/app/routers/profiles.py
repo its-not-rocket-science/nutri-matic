@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..auth import get_current_user
 from ..database import get_db
-from ..dietary_tags import ALLERGEN_TAGS, DIETARY_PATTERNS, RELIGIOUS_REQUIREMENTS, TAGS
+from ..dietary_tags import ALLERGEN_TAGS, CONDITIONS, DIETARY_PATTERNS, RELIGIOUS_REQUIREMENTS, TAGS
 from ..models import (
     DiaryEntry,
     DiaryMealTemplate,
@@ -98,6 +98,12 @@ def get_dietary_vocabulary():
         dietary_patterns=[
             schemas.DietaryPatternOut(key=k, label=v["label"], excludes=v["excludes"])
             for k, v in DIETARY_PATTERNS.items()
+        ],
+        conditions=[
+            schemas.ConditionOut(
+                key=k, label=v["label"], maps_to_tag=v["maps_to_tag"], default_severity=v["default_severity"],
+            )
+            for k, v in CONDITIONS.items()
         ],
     )
 
@@ -256,6 +262,82 @@ def delete_dietary_constraint(
         raise HTTPException(status_code=404, detail="Constraint not found")
     db.delete(constraint)
     db.commit()
+
+
+# --- conditions (prompt 3.1) --------------------------------------------
+# A condition is just a curated, labelled shortcut onto the SAME
+# DietaryConstraint rows an allergy/intolerance/medical entry already
+# uses (see dietary_tags.CONDITIONS' docstring) — no parallel storage, no
+# new filtering codepath. A tag-mapped condition (lactose intolerance,
+# gluten intolerance/coeliac) creates a category="intolerance" row that
+# dietary_filter.py already enforces exactly like any other allergy; an
+# informational condition (type 2 diabetes, etc.) creates a plain
+# category="medical" note, never auto-enforced, same as any other
+# free-text medical entry.
+
+
+def _find_condition_constraint(db: Session, profile: Profile, condition: dict) -> DietaryConstraint | None:
+    query = db.query(DietaryConstraint).filter(DietaryConstraint.profile_id == profile.id)
+    if condition["maps_to_tag"] is not None:
+        query = query.filter(
+            DietaryConstraint.category == "intolerance", DietaryConstraint.tag == condition["maps_to_tag"],
+        )
+    else:
+        query = query.filter(DietaryConstraint.category == "medical", DietaryConstraint.note == condition["label"])
+    return query.one_or_none()
+
+
+@router.post("/{profile_id}/conditions/{condition_key}", response_model=schemas.DietaryConstraintOut, status_code=201)
+def add_condition(
+    profile_id: int,
+    condition_key: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = db.get(Profile, profile_id)
+    if profile is None or profile.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    condition = CONDITIONS.get(condition_key)
+    if condition is None:
+        raise HTTPException(status_code=422, detail=f"Unknown condition: {condition_key}")
+
+    if _find_condition_constraint(db, profile, condition) is not None:
+        raise HTTPException(status_code=409, detail="This condition is already set")
+
+    constraint = DietaryConstraint(
+        user_id=current_user.id,
+        profile_id=profile.id,
+        category="intolerance" if condition["maps_to_tag"] is not None else "medical",
+        tag=condition["maps_to_tag"],
+        severity=condition["default_severity"],
+        note=condition["label"],
+    )
+    db.add(constraint)
+    db.commit()
+    db.refresh(constraint)
+    return constraint
+
+
+@router.delete("/{profile_id}/conditions/{condition_key}", status_code=204)
+def remove_condition(
+    profile_id: int,
+    condition_key: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """No-op (204, not an error) if the condition wasn't set — same
+    convention as revoke_medical_acknowledgement below."""
+    profile = db.get(Profile, profile_id)
+    if profile is None or profile.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    condition = CONDITIONS.get(condition_key)
+    if condition is None:
+        raise HTTPException(status_code=422, detail=f"Unknown condition: {condition_key}")
+
+    existing = _find_condition_constraint(db, profile, condition)
+    if existing is not None:
+        db.delete(existing)
+        db.commit()
 
 
 # --- medical recommendation acknowledgement (hardening prompt 5) -------
