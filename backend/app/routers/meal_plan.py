@@ -244,6 +244,7 @@ def get_plan_optimization(
         prices_by_food_id=prices_by_food_id,
         max_additional_cost=max_additional_cost,
         recipe_gap_candidates=recipe_gap_candidates,
+        profile=profile,
     )
 
     return schemas.PlanOptimizationOut(
