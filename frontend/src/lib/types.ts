@@ -321,6 +321,21 @@ export interface RecipeSummary {
 	is_stock: boolean;
 }
 
+// GET /api/recipes/search-by-name result row — same shape as RecipeSummary
+// plus is_owner/is_shared, so the recipe-picker search box (meal-plan,
+// diary) can label where a match came from. See backend/app/schemas.py's
+// RecipeSearchResultOut.
+export interface RecipeSearchResult {
+	id: number;
+	name: string;
+	servings: number;
+	average_rating: number | null;
+	rating_count: number;
+	is_stock: boolean;
+	is_owner: boolean;
+	is_shared: boolean;
+}
+
 export interface PaginatedRecipes {
 	items: RecipeSummary[];
 	total: number;
