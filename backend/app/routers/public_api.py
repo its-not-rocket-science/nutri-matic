@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..api_keys import get_api_key_user
 from ..bioavailability import estimate_meal_iron_absorption, is_meat_fish_poultry, split_food_iron
-from ..complement import suggest_complements
+from ..aggregation import WeightedFood
+from ..complement import PAIRING_QUANTITY_G, suggest_complements
 from ..database import get_db
 from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..models import Food, FoodNutrient, User
@@ -67,7 +68,7 @@ def v1_complement_food(
         raise HTTPException(status_code=404, detail="Food not found")
 
     result = _compute_score(food, method, pattern)
-    suggestions = suggest_complements(food, result, method, pattern, db)
+    suggestions = suggest_complements([WeightedFood(food, PAIRING_QUANTITY_G)], result, method, pattern, db)
 
     return schemas.ComplementOut(
         original_score=result.score,

@@ -49,7 +49,8 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_nutrients
-from .models import Food, FoodNutrient, FoodPrice, Recipe
+from .dietary_filter import filter_excluded_foods
+from .models import Food, FoodNutrient, FoodPrice, Profile, Recipe
 
 ADD_TRIAL_QUANTITY_G = 30.0
 CANDIDATE_SHORTLIST_SIZE = 8
@@ -150,6 +151,7 @@ def suggest_meal_optimizations(
     prices_by_food_id: dict[int, float] | None = None,
     max_additional_cost: float | None = None,
     recipe_gap_candidates: list[tuple[Recipe, list[WeightedFood]]] | None = None,
+    profile: Profile | None = None,
 ) -> list[OptimizationSuggestion]:
     """other_items: every other meal's expanded items that day, plus any
     recipe-derived items from the meal being optimized (not swap-eligible
@@ -169,7 +171,13 @@ def suggest_meal_optimizations(
     max_additional_cost drops suggestions whose *known* cost exceeds it;
     suggestions with no price on file are never dropped for cost reasons,
     since excluding them would bias results toward whatever happens to be
-    priced rather than what's nutritionally best."""
+    priced rather than what's nutritionally best.
+
+    profile: applied to the same-family swap candidates queried here (add
+    candidates arrive pre-filtered via gap_candidates/recipe_gap_candidates,
+    since those come from _rank_foods_by_nutrient/_rank_recipes_by_nutrient
+    which already take profile) — without this, a same-family swap could
+    recommend a food that's a hard dietary exclusion for the profile."""
     label = _target_label(target_nutrient_name, target_nutrient_key)
     baseline_items = other_items + swappable_items
     before_percent = _simulate_percent_drv(baseline_items, by_food_id, target_nutrient_key, target_drv)
@@ -257,6 +265,7 @@ def suggest_meal_optimizations(
             .limit(CANDIDATE_SHORTLIST_SIZE)
             .all()
         )
+        same_family = filter_excluded_foods(same_family, db, profile)
         for candidate in same_family:
             _ensure_nutrients_loaded(db, by_food_id, candidate.id)
             new_swappable = swappable_items[:idx] + [WeightedFood(candidate, item.quantity_g)] + swappable_items[idx + 1 :]

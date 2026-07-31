@@ -70,6 +70,7 @@ from .models import (
     MealPlanTemplateEntry,
     MedicalRecommendationAcknowledgement,
     Profile,
+    ProfileGoal,
     Recipe,
     RecipeComment,
     RecipeIngredient,
@@ -245,6 +246,11 @@ def _delete_batch(db: Session, user_ids: list[int]) -> dict[str, int]:
         ),
         "medical_recommendation_acknowledgements",
     )
+    # prompt 2.1: profile_goals has a plain (non-cascading) FK to profiles,
+    # same as every other table in this schema — a demo profile with at
+    # least one goal selected would otherwise make Profile deletion below
+    # fail its FK constraint and roll back the whole batch.
+    _delete(db.query(ProfileGoal).filter(ProfileGoal.profile_id.in_(profile_ids)), "profile_goals")
     _delete(db.query(Profile).filter(Profile.id.in_(profile_ids)), "profiles")
     _delete(db.query(User).filter(User.id.in_(user_ids)), "users")
 

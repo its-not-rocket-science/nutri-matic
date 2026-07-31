@@ -8,6 +8,7 @@
 	import ImproveThis from '$lib/components/ImproveThis.svelte';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
+	import RecipeSearchInput from '$lib/components/RecipeSearchInput.svelte';
 	import { downloadCsv } from '$lib/csv';
 	import { formatCurrency } from '$lib/currency';
 	import type {
@@ -22,7 +23,7 @@
 		OptimizationSuggestion,
 		QuickAdd,
 		QuickAddItem,
-		Recipe,
+		RecipeSearchResult,
 		RecipeSuggestion,
 		SubstitutionSuggestion
 	} from '$lib/types';
@@ -39,14 +40,12 @@
 
 	let date = $state(toIsoDate(new Date()));
 	let summary: DiarySummary | null = $state(null);
-	let allRecipes: Recipe[] = $state([]);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
 	let itemType: 'food' | 'recipe' = $state('food');
-	let search = $state('');
 	let selectedFood: Food | null = $state(null);
-	let selectedRecipe: Recipe | null = $state(null);
+	let selectedRecipe: RecipeSearchResult | null = $state(null);
 	let quantity = $state<number | null>(100);
 	let meal: Meal = $state('breakfast');
 	let adding = $state(false);
@@ -85,12 +84,6 @@
 	const totalAbsorbedIronMg = $derived.by(() => {
 		if (!summary || summary.iron_bioavailability.length === 0) return null;
 		return summary.iron_bioavailability.reduce((sum, m) => sum + m.absorbed_total_mg, 0);
-	});
-
-	const searchResults = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (q.length < 2) return [];
-		return allRecipes.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 15);
 	});
 
 	async function loadDay() {
@@ -142,11 +135,6 @@
 			await goto('/login');
 			return;
 		}
-		try {
-			allRecipes = await api.listRecipes();
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-		}
 		await Promise.all([loadDay(), loadTemplates(), loadQuickAdd(), loadGapSuggestions(), loadSnapshot()]);
 	});
 
@@ -158,11 +146,6 @@
 		loadDay();
 		loadGapSuggestions();
 		loadSnapshot();
-	}
-
-	function selectItem(item: Recipe) {
-		selectedRecipe = item;
-		search = '';
 	}
 
 	async function handleAdd(e: SubmitEvent) {
@@ -657,7 +640,6 @@
 			<select
 				bind:value={itemType}
 				onchange={() => {
-					search = '';
 					selectedFood = null;
 					selectedRecipe = null;
 				}}
@@ -687,17 +669,7 @@
 		{:else if itemType === 'food'}
 			<FoodSearchInput onSelect={(food) => (selectedFood = food)} label="Search foods" />
 		{:else}
-			<label>
-				Search recipes
-				<input type="text" bind:value={search} placeholder="Search…" />
-			</label>
-			{#if searchResults.length > 0}
-				<ul class="search-results">
-					{#each searchResults as item (item.id)}
-						<li><button type="button" onclick={() => selectItem(item)}>{item.name}</button></li>
-					{/each}
-				</ul>
-			{/if}
+			<RecipeSearchInput onSelect={(recipe) => (selectedRecipe = recipe)} label="Search recipes" />
 		{/if}
 
 		<label>
@@ -1124,16 +1096,5 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-	}
-	.search-results {
-		list-style: none;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-	.search-results button {
-		width: 100%;
-		text-align: left;
 	}
 </style>

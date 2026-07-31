@@ -14,12 +14,15 @@
 	import { downloadCsv } from '$lib/csv';
 	import type {
 		AbsorbedProtein,
+		Complement,
 		Food,
 		IngredientSuggestion,
 		NutrientAmount,
+		OptimizationSuggestion,
 		Recipe,
 		RecipeComment,
 		RecipeIngredient,
+		RecipeNutrientGap,
 		RecipeRatingSummary,
 		RecipeShare,
 		Robustness,
@@ -37,6 +40,16 @@
 	let robustness: Robustness | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
 	const totalProtein = $derived(nutrients.find((n) => n.key === 'protein') ?? null);
+	let nutrientGaps: RecipeNutrientGap[] = $state([]);
+	// prompt 5.2 — complementary-ingredient and same-family ingredient-swap
+	// suggestions, both keyed off this recipe's own gaps/protein score.
+	// diaas is the default method here (matching diaasScore already being
+	// this page's primary protein-quality figure) rather than exposing a
+	// second method picker just for this card.
+	let complement: Complement | null = $state(null);
+	let ingredientSwaps: OptimizationSuggestion[] = $state([]);
+	let addingComplementFoodId: number | null = $state(null);
+	let applyingSwapKey: string | null = $state(null);
 
 	// Provenance of a *stock* recipe's ingredient list — prompt section 6:
 	// don't let a source_url attribution link imply ingredients were
@@ -176,15 +189,27 @@
 		}
 		try {
 			recipe = await api.getRecipe(recipeId);
-			const [diaas, pdcaas, nutrientResult, absorbedResult, ratingResult, robustnessResult] =
-				await Promise.allSettled([
-					api.scoreRecipe(recipeId, 'diaas'),
-					api.scoreRecipe(recipeId, 'pdcaas'),
-					api.getRecipeNutrients(recipeId),
-					api.getRecipeAbsorbedProtein(recipeId),
-					api.getRatings(recipeId),
-					api.getRecipeRobustness(recipeId)
-				]);
+			const [
+				diaas,
+				pdcaas,
+				nutrientResult,
+				absorbedResult,
+				ratingResult,
+				robustnessResult,
+				gapsResult,
+				complementResult,
+				swapsResult
+			] = await Promise.allSettled([
+				api.scoreRecipe(recipeId, 'diaas'),
+				api.scoreRecipe(recipeId, 'pdcaas'),
+				api.getRecipeNutrients(recipeId),
+				api.getRecipeAbsorbedProtein(recipeId),
+				api.getRatings(recipeId),
+				api.getRecipeRobustness(recipeId),
+				api.getRecipeNutrientGaps(recipeId),
+				api.complementRecipe(recipeId, 'diaas'),
+				api.getIngredientSwaps(recipeId)
+			]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
 			else diaasUnavailableReason = diaas.reason instanceof Error ? diaas.reason.message : String(diaas.reason);
 			if (pdcaas.status === 'fulfilled') pdcaasScore = pdcaas.value;
@@ -193,6 +218,9 @@
 			if (absorbedResult.status === 'fulfilled') absorbedProtein = absorbedResult.value;
 			if (ratingResult.status === 'fulfilled') ratings = ratingResult.value;
 			if (robustnessResult.status === 'fulfilled') robustness = robustnessResult.value;
+			if (gapsResult.status === 'fulfilled') nutrientGaps = gapsResult.value;
+			if (complementResult.status === 'fulfilled') complement = complementResult.value;
+			if (swapsResult.status === 'fulfilled') ingredientSwaps = swapsResult.value;
 			await Promise.all([loadShares(), loadComments()]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -343,6 +371,45 @@
 		}
 	}
 
+	// Shared refresh after any ingredient-list mutation (add/swap) — recomputes
+	// everything downstream of the ingredient list: nutrient totals, gaps,
+	// the complement/swap suggestions themselves (adding or swapping an
+	// ingredient can change the limiting amino acid or the worst gap), and
+	// the protein scores/absorbed-protein/robustness cards, which otherwise
+	// keep showing pre-mutation figures right next to a suggestion that was
+	// just applied.
+	async function refreshRecipeDerivedData() {
+		const [nutrientResult, gapsResult, complementResult, swapsResult, diaasResult, pdcaasResult, absorbedResult, robustnessResult] =
+			await Promise.allSettled([
+				api.getRecipeNutrients(recipeId),
+				api.getRecipeNutrientGaps(recipeId),
+				api.complementRecipe(recipeId, 'diaas'),
+				api.getIngredientSwaps(recipeId),
+				api.scoreRecipe(recipeId, 'diaas'),
+				api.scoreRecipe(recipeId, 'pdcaas'),
+				api.getRecipeAbsorbedProtein(recipeId),
+				api.getRecipeRobustness(recipeId)
+			]);
+		if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
+		if (gapsResult.status === 'fulfilled') nutrientGaps = gapsResult.value;
+		if (complementResult.status === 'fulfilled') complement = complementResult.value;
+		if (swapsResult.status === 'fulfilled') ingredientSwaps = swapsResult.value;
+		if (diaasResult.status === 'fulfilled') {
+			diaasScore = diaasResult.value;
+			diaasUnavailableReason = null;
+		} else {
+			diaasUnavailableReason = diaasResult.reason instanceof Error ? diaasResult.reason.message : String(diaasResult.reason);
+		}
+		if (pdcaasResult.status === 'fulfilled') {
+			pdcaasScore = pdcaasResult.value;
+			pdcaasUnavailableReason = null;
+		} else {
+			pdcaasUnavailableReason = pdcaasResult.reason instanceof Error ? pdcaasResult.reason.message : String(pdcaasResult.reason);
+		}
+		if (absorbedResult.status === 'fulfilled') absorbedProtein = absorbedResult.value;
+		if (robustnessResult.status === 'fulfilled') robustness = robustnessResult.value;
+	}
+
 	// "Improve this recipe" (prompt 10) — the recipe's own ingredients stand
 	// in for "the current meal" (see routers/recommendations.py's
 	// recipe_id scope), so applying a suggestion just adds it as a new
@@ -350,7 +417,49 @@
 	// form already uses, then refreshes the nutrient totals it affects.
 	async function applyIngredientSuggestionToRecipe(s: IngredientSuggestion) {
 		recipe = await api.addIngredient(recipeId, s.food_id, s.quantity_g);
-		nutrients = await api.getRecipeNutrients(recipeId);
+		await refreshRecipeDerivedData();
+	}
+
+	// Prompt 5.2a — complementary-ingredient CTA: add the suggested food at
+	// the same PAIRING_QUANTITY_G the backend scored it at (complement.food_id
+	// isn't already in the recipe, per suggest_complements' own exclusion).
+	async function applyComplementSuggestion(foodId: number, quantityG: number) {
+		addingComplementFoodId = foodId;
+		try {
+			recipe = await api.addIngredient(recipeId, foodId, quantityG);
+			await refreshRecipeDerivedData();
+		} catch (e) {
+			editError = e instanceof Error ? e.message : String(e);
+		} finally {
+			addingComplementFoodId = null;
+		}
+	}
+
+	// Prompt 5.2b — ingredient-swap CTA: add the suggestion's food first,
+	// then remove the replaced ingredient — deliberately in that order, not
+	// remove-then-add. If the add fails (e.g. a stale suggestion whose food
+	// is already an ingredient, which 409s), nothing has been removed yet
+	// and the recipe is untouched; the alternative ordering would have
+	// already deleted the original ingredient with no way back. Matches the
+	// existing recipe ingredient by food_id (replaces_food_id) rather than
+	// ingredient row id, since OptimizationSuggestionOut only carries the
+	// food id.
+	async function applyIngredientSwap(s: OptimizationSuggestion) {
+		if (s.replaces_food_id == null || s.food_id == null || s.quantity_g == null) return;
+		const key = `${s.replaces_food_id}-${s.food_id}`;
+		applyingSwapKey = key;
+		try {
+			const existing = recipe?.ingredients.find((i) => i.food_id === s.replaces_food_id);
+			recipe = await api.addIngredient(recipeId, s.food_id, s.quantity_g);
+			if (existing) {
+				recipe = await api.removeIngredient(recipeId, existing.id);
+			}
+			await refreshRecipeDerivedData();
+		} catch (e) {
+			editError = e instanceof Error ? e.message : String(e);
+		} finally {
+			applyingSwapKey = null;
+		}
 	}
 
 	async function handleAddIngredient(food: Food) {
@@ -502,6 +611,90 @@
 		<TagEditor bind:recipe={recipe as Recipe} editable={recipe.is_owner} />
 	</div>
 
+	{#if nutrientGaps.length > 0}
+		<section class="card nutrient-gaps">
+			<h2>Key nutrient shortfalls <span class="muted">(per serving)</span></h2>
+			<p class="muted field-note">
+				This recipe's most significant gaps, one serving compared against a typical daily
+				target — not a claim this recipe should cover a whole day on its own, just where it
+				falls short of one.
+			</p>
+			<ul class="entries">
+				{#each nutrientGaps as gap (gap.key)}
+					<li>
+						<span class="gap-name">{gap.name}</span>
+						<span class="muted">
+							{gap.consumed_amount !== null
+								? `${gap.consumed_amount < 10 ? gap.consumed_amount.toFixed(2) : gap.consumed_amount.toFixed(0)}${gap.unit}`
+								: ''}
+							{#if gap.percent_shortfall !== null}
+								&middot; {gap.percent_shortfall.toFixed(0)}% short of target
+							{/if}
+						</span>
+						<span class="badge {gap.status === 'below_target' ? 'badge-estimated' : 'badge-info'}">
+							{gap.status === 'below_target' ? 'below target' : 'near target'}
+						</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	{#if recipe.is_owner && complement && complement.suggestions.length > 0}
+		<section class="card complement-suggestions">
+			<h2>Complementary ingredients</h2>
+			<p class="muted field-note">
+				This recipe's limiting amino acid is <strong>{complement.limiting_amino_acid}</strong>. Adding
+				one of these would raise the combined protein score.
+			</p>
+			<ul class="entries">
+				{#each complement.suggestions as s (s.food_id)}
+					<li>
+						<a href="/foods/{s.food_id}">{s.food_name}</a>
+						<span class="muted">+{s.score_improvement.toFixed(2)} score</span>
+						<button
+							type="button"
+							class="btn btn-secondary no-print"
+							disabled={addingComplementFoodId === s.food_id}
+							onclick={() => applyComplementSuggestion(s.food_id, 100)}
+						>
+							{addingComplementFoodId === s.food_id ? 'Adding…' : 'Add to recipe'}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
+	{#if recipe.is_owner && ingredientSwaps.length > 0}
+		<section class="card ingredient-swaps">
+			<h2>Ingredient swaps</h2>
+			<p class="muted field-note">
+				Swapping these would improve this recipe's biggest nutrient shortfall.
+			</p>
+			<ul class="entries">
+				{#each ingredientSwaps as s (`${s.replaces_food_id}-${s.food_id}`)}
+					<li>
+						<span>
+							Replace <strong>{s.replaces_food_name}</strong> with <strong>{s.food_name}</strong>
+						</span>
+						<span class="muted">
+							{s.before_percent_drv.toFixed(0)}% &rarr; {s.after_percent_drv.toFixed(0)}% of target
+						</span>
+						<button
+							type="button"
+							class="btn btn-secondary no-print"
+							disabled={applyingSwapKey === `${s.replaces_food_id}-${s.food_id}`}
+							onclick={() => applyIngredientSwap(s)}
+						>
+							{applyingSwapKey === `${s.replaces_food_id}-${s.food_id}` ? 'Swapping…' : 'Apply swap'}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	<ul class="ingredients">
 		{#each recipe.ingredients as ingredient (ingredient.id)}
 			<li>
@@ -560,6 +753,8 @@
 				<strong>Total: {totalProtein.amount.toFixed(1)}g</strong>
 				{#if totalProtein.percent_drv !== null}
 					<span class="muted">({totalProtein.percent_drv.toFixed(0)}% of daily target)</span>
+				{:else if totalProtein.insufficient_data_reason}
+					<span class="muted">— not enough reported data to estimate a percentage</span>
 				{/if}
 			</p>
 		{/if}
@@ -748,6 +943,48 @@
 {/if}
 
 <style>
+	.nutrient-gaps {
+		margin-bottom: var(--space-5);
+	}
+	.nutrient-gaps .field-note {
+		margin: var(--space-1) 0 var(--space-3);
+	}
+	.nutrient-gaps .entries {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+	.nutrient-gaps .entries li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
+	}
+	.nutrient-gaps .gap-name {
+		font-weight: 600;
+	}
+	.complement-suggestions,
+	.ingredient-swaps {
+		margin-bottom: var(--space-5);
+	}
+	.complement-suggestions .field-note,
+	.ingredient-swaps .field-note {
+		margin: var(--space-1) 0 var(--space-3);
+	}
+	.complement-suggestions .entries,
+	.ingredient-swaps .entries {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+	.complement-suggestions .entries li,
+	.ingredient-swaps .entries li {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
+	}
 	.ingredients {
 		list-style: none;
 		padding: 0;

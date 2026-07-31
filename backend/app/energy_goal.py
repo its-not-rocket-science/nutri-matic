@@ -44,6 +44,7 @@ be exactly the fabricated precision this app avoids elsewhere.
 
 from .energy import calculate_age, calculate_eer
 from .food_chemistry import OLDER_ADULT_AGE_THRESHOLD
+from .goals import goal_keys_of
 from .models import Profile
 
 WEIGHT_LOSS_GOALS = {"weight_loss", "visceral_fat_reduction"}
@@ -59,7 +60,8 @@ def calculate_energy_target(profile: Profile, *, current_year: int | None = None
     """Returns (target_kcal, deficit_applied), or None if EER itself can't
     be computed (see energy.calculate_eer for required fields).
 
-    deficit_applied is True only when a weight-loss goal is set, the
+    deficit_applied is True only when a weight-loss goal is set (prompt
+    2.1: any goal in the profile's active set, not just a single one), the
     profile isn't pregnant/lactating, and the deficit actually landed below
     EER (i.e. the floor didn't erase it entirely) — so callers can show an
     honest "this reflects your weight-loss goal" note only when the target
@@ -67,7 +69,8 @@ def calculate_energy_target(profile: Profile, *, current_year: int | None = None
     eer = calculate_eer(profile, current_year=current_year)
     if eer is None:
         return None
-    if profile.goal not in WEIGHT_LOSS_GOALS or profile.is_pregnant or profile.is_lactating:
+    has_weight_loss_goal = any(g in WEIGHT_LOSS_GOALS for g in goal_keys_of(profile))
+    if not has_weight_loss_goal or profile.is_pregnant or profile.is_lactating:
         return (eer, False)
 
     age = calculate_age(profile, current_year=current_year)
