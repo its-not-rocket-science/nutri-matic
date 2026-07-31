@@ -369,8 +369,13 @@ class ProfileOut(BaseModel):
     height_cm: float | None = None
     dietary_pattern: str | None = None
     # onboarding's step-1 pick — null if never set (skipped onboarding, or a
-    # pre-this-feature account)
+    # pre-this-feature account). Kept as a read-only mirror of `goals[0]`
+    # (prompt 2.1) for any caller still reading the single-value field.
     goal: str | None = None
+    # prompt 2.1: a profile's full active goal set, highest priority
+    # (most important) first. `goal` above always equals `goals[0]` (or
+    # null if empty) — never a separate, driftable value.
+    goals: list[str] = []
 
 
 class ProfileCreate(BaseModel):
@@ -383,7 +388,12 @@ class ProfileCreate(BaseModel):
     weight_kg: float | None = None
     height_cm: float | None = None
     dietary_pattern: str | None = None
+    # legacy single-goal field — still honored (treated as goals=[goal])
+    # when `goals` isn't given, so an old client keeps working unchanged.
     goal: str | None = None
+    # prompt 2.1: preferred field going forward — an ordered list, highest
+    # priority first. Wins over `goal` if both are given.
+    goals: list[str] | None = None
 
 
 class EntitlementsOut(BaseModel):
@@ -403,6 +413,7 @@ class ProfileUpdate(BaseModel):
     height_cm: float | None = None
     dietary_pattern: str | None = None
     goal: str | None = None
+    goals: list[str] | None = None
 
 
 class DietaryConstraintCreate(BaseModel):
@@ -450,6 +461,18 @@ class DietaryPatternOut(BaseModel):
     excludes: list[str]
 
 
+class ConditionOut(BaseModel):
+    key: str
+    label: str
+    # a dietary_tags.TAGS key this condition should exclude/downweight the
+    # same way an allergy tag does, or null for an informational-only
+    # condition with no defensible food-exclusion list (see
+    # dietary_tags.CONDITIONS' docstring)
+    maps_to_tag: str | None
+    # "hard_exclude" | "avoid" | null (null only when maps_to_tag is null)
+    default_severity: str | None
+
+
 class DietaryVocabularyOut(BaseModel):
     """The full controlled vocabulary (dietary_tags.py), so the frontend
     never hardcodes tag keys/labels — a new tag added there shows up here
@@ -458,6 +481,8 @@ class DietaryVocabularyOut(BaseModel):
     allergen_tags: list[DietaryTagOut]
     religious_requirements: list[DietaryPatternOut]
     dietary_patterns: list[DietaryPatternOut]
+    # prompt 3.1
+    conditions: list[ConditionOut]
 
 
 class RecipeIngredientCreate(BaseModel):
@@ -587,6 +612,23 @@ class RecipeSummaryOut(BaseModel):
     average_rating: float | None
     rating_count: int
     is_stock: bool = False
+
+
+class RecipeSearchResultOut(BaseModel):
+    """Result row for GET /api/recipes/search-by-name — same lightweight
+    shape as RecipeSummaryOut (the picker doesn't render ingredients/tags),
+    plus is_owner/is_shared so the frontend can label where a match came
+    from (own catalogue, shared with you, or the public/stock catalogue)."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    servings: float
+    average_rating: float | None
+    rating_count: int
+    is_stock: bool = False
+    is_owner: bool
+    is_shared: bool
 
 
 class PaginatedRecipesOut(BaseModel):
@@ -1059,6 +1101,30 @@ class FilterKeyOut(BaseModel):
 
 
 Scope = Literal["food", "recipe"]
+
+
+class NutrientSourceOut(BaseModel):
+    kind: Scope
+    food_id: int | None
+    recipe_id: int | None
+    name: str
+    amount: float
+    unit: str
+    # "100g" for a food (its raw per-100g content); "serving" for a
+    # recipe (its real ingredient list simulated at 1 serving) — never
+    # the same number, so foods and recipes are ranked in separate lists
+    # (see NutrientSourcesOut), not merged into one sorted-by-amount list
+    per: Literal["100g", "serving"]
+    # same "avoid"/"unknown" display-only badge food/recipe search already
+    # show (see dietary_filter.py) — an item retained past filter_excluded_
+    # foods/recipes (a soft "avoid" constraint, not a hard exclusion) must
+    # not render identically to a genuinely unconstrained result here either
+    dietary_status: DietaryStatusOut | None = None
+
+
+class NutrientSourcesOut(BaseModel):
+    foods: list[NutrientSourceOut]
+    recipes: list[NutrientSourceOut]
 
 
 class SavedFilterPresetCreate(BaseModel):

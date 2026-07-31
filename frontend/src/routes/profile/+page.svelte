@@ -6,7 +6,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { browserDefaultCurrency, CURRENCY_OPTIONS } from '$lib/currency';
 	import { GOAL_OPTIONS, type Goal } from '$lib/goals';
-	import type { DietaryConstraint, DietaryVocabulary, Profile, ProfileUpdate } from '$lib/types';
+	import type { Condition, DietaryConstraint, DietaryVocabulary, Profile, ProfileUpdate } from '$lib/types';
 
 	let currency: string | null = $state(null);
 	let accountError: string | null = $state(null);
@@ -25,7 +25,19 @@
 	let weightKg: number | null = $state(null);
 	let heightCm: number | null = $state(null);
 	let dietaryPattern: string | null = $state(null);
-	let goal: Goal | null = $state(null);
+	// Ordered by priority (index 0 = most important) — prompt 2.1. Toggling
+	// a checkbox appends to the end (newly picked = lowest priority so far)
+	// or removes; there's no separate reorder UI yet, so re-checking a
+	// goal after unchecking it moves it to the back of the line again.
+	let goals: Goal[] = $state([]);
+
+	function toggleGoal(g: Goal, checked: boolean) {
+		if (checked) {
+			if (!goals.includes(g)) goals = [...goals, g];
+		} else {
+			goals = goals.filter((x) => x !== g);
+		}
+	}
 	let error: string | null = $state(null);
 	let loading = $state(true);
 	let saving = $state(false);
@@ -80,7 +92,7 @@
 		weightKg = profile.weight_kg;
 		heightCm = profile.height_cm;
 		dietaryPattern = profile.dietary_pattern;
-		goal = profile.goal as Goal | null;
+		goals = profile.goals as Goal[];
 	}
 
 	async function loadConstraints(profileId: number) {
@@ -155,7 +167,7 @@
 				weight_kg: weightKg,
 				height_cm: heightCm,
 				dietary_pattern: dietaryPattern,
-				goal
+				goals
 			};
 			const updated = await api.updateProfile(selectedId, body);
 			profiles = profiles.map((p) => (p.id === updated.id ? updated : p));
@@ -184,7 +196,7 @@
 				weight_kg: null,
 				height_cm: null,
 				dietary_pattern: null,
-				goal: null
+				goals: []
 			});
 			profiles = [...profiles, created];
 			activeProfile.setProfiles(profiles);
@@ -213,6 +225,40 @@
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
 			deleting = false;
+		}
+	}
+
+	// prompt 3.1 — a condition is a curated shortcut onto the same
+	// DietaryConstraint rows the allergy/intolerance/medical sections below
+	// already manage directly; matching an existing row to a condition
+	// mirrors exactly what the backend's own dedup check does (category+tag
+	// for a tag-mapped condition, category=medical+note for an
+	// informational one — see dietary_tags.CONDITIONS' docstring).
+	let togglingConditionKey: string | null = $state(null);
+
+	function isConditionSet(condition: Condition): boolean {
+		return constraints.some((c) =>
+			condition.maps_to_tag !== null
+				? c.category === 'intolerance' && c.tag === condition.maps_to_tag
+				: c.category === 'medical' && c.note === condition.label
+		);
+	}
+
+	async function toggleCondition(condition: Condition, checked: boolean) {
+		if (selectedId === null) return;
+		togglingConditionKey = condition.key;
+		constraintsError = null;
+		try {
+			if (checked) {
+				await api.addCondition(selectedId, condition.key);
+			} else {
+				await api.removeCondition(selectedId, condition.key);
+			}
+			await loadConstraints(selectedId);
+		} catch (e) {
+			constraintsError = e instanceof Error ? e.message : String(e);
+		} finally {
+			togglingConditionKey = null;
 		}
 	}
 
@@ -441,15 +487,27 @@
 				all five are needed for that; anything missing just means no calorie target shows up.
 			</p>
 
-			<div class="field">
-				<label for="goal">Main goal</label>
-				<select id="goal" bind:value={goal}>
-					<option value={null}>Not set</option>
-					{#each GOAL_OPTIONS as g (g.value)}
-						<option value={g.value}>{g.label}</option>
-					{/each}
-				</select>
-			</div>
+			<fieldset class="field goals-field">
+				<legend>Goals</legend>
+				<p class="muted">
+					Pick as many as apply — check order sets priority (first checked matters most when goals
+					pull in different directions).
+				</p>
+				{#each GOAL_OPTIONS as g (g.value)}
+					{@const rank = goals.indexOf(g.value)}
+					<label class="goal-checkbox">
+						<input
+							type="checkbox"
+							checked={goals.includes(g.value)}
+							onchange={(e) => toggleGoal(g.value, e.currentTarget.checked)}
+						/>
+						{g.label}
+						{#if rank !== -1}
+							<span class="muted">(priority {rank + 1})</span>
+						{/if}
+					</label>
+				{/each}
+			</fieldset>
 
 			{#if vocabulary}
 				<div class="field">
@@ -491,6 +549,44 @@
 
 		{#if constraintsError}
 			<p class="error">{constraintsError}</p>
+		{/if}
+
+		{#if vocabulary}
+			<section class="card constraint-section">
+				<h2>Health conditions</h2>
+				<p class="muted field-note">
+					Why this exists: a shortcut for common conditions, onto the exact same mechanism as
+					allergies/intolerances below. Lactose intolerance flags dairy as "avoid" (tolerance is
+					often dose-dependent); gluten intolerance/coeliac disease hard-excludes wheat/gluten
+					(coeliac disease needs strict avoidance). The rest (type 2 diabetes, hypertension, high
+					cholesterol, IBS, kidney disease) have no food-name-based exclusion list this app can
+					defend, so they're stored for reference only and never auto-filter anything — but
+					checking one of these <strong>does</strong> immediately turn off gap-suggestions,
+					meal-optimize, and recipe recommendations everywhere on this profile, the same built-in
+					safety guardrail any other stored medical consideration triggers (this app doesn't know
+					your prescribed diet's requirements and won't guess). Re-enable them from a suggestion
+					panel's own prompt once you've reviewed the disclosure there. This is dietary filtering
+					assistance, not medical advice.
+				</p>
+				<ul class="condition-list">
+					{#each vocabulary.conditions as condition (condition.key)}
+						<li>
+							<label class="condition-checkbox">
+								<input
+									type="checkbox"
+									checked={isConditionSet(condition)}
+									disabled={togglingConditionKey === condition.key}
+									onchange={(e) => toggleCondition(condition, e.currentTarget.checked)}
+								/>
+								{condition.label}
+								{#if condition.maps_to_tag === null}
+									<span class="muted">(reference only — disables recommendations until acknowledged)</span>
+								{/if}
+							</label>
+						</li>
+					{/each}
+				</ul>
+			</section>
 		{/if}
 
 		<section class="card constraint-section">
@@ -648,6 +744,21 @@
 		max-width: 40rem;
 		margin-bottom: var(--space-5);
 	}
+	.goals-field {
+		border: none;
+		padding: 0;
+		margin: 0 0 var(--space-4);
+	}
+	.goals-field legend {
+		font-weight: 600;
+		padding: 0;
+	}
+	.goal-checkbox {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
+	}
 	.profile-pills {
 		display: flex;
 		flex-wrap: wrap;
@@ -706,6 +817,17 @@
 	}
 	.constraint-list li:last-child {
 		border-bottom: none;
+	}
+	.condition-list {
+		list-style: none;
+		padding: 0;
+		margin: var(--space-3) 0;
+	}
+	.condition-checkbox {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
 	}
 	.inline-form {
 		display: flex;

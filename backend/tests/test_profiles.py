@@ -219,6 +219,131 @@ def test_update_profile_accepts_weight_loss_goals(client):
         assert res.json()["goal"] == goal
 
 
+def test_create_profile_with_multiple_goals(client):
+    """Prompt 2.1: a profile can hold more than one goal at once. `goal`
+    (the legacy single-value field) mirrors whichever goal is priority 1
+    — the first entry in `goals` — never a separately drifting value."""
+    token = register_and_token(client, "a@example.com")
+    res = client.post(
+        "/api/profiles",
+        json={**BASE_PROFILE_PAYLOAD, "name": "Kid", "goals": ["nutrient_gaps", "budget", "exploring"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["goals"] == ["nutrient_gaps", "budget", "exploring"]
+    assert body["goal"] == "nutrient_gaps"
+
+
+def test_update_profile_replaces_goal_set(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["weight_loss", "budget"]},
+        headers=auth_headers(token),
+    )
+
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["exploring"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["goals"] == ["exploring"]
+    assert body["goal"] == "exploring"
+
+    # persisted, not just echoed — a stale second goal from the first PUT
+    # must not linger
+    res2 = client.get(f"/api/profiles/{owner['id']}", headers=auth_headers(token))
+    assert res2.json()["goals"] == ["exploring"]
+
+
+def test_update_profile_goals_empty_list_clears_every_goal(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget"]},
+        headers=auth_headers(token),
+    )
+
+    res = client.put(
+        f"/api/profiles/{owner['id']}", json={**BASE_PROFILE_PAYLOAD, "goals": []}, headers=auth_headers(token)
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["goals"] == []
+    assert body["goal"] is None
+
+
+def test_update_profile_rejects_unknown_goal_in_goals_list(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget", "world_domination"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 422
+
+
+def test_update_profile_goals_dedupes_preserving_first_occurrence_priority(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget", "exploring", "budget"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    assert res.json()["goals"] == ["budget", "exploring"]
+
+
+def test_update_profile_legacy_goal_field_still_works_unchanged(client):
+    """An old client that only ever sends `goal` (never `goals`) keeps
+    working exactly as before — treated as a single-item goal set."""
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goal": "protein_quality"},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["goal"] == "protein_quality"
+    assert body["goals"] == ["protein_quality"]
+
+
+def test_list_profiles_includes_goals_for_every_profile(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget", "nutrient_gaps"]},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/profiles", json={**BASE_PROFILE_PAYLOAD, "name": "Kid", "goals": ["exploring"]},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/profiles", headers=auth_headers(token))
+    assert res.status_code == 200
+    goals_by_name = {p["name"]: p["goals"] for p in res.json()}
+    assert goals_by_name["Me"] == ["budget", "nutrient_gaps"]
+    assert goals_by_name["Kid"] == ["exploring"]
+
+
+def test_registration_creates_owner_profile_with_empty_goals_by_default(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    assert owner["goals"] == []
+    assert owner["goal"] is None
+
+
 def test_get_dietary_vocabulary_no_auth_required(client):
     res = client.get("/api/profiles/dietary-vocabulary")
     assert res.status_code == 200
@@ -305,6 +430,27 @@ def test_medical_constraint_must_have_null_tag(client):
         headers=auth_headers(token),
     )
     assert res_ok.status_code == 201
+
+
+def test_multiple_distinct_medical_notes_can_coexist(client):
+    """PR review: category+tag alone (tag always null for a free-text
+    medical row) isn't a meaningful dedup key — two different notes
+    aren't a conflict. Before the fix, a second note incorrectly 409'd
+    against the first, and a third made the dedup query's one_or_none()
+    raise MultipleResultsFound (500) once 2+ existing rows matched."""
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+
+    for note in ["Type 2 diabetes", "Hypertension", "High cholesterol"]:
+        res = client.post(
+            f"/api/profiles/{owner['id']}/dietary-constraints",
+            json={"category": "medical", "tag": None, "severity": None, "note": note},
+            headers=auth_headers(token),
+        )
+        assert res.status_code == 201, res.text
+
+    listed = client.get(f"/api/profiles/{owner['id']}/dietary-constraints", headers=auth_headers(token)).json()
+    assert {c["note"] for c in listed} == {"Type 2 diabetes", "Hypertension", "High cholesterol"}
 
 
 def test_delete_dietary_constraint_scoped_to_owning_account(client):

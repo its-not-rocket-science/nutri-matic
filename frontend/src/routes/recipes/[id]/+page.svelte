@@ -753,6 +753,8 @@
 				<strong>Total: {totalProtein.amount.toFixed(1)}g</strong>
 				{#if totalProtein.percent_drv !== null}
 					<span class="muted">({totalProtein.percent_drv.toFixed(0)}% of daily target)</span>
+				{:else if totalProtein.insufficient_data_reason}
+					<span class="muted">— not enough reported data to estimate a percentage</span>
 				{/if}
 			</p>
 		{/if}
