@@ -47,6 +47,7 @@ import type {
 	Recipe,
 	RecipeComment,
 	RecipeCreate,
+	RecipeNutrientGap,
 	RecipeRatingSummary,
 	RecipeShare,
 	RecipeSuggestions,
@@ -259,6 +260,8 @@ export const api = {
 	scoreRecipe: (id: number, method: 'diaas' | 'pdcaas') =>
 		request<Score>(`/api/recipes/${id}/score?method=${method}`),
 	getRecipeNutrients: (id: number) => request<NutrientAmount[]>(withProfile(`/api/recipes/${id}/nutrients`)),
+	getRecipeNutrientGaps: (id: number, limit = 5) =>
+		request<RecipeNutrientGap[]>(withProfile(`/api/recipes/${id}/nutrient-gaps?limit=${limit}`)),
 	getRecipeAbsorbedProtein: (id: number) =>
 		request<AbsorbedProtein | null>(withProfile(`/api/recipes/${id}/absorbed-protein`)),
 	getRecipeRobustness: (id: number) => request<Robustness | null>(`/api/recipes/${id}/robustness`),

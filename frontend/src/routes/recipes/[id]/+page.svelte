@@ -20,6 +20,7 @@
 		Recipe,
 		RecipeComment,
 		RecipeIngredient,
+		RecipeNutrientGap,
 		RecipeRatingSummary,
 		RecipeShare,
 		Robustness,
@@ -37,6 +38,7 @@
 	let robustness: Robustness | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
 	const totalProtein = $derived(nutrients.find((n) => n.key === 'protein') ?? null);
+	let nutrientGaps: RecipeNutrientGap[] = $state([]);
 
 	// Provenance of a *stock* recipe's ingredient list — prompt section 6:
 	// don't let a source_url attribution link imply ingredients were
@@ -176,14 +178,15 @@
 		}
 		try {
 			recipe = await api.getRecipe(recipeId);
-			const [diaas, pdcaas, nutrientResult, absorbedResult, ratingResult, robustnessResult] =
+			const [diaas, pdcaas, nutrientResult, absorbedResult, ratingResult, robustnessResult, gapsResult] =
 				await Promise.allSettled([
 					api.scoreRecipe(recipeId, 'diaas'),
 					api.scoreRecipe(recipeId, 'pdcaas'),
 					api.getRecipeNutrients(recipeId),
 					api.getRecipeAbsorbedProtein(recipeId),
 					api.getRatings(recipeId),
-					api.getRecipeRobustness(recipeId)
+					api.getRecipeRobustness(recipeId),
+					api.getRecipeNutrientGaps(recipeId)
 				]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
 			else diaasUnavailableReason = diaas.reason instanceof Error ? diaas.reason.message : String(diaas.reason);
@@ -193,6 +196,7 @@
 			if (absorbedResult.status === 'fulfilled') absorbedProtein = absorbedResult.value;
 			if (ratingResult.status === 'fulfilled') ratings = ratingResult.value;
 			if (robustnessResult.status === 'fulfilled') robustness = robustnessResult.value;
+			if (gapsResult.status === 'fulfilled') nutrientGaps = gapsResult.value;
 			await Promise.all([loadShares(), loadComments()]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -502,6 +506,35 @@
 		<TagEditor bind:recipe={recipe as Recipe} editable={recipe.is_owner} />
 	</div>
 
+	{#if nutrientGaps.length > 0}
+		<section class="card nutrient-gaps">
+			<h2>Key nutrient shortfalls <span class="muted">(per serving)</span></h2>
+			<p class="muted field-note">
+				This recipe's most significant gaps, one serving compared against a typical daily
+				target — not a claim this recipe should cover a whole day on its own, just where it
+				falls short of one.
+			</p>
+			<ul class="entries">
+				{#each nutrientGaps as gap (gap.key)}
+					<li>
+						<span class="gap-name">{gap.name}</span>
+						<span class="muted">
+							{gap.consumed_amount !== null
+								? `${gap.consumed_amount < 10 ? gap.consumed_amount.toFixed(2) : gap.consumed_amount.toFixed(0)}${gap.unit}`
+								: ''}
+							{#if gap.percent_shortfall !== null}
+								&middot; {gap.percent_shortfall.toFixed(0)}% short of target
+							{/if}
+						</span>
+						<span class="badge {gap.status === 'below_target' ? 'badge-estimated' : 'badge-info'}">
+							{gap.status === 'below_target' ? 'below target' : 'near target'}
+						</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	<ul class="ingredients">
 		{#each recipe.ingredients as ingredient (ingredient.id)}
 			<li>
@@ -748,6 +781,26 @@
 {/if}
 
 <style>
+	.nutrient-gaps {
+		margin-bottom: var(--space-5);
+	}
+	.nutrient-gaps .field-note {
+		margin: var(--space-1) 0 var(--space-3);
+	}
+	.nutrient-gaps .entries {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+	.nutrient-gaps .entries li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-1) 0;
+	}
+	.nutrient-gaps .gap-name {
+		font-weight: 600;
+	}
 	.ingredients {
 		list-style: none;
 		padding: 0;
