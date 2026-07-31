@@ -221,17 +221,28 @@ def create_dietary_constraint(
     if body.category in ("medical",) and body.tag is not None:
         raise HTTPException(status_code=422, detail="medical constraints are free-text only (tag must be null)")
 
-    existing = (
-        db.query(DietaryConstraint)
-        .filter(
-            DietaryConstraint.profile_id == profile.id,
-            DietaryConstraint.category == body.category,
-            DietaryConstraint.tag == body.tag,
+    # Dedup only makes sense for a tagged row (allergy/intolerance/
+    # religious) — exactly one row per (category, tag) is the intended
+    # invariant there. A free-text medical/preference row always has
+    # tag=None, so "duplicate" isn't a meaningful concept for it (two
+    # different notes are two different considerations, not a conflict);
+    # worse, checking category+tag alone for tag=None rows means a second
+    # medical/preference note of any kind would incorrectly 409 against
+    # the first, and a third would make .one_or_none() raise
+    # MultipleResultsFound (500) once a profile has 2+ (e.g. via prompt
+    # 3.1's condition picker, which can add several medical rows).
+    if body.tag is not None:
+        existing = (
+            db.query(DietaryConstraint)
+            .filter(
+                DietaryConstraint.profile_id == profile.id,
+                DietaryConstraint.category == body.category,
+                DietaryConstraint.tag == body.tag,
+            )
+            .one_or_none()
         )
-        .one_or_none()
-    )
-    if existing is not None:
-        raise HTTPException(status_code=409, detail="This constraint already exists")
+        if existing is not None:
+            raise HTTPException(status_code=409, detail="This constraint already exists")
 
     constraint = DietaryConstraint(
         user_id=current_user.id,
