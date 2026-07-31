@@ -226,7 +226,9 @@
 
 				<div class="widget card">
 					<p class="label-caps">Highest-impact recommendation</p>
-					{#if topSuggestion}
+					{#if mealOptimization?.disabled_reason}
+						<p class="disabled-notice">{mealOptimization.disabled_reason}</p>
+					{:else if topSuggestion}
 						<h3>+{topSuggestion.improvement.toFixed(1)}pp <span class="unit">{mealOptimization?.target_nutrient_name}</span></h3>
 						<p class="proof-suggestion">
 							{#if topSuggestion.action === 'swap'}
@@ -423,6 +425,10 @@
 <style>
 	.goal-banner {
 		margin: 0 0 var(--space-4);
+	}
+	.disabled-notice {
+		margin: 0;
+		color: var(--color-warning);
 	}
 	.quick-actions {
 		display: flex;

@@ -26,7 +26,7 @@ from ..models import DiaryEntry, Food, FoodNutrient, MealPlanEntry, Profile, Rec
 from ..nutrient_targets import AnalysisPeriod
 from ..recipe_access import get_visible_recipe
 from ..recommendation_params import parse_priority_nutrients, validate_date_range
-from ..recommendation_safety import assess_eligibility, recipe_warnings
+from ..recommendation_safety import assess_eligibility, disabled_reason_code_out, recipe_warnings
 from ..recommend_ingredients import DEFAULT_MAX_SUGGESTIONS, suggest_ingredients
 from ..recommend_recipes import DEFAULT_MAX_SUGGESTIONS as DEFAULT_MAX_RECIPE_SUGGESTIONS
 from ..recommend_recipes import GOAL_PRESETS, suggest_recipes
@@ -89,12 +89,6 @@ def _quality_summary_out(summary: RecipeQualitySummary) -> schemas.RecipeQuality
         unresolved_or_low_confidence_count=summary.unresolved_or_low_confidence_count,
         nutrient_coverage=summary.nutrient_coverage,
     )
-
-
-def _disabled_reason_code_out(eligibility) -> str | None:
-    """Hardening prompt 5's structured reason code, as a plain string for
-    the API schema."""
-    return eligibility.disabled_reason_code.value if eligibility.disabled_reason_code else None
 
 
 Source = Literal["diary", "meal_plan"]
@@ -240,7 +234,7 @@ def get_ingredient_suggestions(
     if not eligibility.enabled:
         return schemas.IngredientSuggestionsOut(
             suggestions=[], disabled_reason=eligibility.disabled_reason,
-            disabled_reason_code=_disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
+            disabled_reason_code=disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
         )
 
     already_consumed_by_key: dict[str, float] | None = None
@@ -368,7 +362,7 @@ def get_recipe_suggestions(
     if not eligibility.enabled:
         return schemas.RecipeSuggestionsOut(
             suggestions=[], disabled_reason=eligibility.disabled_reason,
-            disabled_reason_code=_disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
+            disabled_reason_code=disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
         )
 
     if is_range:
@@ -459,7 +453,7 @@ def get_substitution_suggestions(
             current_recipe_id=current_recipe.id, current_recipe_name=current_recipe.name,
             current_entry_version=entry.version,
             suggestions=[], disabled_reason=eligibility.disabled_reason,
-            disabled_reason_code=_disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
+            disabled_reason_code=disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
         )
 
     entry_date = entry.plan_date if source == "meal_plan" else entry.entry_date
@@ -640,7 +634,7 @@ def get_pair_suggestions(
     if not eligibility.enabled:
         return schemas.PairSuggestionsOut(
             suggestions=[], disabled_reason=eligibility.disabled_reason,
-            disabled_reason_code=_disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
+            disabled_reason_code=disabled_reason_code_out(eligibility), warnings=[w.value for w in eligibility.warnings],
         )
 
     entries = _load_entries(db, profile, entry_date, source)

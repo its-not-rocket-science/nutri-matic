@@ -11,6 +11,7 @@ from ..goals import goal_keys_of
 from ..models import DiaryEntry, Food, FoodPrice, MealPlanEntry, Profile, Recipe, User
 from ..optimizer import load_prices_by_food_id, suggest_meal_optimizations
 from ..recipe_access import is_recipe_visible
+from ..recommendation_safety import assess_eligibility, disabled_reason_code_out
 from .diary import _compute_nutrient_gaps, _find_worst_gap, _rank_foods_by_nutrient, _rank_recipes_by_nutrient
 
 router = APIRouter(prefix="/api/meal-plan", tags=["meal-plan"])
@@ -195,7 +196,18 @@ def get_plan_optimization(
     directly-planned (non-recipe) food in the range is swap-eligible, and
     recipe-derived items are fixed (same reasoning as the diary: swapping
     one ingredient inside a planned recipe isn't this feature's job).
-    Returns None if the range has no entries, or there's no gap to target."""
+    Returns None if the range has no entries, or there's no gap to target.
+
+    Prompt 3.2: same medical-constraint guardrail as the diary's
+    /gap-suggestions and /meal-optimize — see routers/diary.py's
+    get_gap_suggestions docstring."""
+    eligibility = assess_eligibility(profile, db)
+    if not eligibility.enabled:
+        return schemas.PlanOptimizationOut(
+            start_date=start_date, end_date=end_date,
+            disabled_reason=eligibility.disabled_reason, disabled_reason_code=disabled_reason_code_out(eligibility),
+        )
+
     entries = _entries_in_range(start_date, end_date, profile, db)
     if not entries:
         return None
