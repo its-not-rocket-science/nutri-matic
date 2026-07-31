@@ -153,9 +153,9 @@
 {#if auth.isLoggedIn}
 	<h1>Nutri-Matic</h1>
 
-	{#if activeProfile.active?.goal}
-		<p class="muted goal-banner">{GOAL_MESSAGES[activeProfile.active.goal as Goal]}</p>
-	{/if}
+	{#each activeProfile.active?.goals ?? [] as goal (goal)}
+		<p class="muted goal-banner">{GOAL_MESSAGES[goal as Goal]}</p>
+	{/each}
 
 	<div class="quick-actions">
 		<a class="btn btn-primary" href="/foods/new">+ Add a food</a>

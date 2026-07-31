@@ -98,6 +98,34 @@ def test_deficit_never_goes_below_male_floor():
     assert adjusted is True
 
 
+def test_weight_loss_goal_applies_deficit_even_when_not_priority_one():
+    """Prompt 2.1: the legacy `goal` mirror column only ever holds
+    priority 1. A profile with weight_loss ranked second must still get
+    the deficit — checking `goal` alone (pre-2.1 behaviour) would miss
+    this entirely. Simulates what auth.attach_goals() does to a real
+    Profile without needing a full request/DB round trip."""
+    user = make_user(
+        weight_kg=90, height_cm=180, birth_year=1990, sex="male", activity_level="moderate",
+        goal="nutrient_gaps",
+    )
+    user.goals = ["nutrient_gaps", "weight_loss"]
+    eer = calculate_eer(user, current_year=2026)
+    target, adjusted = calculate_energy_target(user, current_year=2026)
+    assert adjusted is True
+    assert target == pytest.approx(eer * (1 - DEFICIT_PERCENT_ADULT))
+
+
+def test_empty_goal_set_returns_plain_eer_unadjusted():
+    user = make_user(
+        weight_kg=70, height_cm=175, birth_year=1990, sex="male", activity_level="moderate", goal=None,
+    )
+    user.goals = []
+    eer = calculate_eer(user, current_year=2026)
+    target, adjusted = calculate_energy_target(user, current_year=2026)
+    assert target == pytest.approx(eer)
+    assert adjusted is False
+
+
 def test_pregnant_user_never_gets_a_deficit_regardless_of_goal():
     user = make_user(
         weight_kg=70, height_cm=170, birth_year=1995, sex="female", activity_level="moderate",
