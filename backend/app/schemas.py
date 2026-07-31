@@ -288,6 +288,24 @@ class NutrientAmountOut(BaseModel):
         )
 
 
+class RecipeNutrientGapOut(BaseModel):
+    """Prompt 5.1 — one of a recipe's most significant nutrient shortfalls,
+    one serving compared against a typical daily target. Built from
+    nutrient_gap_analysis.NutrientGapResult (the canonical gap-analysis
+    service also behind /api/recommendations/*'s "Improve this recipe"),
+    not a second gap-finding implementation."""
+
+    key: str
+    name: str
+    unit: str
+    # "below_target" | "near_target" — the only two statuses this endpoint
+    # ever returns (see routers/recipes.py's filtering)
+    status: str
+    consumed_amount: float | None
+    percent_shortfall: float | None
+    absolute_shortfall: float | None
+
+
 class UserCreate(BaseModel):
     email: str
     password: str = Field(min_length=8)
