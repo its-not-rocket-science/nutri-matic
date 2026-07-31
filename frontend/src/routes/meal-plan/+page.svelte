@@ -73,6 +73,12 @@
 	let loadingShoppingList = $state(false);
 
 	let planOptimization: PlanOptimization | null = $state(null);
+	// Distinguishes "never run yet" (both false/null) from "ran and the API
+	// legitimately returned null" — GET /api/meal-plan/optimize returns null
+	// for two different reasons (no entries in range, or entries exist but
+	// no worthwhile gap to target) and gives no feedback either way if the
+	// UI doesn't tell them apart itself.
+	let optimizeRan = $state(false);
 	let optimizingPlan = $state(false);
 	let optimizeBudget: number | null = $state(null);
 	let applyingPlanSuggestionKey: string | null = $state(null);
@@ -92,6 +98,15 @@
 	async function loadWeek() {
 		loading = true;
 		error = null;
+		// Any previous "Optimize this plan" result is about the week/entries
+		// as they stood before this load — stale once the visible week
+		// changes or entries are added/removed, so it's cleared here rather
+		// than left showing a conclusion that was never computed for the
+		// data now on screen. handleApplyPlanSuggestion re-fetches a fresh
+		// result immediately after calling loadWeek(), so this doesn't
+		// affect that path.
+		planOptimization = null;
+		optimizeRan = false;
 		try {
 			entries = await api.listMealPlanEntries(weekDates[0], weekDates[6]);
 		} catch (e) {
@@ -147,6 +162,7 @@
 		optimizingPlan = true;
 		try {
 			planOptimization = await api.getPlanOptimization(weekDates[0], weekDates[6], optimizeBudget);
+			optimizeRan = true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -660,6 +676,16 @@
 						</li>
 					{/each}
 				</ul>
+			{/if}
+		{:else if optimizeRan}
+			{#if entries.length === 0}
+				<p class="muted">Add some meals to this week's plan first.</p>
+			{:else}
+				<p class="muted">
+					No nutrient gap could be computed for this week's plan — either your targets are
+					already well covered, or there isn't enough nutrient data logged to tell. No changes
+					suggested.
+				</p>
 			{/if}
 		{/if}
 	</section>
