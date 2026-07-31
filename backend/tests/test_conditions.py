@@ -215,3 +215,30 @@ def test_conditions_scoped_to_owning_account(client):
         f"/api/profiles/{owner['id']}/conditions/lactose_intolerance", headers=auth_headers(other_token)
     )
     assert res.status_code == 404
+
+
+def test_two_informational_conditions_plus_a_free_text_medical_note_all_coexist(client):
+    """PR review's exact reproduction: selecting two informational
+    conditions (each creates a category=medical, tag=None row), then
+    using the adjacent free-text medical-note form for something not in
+    the curated list. Before the fix, the second condition already
+    409'd against the first via create_dietary_constraint's stale
+    category+tag dedup, and a third medical row (from either source)
+    made that same dedup query raise MultipleResultsFound (500)."""
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+
+    res1 = client.post(f"/api/profiles/{owner['id']}/conditions/type_2_diabetes", headers=auth_headers(token))
+    assert res1.status_code == 201
+    res2 = client.post(f"/api/profiles/{owner['id']}/conditions/hypertension", headers=auth_headers(token))
+    assert res2.status_code == 201
+
+    res3 = client.post(
+        f"/api/profiles/{owner['id']}/dietary-constraints",
+        json={"category": "medical", "tag": None, "severity": None, "note": "Sleep apnoea"},
+        headers=auth_headers(token),
+    )
+    assert res3.status_code == 201
+
+    listed = client.get(f"/api/profiles/{owner['id']}/dietary-constraints", headers=auth_headers(token)).json()
+    assert {c["note"] for c in listed} == {"Type 2 diabetes", "Hypertension / high blood pressure", "Sleep apnoea"}

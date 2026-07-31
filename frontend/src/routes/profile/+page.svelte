@@ -532,12 +532,17 @@
 				<h2>Health conditions</h2>
 				<p class="muted field-note">
 					Why this exists: a shortcut for common conditions, onto the exact same mechanism as
-					allergies/intolerances below — nothing extra happens behind the scenes. Lactose intolerance
-					flags dairy as "avoid" (tolerance is often dose-dependent); gluten intolerance/coeliac
-					disease hard-excludes wheat/gluten (coeliac disease needs strict avoidance). The rest
-					(type 2 diabetes, hypertension, high cholesterol, IBS, kidney disease) are shown here for
-					reference only — none has a food-name-based exclusion list this app can defend, so none
-					is auto-filtered. This is dietary filtering assistance, not medical advice.
+					allergies/intolerances below. Lactose intolerance flags dairy as "avoid" (tolerance is
+					often dose-dependent); gluten intolerance/coeliac disease hard-excludes wheat/gluten
+					(coeliac disease needs strict avoidance). The rest (type 2 diabetes, hypertension, high
+					cholesterol, IBS, kidney disease) have no food-name-based exclusion list this app can
+					defend, so they're stored for reference only and never auto-filter anything — but
+					checking one of these <strong>does</strong> immediately turn off gap-suggestions,
+					meal-optimize, and recipe recommendations everywhere on this profile, the same built-in
+					safety guardrail any other stored medical consideration triggers (this app doesn't know
+					your prescribed diet's requirements and won't guess). Re-enable them from a suggestion
+					panel's own prompt once you've reviewed the disclosure there. This is dietary filtering
+					assistance, not medical advice.
 				</p>
 				<ul class="condition-list">
 					{#each vocabulary.conditions as condition (condition.key)}
@@ -551,7 +556,7 @@
 								/>
 								{condition.label}
 								{#if condition.maps_to_tag === null}
-									<span class="muted">(reference only)</span>
+									<span class="muted">(reference only — disables recommendations until acknowledged)</span>
 								{/if}
 							</label>
 						</li>
