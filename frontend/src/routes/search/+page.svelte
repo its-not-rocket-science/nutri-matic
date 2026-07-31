@@ -23,7 +23,8 @@
 	const NON_NUTRIENT_KEYS = new Set(['diaas_score', 'pdcaas_score', 'protein_g_per_100g']);
 	let nutrientKeys: FilterKey[] = $derived(keys.filter((k) => !NON_NUTRIENT_KEYS.has(k.key)));
 	let selectedNutrientKey = $state('');
-	let sources: NutrientSource[] = $state([]);
+	let foodSources: NutrientSource[] = $state([]);
+	let recipeSources: NutrientSource[] = $state([]);
 	let sourcesSearched = $state(false);
 	let sourcesError: string | null = $state(null);
 	let sourcesLoading = $state(false);
@@ -59,7 +60,9 @@
 		sourcesError = null;
 		sourcesLoading = true;
 		try {
-			sources = await api.getNutrientSources(selectedNutrientKey);
+			const result = await api.getNutrientSources(selectedNutrientKey);
+			foodSources = result.foods;
+			recipeSources = result.recipes;
 			sourcesSearched = true;
 		} catch (e) {
 			sourcesError = e instanceof Error ? e.message : String(e);
@@ -124,26 +127,56 @@
 	{/if}
 
 	{#if sourcesSearched}
-		{#if sources.length === 0}
+		{#if foodSources.length === 0 && recipeSources.length === 0}
 			<p class="muted">
 				No practical sources found — foods with implausible or hard-to-eat-standalone values for
 				this nutrient are filtered out, and your dietary exclusions still apply.
 			</p>
 		{:else}
-			<ul class="card">
-				{#each sources as source (`${source.kind}-${source.food_id ?? source.recipe_id}`)}
-					<li>
-						{#if source.kind === 'food'}
+			<!-- Foods (per 100g) and recipes (per serving) are ranked and shown
+			     separately, not merged into one list — the two amounts aren't on
+			     the same basis (a recipe's serving could be 20g or 2kg), so
+			     combining them would let serving size alone outrank genuinely
+			     denser foods. -->
+			{#if foodSources.length > 0}
+				<h3>Ingredients <span class="muted">(per 100g)</span></h3>
+				<ul class="card">
+					{#each foodSources as source (source.food_id)}
+						<li>
 							<a href="/foods/{source.food_id}">{source.name}</a>
-						{:else}
+							{#if source.dietary_status}
+								<span
+									class="badge {source.dietary_status.status === 'avoid' ? 'badge-estimated' : 'badge-info'}"
+									title={source.dietary_status.reasons.join(', ')}
+								>
+									{source.dietary_status.status === 'avoid' ? 'Avoid' : 'Unknown suitability'}
+								</span>
+							{/if}
+							<span class="muted">{source.amount.toFixed(2)}{source.unit}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+
+			{#if recipeSources.length > 0}
+				<h3>Recipes <span class="muted">(per serving)</span></h3>
+				<ul class="card">
+					{#each recipeSources as source (source.recipe_id)}
+						<li>
 							<a href="/recipes/{source.recipe_id}">{source.name}</a>
-						{/if}
-						<span class="muted">
-							{source.amount.toFixed(2)}{source.unit} per {source.per === '100g' ? '100g' : 'serving'}
-						</span>
-					</li>
-				{/each}
-			</ul>
+							{#if source.dietary_status}
+								<span
+									class="badge {source.dietary_status.status === 'avoid' ? 'badge-estimated' : 'badge-info'}"
+									title={source.dietary_status.reasons.join(', ')}
+								>
+									{source.dietary_status.status === 'avoid' ? 'Avoid' : 'Unknown suitability'}
+								</span>
+							{/if}
+							<span class="muted">{source.amount.toFixed(2)}{source.unit}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		{/if}
 	{/if}
 {/if}
