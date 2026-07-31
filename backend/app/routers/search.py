@@ -1,10 +1,25 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
 
 from .. import schemas
+from ..auth import get_current_user, get_owned_profile
+from ..candidate_metadata import resolve_candidate_metadata
+from ..database import get_db
+from ..models import Profile, User
 from ..nutrients import NUTRIENTS
 from ..search import FOOD_FILTER_KEYS, RECIPE_FILTER_KEYS
+from .diary import _rank_foods_by_nutrient, _rank_recipes_by_nutrient
 
 router = APIRouter(prefix="/api/search", tags=["search"])
+
+# how far to over-fetch _rank_foods_by_nutrient's raw candidates before
+# the practicality filter below (Hardening Prompt 4's suitable_for_direct_
+# suggestion check, applied here the same way recommend_ingredients.
+# _candidate_pool applies it) — a single larger window, not that module's
+# paginated refill, since this is a lower-stakes browse feature where an
+# honestly-short list beats the extra query cost of guaranteeing `limit`
+# results exist.
+_FOOD_OVERFETCH_MULTIPLIER = 8
 
 _SCORE_LABELS = {"diaas_score": ("DIAAS score", "%"), "pdcaas_score": ("PDCAAS score", "%")}
 _SPECIAL_LABELS = {"protein_g_per_100g": ("Protein", "g")}
@@ -29,3 +44,57 @@ def filter_keys():
         "food": sorted((_key_out(k) for k in FOOD_FILTER_KEYS), key=lambda k: k.label),
         "recipe": sorted((_key_out(k) for k in RECIPE_FILTER_KEYS), key=lambda k: k.label),
     }
+
+
+@router.get("/nutrient-sources", response_model=list[schemas.NutrientSourceOut])
+def nutrient_sources(
+    nutrient_key: str,
+    limit: int = Query(10, ge=1, le=25),
+    current_user: User = Depends(get_current_user),
+    profile: Profile = Depends(get_owned_profile),
+    db: Session = Depends(get_db),
+):
+    """Prompt 6.1: ranked best sources of one nutrient, across both
+    ingredients and recipes — reuses diary.py's existing
+    _rank_foods_by_nutrient/_rank_recipes_by_nutrient (the same candidate
+    ranking gap-suggestions/meal-optimize/plan-optimize already draw from)
+    rather than a new ranking implementation. Both already apply
+    data-quality (is_implausible) and dietary-constraint filtering for this
+    profile; on top of that, food results here also apply Hardening Prompt
+    4's practicality filter (branded-product exclusion and
+    candidate_metadata.suitable_for_direct_suggestion) — the same one
+    recommend_ingredients._candidate_pool applies — so a first-class browse
+    feature doesn't resurface "best source of iron" results dominated by
+    implausible branded records or things nobody eats standalone (a
+    tablespoon of baking powder). Recipes don't need this second pass:
+    a recipe is inherently a "whole dish", not a bare raw ingredient, so
+    the practicality concern _candidate_pool exists for doesn't apply."""
+    if nutrient_key not in NUTRIENTS:
+        raise HTTPException(status_code=422, detail=f"Unknown nutrient key: {nutrient_key}")
+    unit = NUTRIENTS[nutrient_key].unit
+
+    raw_foods = _rank_foods_by_nutrient(db, nutrient_key, limit * _FOOD_OVERFETCH_MULTIPLIER, profile)
+    food_sources: list[schemas.NutrientSourceOut] = []
+    for food, amount in raw_foods:
+        if food.data_type == "branded_food":
+            continue
+        if not resolve_candidate_metadata(food).suitable_for_direct_suggestion:
+            continue
+        food_sources.append(
+            schemas.NutrientSourceOut(
+                kind="food", food_id=food.id, recipe_id=None, name=food.name, amount=amount, unit=unit, per="100g"
+            )
+        )
+        if len(food_sources) >= limit:
+            break
+
+    recipe_sources = [
+        schemas.NutrientSourceOut(
+            kind="recipe", food_id=None, recipe_id=recipe.id, name=recipe.name, amount=amount, unit=unit,
+            per="serving",
+        )
+        for recipe, _items, amount in _rank_recipes_by_nutrient(db, nutrient_key, limit, current_user, profile)
+    ]
+
+    combined = sorted(food_sources + recipe_sources, key=lambda s: s.amount, reverse=True)
+    return combined[:limit]
