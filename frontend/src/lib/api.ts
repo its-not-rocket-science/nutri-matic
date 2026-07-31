@@ -38,6 +38,7 @@ import type {
 	MealPlanTemplate,
 	MealPlanTemplateDetail,
 	NutrientAmount,
+	NutrientSources,
 	OptimizationSuggestion,
 	PaginatedRecipes,
 	PlanOptimization,
@@ -50,6 +51,7 @@ import type {
 	RecipeCreate,
 	RecipeNutrientGap,
 	RecipeRatingSummary,
+	RecipeSearchResult,
 	RecipeShare,
 	RecipeSuggestions,
 	RecipeUpdate,
@@ -212,6 +214,15 @@ export const api = {
 	deleteDietaryConstraint: (profileId: number, id: number) =>
 		request<void>(`/api/profiles/${profileId}/dietary-constraints/${id}`, { method: 'DELETE' }),
 
+	// prompt 3.1 — a curated condition shortcut onto the same
+	// dietary-constraints mechanism above (see backend
+	// dietary_tags.CONDITIONS' docstring). 409 if already set; DELETE is a
+	// no-op (204) if it was never set.
+	addCondition: (profileId: number, conditionKey: string) =>
+		request<DietaryConstraint>(`/api/profiles/${profileId}/conditions/${conditionKey}`, { method: 'POST' }),
+	removeCondition: (profileId: number, conditionKey: string) =>
+		request<void>(`/api/profiles/${profileId}/conditions/${conditionKey}`, { method: 'DELETE' }),
+
 	// Explicit, revocable opt-in re-enabling recommendations for a profile
 	// with a stored medical dietary constraint (hardening prompt 5) — see
 	// docs/nutrient-gap-recommendations-hardening.md. Never implies
@@ -234,6 +245,8 @@ export const api = {
 	listSharedWithMe: () => request<Recipe[]>('/api/recipes/shared-with-me'),
 	listPublicRecipes: (limit = 24, offset = 0) =>
 		request<PaginatedRecipes>(`/api/recipes/public?limit=${limit}&offset=${offset}`),
+	searchRecipesByName: (q: string, limit = 15) =>
+		request<RecipeSearchResult[]>(`/api/recipes/search-by-name?q=${encodeURIComponent(q)}&limit=${limit}`),
 	listMyTags: () => request<string[]>('/api/recipes/tags'),
 	addTag: (recipeId: number, tag: string) =>
 		request<Recipe>(`/api/recipes/${recipeId}/tags`, { method: 'POST', body: JSON.stringify({ tag }) }),
@@ -428,6 +441,10 @@ export const api = {
 	deleteFoodPrice: (foodId: number) => request<void>(`/api/food-prices/${foodId}`, { method: 'DELETE' }),
 
 	getFilterKeys: () => request<FilterKeysResponse>('/api/search/keys'),
+	getNutrientSources: (nutrientKey: string, limit = 10) =>
+		request<NutrientSources>(
+			withProfile(`/api/search/nutrient-sources?nutrient_key=${encodeURIComponent(nutrientKey)}&limit=${limit}`)
+		),
 	searchFoods: (req: SearchRequest) =>
 		request<Food[]>('/api/foods/search', { method: 'POST', body: JSON.stringify(req) }),
 	searchRecipes: (req: SearchRequest) =>

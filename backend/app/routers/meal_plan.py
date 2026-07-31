@@ -225,7 +225,7 @@ def get_plan_optimization(
     already_planned_recipe_ids = {e.recipe_id for e in recipe_entries}
     recipe_gap_candidates = [
         (recipe, items)
-        for recipe, items in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
+        for recipe, items, _amount in _rank_recipes_by_nutrient(db, worst.key, 8, current_user, profile)
         if recipe.id not in already_planned_recipe_ids
     ]
 

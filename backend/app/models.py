@@ -168,6 +168,31 @@ class DietaryConstraint(Base):
     note: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class ProfileGoal(Base):
+    """One of a profile's active goals (prompt 2.1) — additive multi-goal
+    support. `Profile.goal` (the single-value column) is kept, unmigrated,
+    as a mirror of whichever goal is priority 1, so nothing that only ever
+    read the old column breaks; this table is the actual source of truth
+    for the full set going forward (see app/goals.py).
+
+    `priority` is a 1-indexed rank, unique per profile — 1 is a profile's
+    most important goal. app/goals.py's `goal_weight()` turns a rank into
+    a relative scoring weight for prompt 2.2's goal-aware recommendation
+    work, rather than leaving "what happens when goals disagree" (e.g.
+    "bulk" vs. "reduce carbon footprint") undefined."""
+
+    __tablename__ = "profile_goals"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "goal", name="uq_profile_goal"),
+        UniqueConstraint("profile_id", "priority", name="uq_profile_goal_priority"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    profile_id: Mapped[int] = mapped_column(Integer, ForeignKey("profiles.id"), nullable=False, index=True)
+    goal: Mapped[str] = mapped_column(String, nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
 class MedicalRecommendationAcknowledgement(Base):
     """An explicit, stored, revocable opt-in allowing the nutrient-gap
     recommendation engine to run for a profile that has a
