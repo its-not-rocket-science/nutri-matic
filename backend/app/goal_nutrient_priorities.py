@@ -22,10 +22,17 @@ looks more urgent — mechanically the same "lower %DRV wins" comparison,
 just goal-aware.
 
 Kept to nutrients this app already tracks (`NUTRIENTS` in nutrients.py)
-rather than anything requiring new data. `energy` is never included here
-even where evidence-relevant (e.g. endurance fuelling) — `_find_worst_gap`
-explicitly excludes it from candidates (a calorie target isn't "a gap" in
-this sense), so an energy entry here would be silently inert.
+rather than anything requiring new data — and, more specifically, kept to
+nutrients `_find_worst_gap` can actually select at all. That function
+only ever compares candidates with a real `percent_drv` (i.e.
+`optimisation_eligible=True` in nutrients.py — a nutrient with an actual
+upward DRV target), so a nutrient here that isn't optimisation-eligible
+would be an advertised boost that can never fire (PR review: this caught
+`epa`/`dha`, which nutrients.py deliberately has no individual DRV for —
+EFSA/WHO only publish a combined EPA+DHA target — and `sodium`, which is
+a maximum-guideline nutrient with no upward target at all, never a
+"gap"). `energy` is excluded from this module for the identical reason —
+`_find_worst_gap` never treats a calorie target as "a gap" either.
 
 Evidence basis per goal, framed as "aligned with research on X" per this
 prompt's own instruction — never a promise of an outcome this app has no
@@ -35,13 +42,17 @@ way to verify for any individual:
   recommended for healthy aging/sarcopenia prevention, e.g. the
   "double protein intake" older-adult research), fiber_total (a
   consistent, large-cohort association with lower all-cause/
-  cardiometabolic mortality), epa/dha (omega-3 intake and cardiovascular
-  mortality reduction), magnesium and potassium (both repeatedly
+  cardiometabolic mortality), ala (omega-3 intake and cardiovascular
+  mortality reduction — the one omega-3 fatty acid nutrients.py gives an
+  individual DRV to; EPA/DHA only have a combined, non-optimisable
+  target, see above), magnesium and potassium (both repeatedly
   associated with cardiometabolic/longevity outcomes in epidemiological
   literature).
 - athletic_stamina (endurance): iron (endurance training's well-
   documented depletion risk — foot-strike haemolysis, expanded plasma
-  volume), sodium and potassium (sweat electrolyte replacement).
+  volume) and potassium (sweat electrolyte replacement — sodium itself
+  is excluded, see above, since it has no upward target to ever rank
+  against).
 - athletic_strength: protein (muscle protein synthesis), calcium and
   magnesium (bone loading and muscle-contraction function), zinc
   (commonly depleted by heavy training; immune/hormonal role).
@@ -71,9 +82,9 @@ from .goals import goal_weight
 
 GOAL_NUTRIENT_EMPHASIS: dict[str, dict[str, float]] = {
     "longevity": {
-        "protein": 1.3, "fiber_total": 1.3, "epa": 1.3, "dha": 1.3, "magnesium": 1.3, "potassium": 1.3,
+        "protein": 1.3, "fiber_total": 1.3, "ala": 1.3, "magnesium": 1.3, "potassium": 1.3,
     },
-    "athletic_stamina": {"iron": 1.3, "sodium": 1.3, "potassium": 1.3},
+    "athletic_stamina": {"iron": 1.3, "potassium": 1.3},
     "athletic_strength": {"protein": 1.3, "calcium": 1.3, "magnesium": 1.3, "zinc": 1.3},
     "athletic_power": {"protein": 1.3, "phosphorus": 1.3, "zinc": 1.3},
 }

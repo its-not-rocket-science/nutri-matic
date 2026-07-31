@@ -318,15 +318,18 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 	</p>
 	<ul>
 		<li>
-			<strong>Longevity:</strong> protein, fibre, EPA/DHA (omega-3), magnesium, potassium —
+			<strong>Longevity:</strong> protein, fibre, ALA (omega-3), magnesium, potassium —
 			nutrients repeatedly associated with healthy-aging and cardiometabolic outcomes in
 			epidemiological literature (e.g. higher protein intake for sarcopenia prevention in older
-			adults; omega-3 intake and cardiovascular mortality).
+			adults; omega-3 intake and cardiovascular mortality). ALA specifically, not EPA/DHA — EFSA/WHO
+			only publish a combined EPA+DHA target, not an individual DRV either fatty acid can be measured
+			against, so only ALA can actually be ranked as a gap here.
 		</li>
 		<li>
-			<strong>Athletic stamina/endurance:</strong> iron, sodium, potassium — endurance
-			training's well-documented depletion risks (foot-strike haemolysis, sweat electrolyte
-			loss).
+			<strong>Athletic stamina/endurance:</strong> iron and potassium — endurance training's
+			well-documented depletion risks (foot-strike haemolysis, sweat electrolyte loss). Sodium isn't
+			included despite the same sweat-loss reasoning applying to it: this app tracks sodium as a
+			maximum-guideline figure with no upward target, so it has no "gap" to ever prioritize.
 		</li>
 		<li>
 			<strong>Athletic strength:</strong> protein, calcium, magnesium, zinc — muscle protein

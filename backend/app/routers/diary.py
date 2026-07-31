@@ -516,12 +516,26 @@ def _find_worst_gap(
     goal_nutrient_priorities.py), so an emphasized nutrient effectively
     looks more urgent — a real behavioural difference between goals,
     not just a cosmetic label, while a genuinely severe unrelated gap can
-    still win (the boost is modest by design)."""
+    still win (the boost is modest by design).
+
+    The boost only ever applies to a nutrient still below 100% DRV — a
+    nutrient already at/above target is never boosted, so it can never
+    outrank a genuinely deficient one just because a goal happens to
+    emphasize it (PR review: with an unconditional boost, a longevity
+    profile with calcium at 90% and magnesium at 110% would divide
+    magnesium's 110 by 1.3 to ~84.6, ranking it "worse" than calcium's
+    real 90% deficiency — exactly backwards)."""
     candidates = [n for n in nutrients_out if n.percent_drv is not None and n.key != "energy"]
     if not candidates:
         return None
     multipliers = nutrient_priority_multipliers(goal_keys or [])
-    return min(candidates, key=lambda n: n.percent_drv / multipliers.get(n.key, 1.0))
+
+    def effective_percent_drv(n: schemas.NutrientAmountOut) -> float:
+        if n.percent_drv >= 100:
+            return n.percent_drv
+        return n.percent_drv / multipliers.get(n.key, 1.0)
+
+    return min(candidates, key=effective_percent_drv)
 
 
 def _rank_foods_by_nutrient(
