@@ -245,10 +245,21 @@ export interface DietaryPattern {
 	excludes: string[];
 }
 
+// prompt 3.1 — a curated shortcut onto the same DietaryConstraint
+// mechanism an allergy/intolerance entry already uses (see backend
+// dietary_tags.CONDITIONS' docstring).
+export interface Condition {
+	key: string;
+	label: string;
+	maps_to_tag: string | null;
+	default_severity: DietarySeverity | null;
+}
+
 export interface DietaryVocabulary {
 	allergen_tags: DietaryTag[];
 	religious_requirements: DietaryPattern[];
 	dietary_patterns: DietaryPattern[];
+	conditions: Condition[];
 }
 
 export interface WeightLog {

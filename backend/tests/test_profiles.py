@@ -432,6 +432,27 @@ def test_medical_constraint_must_have_null_tag(client):
     assert res_ok.status_code == 201
 
 
+def test_multiple_distinct_medical_notes_can_coexist(client):
+    """PR review: category+tag alone (tag always null for a free-text
+    medical row) isn't a meaningful dedup key — two different notes
+    aren't a conflict. Before the fix, a second note incorrectly 409'd
+    against the first, and a third made the dedup query's one_or_none()
+    raise MultipleResultsFound (500) once 2+ existing rows matched."""
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+
+    for note in ["Type 2 diabetes", "Hypertension", "High cholesterol"]:
+        res = client.post(
+            f"/api/profiles/{owner['id']}/dietary-constraints",
+            json={"category": "medical", "tag": None, "severity": None, "note": note},
+            headers=auth_headers(token),
+        )
+        assert res.status_code == 201, res.text
+
+    listed = client.get(f"/api/profiles/{owner['id']}/dietary-constraints", headers=auth_headers(token)).json()
+    assert {c["note"] for c in listed} == {"Type 2 diabetes", "Hypertension", "High cholesterol"}
+
+
 def test_delete_dietary_constraint_scoped_to_owning_account(client):
     token_a = register_and_token(client, "a@example.com")
     token_b = register_and_token(client, "b@example.com")
