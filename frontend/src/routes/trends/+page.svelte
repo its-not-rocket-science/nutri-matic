@@ -5,6 +5,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import PrintButton from '$lib/components/PrintButton.svelte';
 	import { downloadCsv } from '$lib/csv';
+	import { trendBarCaveat, trendBarValueLabel } from '$lib/trendsChart';
 	import type { DiaryTrends, TrendGroupBy } from '$lib/types';
 
 	function toIsoDate(d: Date): string {
@@ -191,21 +192,19 @@
 
 			{#each chartData as { bucket, nutrient }, i (bucket.bucket_start)}
 				{@const x = GAP + i * (BAR_WIDTH + GAP)}
-				{@const value = nutrient?.avg_percent_drv ?? nutrient?.avg_amount ?? 0}
 				{@const height = nutrient ? barHeight(nutrient.avg_percent_drv ?? 0) : 0}
 				{@const y = CHART_HEIGHT + 20 - height}
 				<g>
 					{#if nutrient}
 						<rect {x} {y} width={BAR_WIDTH} {height} class="bar" />
 						<text x={x + BAR_WIDTH / 2} y={y - 4} class="value-label" text-anchor="middle">
-							{#if nutrient.avg_percent_drv !== null}
-								{Math.round(nutrient.avg_percent_drv)}%
-							{:else if nutrient.insufficient_data_reason}
-								insufficient data
-							{:else}
-								{value.toFixed(1)}{nutrient.unit}
-							{/if}
+							{trendBarValueLabel(nutrient)}
 						</text>
+						{#if trendBarCaveat(nutrient)}
+							<text x={x + BAR_WIDTH / 2} y={y - 16} class="value-label-caveat" text-anchor="middle">
+								{trendBarCaveat(nutrient)}
+							</text>
+						{/if}
 					{/if}
 					<text x={x + BAR_WIDTH / 2} y={CHART_HEIGHT + 38} class="bucket-label" text-anchor="middle">
 						{bucketLabel(bucket.bucket_start)}
@@ -272,6 +271,10 @@
 	.value-label {
 		font-size: 8px;
 		fill: var(--color-text);
+	}
+	.value-label-caveat {
+		font-size: 6px;
+		fill: var(--color-text-muted);
 	}
 	.bucket-label {
 		font-size: 8px;
