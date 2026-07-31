@@ -879,6 +879,22 @@ export interface FilterKey {
 	unit: string | null;
 }
 
+export interface NutrientSource {
+	kind: 'food' | 'recipe';
+	food_id: number | null;
+	recipe_id: number | null;
+	name: string;
+	amount: number;
+	unit: string;
+	per: '100g' | 'serving';
+	dietary_status?: DietaryStatus | null;
+}
+
+export interface NutrientSources {
+	foods: NutrientSource[];
+	recipes: NutrientSource[];
+}
+
 export interface NutrientFilterInput {
 	key: string;
 	op: FilterOp;
