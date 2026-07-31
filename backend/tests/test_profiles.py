@@ -219,6 +219,131 @@ def test_update_profile_accepts_weight_loss_goals(client):
         assert res.json()["goal"] == goal
 
 
+def test_create_profile_with_multiple_goals(client):
+    """Prompt 2.1: a profile can hold more than one goal at once. `goal`
+    (the legacy single-value field) mirrors whichever goal is priority 1
+    — the first entry in `goals` — never a separately drifting value."""
+    token = register_and_token(client, "a@example.com")
+    res = client.post(
+        "/api/profiles",
+        json={**BASE_PROFILE_PAYLOAD, "name": "Kid", "goals": ["nutrient_gaps", "budget", "exploring"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["goals"] == ["nutrient_gaps", "budget", "exploring"]
+    assert body["goal"] == "nutrient_gaps"
+
+
+def test_update_profile_replaces_goal_set(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["weight_loss", "budget"]},
+        headers=auth_headers(token),
+    )
+
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["exploring"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["goals"] == ["exploring"]
+    assert body["goal"] == "exploring"
+
+    # persisted, not just echoed — a stale second goal from the first PUT
+    # must not linger
+    res2 = client.get(f"/api/profiles/{owner['id']}", headers=auth_headers(token))
+    assert res2.json()["goals"] == ["exploring"]
+
+
+def test_update_profile_goals_empty_list_clears_every_goal(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget"]},
+        headers=auth_headers(token),
+    )
+
+    res = client.put(
+        f"/api/profiles/{owner['id']}", json={**BASE_PROFILE_PAYLOAD, "goals": []}, headers=auth_headers(token)
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["goals"] == []
+    assert body["goal"] is None
+
+
+def test_update_profile_rejects_unknown_goal_in_goals_list(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget", "world_domination"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 422
+
+
+def test_update_profile_goals_dedupes_preserving_first_occurrence_priority(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget", "exploring", "budget"]},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    assert res.json()["goals"] == ["budget", "exploring"]
+
+
+def test_update_profile_legacy_goal_field_still_works_unchanged(client):
+    """An old client that only ever sends `goal` (never `goals`) keeps
+    working exactly as before — treated as a single-item goal set."""
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    res = client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goal": "protein_quality"},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["goal"] == "protein_quality"
+    assert body["goals"] == ["protein_quality"]
+
+
+def test_list_profiles_includes_goals_for_every_profile(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**BASE_PROFILE_PAYLOAD, "goals": ["budget", "nutrient_gaps"]},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/profiles", json={**BASE_PROFILE_PAYLOAD, "name": "Kid", "goals": ["exploring"]},
+        headers=auth_headers(token),
+    )
+
+    res = client.get("/api/profiles", headers=auth_headers(token))
+    assert res.status_code == 200
+    goals_by_name = {p["name"]: p["goals"] for p in res.json()}
+    assert goals_by_name["Me"] == ["budget", "nutrient_gaps"]
+    assert goals_by_name["Kid"] == ["exploring"]
+
+
+def test_registration_creates_owner_profile_with_empty_goals_by_default(client):
+    token = register_and_token(client, "a@example.com")
+    owner = owner_profile(client, token)
+    assert owner["goals"] == []
+    assert owner["goal"] is None
+
+
 def test_get_dietary_vocabulary_no_auth_required(client):
     res = client.get("/api/profiles/dietary-vocabulary")
     assert res.status_code == 200
