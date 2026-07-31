@@ -210,6 +210,15 @@ export const api = {
 	deleteDietaryConstraint: (profileId: number, id: number) =>
 		request<void>(`/api/profiles/${profileId}/dietary-constraints/${id}`, { method: 'DELETE' }),
 
+	// prompt 3.1 — a curated condition shortcut onto the same
+	// dietary-constraints mechanism above (see backend
+	// dietary_tags.CONDITIONS' docstring). 409 if already set; DELETE is a
+	// no-op (204) if it was never set.
+	addCondition: (profileId: number, conditionKey: string) =>
+		request<DietaryConstraint>(`/api/profiles/${profileId}/conditions/${conditionKey}`, { method: 'POST' }),
+	removeCondition: (profileId: number, conditionKey: string) =>
+		request<void>(`/api/profiles/${profileId}/conditions/${conditionKey}`, { method: 'DELETE' }),
+
 	// Explicit, revocable opt-in re-enabling recommendations for a profile
 	// with a stored medical dietary constraint (hardening prompt 5) — see
 	// docs/nutrient-gap-recommendations-hardening.md. Never implies
