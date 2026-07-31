@@ -127,6 +127,45 @@ RELIGIOUS_REQUIREMENTS: dict[str, dict] = {
     },
 }
 
+# Prompt 3.1: a starter set of health/dietary conditions, deliberately
+# reusing DietaryConstraint/dietary_filter.py exactly as-is rather than
+# building a parallel system — category and tag are the SAME fields an
+# allergy/intolerance row already uses; there is no new table, column, or
+# filtering codepath here. "maps_to_tag" is the TAGS key (above) the
+# condition should exclude/downweight the same way an allergy does, with
+# "default_severity" as the sensible starting point (a user can still
+# change the severity of the row this creates, same as any other
+# constraint). A condition with maps_to_tag=None has no defensible
+# food-name-keyword exclusion list at all — creating one would be exactly
+# the kind of unenforced, unverifiable medical claim dietary_tags.py's own
+# module docstring warns against, so it's stored as a plain informational
+# `category="medical"` note instead (never filtered), same as any other
+# free-text medical entry.
+CONDITIONS: dict[str, dict] = {
+    "lactose_intolerance": {
+        "label": "Lactose intolerance",
+        "maps_to_tag": "milk",
+        # "avoid", not "hard_exclude": tolerance is commonly dose-dependent
+        # (small amounts, lactase-treated products) rather than an
+        # absolute exclusion — a user who needs it stricter can still
+        # raise the severity on the constraint this creates.
+        "default_severity": "avoid",
+    },
+    "gluten_intolerance": {
+        "label": "Gluten intolerance / coeliac disease",
+        "maps_to_tag": "wheat_gluten",
+        # "hard_exclude": coeliac disease requires strict avoidance —
+        # even trace amounts matter medically, so this defaults to the
+        # stricter severity rather than lactose intolerance's "avoid".
+        "default_severity": "hard_exclude",
+    },
+    "type_2_diabetes": {"label": "Type 2 diabetes", "maps_to_tag": None, "default_severity": None},
+    "hypertension": {"label": "Hypertension / high blood pressure", "maps_to_tag": None, "default_severity": None},
+    "high_cholesterol": {"label": "High cholesterol", "maps_to_tag": None, "default_severity": None},
+    "ibs": {"label": "IBS (irritable bowel syndrome)", "maps_to_tag": None, "default_severity": None},
+    "kidney_disease": {"label": "Kidney disease", "maps_to_tag": None, "default_severity": None},
+}
+
 
 @dataclass
 class Suitability:

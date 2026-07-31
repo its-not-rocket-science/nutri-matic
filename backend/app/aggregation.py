@@ -263,6 +263,12 @@ class ProteinQualityResult:
     # which needs the limiting amino acid's own digestibility coefficient)
     # doesn't have to redo the partitioning/aggregation.
     aggregate: AminoAcidAggregate | None = None
+    # the actual WeightedFood items `score`/`aggregate` were computed from
+    # (prompt 5.2) — a caller wanting to complement a recipe as a whole
+    # (complement.suggest_complements) needs this exact subset, not the
+    # recipe's full ingredient list, to stay consistent with the score
+    # being shown alongside the suggestion.
+    usable_items: list[WeightedFood] = field(default_factory=list)
 
 
 def compute_protein_quality_with_coverage(
@@ -332,6 +338,7 @@ def compute_protein_quality_with_coverage(
         excluded_foods=excluded_foods,
         digestibility_source=digestibility_source,
         aggregate=aggregate,
+        usable_items=usable_items,
     )
 
 
