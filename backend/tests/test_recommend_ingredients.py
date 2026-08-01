@@ -340,6 +340,38 @@ def test_bounded_query_count_independent_of_junk_candidate_volume(db):
     assert len(queries) < 30
 
 
+def test_empty_day_pooling_stays_bounded_across_dozens_of_shortfalls(db):
+    """Caught by PR review on treat_empty_day_as_zero: with no items
+    logged and no priority_nutrient_keys, dozens of optimisation-eligible
+    nutrients now register as a shortfall at once (an empty day is
+    treated as maximally short, not "nothing to assess"). Without
+    MAX_SHORTFALL_KEYS_FOR_POOLING, that's dozens of extra
+    CANDIDATE_FETCH_MAX_PAGES-page _candidate_pool queries — this proves
+    the query count stays bounded (scaled to the capped key count, not
+    every optimisation-eligible nutrient) even on a completely empty day."""
+    from sqlalchemy import event
+
+    make_food(db, "Lentils", fiber_total=8.0, energy=116, iron=3.3, protein=9.0)
+    profile = make_profile(db)
+
+    queries = []
+    engine = db.get_bind()
+
+    def _count(*args, **kwargs):
+        queries.append(1)
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        result = suggest_ingredients(db, profile, [], {}, AnalysisPeriod.DAY)
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert result.suggestions
+    # bounded by MAX_SHORTFALL_KEYS_FOR_POOLING regardless of how many of
+    # NUTRIENTS' ~47 keys resolve to a real shortfall on an empty day
+    assert len(queries) < 60
+
+
 def test_refills_across_pages_when_the_first_window_is_entirely_ineligible(db, monkeypatch):
     """PR review finding: a single fixed-size over-fetch window can
     itself be entirely ineligible, still starving out a real candidate

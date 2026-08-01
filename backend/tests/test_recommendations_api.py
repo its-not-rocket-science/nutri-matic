@@ -105,10 +105,19 @@ def test_no_suggestions_returns_empty_list_not_an_error(client):
 def test_empty_day_returns_real_suggestions_not_an_empty_list(client):
     """Caught by live testing: a profile with nothing logged for the day
     got zero suggestions instead of the maximal-shortfall suggestions an
-    empty day should produce."""
+    empty day should produce. Scoped to fiber_total (the only nutrient
+    this fixture's two-food catalog has real candidate data for) since an
+    empty day now registers dozens of NUTRIENTS keys as a shortfall at
+    once and MAX_SHORTFALL_KEYS_FOR_POOLING (a separate PR-review fix)
+    only pools the top few by weight — real production data covers most
+    tracked nutrients, but this minimal fixture doesn't, so leaving the
+    priority unset would make which nutrient survives the cap a coin
+    flip unrelated to what this test is actually proving."""
     token = register_and_token(client, "b2@example.com")
     res = client.get(
-        "/api/recommendations/ingredients", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
+        "/api/recommendations/ingredients",
+        params={"entry_date": "2026-01-01", "priority_nutrients": "fiber_total"},
+        headers=auth_headers(token),
     )
     assert res.status_code == 200
     body = res.json()
