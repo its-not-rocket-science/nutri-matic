@@ -130,6 +130,57 @@ def test_wrong_type_fails(baseline_db):
     assert any("birth_year" in issue and "incompatible column type" in issue for issue in result.issues)
 
 
+def test_intentionally_relaxed_not_null_column_passes_when_migration_applied(baseline_db):
+    """Caught live in production: migration 096f80b058ab deliberately made
+    clinician_client_links.client_user_id nullable (an unregistered
+    invite has no user yet) — already rehearsed and deployed
+    successfully, but this verifier's baseline comparison had no way to
+    tell that apart from accidental drift, and would otherwise fail
+    every deploy from then on. Runs the real migration (not a raw
+    ALTER TABLE) so alembic_version genuinely reflects it — the actual
+    evidence _INTENTIONALLY_RELAXED_NOT_NULL's exemption requires; see
+    test_accidentally_dropped_not_null_without_migration_still_fails for
+    the case where that evidence is missing."""
+    _alembic(["upgrade", "096f80b058ab"], baseline_db)
+    engine = sa.create_engine(baseline_db)
+    result = verify_schema(engine)
+    engine.dispose()
+    assert result.ok is True
+    assert result.issues == []
+
+
+def test_accidentally_dropped_not_null_without_migration_still_fails(baseline_db):
+    """Caught by PR review: a database that merely *looks* like the
+    exemption's column is nullable — without ever actually running the
+    migration that's supposed to justify it (an unstamped/pre-baseline
+    database where the constraint was dropped by some unrelated,
+    accidental cause) — must still fail. The exemption is gated on
+    alembic_version ancestry, not on the column's shape alone."""
+    engine = sa.create_engine(baseline_db)
+    with engine.begin() as conn:
+        conn.execute(sa.text("ALTER TABLE clinician_client_links ALTER COLUMN client_user_id DROP NOT NULL"))
+    result = verify_schema(engine)
+    engine.dispose()
+    assert result.ok is False
+    assert any(
+        "clinician_client_links" in issue and "client_user_id" in issue and "NOT NULL" in issue
+        for issue in result.issues
+    )
+
+
+def test_unlisted_nullable_regression_still_fails(baseline_db):
+    """The allowlist must stay scoped to specifically-reviewed columns —
+    an unrelated, un-reviewed NOT NULL column silently becoming nullable
+    (real accidental drift, not a deliberate migration) must still fail."""
+    engine = sa.create_engine(baseline_db)
+    with engine.begin() as conn:
+        conn.execute(sa.text("ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL"))
+    result = verify_schema(engine)
+    engine.dispose()
+    assert result.ok is False
+    assert any("users" in issue and "password_hash" in issue and "NOT NULL" in issue for issue in result.issues)
+
+
 def test_missing_unique_index_fails(baseline_db):
     engine = sa.create_engine(baseline_db)
     with engine.begin() as conn:

@@ -39,14 +39,85 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from importlib import import_module
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import sqlalchemy as sa
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
 
 BASELINE_REVISION = "aac138c38096"
 BASELINE_MODULE = "migrations.versions.aac138c38096_baseline"
+MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
+
+# (table, column) -> the migration revision that deliberately relaxed a
+# NOT NULL constraint the baseline originally defined — found live in
+# production: 096f80b058ab (add_clinician_invite_by_email) made
+# clinician_client_links.client_user_id nullable on purpose (an
+# unregistered invite has no user yet), already rehearsed and deployed
+# successfully, but this verifier's baseline-vs-live comparison has no
+# way to distinguish that from accidental drift, so it would otherwise
+# fail every deploy from then on.
+#
+# Caught by PR review: naively exempting the column outright (regardless
+# of whether that migration actually ran) would also pass a genuinely
+# unstamped, pre-baseline database where the same constraint was dropped
+# by accident — a real gap for this tool's documented "safe to stamp"
+# use case, not just its deploy-pipeline one. is_exemption_applicable
+# below checks the live database's actual alembic_version ancestry, so
+# the exemption only ever applies to a database that has truly run the
+# named migration — otherwise this still fails, exactly as if the
+# column weren't listed at all.
+#
+# Add an entry here (with the migration revision that made the change)
+# whenever this happens again; never remove baseline's own NOT NULL
+# check for anything not listed here.
+_INTENTIONALLY_RELAXED_NOT_NULL: dict[tuple[str, str], str] = {
+    ("clinician_client_links", "client_user_id"): "096f80b058ab",
+}
+
+
+def _applied_revisions(engine: Engine) -> set[str] | None:
+    """Every revision in the live database's actual migration history, by
+    walking down_revision links from its current alembic_version back to
+    the root — or None if the database has no alembic_version table at
+    all (never migrated, so nothing beyond the baseline has really run).
+    This repo's migration chain is strictly linear (no branches/merges —
+    true of every migration in migrations/versions/ as of this writing),
+    so a single-parent walk is enough; a future merge migration would
+    need this to walk every parent, not just revision[0]."""
+    inspector = inspect(engine)
+    if "alembic_version" not in inspector.get_table_names():
+        return None
+    with engine.connect() as conn:
+        row = conn.execute(sa.text("SELECT version_num FROM alembic_version")).first()
+    if row is None:
+        return None
+
+    script_dir = ScriptDirectory(str(MIGRATIONS_DIR))
+    applied: set[str] = set()
+    revision = row[0]
+    try:
+        while revision is not None:
+            applied.add(revision)
+            script = script_dir.get_revision(revision)
+            if script is None:
+                break
+            down = script.down_revision
+            revision = down[0] if isinstance(down, tuple) else down
+    except Exception:
+        # a revision string alembic_version holds but this checkout's
+        # migrations/ doesn't recognise (stale/orphaned, or a genuinely
+        # corrupted row) — fail safe: treat as "can't confirm", not a
+        # crash. _INTENTIONALLY_RELAXED_NOT_NULL exemptions require
+        # positive evidence, so returning what's been walked so far (the
+        # target revision, being further down the chain, is correctly
+        # absent) is enough; it isn't returned as None here since some
+        # real history was still established before the failure.
+        pass
+    return applied
+
 
 # Coarse type categories — a column's real DB type (VARCHAR(255) vs
 # VARCHAR vs TEXT, INTEGER vs BIGINT) varies more than matters here; what
@@ -214,6 +285,7 @@ def verify_schema(engine: Engine) -> VerificationResult:
     inspector = inspect(engine)
     issues: list[str] = []
     warnings: list[str] = []
+    applied_revisions = _applied_revisions(engine)
 
     actual_tables = set(inspector.get_table_names())
     for table_name, table_spec in expected.tables.items():
@@ -241,7 +313,15 @@ def verify_schema(engine: Engine) -> VerificationResult:
             # is strictly safer, not a problem worth blocking a stamp
             # over.
             if not col_spec["nullable"] and actual_col["nullable"]:
-                issues.append(f"{table_name}.{col_name}: expected NOT NULL, found nullable")
+                relaxing_revision = _INTENTIONALLY_RELAXED_NOT_NULL.get((table_name, col_name))
+                # only exempt when the live database's own migration
+                # history actually contains the specific migration that
+                # relaxed this — a database where the column merely
+                # *looks* nullable (accidental drift, or a pre-baseline
+                # database that never ran any migration at all) still
+                # fails, same as if it weren't listed.
+                if relaxing_revision is None or applied_revisions is None or relaxing_revision not in applied_revisions:
+                    issues.append(f"{table_name}.{col_name}: expected NOT NULL, found nullable")
 
         actual_pk = sorted(inspector.get_pk_constraint(table_name).get("constrained_columns") or [])
         if table_spec.primary_key and actual_pk != table_spec.primary_key:
