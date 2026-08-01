@@ -741,19 +741,62 @@ class ClinicianClientLink(Base):
     consent. Deliberately NOT a direct grant-by-email like RecipeShare —
     unlike sharing a recipe you own, this grants access to someone else's
     private health data, so it requires the client to accept before
-    `status` moves from "pending" to "active". Either party can revoke."""
+    `status` moves from "pending" to "active". Either party can revoke.
+
+    client_user_id is nullable to support inviting someone who doesn't have
+    an account yet (see routers/clinician.py's invite_client): such a row
+    is created with client_user_id=NULL, invite_email set to the address
+    invited, and invite_token set to an unguessable value used both by the
+    public /invite/{token} preview page and by routers/auth.py's register()
+    to resolve client_user_id automatically the moment that email
+    registers. This never skips the explicit-consent step above — the row
+    still starts, and stays, "pending" until the (now real) client
+    explicitly accepts, exactly as for an invite sent to an
+    already-registered email."""
 
     __tablename__ = "clinician_client_links"
-    __table_args__ = (UniqueConstraint("clinician_user_id", "client_user_id", name="uq_clinician_client"),)
+    __table_args__ = (
+        UniqueConstraint("clinician_user_id", "client_user_id", name="uq_clinician_client"),
+        # the above allows unlimited rows with client_user_id NULL (most
+        # DBs treat every NULL as distinct for uniqueness purposes), so
+        # two concurrent invites from the same clinician to the same
+        # unregistered address could otherwise both be created; this
+        # partial index closes that race — only enforced while
+        # client_user_id is still NULL, so it never constrains real
+        # (resolved) links at all. Found by an automated PR review: two
+        # such rows would both later try to resolve to the same
+        # client_user_id at registration and collide with the
+        # constraint above, returning a 500 that blocks the new account
+        # from being created at all, not just the invite.
+        Index(
+            "uq_clinician_invite_email_unresolved", "clinician_user_id", "invite_email",
+            unique=True, postgresql_where=text("client_user_id IS NULL"), sqlite_where=text("client_user_id IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     clinician_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    client_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    client_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # "pending" | "active" | "revoked"
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
     responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # only set while client_user_id is still NULL — an unregistered invite's
+    # target address, and the token in its join-link/preview URL. Both are
+    # cleared (not just left stale) once resolved: invite_email is nulled
+    # alongside client_user_id being set, and invite_token specifically is
+    # single-use, cleared on resolution so it can't be replayed against a
+    # different email later.
+    invite_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    invite_token: Mapped[str | None] = mapped_column(String, nullable=True, unique=True, index=True)
+    # the clinician's own wording, sent verbatim in the invite email body —
+    # editable per-invite rather than a fixed template (see
+    # DEFAULT_INVITE_MESSAGE for what a client starts from). Only
+    # meaningful for an unregistered invite; null for a direct invite to an
+    # already-registered email, which sends no email at all.
+    invite_message: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class ClinicianNote(Base):

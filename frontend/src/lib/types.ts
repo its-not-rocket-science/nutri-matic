@@ -975,10 +975,22 @@ export interface ClinicianLink {
 	id: number;
 	clinician_email: string;
 	client_email: string;
-	client_user_id: number;
+	/** null only for an invite to someone who hasn't registered yet */
+	client_user_id: number | null;
+	/** true once client_email resolves to a real account, whether or not
+	 * they've accepted yet — false means "invited, awaiting registration" */
+	client_registered: boolean;
 	status: ClinicianLinkStatus;
 	created_at: string;
 	responded_at: string | null;
+}
+
+/** What the public /invite/[token] landing page shows before the
+ * recipient has an account — no auth required to fetch this. */
+export interface ClinicianInvitePreview {
+	clinician_email: string;
+	invite_email: string;
+	message: string;
 }
 
 export interface ClinicianNote {

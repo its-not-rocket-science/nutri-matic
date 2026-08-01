@@ -13,10 +13,15 @@
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
+	const DEFAULT_INVITE_MESSAGE =
+		"I'd like to invite you to Nutri-Matic so I can help track your nutrition. Follow the link below to join — you'll be able to review and revoke my access at any time.";
+
 	let clients: ClinicianLink[] = $state([]);
 	let pendingInvites: ClinicianLink[] = $state([]);
+	let sentInvites: ClinicianLink[] = $state([]);
 
 	let inviteEmail = $state('');
+	let inviteMessage = $state(DEFAULT_INVITE_MESSAGE);
 	let inviting = $state(false);
 
 	let selectedClientEmail: string | null = $state(null);
@@ -37,13 +42,17 @@
 		pendingInvites = await api.listPendingClinicianInvites();
 	}
 
+	async function loadSentInvites() {
+		sentInvites = await api.listSentClinicianInvites();
+	}
+
 	onMount(async () => {
 		if (!auth.isLoggedIn) {
 			await goto('/login');
 			return;
 		}
 		try {
-			await Promise.all([loadClients(), loadPendingInvites()]);
+			await Promise.all([loadClients(), loadPendingInvites(), loadSentInvites()]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -57,9 +66,10 @@
 		if (!inviteEmail.trim()) return;
 		inviting = true;
 		try {
-			await api.inviteClinicianClient(inviteEmail.trim());
+			await api.inviteClinicianClient(inviteEmail.trim(), inviteMessage.trim() || undefined);
 			inviteEmail = '';
-			await loadClients();
+			inviteMessage = DEFAULT_INVITE_MESSAGE;
+			await Promise.all([loadClients(), loadSentInvites()]);
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -82,6 +92,16 @@
 		try {
 			await api.declineClinicianInvite(linkId);
 			await loadPendingInvites();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function handleCancelInvite(linkId: number) {
+		error = null;
+		try {
+			await api.cancelClinicianInvite(linkId);
+			await loadSentInvites();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
@@ -164,12 +184,17 @@
 	<form onsubmit={handleInvite} class="invite-form">
 		<h3>Invite a client</h3>
 		<p class="muted">
-			The client must already have a Nutri-Matic account, and must explicitly accept before you
-			get any access to their data.
+			The client doesn't need a Nutri-Matic account yet — if theirs isn't found, we'll email them
+			a link to join. Either way, they must explicitly accept before you get any access to their
+			data.
 		</p>
 		<label>
 			Client email
 			<input type="email" bind:value={inviteEmail} required />
+		</label>
+		<label>
+			Invite message <span class="muted">(sent only if they don't have an account yet — edit as you like)</span>
+			<textarea bind:value={inviteMessage} rows="4"></textarea>
 		</label>
 		<button type="submit" disabled={inviting}>{inviting ? 'Sending…' : 'Send invite'}</button>
 	</form>
@@ -189,6 +214,23 @@
 		</section>
 	{/if}
 
+	{#if sentInvites.length > 0}
+		<section>
+			<h3>Invites you've sent, awaiting a response ({sentInvites.length})</h3>
+			<ul class="entries">
+				{#each sentInvites as invite (invite.id)}
+					<li>
+						<span>{invite.client_email}</span>
+						<span class="muted">
+							{invite.client_registered ? 'awaiting their accept' : 'awaiting registration'}
+						</span>
+						<button type="button" onclick={() => handleCancelInvite(invite.id)}>Cancel</button>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	<section>
 		<h3>Your clients ({clients.length})</h3>
 		{#if clients.length === 0}
@@ -199,7 +241,12 @@
 					<li class:selected={selectedClientEmail === link.client_email}>
 						<span>{link.client_email}</span>
 						<button type="button" onclick={() => selectClient(link)}>View</button>
-						<button type="button" onclick={() => handleRevoke(link.client_user_id)}>Revoke</button>
+						<button
+							type="button"
+							onclick={() => link.client_user_id !== null && handleRevoke(link.client_user_id)}
+						>
+							Revoke
+						</button>
 					</li>
 				{/each}
 			</ul>

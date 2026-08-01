@@ -314,11 +314,14 @@ class UserCreate(BaseModel):
     @classmethod
     def email_must_look_like_email(cls, v: str) -> str:
         # Deliberately not pulling in the `email-validator` package for full
-        # RFC validation — this app has no email-sending feature (no
-        # verification link, no password reset) to make deep validation
-        # worth the dependency; this just blocks the obviously-not-an-email
-        # inputs (empty string, no "@") that register() would otherwise
-        # cheerfully hash a password for and store.
+        # RFC validation — registration still has no verification link or
+        # password reset (the one place this app now sends real email,
+        # app/email_sender.py, is clinician-invite-by-email, which targets
+        # someone else's address the clinician typed, not this field), so
+        # deep validation still isn't worth the dependency; this just
+        # blocks the obviously-not-an-email inputs (empty string, no "@")
+        # that register() would otherwise cheerfully hash a password for
+        # and store.
         if "@" not in v or v.startswith("@") or v.endswith("@"):
             raise ValueError("must be a valid email address")
         return v
@@ -1198,6 +1201,10 @@ class IronBioavailabilityResultOut(BaseModel):
 
 class ClinicianInviteCreate(BaseModel):
     client_email: str
+    # only used when client_email isn't yet a registered account — sent
+    # verbatim in the invite email body. Ignored (no email is sent) when
+    # client_email already belongs to a real user, same as today.
+    message: str | None = None
 
 
 ClinicianLinkStatus = Literal["pending", "active", "revoked"]
@@ -1207,10 +1214,29 @@ class ClinicianLinkOut(BaseModel):
     id: int
     clinician_email: str
     client_email: str
-    client_user_id: int
+    # null only for an invite to someone who hasn't registered yet — see
+    # models.ClinicianClientLink's docstring. Never null for "active"
+    # (accepting requires being a real logged-in user).
+    client_user_id: int | None
+    # true once client_email resolves to a real account (whether or not
+    # they've accepted yet) — lets the clinician's UI tell "invited,
+    # awaiting registration" apart from "registered, awaiting accept"
+    # without the frontend re-deriving it from client_user_id itself.
+    client_registered: bool
     status: ClinicianLinkStatus
     created_at: datetime
     responded_at: datetime | None
+
+
+class ClinicianInvitePreviewOut(BaseModel):
+    """Public (no auth) — what the /invite/{token} landing page shows
+    before the recipient has an account. Never includes anything besides
+    what the clinician themselves wrote/the invite address, which the
+    recipient's own inbox already told them."""
+
+    clinician_email: str
+    invite_email: str
+    message: str
 
 
 class ClinicianNoteCreate(BaseModel):
