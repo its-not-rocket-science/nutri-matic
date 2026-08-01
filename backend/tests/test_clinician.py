@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.invite_protection import reset_invite_rate_limits
 from app.main import app
 from app.models import Food, FoodNutrient
 from app.reference_patterns import AMINO_ACIDS
@@ -23,6 +24,8 @@ def session_factory():
 
 @pytest.fixture
 def client(session_factory):
+    reset_invite_rate_limits()
+
     def override_get_db():
         db = session_factory()
         try:
@@ -317,3 +320,118 @@ def test_either_party_can_revoke(client):
         f"/api/clinician/clients/{client_id}/summary?entry_date=2026-07-13", headers=auth_headers(clinician_token)
     )
     assert res.status_code == 404
+
+
+def test_invite_matches_existing_user_case_insensitively(client):
+    """User.email isn't normalized to one case at registration — an
+    invite typed in a different case than the stored email must still
+    find the real account rather than treating it as unregistered."""
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    register_and_token(client, "Client@Example.com")
+
+    res = client.post(
+        "/api/clinician/invites", json={"client_email": "client@example.com"}, headers=auth_headers(clinician_token)
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["client_registered"] is True
+    assert body["client_user_id"] is not None
+
+
+def test_invite_rate_limit_enforced(client, monkeypatch):
+    import app.invite_protection as invite_protection_module
+
+    monkeypatch.setattr(invite_protection_module, "INVITE_PER_ACCOUNT_LIMIT", 1)
+    clinician_token = register_and_token(client, "dietitian@example.com")
+
+    with patch("app.routers.clinician.send_email"):
+        first = client.post(
+            "/api/clinician/invites", json={"client_email": "one@example.com"}, headers=auth_headers(clinician_token)
+        )
+    assert first.status_code == 201
+
+    second = client.post(
+        "/api/clinician/invites", json={"client_email": "two@example.com"}, headers=auth_headers(clinician_token)
+    )
+    assert second.status_code == 429
+
+
+def test_invite_rate_limit_does_not_apply_to_already_registered_clients(client, monkeypatch):
+    """Inviting an already-registered client never sends an email — that
+    branch isn't the abuse vector this limit exists for, and shouldn't
+    burn budget a clinician needs for real unregistered invites."""
+    import app.invite_protection as invite_protection_module
+
+    monkeypatch.setattr(invite_protection_module, "INVITE_PER_ACCOUNT_LIMIT", 1)
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    for i in range(3):
+        register_and_token(client, f"client{i}@example.com")
+        res = client.post(
+            "/api/clinician/invites", json={"client_email": f"client{i}@example.com"}, headers=auth_headers(clinician_token)
+        )
+        assert res.status_code == 201
+
+
+def test_duplicate_unresolved_invite_rejected_at_db_level(session_factory, client):
+    """models.ClinicianClientLink's partial unique index (clinician_user_id,
+    invite_email) WHERE client_user_id IS NULL is the real guarantee behind
+    the app-level 409 check — this proves the constraint itself, bypassing
+    the app's query-then-insert pre-check the way two concurrent requests
+    would."""
+    from app.models import ClinicianClientLink
+
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    clinician_id = client.get("/api/auth/me", headers=auth_headers(clinician_token)).json()["id"]
+
+    db = session_factory()
+    db.add(ClinicianClientLink(clinician_user_id=clinician_id, client_user_id=None, invite_email="race@example.com"))
+    db.commit()
+    db.add(ClinicianClientLink(clinician_user_id=clinician_id, client_user_id=None, invite_email="race@example.com"))
+    with pytest.raises(Exception):  # IntegrityError, wrapped by whichever DBAPI driver SQLite uses here
+        db.commit()
+    db.close()
+
+
+def test_cancel_invite_revokes_unregistered_invite(client, session_factory):
+    from app.models import ClinicianClientLink
+
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    with patch("app.routers.clinician.send_email"):
+        invite = client.post(
+            "/api/clinician/invites", json={"client_email": "nobody@example.com"}, headers=auth_headers(clinician_token)
+        ).json()
+
+    cancel = client.post(f"/api/clinician/invites/{invite['id']}/cancel", headers=auth_headers(clinician_token))
+    assert cancel.status_code == 200
+    assert cancel.json()["status"] == "revoked"
+
+    # the token must no longer resolve — a cancelled invite's join link is dead
+    db = session_factory()
+    token = (
+        db.query(ClinicianClientLink).filter(ClinicianClientLink.id == invite["id"]).one().invite_token
+    )
+    db.close()
+    preview = client.get(f"/api/clinician/invites/by-token/{token}")
+    assert preview.status_code == 404
+
+    sent = client.get("/api/clinician/invites/sent", headers=auth_headers(clinician_token)).json()
+    assert sent == []
+
+    # cancelling again (already revoked) 404s rather than double-revoking
+    recancel = client.post(f"/api/clinician/invites/{invite['id']}/cancel", headers=auth_headers(clinician_token))
+    assert recancel.status_code == 404
+
+
+def test_cancel_invite_only_by_the_inviting_clinician(client):
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    other_token = register_and_token(client, "someone-else@example.com")
+    with patch("app.routers.clinician.send_email"):
+        invite = client.post(
+            "/api/clinician/invites", json={"client_email": "nobody@example.com"}, headers=auth_headers(clinician_token)
+        ).json()
+
+    res = client.post(f"/api/clinician/invites/{invite['id']}/cancel", headers=auth_headers(other_token))
+    assert res.status_code == 404
+
+    sent = client.get("/api/clinician/invites/sent", headers=auth_headers(clinician_token)).json()
+    assert sent[0]["status"] == "pending"  # untouched by the other user's attempt

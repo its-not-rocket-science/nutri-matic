@@ -97,6 +97,16 @@
 		}
 	}
 
+	async function handleCancelInvite(linkId: number) {
+		error = null;
+		try {
+			await api.cancelClinicianInvite(linkId);
+			await loadSentInvites();
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
 	async function selectClient(link: ClinicianLink) {
 		error = null;
 		selectedClientEmail = link.client_email;
@@ -214,6 +224,7 @@
 						<span class="muted">
 							{invite.client_registered ? 'awaiting their accept' : 'awaiting registration'}
 						</span>
+						<button type="button" onclick={() => handleCancelInvite(invite.id)}>Cancel</button>
 					</li>
 				{/each}
 			</ul>

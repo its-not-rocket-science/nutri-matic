@@ -15,6 +15,8 @@ import secrets
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -22,6 +24,7 @@ from ..auth import get_current_user
 from ..database import get_db
 from ..email_sender import EmailNotConfigured, EmailSendFailed, send_email
 from ..entitlements import PLAN_ENTERPRISE, PLAN_PROFESSIONAL, effective_plan
+from ..invite_protection import enforce_invite_rate_limit
 from ..models import ClinicianClientLink, ClinicianNote, Profile, User
 from .diary import GroupBy, _compute_day_summary, _compute_trends
 
@@ -107,7 +110,13 @@ def invite_client(
     models.ClinicianClientLink's docstring for why that still doesn't
     skip the explicit-accept step."""
     body_email = body.client_email.strip().lower()
-    client = db.query(User).filter(User.email == body_email).one_or_none()
+    # case-insensitive: User.email isn't normalized to one case at
+    # registration (see UserCreate's validator), so a stored
+    # "Client@Example.com" must still match an invite typed in lowercase
+    # — otherwise that account is wrongly treated as unregistered, gets
+    # an unnecessary invite email, and never sees the pending invite on
+    # its own account (invite resolution only runs during registration).
+    client = db.query(User).filter(func.lower(User.email) == body_email).one_or_none()
     if client is not None and client.id == current_user.id:
         raise HTTPException(status_code=422, detail="Cannot invite yourself")
 
@@ -150,6 +159,10 @@ def invite_client(
         db.refresh(link)
         return _link_out(link, current_user.email, client.email)
 
+    # only the email-sending path is rate-limited — inviting an
+    # already-registered client (handled above) never sends anything.
+    enforce_invite_rate_limit(current_user.id)
+
     existing = (
         db.query(ClinicianClientLink)
         .filter(
@@ -191,7 +204,17 @@ def invite_client(
         db.rollback()
         raise HTTPException(status_code=502, detail=f"Failed to send invite email: {e}") from e
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        # the "existing" check above is query-then-insert, not atomic —
+        # two concurrent requests for the same (clinician, email) can
+        # both pass it; models.ClinicianClientLink's partial unique index
+        # is the actual guarantee, this just turns its violation into the
+        # same 409 the pre-check gives a non-concurrent duplicate,
+        # instead of a raw 500.
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A link already exists for that email") from e
     db.refresh(link)
     return _link_out(link, current_user.email, body_email)
 
@@ -237,6 +260,31 @@ def decline_invite(link_id: int, current_user: User = Depends(get_current_user),
     db.refresh(link)
     clinician = db.get(User, link.clinician_user_id)
     return _link_out(link, clinician.email, current_user.email)
+
+
+@router.post("/invites/{link_id}/cancel", response_model=schemas.ClinicianLinkOut)
+def cancel_invite(link_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The clinician-side counterpart to decline_invite (which only the
+    *client* can call, since it requires being the resolved
+    client_user_id). An invite sent to an unregistered address has no
+    client_user_id yet — nobody can decline it — so without this, a
+    clinician who typoed the address or changed their mind has no way to
+    stop that address's join-link/message from staying valid until
+    someone eventually registers with it. Works for a still-unresolved
+    invite exactly the same as one already pointed at a real, not-yet-
+    accepted client."""
+    link = db.get(ClinicianClientLink, link_id)
+    if link is None or link.clinician_user_id != current_user.id or link.status != "pending":
+        raise HTTPException(status_code=404, detail="No pending invite found")
+    link.status = "revoked"
+    link.responded_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(link)
+    client_email = link.invite_email
+    if link.client_user_id is not None:
+        client = db.get(User, link.client_user_id)
+        client_email = client.email
+    return _link_out(link, current_user.email, client_email)
 
 
 @router.delete("/clients/{client_user_id}", status_code=204)

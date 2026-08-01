@@ -20,6 +20,8 @@ matters — i.e. anywhere that isn't your own laptop.
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | No | unset | SMTP auth — login is skipped if either is unset (some relays allow unauthenticated/IP-allowlisted send). |
 | `EMAIL_FROM_ADDRESS` | Recommended once `SMTP_HOST` is set | `SMTP_USERNAME`, or empty | `From:` address on outgoing invite emails. |
 | `FRONTEND_URL` | Yes, once `SMTP_HOST` is set | `http://localhost:5173` | Base URL used to build the `/invite/{token}` join link sent in a clinician invite email — set to the real deployed frontend origin, or every invite email links back to localhost. |
+| `INVITE_RATE_LIMIT_PER_ACCOUNT` / `INVITE_RATE_LIMIT_PER_ACCOUNT_WINDOW_SECONDS` | No | `20` / `3600` | Per-clinician cap on outbound invite emails — see `app/invite_protection.py`. Only the unregistered-invite path (which actually sends email) counts against this. |
+| `INVITE_RATE_LIMIT_GLOBAL` / `INVITE_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `200` / `3600` | Global circuit breaker on total invite-email volume. Same in-process, per-instance caveat as `DEMO_RATE_LIMIT_GLOBAL` above. |
 
 ## Minimal production checklist
 

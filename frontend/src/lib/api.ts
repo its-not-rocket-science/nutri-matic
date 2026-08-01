@@ -480,6 +480,8 @@ export const api = {
 		request<ClinicianLink>(`/api/clinician/invites/${linkId}/accept`, { method: 'POST' }),
 	declineClinicianInvite: (linkId: number) =>
 		request<ClinicianLink>(`/api/clinician/invites/${linkId}/decline`, { method: 'POST' }),
+	cancelClinicianInvite: (linkId: number) =>
+		request<ClinicianLink>(`/api/clinician/invites/${linkId}/cancel`, { method: 'POST' }),
 	getClinicianInvitePreview: (token: string) =>
 		request<ClinicianInvitePreview>(`/api/clinician/invites/by-token/${encodeURIComponent(token)}`),
 	listClinicianClients: () => request<ClinicianLink[]>('/api/clinician/clients'),

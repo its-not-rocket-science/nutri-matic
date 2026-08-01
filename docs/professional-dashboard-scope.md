@@ -34,7 +34,13 @@ professional register) is a separate, unscoped feature.
   wording is sent verbatim (a default is offered, not enforced). This
   never skips the consent step above: the link's target still has to
   explicitly accept from their own account once they register — see
-  `ClinicianClientLink`'s own docstring.
+  `ClinicianClientLink`'s own docstring. Rate-limited per-clinician and
+  globally (`app/invite_protection.py`) — caught by PR review: without
+  this, any registered account could use the relay as an open spam/
+  phishing channel. A clinician can also cancel a still-unresolved
+  invite (`POST /invites/{id}/cancel`) — otherwise a typoed or
+  changed-mind invite's join link would stay valid indefinitely, since
+  nobody has an account yet to decline it from the client side.
 - **Micronutrient gaps, protein quality, and bioavailability at a
   glance** (`GET /clients/{id}/summary`): reuses the exact same
   `_compute_day_summary()` the client's own diary page calls — not a
