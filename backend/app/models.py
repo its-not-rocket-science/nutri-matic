@@ -755,7 +755,24 @@ class ClinicianClientLink(Base):
     already-registered email."""
 
     __tablename__ = "clinician_client_links"
-    __table_args__ = (UniqueConstraint("clinician_user_id", "client_user_id", name="uq_clinician_client"),)
+    __table_args__ = (
+        UniqueConstraint("clinician_user_id", "client_user_id", name="uq_clinician_client"),
+        # the above allows unlimited rows with client_user_id NULL (most
+        # DBs treat every NULL as distinct for uniqueness purposes), so
+        # two concurrent invites from the same clinician to the same
+        # unregistered address could otherwise both be created; this
+        # partial index closes that race — only enforced while
+        # client_user_id is still NULL, so it never constrains real
+        # (resolved) links at all. Found by an automated PR review: two
+        # such rows would both later try to resolve to the same
+        # client_user_id at registration and collide with the
+        # constraint above, returning a 500 that blocks the new account
+        # from being created at all, not just the invite.
+        Index(
+            "uq_clinician_invite_email_unresolved", "clinician_user_id", "invite_email",
+            unique=True, postgresql_where=text("client_user_id IS NULL"), sqlite_where=text("client_user_id IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     clinician_user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
