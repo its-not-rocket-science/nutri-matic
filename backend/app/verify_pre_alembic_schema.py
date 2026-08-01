@@ -48,6 +48,23 @@ from sqlalchemy.engine import Engine
 BASELINE_REVISION = "aac138c38096"
 BASELINE_MODULE = "migrations.versions.aac138c38096_baseline"
 
+# (table, column) pairs where a *later*, real Alembic migration
+# deliberately relaxed a NOT NULL constraint the baseline originally
+# defined — found live in production: migration 096f80b058ab
+# (add_clinician_invite_by_email) made clinician_client_links.
+# client_user_id nullable on purpose (an unregistered invite has no user
+# yet), already rehearsed and deployed successfully, but this verifier's
+# baseline-vs-live comparison has no way to distinguish that from
+# accidental drift — every later deploy would otherwise fail this check
+# forever. Add an entry here (with the migration revision that made the
+# change) whenever this happens again; never remove baseline's own
+# NOT NULL check for anything not listed here, since that's still real
+# protection against a database silently missing a constraint the
+# baseline — and any migration that hasn't since relaxed it — assumes.
+_INTENTIONALLY_RELAXED_NOT_NULL: set[tuple[str, str]] = {
+    ("clinician_client_links", "client_user_id"),  # 096f80b058ab
+}
+
 # Coarse type categories — a column's real DB type (VARCHAR(255) vs
 # VARCHAR vs TEXT, INTEGER vs BIGINT) varies more than matters here; what
 # actually matters for "is this database safe to build on" is whether an
@@ -240,7 +257,10 @@ def verify_schema(engine: Engine) -> VerificationResult:
             # The reverse (live DB is NOT NULL, baseline allows NULL)
             # is strictly safer, not a problem worth blocking a stamp
             # over.
-            if not col_spec["nullable"] and actual_col["nullable"]:
+            if (
+                not col_spec["nullable"] and actual_col["nullable"]
+                and (table_name, col_name) not in _INTENTIONALLY_RELAXED_NOT_NULL
+            ):
                 issues.append(f"{table_name}.{col_name}: expected NOT NULL, found nullable")
 
         actual_pk = sorted(inspector.get_pk_constraint(table_name).get("constrained_columns") or [])
