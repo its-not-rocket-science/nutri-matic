@@ -434,6 +434,42 @@ def test_implausible_value_on_one_nutrient_does_not_exclude_the_food_from_anothe
     assert any(s.food_name == "Lentils" for s in result.suggestions)
 
 
+def test_carbon_footprint_goal_favours_lower_carbon_tier_candidate(db):
+    """reduce_carbon_footprint active: two curated, equally-eligible
+    candidates close the exact same real iron gap by the exact same
+    amount (per-100g iron chosen to offset each food's own curated
+    default serving size, so the simulated after-state is identical) —
+    the only thing that can separate them is carbon_tier_for_food:
+    "Cheddar cheese" matches the high tier, "Lentils" the low tier."""
+    profile = make_profile(db, goal="reduce_carbon_footprint")
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Cheddar cheese", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    by_name = {s.food_name: s for s in result.suggestions}
+    assert set(by_name) == {"Cheddar cheese", "Lentils"}
+    assert by_name["Lentils"].score.carbon_footprint_adjustment > 0
+    assert by_name["Cheddar cheese"].score.carbon_footprint_adjustment < 0
+    assert by_name["Lentils"].score.total > by_name["Cheddar cheese"].score.total
+    assert [s.food_name for s in result.suggestions] == ["Lentils", "Cheddar cheese"]
+
+
+def test_carbon_footprint_adjustment_zero_when_goal_not_active(db):
+    """Same two candidates, no reduce_carbon_footprint goal — carbon must
+    never contribute to either candidate's score for a profile that
+    didn't ask for it."""
+    profile = make_profile(db)
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Cheddar cheese", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    assert len(result.suggestions) == 2
+    for s in result.suggestions:
+        assert s.score.carbon_footprint_adjustment == 0.0
+
+
 @pytest.fixture
 def client():
     """The live demo-day regression fixture, end to end through the real

@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .aggregation import ProteinQualityResult
+from .carbon_footprint import CarbonTier
 from .dietary_tags import Suitability
 from .nutrient_gap_analysis import NutrientGapResult, NutrientStatus
 
@@ -41,7 +42,7 @@ from .nutrient_gap_analysis import NutrientGapResult, NutrientStatus
 # section) for why a cache key needs this, and prompt 14's maintainer
 # instructions for when to bump it. Not tied to the feature's own prompt
 # numbering — this only tracks the scoring formula/weights.
-RECOMMENDATION_MODEL_VERSION = 1
+RECOMMENDATION_MODEL_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,18 @@ class ScoringWeights:
     # uncertainty_penalty components
     low_confidence_weight: float = 0.5  # scales (1 - ingredient_confidence)
     low_coverage_weight: float = 0.5  # scales (1 - candidate's own data coverage)
+    # carbon_footprint_adjustment — only ever applied when a caller resolves
+    # the reduce_carbon_footprint goal as active AND supplies a real
+    # carbon_footprint.carbon_tier_for_food() match; no data (goal inactive,
+    # or the food's name matched no keyword) means zero contribution, never
+    # a guessed one. Deliberately smaller than gap_reduction/dietary_fit
+    # terms — carbon_tier_for_food is a coarse, low-confidence, keyword-only
+    # signal (see that module's own docstring), so it should nudge ranking
+    # among otherwise-comparable candidates, never override a real nutrient
+    # need or dietary exclusion.
+    carbon_very_high_penalty: float = 0.4
+    carbon_high_penalty: float = 0.2
+    carbon_low_bonus: float = 0.1
 
 
 DEFAULT_WEIGHTS = ScoringWeights()
@@ -125,6 +138,10 @@ class ScoreBreakdown:
     energy_overshoot_penalty: float
     uncertainty_penalty: float
     implausible_serving_penalty: float
+    # positive (low-carbon bonus), negative (high/very_high penalty), or
+    # exactly 0.0 (medium tier, no tier data, or the goal wasn't active for
+    # this caller) — see ScoringWeights.carbon_very_high_penalty's docstring
+    carbon_footprint_adjustment: float
     total: float
     # which scoring-formula version produced this breakdown — hardening
     # prompt 3, same constant every ScoreBreakdown this module produces
@@ -255,6 +272,21 @@ def _uncertainty_penalty(
     return penalty
 
 
+def _carbon_footprint_adjustment(tier: CarbonTier | None, weights: ScoringWeights) -> float:
+    """`tier` is None whenever the caller has no signal to offer — the
+    reduce_carbon_footprint goal isn't active, or carbon_tier_for_food
+    matched no keyword for this candidate — never a guessed tier. "medium"
+    is deliberately neutral too: it's the coarse middle of the four tiers,
+    not a confident "this is fine" the way "low" is."""
+    if tier == "very_high":
+        return -weights.carbon_very_high_penalty
+    if tier == "high":
+        return -weights.carbon_high_penalty
+    if tier == "low":
+        return weights.carbon_low_bonus
+    return 0.0
+
+
 def _practicality(practicality: PracticalityInput | None, weights: ScoringWeights) -> tuple[float, float]:
     if practicality is None or practicality.is_plausible_serving is None:
         return 0.0, 0.0  # no data — neutral, never guessed either way
@@ -275,6 +307,7 @@ def score_candidate(
     ingredient_confidence: float | None = None,
     candidate_data_coverage: float | None = None,
     practicality: PracticalityInput | None = None,
+    carbon_tier: CarbonTier | None = None,
     weights: ScoringWeights = DEFAULT_WEIGHTS,
 ) -> ScoreBreakdown:
     """Scores one already-simulated candidate — `before_gaps`/`after_gaps`
@@ -284,6 +317,13 @@ def score_candidate(
     never a fabricated value — a caller that can't supply protein-quality
     or provenance data simply gets no contribution from that term, not a
     guessed one.
+
+    `carbon_tier` (`carbon_footprint.carbon_tier_for_food`'s result for
+    this candidate) should only ever be passed by a caller that has
+    already confirmed the reduce_carbon_footprint goal is active for the
+    profile — this function has no opinion on goals, it just scores
+    whatever tier it's given, so an inactive-goal caller should pass None
+    rather than rely on this function to gate it.
     """
     gap_reduction, multi_nutrient_bonus, improved = _gap_reduction(before_gaps, after_gaps, weights)
     excess = _excess_penalty(before_gaps, after_gaps, weights)
@@ -296,6 +336,7 @@ def score_candidate(
     energy_overshoot_penalty = _energy_overshoot_penalty(energy_added, max_additional_energy, weights)
     uncertainty_penalty = _uncertainty_penalty(ingredient_confidence, candidate_data_coverage, weights)
     practicality_bonus, serving_penalty = _practicality(practicality, weights)
+    carbon_footprint_adjustment = _carbon_footprint_adjustment(carbon_tier, weights)
 
     total = (
         gap_reduction
@@ -303,6 +344,7 @@ def score_candidate(
         + protein_quality_benefit
         + dietary_fit
         + practicality_bonus
+        + carbon_footprint_adjustment
         - upper_limit_penalty
         - above_preferred_penalty
         - energy_overshoot_penalty
@@ -321,6 +363,7 @@ def score_candidate(
         energy_overshoot_penalty=energy_overshoot_penalty,
         uncertainty_penalty=uncertainty_penalty,
         implausible_serving_penalty=serving_penalty,
+        carbon_footprint_adjustment=carbon_footprint_adjustment,
         total=total,
         nutrients_improved=improved,
         nutrients_worsened=worsened,

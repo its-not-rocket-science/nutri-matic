@@ -65,6 +65,7 @@ def _score_breakdown_out(score: ScoreBreakdown) -> schemas.ScoreBreakdownOut:
         energy_overshoot_penalty=score.energy_overshoot_penalty,
         uncertainty_penalty=score.uncertainty_penalty,
         implausible_serving_penalty=score.implausible_serving_penalty,
+        carbon_footprint_adjustment=score.carbon_footprint_adjustment,
         total=score.total,
         model_version=score.model_version,
     )
