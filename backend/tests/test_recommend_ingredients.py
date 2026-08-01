@@ -18,6 +18,7 @@ from app.nutrient_targets import AnalysisPeriod
 from app.nutrients import NUTRIENTS
 from app.reference_patterns import AMINO_ACIDS
 from app.recommend_ingredients import suggest_ingredients
+from app.recommendation_scoring import ScoringWeights
 
 
 @pytest.fixture
@@ -432,6 +433,64 @@ def test_implausible_value_on_one_nutrient_does_not_exclude_the_food_from_anothe
     profile = make_profile(db)
     result = run(db, profile, current, priority_nutrient_keys={"iron", "zinc"})
     assert any(s.food_name == "Lentils" for s in result.suggestions)
+
+
+def test_carbon_footprint_goal_favours_lower_carbon_tier_candidate(db):
+    """reduce_carbon_footprint active: two curated, equally-eligible
+    candidates close the exact same real iron gap by the exact same
+    amount (per-100g iron chosen to offset each food's own curated
+    default serving size, so the simulated after-state is identical) —
+    the only thing that can separate them is carbon_tier_for_food:
+    "Cheddar cheese" matches the high tier, "Lentils" the low tier."""
+    profile = make_profile(db, goal="reduce_carbon_footprint")
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Cheddar cheese", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    by_name = {s.food_name: s for s in result.suggestions}
+    assert set(by_name) == {"Cheddar cheese", "Lentils"}
+    assert by_name["Lentils"].score.carbon_footprint_adjustment > 0
+    assert by_name["Cheddar cheese"].score.carbon_footprint_adjustment < 0
+    assert by_name["Lentils"].score.total > by_name["Cheddar cheese"].score.total
+    assert [s.food_name for s in result.suggestions] == ["Lentils", "Cheddar cheese"]
+
+
+def test_carbon_footprint_weight_scales_with_goal_priority_rank(db):
+    """PR review: reduce_carbon_footprint at a lower priority rank must
+    influence ranking less than at rank 1 — goals.py's documented 1/rank
+    multi-goal policy, not a flat on/off switch. profile.goals is set
+    directly (the transient attribute goals.goal_keys_of reads) rather
+    than via real ProfileGoal rows — same shortcut this suite already
+    takes for single-goal cases via Profile(goal=...)."""
+    profile = make_profile(db)
+    profile.goals = ["exploring", "reduce_carbon_footprint"]  # rank 2 -> weight 0.5
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Cheddar cheese", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    by_name = {s.food_name: s for s in result.suggestions}
+    weights = ScoringWeights()
+    assert by_name["Lentils"].score.carbon_footprint_adjustment == pytest.approx(weights.carbon_low_bonus * 0.5)
+    assert by_name["Cheddar cheese"].score.carbon_footprint_adjustment == pytest.approx(
+        -weights.carbon_high_penalty * 0.5
+    )
+
+
+def test_carbon_footprint_adjustment_zero_when_goal_not_active(db):
+    """Same two candidates, no reduce_carbon_footprint goal — carbon must
+    never contribute to either candidate's score for a profile that
+    didn't ask for it."""
+    profile = make_profile(db)
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Cheddar cheese", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    assert len(result.suggestions) == 2
+    for s in result.suggestions:
+        assert s.score.carbon_footprint_adjustment == 0.0
 
 
 @pytest.fixture

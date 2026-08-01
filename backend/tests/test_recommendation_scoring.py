@@ -179,6 +179,45 @@ def test_coverage_dilution_to_insufficient_data_is_never_counted_as_improvement(
     assert "fiber_total" not in result.nutrients_improved
 
 
+def test_carbon_footprint_neutral_when_no_tier_given():
+    """The reduce_carbon_footprint goal not being active, or a food name
+    matching no keyword, both surface as carbon_tier=None — no guessed
+    contribution either way."""
+    result = score_candidate([], [], carbon_tier=None)
+    assert result.carbon_footprint_adjustment == 0.0
+
+
+def test_carbon_footprint_neutral_for_medium_tier():
+    result = score_candidate([], [], carbon_tier="medium")
+    assert result.carbon_footprint_adjustment == 0.0
+
+
+def test_carbon_footprint_penalty_for_very_high_tier():
+    result = score_candidate([], [], carbon_tier="very_high")
+    assert result.carbon_footprint_adjustment < 0.0
+
+
+def test_carbon_footprint_penalty_for_high_tier_smaller_than_very_high():
+    high = score_candidate([], [], carbon_tier="high")
+    very_high = score_candidate([], [], carbon_tier="very_high")
+    assert high.carbon_footprint_adjustment < 0.0
+    assert high.carbon_footprint_adjustment > very_high.carbon_footprint_adjustment
+
+
+def test_carbon_footprint_bonus_for_low_tier():
+    result = score_candidate([], [], carbon_tier="low")
+    assert result.carbon_footprint_adjustment > 0
+
+
+def test_carbon_footprint_adjustment_scaled_by_priority_weight():
+    """PR review: a lower-ranked reduce_carbon_footprint goal must nudge
+    ranking less than a rank-1 one — goals.goal_weight(rank) == 1/rank,
+    the same policy every other goal-driven signal in this app follows."""
+    full_weight = score_candidate([], [], carbon_tier="very_high", carbon_priority_weight=1.0)
+    half_weight = score_candidate([], [], carbon_tier="very_high", carbon_priority_weight=0.5)
+    assert half_weight.carbon_footprint_adjustment == pytest.approx(full_weight.carbon_footprint_adjustment * 0.5)
+
+
 def test_practicality_neutral_when_no_data():
     result = score_candidate([], [], practicality=None)
     assert result.practicality == 0.0
@@ -212,6 +251,7 @@ def test_score_breakdown_total_equals_component_sum():
         + result.protein_quality_benefit
         + result.dietary_fit
         + result.practicality
+        + result.carbon_footprint_adjustment
         - result.upper_limit_penalty
         - result.above_preferred_penalty
         - result.energy_overshoot_penalty
@@ -238,6 +278,7 @@ def test_score_breakdown_total_equals_component_sum_with_multi_nutrient_bonus():
         + result.protein_quality_benefit
         + result.dietary_fit
         + result.practicality
+        + result.carbon_footprint_adjustment
         - result.upper_limit_penalty
         - result.above_preferred_penalty
         - result.energy_overshoot_penalty

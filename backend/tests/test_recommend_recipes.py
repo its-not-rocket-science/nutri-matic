@@ -289,6 +289,47 @@ def test_diversity_dedupes_recipes_sharing_a_primary_ingredient(db):
     assert len(lentil_recipes) == 1
 
 
+def test_carbon_footprint_goal_favours_lower_carbon_tier_recipe(db):
+    """reduce_carbon_footprint active: two single-ingredient recipes close
+    the exact same real iron gap by the exact same amount (identical
+    per-100g iron, identical ingredient quantity) — the only thing that
+    can separate them is carbon_tier_for_food on each recipe's primary
+    (by-mass-dominant) ingredient: "Beef mince" is very_high, "Lentils"
+    is low."""
+    user = make_user(db, "carbon-active@example.com")
+    profile = make_profile(db, user, goal="reduce_carbon_footprint")
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    beef = make_food(db, "Beef mince", iron=10.0, energy=0.0)
+    lentils = make_food(db, "Lentils", iron=10.0, energy=0.0)
+    make_recipe(db, user, "Beef Stew", 1, [(beef, 100)])
+    make_recipe(db, user, "Lentil Soup", 1, [(lentils, 100)])
+
+    result = run(db, profile, user, rice, priority_nutrient_keys={"iron"})
+    by_name = {s.recipe_name: s for s in result.suggestions}
+    assert set(by_name) == {"Beef Stew", "Lentil Soup"}
+    assert by_name["Lentil Soup"].score.carbon_footprint_adjustment > 0
+    assert by_name["Beef Stew"].score.carbon_footprint_adjustment < 0
+    assert by_name["Lentil Soup"].score.total > by_name["Beef Stew"].score.total
+
+
+def test_carbon_footprint_recipe_adjustment_zero_when_goal_not_active(db):
+    """Same two recipes, no reduce_carbon_footprint goal — carbon must
+    never contribute to either recipe's score for a profile that didn't
+    ask for it."""
+    user = make_user(db, "carbon-inactive@example.com")
+    profile = make_profile(db, user)
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    beef = make_food(db, "Beef mince", iron=10.0, energy=0.0)
+    lentils = make_food(db, "Lentils", iron=10.0, energy=0.0)
+    make_recipe(db, user, "Beef Stew", 1, [(beef, 100)])
+    make_recipe(db, user, "Lentil Soup", 1, [(lentils, 100)])
+
+    result = run(db, profile, user, rice, priority_nutrient_keys={"iron"})
+    assert len(result.suggestions) == 2
+    for s in result.suggestions:
+        assert s.score.carbon_footprint_adjustment == 0.0
+
+
 def test_no_recipes_visible_returns_empty(db):
     user = make_user(db, "empty@example.com")
     profile = make_profile(db, user)

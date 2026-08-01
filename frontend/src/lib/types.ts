@@ -779,6 +779,10 @@ export interface ScoreBreakdown {
 	energy_overshoot_penalty: number;
 	uncertainty_penalty: number;
 	implausible_serving_penalty: number;
+	// positive (low-carbon bonus), negative (high/very_high penalty), or
+	// exactly 0 (medium tier, no tier data, or reduce_carbon_footprint
+	// wasn't an active goal for this suggestion)
+	carbon_footprint_adjustment: number;
 	total: number;
 	model_version: number;
 }

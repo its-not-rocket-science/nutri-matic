@@ -40,15 +40,31 @@ name-keyword carbon-tier match here as trustworthy as a real per-food
 LCA figure would be, and branded products' marketing-copy names make it
 an even weaker signal there.
 
-NOT YET WIRED INTO CANDIDATE RANKING: recommend_ingredients.py/
-recommend_recipes.py's candidate scoring isn't touched by this module —
-that's carefully-hardened code (see docs/recommendation-candidates.md
-for the last real bug found there) that deserves its own dedicated pass
-rather than a same-prompt bolt-on. `carbon_tier_for_food()` below is
-real and tested, so that follow-up has something solid to build on; the
-`reduce_carbon_footprint` goal is selectable today but doesn't yet
-change what gets recommended — an honest, documented gap, not a silent
-one (see docs/goal-library.md)."""
+WIRED INTO CANDIDATE RANKING (follow-up pass, after the carefully-hardened
+scoring code — see docs/recommendation-candidates.md for the last real
+bug found there — was left alone on purpose during the same-prompt
+bolt-on this module started as): `recommendation_scoring.score_candidate`
+takes an optional `carbon_tier` and applies a deliberately modest bonus/
+penalty (`ScoringWeights.carbon_very_high_penalty`/`carbon_high_penalty`/
+`carbon_low_bonus` — "medium" and "no match" both stay neutral); both
+`recommend_ingredients.suggest_ingredients` and `recommend_recipes.
+suggest_recipes` only ever resolve and pass a tier when the profile has
+`reduce_carbon_footprint` among its active goals (`goals.goal_keys_of`) —
+an inactive goal gets exactly the same ranking as before this module
+existed, never a silent nudge. The magnitude is further scaled by
+`goals.goal_weight(rank)` for wherever reduce_carbon_footprint actually
+sits in the profile's ranked goal list (PR review: a first pass applied
+the full bonus/penalty regardless of rank, so a rank-10 goal influenced
+ranking exactly as much as rank-1 — violating goals.py's own documented
+1/rank multi-goal policy every other goal-driven signal follows) — see
+`score_candidate`'s `carbon_priority_weight` parameter. A recipe has no
+single tier of its own;
+`recommend_recipes._primary_ingredient_food` (the same by-mass-dominant
+ingredient already used for suggestion deduplication) stands in for "the
+recipe's food name" rather than inventing a second aggregation rule.
+`recommend_pairs.py`/`recommend_substitutions.py` are not wired — left
+for a further follow-up rather than assumed identical to the ingredient/
+recipe cases without its own review."""
 
 from typing import Literal
 

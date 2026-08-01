@@ -1280,6 +1280,7 @@ class ScoreBreakdownOut(BaseModel):
     energy_overshoot_penalty: float
     uncertainty_penalty: float
     implausible_serving_penalty: float
+    carbon_footprint_adjustment: float
     total: float
     model_version: int
 

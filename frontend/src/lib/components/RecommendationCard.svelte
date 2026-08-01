@@ -56,9 +56,23 @@
 	];
 
 	function breakdownRows(breakdown: ScoreBreakdown) {
-		return BREAKDOWN_ROWS.map((row) => ({ ...row, value: breakdown[row.key] as number })).filter(
+		const rows = BREAKDOWN_ROWS.map((row) => ({ ...row, value: breakdown[row.key] as number })).filter(
 			(row) => Math.abs(row.value) > 0.005
 		);
+		// carbon_footprint_adjustment is the one term that's a bonus OR a
+		// penalty depending on the candidate's own carbon tier, not fixed
+		// like every other row — sign/label follow the actual value here
+		// rather than a static config entry.
+		const carbon = breakdown.carbon_footprint_adjustment;
+		if (Math.abs(carbon) > 0.005) {
+			rows.push({
+				key: 'carbon_footprint_adjustment',
+				label: carbon > 0 ? 'Lower carbon footprint' : 'Higher carbon footprint',
+				sign: carbon > 0 ? '+' : '−',
+				value: carbon
+			});
+		}
+		return rows;
 	}
 </script>
 
