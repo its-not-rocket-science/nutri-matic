@@ -51,7 +51,14 @@ penalty (`ScoringWeights.carbon_very_high_penalty`/`carbon_high_penalty`/
 suggest_recipes` only ever resolve and pass a tier when the profile has
 `reduce_carbon_footprint` among its active goals (`goals.goal_keys_of`) —
 an inactive goal gets exactly the same ranking as before this module
-existed, never a silent nudge. A recipe has no single tier of its own;
+existed, never a silent nudge. The magnitude is further scaled by
+`goals.goal_weight(rank)` for wherever reduce_carbon_footprint actually
+sits in the profile's ranked goal list (PR review: a first pass applied
+the full bonus/penalty regardless of rank, so a rank-10 goal influenced
+ranking exactly as much as rank-1 — violating goals.py's own documented
+1/rank multi-goal policy every other goal-driven signal follows) — see
+`score_candidate`'s `carbon_priority_weight` parameter. A recipe has no
+single tier of its own;
 `recommend_recipes._primary_ingredient_food` (the same by-mass-dominant
 ingredient already used for suggestion deduplication) stands in for "the
 recipe's food name" rather than inventing a second aggregation rule.

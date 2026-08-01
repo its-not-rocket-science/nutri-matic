@@ -206,7 +206,16 @@ def test_carbon_footprint_penalty_for_high_tier_smaller_than_very_high():
 
 def test_carbon_footprint_bonus_for_low_tier():
     result = score_candidate([], [], carbon_tier="low")
-    assert result.carbon_footprint_adjustment > 0.0
+    assert result.carbon_footprint_adjustment > 0
+
+
+def test_carbon_footprint_adjustment_scaled_by_priority_weight():
+    """PR review: a lower-ranked reduce_carbon_footprint goal must nudge
+    ranking less than a rank-1 one — goals.goal_weight(rank) == 1/rank,
+    the same policy every other goal-driven signal in this app follows."""
+    full_weight = score_candidate([], [], carbon_tier="very_high", carbon_priority_weight=1.0)
+    half_weight = score_candidate([], [], carbon_tier="very_high", carbon_priority_weight=0.5)
+    assert half_weight.carbon_footprint_adjustment == pytest.approx(full_weight.carbon_footprint_adjustment * 0.5)
 
 
 def test_practicality_neutral_when_no_data():

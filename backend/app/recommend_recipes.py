@@ -32,7 +32,7 @@ from .aggregation import (
 )
 from .carbon_footprint import carbon_tier_for_food
 from .dietary_filter import filter_excluded_recipes, recipes_dietary_status
-from .goals import goal_keys_of
+from .goals import goal_keys_of, goal_weight
 from .models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, RobustnessResult, User, Profile
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
 from .nutrient_targets import AnalysisPeriod, NutrientTarget, adjust_target_for_remaining, resolve_nutrient_target
@@ -223,7 +223,14 @@ def suggest_recipes(
     `GOAL_PRESETS`; an explicit `priority_nutrient_keys` overrides it."""
     excluded_recipe_ids = excluded_recipe_ids or set()
     weights = weights or ScoringWeights()
-    carbon_goal_active = "reduce_carbon_footprint" in goal_keys_of(profile)
+    # scaled by the goal's own priority rank — see recommend_ingredients.py's
+    # identical comment/PR-review-caught issue for why a flat on/off check
+    # isn't enough (goals.py's documented 1/rank multi-goal policy).
+    goal_keys = goal_keys_of(profile)
+    carbon_priority_weight = (
+        goal_weight(goal_keys.index("reduce_carbon_footprint") + 1)
+        if "reduce_carbon_footprint" in goal_keys else None
+    )
     if priority_nutrient_keys is None and goal is not None:
         priority_nutrient_keys = GOAL_PRESETS.get(goal)
 
@@ -327,7 +334,7 @@ def suggest_recipes(
             candidate_data_coverage = min(candidate_data_coverage or 1.0, 0.6)
 
         carbon_tier = None
-        if carbon_goal_active:
+        if carbon_priority_weight is not None:
             primary_food = _primary_ingredient_food(recipe_items_at_1_serving)
             if primary_food is not None:
                 carbon_tier = carbon_tier_for_food(primary_food.name)
@@ -338,7 +345,7 @@ def suggest_recipes(
             dietary_suitability=suitability, ingredient_confidence=ingredient_confidence,
             candidate_data_coverage=candidate_data_coverage,
             practicality=PracticalityInput(is_plausible_serving=True),  # a recipe's own serving size is always "plausible" by definition
-            carbon_tier=carbon_tier, weights=weights,
+            carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0, weights=weights,
         )
         if score.total <= 0:
             rejected.append(RejectedRecipe(recipe.name, "did not meaningfully improve the current gaps"))

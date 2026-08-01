@@ -272,18 +272,25 @@ def _uncertainty_penalty(
     return penalty
 
 
-def _carbon_footprint_adjustment(tier: CarbonTier | None, weights: ScoringWeights) -> float:
+def _carbon_footprint_adjustment(tier: CarbonTier | None, priority_weight: float, weights: ScoringWeights) -> float:
     """`tier` is None whenever the caller has no signal to offer — the
     reduce_carbon_footprint goal isn't active, or carbon_tier_for_food
     matched no keyword for this candidate — never a guessed tier. "medium"
     is deliberately neutral too: it's the coarse middle of the four tiers,
-    not a confident "this is fine" the way "low" is."""
+    not a confident "this is fine" the way "low" is.
+
+    `priority_weight` scales the raw tier magnitude by the goal's own
+    rank (PR review: caught scoring a rank-2/rank-10 goal identically to
+    rank-1, violating goals.py's own documented policy that every active
+    goal's influence is weighted `goal_weight(rank) == 1/rank`) — 1.0 for
+    a caller with no ranking concept at all (e.g. a direct unit test),
+    goals.goal_weight(rank) for a real profile."""
     if tier == "very_high":
-        return -weights.carbon_very_high_penalty
+        return -weights.carbon_very_high_penalty * priority_weight
     if tier == "high":
-        return -weights.carbon_high_penalty
+        return -weights.carbon_high_penalty * priority_weight
     if tier == "low":
-        return weights.carbon_low_bonus
+        return weights.carbon_low_bonus * priority_weight
     return 0.0
 
 
@@ -308,6 +315,7 @@ def score_candidate(
     candidate_data_coverage: float | None = None,
     practicality: PracticalityInput | None = None,
     carbon_tier: CarbonTier | None = None,
+    carbon_priority_weight: float = 1.0,
     weights: ScoringWeights = DEFAULT_WEIGHTS,
 ) -> ScoreBreakdown:
     """Scores one already-simulated candidate — `before_gaps`/`after_gaps`
@@ -323,7 +331,12 @@ def score_candidate(
     already confirmed the reduce_carbon_footprint goal is active for the
     profile — this function has no opinion on goals, it just scores
     whatever tier it's given, so an inactive-goal caller should pass None
-    rather than rely on this function to gate it.
+    rather than rely on this function to gate it. `carbon_priority_weight`
+    (default 1.0) should be `goals.goal_weight(rank)` for that goal's
+    actual priority rank among the profile's active goals — this
+    function has no way to look that up itself, so a caller passing a
+    real `carbon_tier` must also resolve and pass the matching weight
+    (see goals.py's documented 1/rank multi-goal policy).
     """
     gap_reduction, multi_nutrient_bonus, improved = _gap_reduction(before_gaps, after_gaps, weights)
     excess = _excess_penalty(before_gaps, after_gaps, weights)
@@ -336,7 +349,7 @@ def score_candidate(
     energy_overshoot_penalty = _energy_overshoot_penalty(energy_added, max_additional_energy, weights)
     uncertainty_penalty = _uncertainty_penalty(ingredient_confidence, candidate_data_coverage, weights)
     practicality_bonus, serving_penalty = _practicality(practicality, weights)
-    carbon_footprint_adjustment = _carbon_footprint_adjustment(carbon_tier, weights)
+    carbon_footprint_adjustment = _carbon_footprint_adjustment(carbon_tier, carbon_priority_weight, weights)
 
     total = (
         gap_reduction
