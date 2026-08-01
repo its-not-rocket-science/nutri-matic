@@ -10,6 +10,8 @@ the scope doc for why that's an explicit, disclosed limitation rather
 than a claim of clinical verification.
 """
 
+import os
+import secrets
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,9 +20,37 @@ from sqlalchemy.orm import Session
 from .. import schemas
 from ..auth import get_current_user
 from ..database import get_db
+from ..email_sender import EmailNotConfigured, EmailSendFailed, send_email
 from ..entitlements import PLAN_ENTERPRISE, PLAN_PROFESSIONAL, effective_plan
 from ..models import ClinicianClientLink, ClinicianNote, Profile, User
 from .diary import GroupBy, _compute_day_summary, _compute_trends
+
+DEFAULT_INVITE_MESSAGE = (
+    "I'd like to invite you to Nutri-Matic so I can help track your nutrition. "
+    "Follow the link below to join — you'll be able to review and revoke my "
+    "access at any time."
+)
+
+
+def _invite_join_url(token: str) -> str:
+    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+    return f"{frontend_url.rstrip('/')}/invite/{token}"
+
+
+def _invite_email_body(clinician_email: str, message: str, token: str) -> str:
+    return (
+        f"{message}\n\n"
+        f"Join Nutri-Matic: {_invite_join_url(token)}\n\n"
+        f"— sent on behalf of {clinician_email} via Nutri-Matic"
+    )
+
+
+def _link_out(link: ClinicianClientLink, clinician_email: str, client_email: str) -> schemas.ClinicianLinkOut:
+    return schemas.ClinicianLinkOut(
+        id=link.id, clinician_email=clinician_email, client_email=client_email,
+        client_user_id=link.client_user_id, client_registered=link.client_user_id is not None,
+        status=link.status, created_at=link.created_at, responded_at=link.responded_at,
+    )
 
 
 def _client_owner_profile(client_user_id: int, db: Session) -> Profile:
@@ -67,11 +97,18 @@ def invite_client(
 ):
     """Creates a pending link — access only becomes active once the client
     explicitly accepts (see accept_invite). Never grants access on its
-    own, regardless of who sends it."""
-    client = db.query(User).filter(User.email == body.client_email).one_or_none()
-    if client is None:
-        raise HTTPException(status_code=422, detail="No user with that email")
-    if client.id == current_user.id:
+    own, regardless of who sends it.
+
+    client_email not belonging to a registered user is no longer a 422:
+    an unregistered invite is created instead (client_user_id=NULL,
+    invite_email/invite_token/invite_message set), and an email is sent
+    with a join link. routers/auth.py's register() resolves
+    client_user_id automatically the moment that email registers — see
+    models.ClinicianClientLink's docstring for why that still doesn't
+    skip the explicit-accept step."""
+    body_email = body.client_email.strip().lower()
+    client = db.query(User).filter(User.email == body_email).one_or_none()
+    if client is not None and client.id == current_user.id:
         raise HTTPException(status_code=422, detail="Cannot invite yourself")
 
     active_count = (
@@ -91,28 +128,72 @@ def invite_client(
             ),
         )
 
+    if client is not None:
+        existing = (
+            db.query(ClinicianClientLink)
+            .filter(
+                ClinicianClientLink.clinician_user_id == current_user.id, ClinicianClientLink.client_user_id == client.id
+            )
+            .one_or_none()
+        )
+        if existing is not None and existing.status != "revoked":
+            raise HTTPException(status_code=409, detail=f"A link already exists with status '{existing.status}'")
+
+        if existing is not None:
+            existing.status = "pending"
+            existing.responded_at = None
+            link = existing
+        else:
+            link = ClinicianClientLink(clinician_user_id=current_user.id, client_user_id=client.id)
+            db.add(link)
+        db.commit()
+        db.refresh(link)
+        return _link_out(link, current_user.email, client.email)
+
     existing = (
         db.query(ClinicianClientLink)
-        .filter(ClinicianClientLink.clinician_user_id == current_user.id, ClinicianClientLink.client_user_id == client.id)
+        .filter(
+            ClinicianClientLink.clinician_user_id == current_user.id,
+            ClinicianClientLink.invite_email == body_email,
+            ClinicianClientLink.client_user_id.is_(None),
+        )
         .one_or_none()
     )
     if existing is not None and existing.status != "revoked":
         raise HTTPException(status_code=409, detail=f"A link already exists with status '{existing.status}'")
 
+    message = (body.message or DEFAULT_INVITE_MESSAGE).strip()
+    token = secrets.token_urlsafe(32)
+
     if existing is not None:
         existing.status = "pending"
         existing.responded_at = None
+        existing.invite_token = token
+        existing.invite_message = message
         link = existing
     else:
-        link = ClinicianClientLink(clinician_user_id=current_user.id, client_user_id=client.id)
+        link = ClinicianClientLink(
+            clinician_user_id=current_user.id, client_user_id=None,
+            invite_email=body_email, invite_token=token, invite_message=message,
+        )
         db.add(link)
+
+    try:
+        send_email(
+            to=body_email,
+            subject=f"{current_user.email} invited you to Nutri-Matic",
+            body_text=_invite_email_body(current_user.email, message, token),
+        )
+    except EmailNotConfigured as e:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="Email sending is not configured") from e
+    except EmailSendFailed as e:
+        db.rollback()
+        raise HTTPException(status_code=502, detail=f"Failed to send invite email: {e}") from e
+
     db.commit()
     db.refresh(link)
-
-    return schemas.ClinicianLinkOut(
-        id=link.id, clinician_email=current_user.email, client_email=client.email, client_user_id=client.id,
-        status=link.status, created_at=link.created_at, responded_at=link.responded_at,
-    )
+    return _link_out(link, current_user.email, body_email)
 
 
 @router.get("/invites/pending", response_model=list[schemas.ClinicianLinkOut])
@@ -127,11 +208,7 @@ def list_pending_invites(current_user: User = Depends(get_current_user), db: Ses
     )
     clinicians_by_id = {u.id: u for u in db.query(User).filter(User.id.in_([l.clinician_user_id for l in links])).all()}
     return [
-        schemas.ClinicianLinkOut(
-            id=l.id, clinician_email=clinicians_by_id[l.clinician_user_id].email, client_email=current_user.email,
-            client_user_id=current_user.id,
-            status=l.status, created_at=l.created_at, responded_at=l.responded_at,
-        )
+        _link_out(l, clinicians_by_id[l.clinician_user_id].email, current_user.email)
         for l in links
     ]
 
@@ -146,11 +223,7 @@ def accept_invite(link_id: int, current_user: User = Depends(get_current_user), 
     db.commit()
     db.refresh(link)
     clinician = db.get(User, link.clinician_user_id)
-    return schemas.ClinicianLinkOut(
-        id=link.id, clinician_email=clinician.email, client_email=current_user.email,
-        client_user_id=current_user.id,
-        status=link.status, created_at=link.created_at, responded_at=link.responded_at,
-    )
+    return _link_out(link, clinician.email, current_user.email)
 
 
 @router.post("/invites/{link_id}/decline", response_model=schemas.ClinicianLinkOut)
@@ -163,11 +236,7 @@ def decline_invite(link_id: int, current_user: User = Depends(get_current_user),
     db.commit()
     db.refresh(link)
     clinician = db.get(User, link.clinician_user_id)
-    return schemas.ClinicianLinkOut(
-        id=link.id, clinician_email=clinician.email, client_email=current_user.email,
-        client_user_id=current_user.id,
-        status=link.status, created_at=link.created_at, responded_at=link.responded_at,
-    )
+    return _link_out(link, clinician.email, current_user.email)
 
 
 @router.delete("/clients/{client_user_id}", status_code=204)
@@ -209,13 +278,54 @@ def list_clients(current_user: User = Depends(get_current_user), db: Session = D
     )
     clients_by_id = {u.id: u for u in db.query(User).filter(User.id.in_([l.client_user_id for l in links])).all()}
     return [
-        schemas.ClinicianLinkOut(
-            id=l.id, clinician_email=current_user.email, client_email=clients_by_id[l.client_user_id].email,
-            client_user_id=l.client_user_id,
-            status=l.status, created_at=l.created_at, responded_at=l.responded_at,
+        _link_out(l, current_user.email, clients_by_id[l.client_user_id].email)
+        for l in links
+    ]
+
+
+@router.get("/invites/sent", response_model=list[schemas.ClinicianLinkOut])
+def list_sent_invites(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The signed-in user's own outgoing pending invites — as the
+    *clinician* side, covering both an invite still awaiting the
+    (already-registered) client's accept, and one nobody has registered
+    against yet. The latter has no other way to show up anywhere in this
+    user's UI, unlike an already-registered invite's target (who sees it
+    via list_pending_invites once they log in)."""
+    links = (
+        db.query(ClinicianClientLink)
+        .filter(ClinicianClientLink.clinician_user_id == current_user.id, ClinicianClientLink.status == "pending")
+        .all()
+    )
+    registered_client_ids = [l.client_user_id for l in links if l.client_user_id is not None]
+    clients_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(registered_client_ids)).all()}
+    return [
+        _link_out(
+            l, current_user.email,
+            clients_by_id[l.client_user_id].email if l.client_user_id is not None else l.invite_email,
         )
         for l in links
     ]
+
+
+@router.get("/invites/by-token/{token}", response_model=schemas.ClinicianInvitePreviewOut)
+def get_invite_preview(token: str, db: Session = Depends(get_db)):
+    """Public (no auth) — what the /invite/{token} landing page shows
+    before the recipient has an account. 404s once the token's been
+    consumed (client_user_id resolved — see routers/auth.py's register())
+    or the invite was revoked, same as any other not-found resource in
+    this app rather than a status-specific message that would leak which
+    case applies to an unauthenticated caller."""
+    link = (
+        db.query(ClinicianClientLink)
+        .filter(ClinicianClientLink.invite_token == token, ClinicianClientLink.status == "pending")
+        .one_or_none()
+    )
+    if link is None or link.client_user_id is not None:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    clinician = db.get(User, link.clinician_user_id)
+    return schemas.ClinicianInvitePreviewOut(
+        clinician_email=clinician.email, invite_email=link.invite_email, message=link.invite_message
+    )
 
 
 @router.get("/clients/{client_user_id}/summary", response_model=schemas.ClinicianClientSummaryOut)

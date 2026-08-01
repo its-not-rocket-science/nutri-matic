@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -8,11 +9,37 @@ from ..auth import create_access_token, create_owner_profile, get_current_user, 
 from ..database import get_db
 from ..demo_data import create_demo_account
 from ..demo_protection import enforce_demo_rate_limit
-from ..models import User
+from ..models import ClinicianClientLink, User
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 _demo_logger = logging.getLogger("app.demo")
 _auth_logger = logging.getLogger("app.auth")
+
+
+def _resolve_pending_clinician_invites(db: Session, user: User) -> None:
+    """A clinician can invite an email that isn't registered yet (see
+    routers/clinician.py's invite_client) — such a row sits with
+    client_user_id=NULL until this runs. Matches case-insensitively since
+    User.email isn't normalized to a single case at registration (see
+    UserCreate's validator); resolves every matching invite, not just one,
+    since more than one clinician can have invited the same address. This
+    only ever fills in client_user_id — status stays "pending" and still
+    requires this same explicit accept_invite the client would use for an
+    invite sent to an already-registered email; see
+    models.ClinicianClientLink's docstring."""
+    pending_invites = (
+        db.query(ClinicianClientLink)
+        .filter(
+            ClinicianClientLink.client_user_id.is_(None),
+            ClinicianClientLink.status == "pending",
+            func.lower(ClinicianClientLink.invite_email) == user.email.strip().lower(),
+        )
+        .all()
+    )
+    for link in pending_invites:
+        link.client_user_id = user.id
+        link.invite_email = None
+        link.invite_token = None
 
 
 @router.post("/register", response_model=schemas.TokenOut, status_code=201)
@@ -24,6 +51,7 @@ def register(body: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.flush()
     create_owner_profile(db, user)
+    _resolve_pending_clinician_invites(db, user)
     db.commit()
     db.refresh(user)
     return schemas.TokenOut(access_token=create_access_token(user.id))

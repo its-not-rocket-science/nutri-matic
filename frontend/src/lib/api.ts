@@ -5,6 +5,7 @@ import type {
 	AbsorbedProtein,
 	AccountUpdate,
 	ClinicianClientSummary,
+	ClinicianInvitePreview,
 	ClinicianLink,
 	ClinicianNote,
 	Collection,
@@ -468,16 +469,19 @@ export const api = {
 	removeRecipeFromCollection: (collectionId: number, recipeId: number) =>
 		request<CollectionDetail>(`/api/collections/${collectionId}/recipes/${recipeId}`, { method: 'DELETE' }),
 
-	inviteClinicianClient: (clientEmail: string) =>
+	inviteClinicianClient: (clientEmail: string, message?: string) =>
 		request<ClinicianLink>('/api/clinician/invites', {
 			method: 'POST',
-			body: JSON.stringify({ client_email: clientEmail })
+			body: JSON.stringify({ client_email: clientEmail, message: message ?? null })
 		}),
 	listPendingClinicianInvites: () => request<ClinicianLink[]>('/api/clinician/invites/pending'),
+	listSentClinicianInvites: () => request<ClinicianLink[]>('/api/clinician/invites/sent'),
 	acceptClinicianInvite: (linkId: number) =>
 		request<ClinicianLink>(`/api/clinician/invites/${linkId}/accept`, { method: 'POST' }),
 	declineClinicianInvite: (linkId: number) =>
 		request<ClinicianLink>(`/api/clinician/invites/${linkId}/decline`, { method: 'POST' }),
+	getClinicianInvitePreview: (token: string) =>
+		request<ClinicianInvitePreview>(`/api/clinician/invites/by-token/${encodeURIComponent(token)}`),
 	listClinicianClients: () => request<ClinicianLink[]>('/api/clinician/clients'),
 	revokeClinicianClient: (clientUserId: number) =>
 		request<void>(`/api/clinician/clients/${clientUserId}`, { method: 'DELETE' }),

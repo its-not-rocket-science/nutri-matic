@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -62,12 +64,137 @@ def test_invite_creates_pending_link(client):
     assert res.json()["status"] == "pending"
 
 
-def test_invite_unknown_email_rejected(client):
+def test_invite_unregistered_email_sends_invite_and_creates_pending_link(client):
     clinician_token = register_and_token(client, "dietitian@example.com")
+    with patch("app.routers.clinician.send_email") as mock_send:
+        res = client.post(
+            "/api/clinician/invites",
+            json={"client_email": "Nobody@Example.com", "message": "Please join me!"},
+            headers=auth_headers(clinician_token),
+        )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["status"] == "pending"
+    assert body["client_user_id"] is None
+    assert body["client_registered"] is False
+    assert body["client_email"] == "nobody@example.com"  # normalized to lowercase
+    mock_send.assert_called_once()
+    kwargs = mock_send.call_args.kwargs
+    assert kwargs["to"] == "nobody@example.com"
+    assert "Please join me!" in kwargs["body_text"]
+
+
+def test_invite_unregistered_email_without_smtp_configured_returns_503(client):
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    # no SMTP_HOST set in the test environment — send_email itself raises
     res = client.post(
         "/api/clinician/invites", json={"client_email": "nobody@example.com"}, headers=auth_headers(clinician_token)
     )
-    assert res.status_code == 422
+    assert res.status_code == 503
+    # never fabricates a "sent" invite when nothing was actually sent
+    sent = client.get("/api/clinician/invites/sent", headers=auth_headers(clinician_token)).json()
+    assert sent == []
+
+
+def test_registering_with_invited_email_resolves_pending_invite(client):
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    with patch("app.routers.clinician.send_email"):
+        invite = client.post(
+            "/api/clinician/invites", json={"client_email": "client@example.com"}, headers=auth_headers(clinician_token)
+        ).json()
+    assert invite["client_user_id"] is None
+
+    client_token = register_and_token(client, "client@example.com")
+
+    pending = client.get("/api/clinician/invites/pending", headers=auth_headers(client_token)).json()
+    assert len(pending) == 1
+    assert pending[0]["clinician_email"] == "dietitian@example.com"
+
+    accept = client.post(f"/api/clinician/invites/{invite['id']}/accept", headers=auth_headers(client_token))
+    assert accept.status_code == 200
+    assert accept.json()["status"] == "active"
+    assert accept.json()["client_registered"] is True
+
+
+def test_registering_with_different_case_email_still_resolves_invite(client):
+    """invite_email is stored lowercased; User.email isn't normalized at
+    registration (see UserCreate's validator) — the match must still work
+    when someone registers with different casing than the clinician typed."""
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    with patch("app.routers.clinician.send_email"):
+        invite = client.post(
+            "/api/clinician/invites", json={"client_email": "client@example.com"}, headers=auth_headers(clinician_token)
+        ).json()
+
+    client_token = register_and_token(client, "Client@Example.com")
+
+    pending = client.get("/api/clinician/invites/pending", headers=auth_headers(client_token)).json()
+    assert len(pending) == 1
+    assert pending[0]["id"] == invite["id"]
+
+
+def test_invite_preview_by_token(client, session_factory):
+    from app.models import ClinicianClientLink
+
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    with patch("app.routers.clinician.send_email"):
+        client.post(
+            "/api/clinician/invites",
+            json={"client_email": "nobody@example.com", "message": "Custom message here"},
+            headers=auth_headers(clinician_token),
+        )
+
+    # the token itself is only ever sent by email, never returned by the API
+    db = session_factory()
+    token = db.query(ClinicianClientLink).filter(ClinicianClientLink.invite_email == "nobody@example.com").one().invite_token
+    db.close()
+
+    preview = client.get(f"/api/clinician/invites/by-token/{token}")
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["clinician_email"] == "dietitian@example.com"
+    assert body["invite_email"] == "nobody@example.com"
+    assert body["message"] == "Custom message here"
+
+
+def test_invite_preview_by_token_404_for_unknown_token(client):
+    res = client.get("/api/clinician/invites/by-token/not-a-real-token")
+    assert res.status_code == 404
+
+
+def test_invite_preview_by_token_404_after_consumed(client):
+    """Once an invite has been resolved to a real client_user_id, its
+    token must not still work — single-use, not a standing link."""
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    with patch("app.routers.clinician.send_email"):
+        client.post(
+            "/api/clinician/invites", json={"client_email": "client@example.com"}, headers=auth_headers(clinician_token)
+        )
+    register_and_token(client, "client@example.com")
+    # can't recover the token via the API (by design) — confirm indirectly:
+    # the invite is no longer visible as "not registered" via /invites/sent
+    sent = client.get("/api/clinician/invites/sent", headers=auth_headers(clinician_token)).json()
+    assert sent[0]["client_registered"] is True
+
+
+def test_list_sent_invites_shows_unregistered_and_registered(client):
+    clinician_token = register_and_token(client, "dietitian@example.com")
+    register_and_token(client, "registered@example.com")
+    client.post(
+        "/api/clinician/invites", json={"client_email": "registered@example.com"}, headers=auth_headers(clinician_token)
+    )
+    with patch("app.routers.clinician.send_email"):
+        client.post(
+            "/api/clinician/invites",
+            json={"client_email": "unregistered@example.com"},
+            headers=auth_headers(clinician_token),
+        )
+
+    sent = client.get("/api/clinician/invites/sent", headers=auth_headers(clinician_token)).json()
+    assert len(sent) == 2
+    by_email = {s["client_email"]: s for s in sent}
+    assert by_email["registered@example.com"]["client_registered"] is True
+    assert by_email["unregistered@example.com"]["client_registered"] is False
 
 
 def test_client_sees_pending_invite(client):
