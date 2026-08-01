@@ -1,0 +1,58 @@
+# One-off runner for app.migrate_profiles (see that module's own docstring)
+# against production — for any account created before the household-
+# profiles feature shipped and never backfilled, which manifests as a real
+# 500 ("Account has no owner profile") on every profile-scoped endpoint for
+# that account. Idempotent and safe to re-run (a user/row that's already
+# backfilled is skipped), but this still writes to the production database,
+# so it's manual-only and gated the same way deploy.yml's deploy job is:
+# the `production` GitHub environment's required-reviewer approval, not a
+# second mechanism invented for this file.
+#
+# Runs over SSH via docker compose exec, the same way deploy.yml reaches
+# the server — production Postgres isn't directly reachable from a
+# GitHub-hosted runner (see demo-purge.yml's own comment on this), so this
+# executes inside the already-running backend container rather than
+# connecting directly.
+name: Backfill owner profiles (production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Actually backfill (unchecked = dry-run report only)"
+        type: boolean
+        default: false
+
+# migrate_profiles.main() does a query-then-insert per user with no
+# DB-level uniqueness constraint on (user_id, is_account_owner) — two
+# `apply` runs approved close together could each see the same user as
+# missing an owner profile and insert one, creating a duplicate that
+# breaks later `.one_or_none()` lookups (bringing back the exact 500 this
+# workflow exists to fix). Queue concurrent runs rather than letting them
+# overlap; cancel-in-progress stays false so an in-flight production
+# backfill is never killed mid-write.
+concurrency:
+  group: migrate-profiles-production
+  cancel-in-progress: false
+
+jobs:
+  migrate-profiles:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Run migrate_profiles on the server
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            CMD="python -m app.migrate_profiles"
+          else
+            CMD="python -m app.migrate_profiles --dry-run"
+          fi
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" \
+            "cd nutri-matic && docker compose exec -T backend $CMD"
