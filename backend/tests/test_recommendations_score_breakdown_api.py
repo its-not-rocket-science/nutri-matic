@@ -27,6 +27,7 @@ BREAKDOWN_FIELDS = (
     "energy_overshoot_penalty",
     "uncertainty_penalty",
     "implausible_serving_penalty",
+    "carbon_footprint_adjustment",
     "total",
     "model_version",
 )
@@ -104,6 +105,7 @@ def _assert_valid_breakdown(breakdown: dict):
         + breakdown["protein_quality_benefit"]
         + breakdown["dietary_fit"]
         + breakdown["practicality"]
+        + breakdown["carbon_footprint_adjustment"]
         - breakdown["upper_limit_penalty"]
         - breakdown["above_preferred_penalty"]
         - breakdown["energy_overshoot_penalty"]
