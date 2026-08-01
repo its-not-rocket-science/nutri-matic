@@ -23,6 +23,18 @@ on:
         type: boolean
         default: false
 
+# migrate_profiles.main() does a query-then-insert per user with no
+# DB-level uniqueness constraint on (user_id, is_account_owner) — two
+# `apply` runs approved close together could each see the same user as
+# missing an owner profile and insert one, creating a duplicate that
+# breaks later `.one_or_none()` lookups (bringing back the exact 500 this
+# workflow exists to fix). Queue concurrent runs rather than letting them
+# overlap; cancel-in-progress stays false so an in-flight production
+# backfill is never killed mid-write.
+concurrency:
+  group: migrate-profiles-production
+  cancel-in-progress: false
+
 jobs:
   migrate-profiles:
     runs-on: ubuntu-latest
