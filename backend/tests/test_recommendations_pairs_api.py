@@ -77,14 +77,47 @@ def test_pair_suggestions_for_a_diary_day(client):
 
 
 def test_no_suggestions_returns_empty_list(client):
+    """A day with nothing left to close (not a day with nothing logged —
+    an empty day is now treated as a maximal shortfall, per live-testing
+    feedback; see nutrient_gap_analysis.analyse_nutrient_gaps'
+    treat_empty_day_as_zero) still returns a well-formed empty list, not
+    an error. 700g yogurt (110mg calcium/100g) and 100g strawberries
+    (59mg vitamin C/100g) together comfortably clear both this fixture's
+    tracked targets."""
     token = register_and_token(client, "b@example.com")
+    headers = auth_headers(token)
+    client.post(
+        "/api/diary", json={"entry_date": "2026-01-01", "meal": "lunch", "food_id": 2, "quantity_g": 700},
+        headers=headers,
+    )
+    client.post(
+        "/api/diary", json={"entry_date": "2026-01-01", "meal": "lunch", "food_id": 3, "quantity_g": 100},
+        headers=headers,
+    )
     res = client.get(
-        "/api/recommendations/pairs", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
+        "/api/recommendations/pairs",
+        params={"entry_date": "2026-01-01", "priority_nutrients": "calcium,vitamin_c"},
+        headers=headers,
     )
     assert res.status_code == 200
     body = res.json()
     assert body["suggestions"] == []
     assert body["disabled_reason"] is None
+
+
+def test_empty_day_returns_real_suggestions_not_an_empty_list(client):
+    """Caught by live testing: a profile with nothing logged for the day
+    got zero suggestions instead of the maximal-shortfall suggestions an
+    empty day should produce."""
+    token = register_and_token(client, "b2@example.com")
+    res = client.get(
+        "/api/recommendations/pairs",
+        params={"entry_date": "2026-01-01", "priority_nutrients": "calcium,vitamin_c"},
+        headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["suggestions"]
 
 
 def test_requires_authentication(client):

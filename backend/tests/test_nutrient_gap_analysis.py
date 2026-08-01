@@ -184,6 +184,44 @@ def test_analyse_nutrient_gaps_priority_keys_zeroes_other_weights():
     assert by_key["calcium"].optimisation_weight > 0
 
 
+def test_empty_day_stays_insufficient_data_by_default():
+    """Default behaviour (display contexts — diary/recipe gap cards):
+    nothing logged is honestly "we don't know", not "confirmed zero"."""
+    target_by_key = {"vitamin_c": target("vitamin_c")}
+    results = analyse_nutrient_gaps([], {}, {}, target_by_key)
+    assert results[0].status == NutrientStatus.INSUFFICIENT_DATA
+    assert results[0].consumed_amount is None
+
+
+def test_treat_empty_day_as_zero_registers_a_real_shortfall():
+    """Caught by live testing: a recommendation engine (recommend_
+    ingredients/recommend_recipes/recommend_pairs/recommend_substitutions)
+    must treat a fully-empty day as "everything's short", not silently
+    decline to suggest anything just because nothing's logged yet."""
+    target_by_key = {"vitamin_c": target("vitamin_c")}
+    results = analyse_nutrient_gaps([], {}, {}, target_by_key, treat_empty_day_as_zero=True)
+    assert results[0].status == NutrientStatus.BELOW_TARGET
+    assert results[0].consumed_amount == 0.0
+    assert results[0].coverage == pytest.approx(1.0)
+    assert results[0].optimisation_weight > 0
+
+
+def test_treat_empty_day_as_zero_is_a_noop_when_something_is_logged():
+    """Only a genuinely empty `items` list is treated as a confirmed
+    zero — logged food that simply doesn't report a given nutrient must
+    still fall through to the ordinary coverage-based insufficient_data
+    path, unaffected by this flag."""
+    from app.aggregation import WeightedFood
+
+    food = Food(id=1, name="Undocumented food", protein_g_per_100g=1.0, amino_acids=dict.fromkeys(AMINO_ACIDS))
+    items = [WeightedFood(food, 100.0)]
+    target_by_key = {"vitamin_c": target("vitamin_c")}
+    # no FoodNutrient row for vitamin_c at all -> totals has no entry for it
+    results = analyse_nutrient_gaps(items, {}, {}, target_by_key, treat_empty_day_as_zero=True)
+    assert results[0].status == NutrientStatus.INSUFFICIENT_DATA
+    assert results[0].consumed_amount is None
+
+
 def test_worst_gap_picks_highest_weight():
     small_gap = analyse_nutrient_gap("vitamin_c", 38.0, 1.0, target("vitamin_c"))  # near target, small weight
     big_gap = analyse_nutrient_gap("calcium", 100.0, 1.0, target("calcium"))  # far below, big weight

@@ -81,7 +81,18 @@ def test_ingredient_suggestions_for_a_diary_day(client):
 
 
 def test_no_suggestions_returns_empty_list_not_an_error(client):
+    """A day with nothing left to close (not a day with nothing logged —
+    an empty day is now treated as a maximal shortfall, per live-testing
+    feedback; see nutrient_gap_analysis.analyse_nutrient_gaps'
+    treat_empty_day_as_zero) still returns a well-formed empty list, not
+    an error. 400g Lentils (food_id=2, 8g fibre/100g) alone meets/exceeds
+    the 30g/day UK fibre target, the only shortfall this fixture's
+    two-food catalog can supply."""
     token = register_and_token(client, "b@example.com")
+    client.post(
+        "/api/diary", json={"entry_date": "2026-01-01", "meal": "lunch", "food_id": 2, "quantity_g": 400},
+        headers=auth_headers(token),
+    )
     res = client.get(
         "/api/recommendations/ingredients", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
     )
@@ -89,6 +100,20 @@ def test_no_suggestions_returns_empty_list_not_an_error(client):
     body = res.json()
     assert body["suggestions"] == []
     assert body["disabled_reason"] is None
+
+
+def test_empty_day_returns_real_suggestions_not_an_empty_list(client):
+    """Caught by live testing: a profile with nothing logged for the day
+    got zero suggestions instead of the maximal-shortfall suggestions an
+    empty day should produce."""
+    token = register_and_token(client, "b2@example.com")
+    res = client.get(
+        "/api/recommendations/ingredients", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["suggestions"]
+    assert body["suggestions"][0]["food_name"] == "Lentils"
 
 
 def test_requires_authentication(client):
