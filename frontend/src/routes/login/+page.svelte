@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { activeProfile } from '$lib/activeProfile.svelte';
 	import { api } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 
-	let email = $state('');
+	let email = $state(page.url.searchParams.get('email') ?? '');
 	let password = $state('');
 	let error: string | null = $state(null);
 	let submitting = $state(false);

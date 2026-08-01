@@ -15,6 +15,13 @@ matters — i.e. anywhere that isn't your own laptop.
 | `CORS_ORIGINS` | Yes | `http://localhost:5173` | Comma-separated list of frontend origins allowed to call the API (e.g. `https://app.example.com,https://staging.example.com`). |
 | `DEMO_RATE_LIMIT_PER_IP` / `DEMO_RATE_LIMIT_PER_IP_WINDOW_SECONDS` | No | `5` / `3600` | Per-IP cap on `POST /api/auth/demo`. See `docs/rate-limiting.md` — in-memory, per-process, resets on restart. |
 | `DEMO_RATE_LIMIT_GLOBAL` / `DEMO_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `300` / `3600` | Global circuit breaker on total demo-account creation. Same doc — becomes `limit × instance count` if the backend is ever scaled horizontally. |
+| `SMTP_HOST` | Only if inviting unregistered clinician clients | unset (email sending disabled) | Enables `app/email_sender.py`. Without it, `POST /api/clinician/invites` to an email with no account returns `503` rather than pretending to send anything — see that module's own docstring. |
+| `SMTP_PORT` | No | `587` | SMTP relay port. |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | No | unset | SMTP auth — login is skipped if either is unset (some relays allow unauthenticated/IP-allowlisted send). |
+| `EMAIL_FROM_ADDRESS` | Recommended once `SMTP_HOST` is set | `SMTP_USERNAME`, or empty | `From:` address on outgoing invite emails. |
+| `FRONTEND_URL` | Yes, once `SMTP_HOST` is set | `http://localhost:5173` | Base URL used to build the `/invite/{token}` join link sent in a clinician invite email — set to the real deployed frontend origin, or every invite email links back to localhost. |
+| `INVITE_RATE_LIMIT_PER_ACCOUNT` / `INVITE_RATE_LIMIT_PER_ACCOUNT_WINDOW_SECONDS` | No | `20` / `3600` | Per-clinician cap on outbound invite emails — see `app/invite_protection.py`. Only the unregistered-invite path (which actually sends email) counts against this. |
+| `INVITE_RATE_LIMIT_GLOBAL` / `INVITE_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `200` / `3600` | Global circuit breaker on total invite-email volume. Same in-process, per-instance caveat as `DEMO_RATE_LIMIT_GLOBAL` above. |
 
 ## Minimal production checklist
 
