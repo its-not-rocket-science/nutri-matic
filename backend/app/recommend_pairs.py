@@ -49,6 +49,10 @@ CANDIDATE_POOL_SIZE = 12
 # regardless of pool size or how many curated/condiment pairs match
 MAX_PAIR_EVALUATIONS = 40
 DEFAULT_MAX_SUGGESTIONS = 2
+# see recommend_ingredients.MAX_SHORTFALL_KEYS_FOR_POOLING's own comment —
+# same reasoning, applied here too since _candidate_pool below also
+# queries per shortfall key.
+MAX_SHORTFALL_KEYS_FOR_POOLING = 10
 
 # real, common combinations — curated the same way CURATED_FOODS itself
 # is, not inferred from nutrient content. Order within each pair doesn't
@@ -166,13 +170,23 @@ def suggest_pairs(
         items, nutrients_by_food_id, before_totals, target_by_key, priority_keys=priority_nutrient_keys,
         treat_empty_day_as_zero=True,
     )
-    shortfall_keys = [
-        g.key for g in before_gaps
+    shortfall_gaps = [
+        g for g in before_gaps
         if g.status in (NutrientStatus.BELOW_TARGET, NutrientStatus.NEAR_TARGET)
         and (priority_nutrient_keys is None or g.key in priority_nutrient_keys)
     ]
-    if not shortfall_keys:
+    if not shortfall_gaps:
         return PairSuggestionResult(suggestions=[])
+    # same defensive cap as recommend_ingredients.py's MAX_SHORTFALL_KEYS_
+    # FOR_POOLING (PR review on treat_empty_day_as_zero): an empty day can
+    # now register dozens of nutrients as a shortfall at once, and
+    # _candidate_pool below queries per key — this module's own early
+    # break once CANDIDATE_POOL_SIZE candidates are found already limits
+    # the practical damage, but ranking by real optimisation_weight and
+    # capping here removes the residual worst case rather than relying on
+    # that break alone.
+    shortfall_gaps.sort(key=lambda g: g.optimisation_weight, reverse=True)
+    shortfall_keys = [g.key for g in shortfall_gaps[:MAX_SHORTFALL_KEYS_FOR_POOLING]]
 
     pool = _candidate_pool(db, shortfall_keys, excluded_food_ids)
     pool = filter_excluded_foods(pool, db, profile)

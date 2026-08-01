@@ -78,6 +78,18 @@ CANDIDATE_FETCH_MULTIPLIER = 25
 # constant greater than one.
 CANDIDATE_FETCH_MAX_PAGES = 4
 DEFAULT_MAX_SUGGESTIONS = 2
+# Caught by PR review: with no priority_nutrient_keys given, an empty day
+# (see treat_empty_day_as_zero on analyse_nutrient_gaps) now registers
+# every optimisation-eligible nutrient — dozens of them — as a shortfall
+# at once, where before an empty day short-circuited to no shortfalls at
+# all. Each one costs _candidate_pool up to CANDIDATE_FETCH_MAX_PAGES
+# real paginated queries; unbounded, a brand-new user's very first
+# request (the single most common way to hit an empty day) could issue
+# well over a hundred large SQL queries. Ranked by optimisation_weight
+# (real, not arbitrary — the same signal _candidate_pool's own candidates
+# are later scored against) and capped here, before pooling, rather than
+# discovered too late to matter.
+MAX_SHORTFALL_KEYS_FOR_POOLING = 10
 
 
 class NoSuggestionReason(str, Enum):
@@ -327,13 +339,15 @@ def suggest_ingredients(
         items, nutrients_by_food_id, before_totals, target_by_key, priority_keys=priority_nutrient_keys,
         treat_empty_day_as_zero=True,
     )
-    shortfall_keys = [
-        g.key for g in before_gaps
+    shortfall_gaps = [
+        g for g in before_gaps
         if g.status in (NutrientStatus.BELOW_TARGET, NutrientStatus.NEAR_TARGET)
         and (priority_nutrient_keys is None or g.key in priority_nutrient_keys)
     ]
-    if not shortfall_keys:
+    if not shortfall_gaps:
         return IngredientSuggestionResult(suggestions=[], no_suggestion_reason=NoSuggestionReason.NO_SHORTFALL)
+    shortfall_gaps.sort(key=lambda g: g.optimisation_weight, reverse=True)
+    shortfall_keys = [g.key for g in shortfall_gaps[:MAX_SHORTFALL_KEYS_FOR_POOLING]]
 
     pool, rejected = _candidate_pool(db, shortfall_keys, excluded_food_ids, profile, meal_type=meal_type)
     if not pool:
