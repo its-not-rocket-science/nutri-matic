@@ -175,6 +175,7 @@ def suggest_substitutions(
     without_totals = aggregate_nutrients(other_items, working_nutrients_by_food_id)
     without_gaps = analyse_nutrient_gaps(
         other_items, working_nutrients_by_food_id, without_totals, target_by_key, priority_keys=priority_nutrient_keys,
+        treat_empty_day_as_zero=True,
     )
 
     current_energy = with_current_totals.get("energy", 0.0) - without_totals.get("energy", 0.0)
@@ -230,6 +231,7 @@ def suggest_substitutions(
         after_totals = aggregate_nutrients(trial_items, working_nutrients_by_food_id)
         after_gaps = analyse_nutrient_gaps(
             trial_items, working_nutrients_by_food_id, after_totals, target_by_key, priority_keys=priority_nutrient_keys,
+            treat_empty_day_as_zero=True,
         )
 
         energy_difference = after_totals.get("energy", 0.0) - current_energy

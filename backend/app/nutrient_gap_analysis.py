@@ -13,8 +13,11 @@ medical deficiency").
 
 Reuses `aggregation.compute_protein_quality_with_coverage`'s own
 philosophy directly: missing data reduces *coverage*, and low coverage
-downgrades the result to `insufficient_data` — it never silently treats
-an uncovered nutrient as "0 consumed, therefore a huge shortfall". Protein
+downgrades the result to `insufficient_data` — by default it never
+silently treats an uncovered nutrient as "0 consumed, therefore a huge
+shortfall" (see `analyse_nutrient_gaps`' `treat_empty_day_as_zero` for
+the one deliberate, opt-in exception: a *recommendation* generator, as
+opposed to a display, calling with a genuinely empty day). Protein
 *quality* (DIAAS/PDCAAS) isn't computed here at all — that's a per-gram-
 protein concept with its own coverage-aware machinery
 (`compute_protein_quality_with_coverage`); a caller wanting it as a
@@ -230,6 +233,7 @@ def analyse_nutrient_gaps(
     target_by_key: dict[str, NutrientTarget],
     *,
     priority_keys: set[str] | None = None,
+    treat_empty_day_as_zero: bool = False,
 ) -> list[NutrientGapResult]:
     """The full per-nutrient comparison for one meal/day/meal-plan-day/
     multi-day total. `totals` is `aggregation.aggregate_nutrients`'s own
@@ -244,10 +248,27 @@ def analyse_nutrient_gaps(
     Protein quality, specifically, isn't a key in `NUTRIENTS` at all — a
     caller prioritising it reads `aggregation.
     compute_protein_quality_with_coverage` directly, not this function.
-    """
+
+    `treat_empty_day_as_zero`: when `items` is completely empty (nothing
+    logged at all — not "logged, but this nutrient wasn't reported"),
+    every key would otherwise come back `insufficient_data` rather than
+    `below_target`, per this module's own default stance (an unlogged
+    day isn't proof of zero intake — see the module docstring). That
+    honest ambiguity is right for *displaying* a day's status, but wrong
+    for a *recommendation* generator: recommend_ingredients.py/
+    recommend_recipes.py/recommend_pairs.py/recommend_substitutions.py
+    exist specifically to suggest what to add, and "we don't know what
+    you've eaten yet" must not silently mean "so we won't suggest
+    anything" for those callers. Only fires when `items` is empty —
+    logged food that simply doesn't report a given nutrient still
+    correctly falls through to the ordinary coverage-based
+    `insufficient_data` path, unaffected by this flag."""
+    treat_as_zero = treat_empty_day_as_zero and not items
     results = []
     for key, target in target_by_key.items():
         consumed = totals.get(key)
+        if consumed is None and treat_as_zero:
+            consumed = 0.0
         coverage = _coverage(items, nutrients_by_food_id, key) if consumed is not None else 0.0
         result = analyse_nutrient_gap(key, consumed, coverage, target)
         if priority_keys is not None and key not in priority_keys:

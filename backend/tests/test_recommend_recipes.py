@@ -95,6 +95,24 @@ def test_suggests_recipe_that_closes_a_gap(db):
     assert "fiber_total" in result.suggestions[0].nutrients_improved
 
 
+def test_suggests_a_recipe_on_a_completely_empty_day(db):
+    """Caught by live testing: a profile with nothing logged for the day
+    got zero recipe suggestions instead of the maximal-shortfall
+    suggestions an empty day should produce (see
+    nutrient_gap_analysis.analyse_nutrient_gaps' treat_empty_day_as_zero).
+    Passing items=[] directly here is exactly what the /recommendations/
+    recipes endpoint does when the caller has no diary entries for the
+    requested date."""
+    user = make_user(db, "a@example.com")
+    profile = make_profile(db, user)
+    lentils = make_food(db, "Lentils", fiber_total=8.0, energy=116)
+    make_recipe(db, user, "Lentil Soup", 2, [(lentils, 200)])
+
+    result = suggest_recipes(db, profile, user, [], {}, AnalysisPeriod.DAY)
+    assert result.suggestions
+    assert result.suggestions[0].recipe_name == "Lentil Soup"
+
+
 def test_other_users_private_recipe_not_visible(db):
     owner = make_user(db, "owner@example.com")
     viewer = make_user(db, "viewer@example.com")
