@@ -226,6 +226,7 @@ def suggest_recipes(
 
     before_gaps = analyse_nutrient_gaps(
         items, nutrients_by_food_id, before_totals, target_by_key, priority_keys=priority_nutrient_keys,
+        treat_empty_day_as_zero=True,
     )
     shortfall_keys = [
         g.key for g in before_gaps
@@ -288,6 +289,7 @@ def suggest_recipes(
         after_totals = aggregate_nutrients(trial_items, working_nutrients_by_food_id)
         after_gaps = analyse_nutrient_gaps(
             trial_items, working_nutrients_by_food_id, after_totals, target_by_key, priority_keys=priority_nutrient_keys,
+            treat_empty_day_as_zero=True,
         )
 
         energy_added = after_totals.get("energy", 0.0) - before_totals.get("energy", 0.0)
