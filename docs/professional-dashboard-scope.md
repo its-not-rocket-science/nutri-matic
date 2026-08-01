@@ -26,6 +26,15 @@ professional register) is a separate, unscoped feature.
   in this codebase — sharing a recipe you own is low-stakes; granting
   access to someone else's private health data is not, so it requires
   affirmative consent rather than a unilateral grant.
+- **Invite by email, even without an account yet**: if `client_email`
+  doesn't match a registered user, `POST /invites` sends that address a
+  join-link email instead of rejecting the request — via
+  `app/email_sender.py` (plain SMTP, disabled with a `503` unless
+  `SMTP_HOST` is configured; see `DEPLOYMENT.md`). The clinician's own
+  wording is sent verbatim (a default is offered, not enforced). This
+  never skips the consent step above: the link's target still has to
+  explicitly accept from their own account once they register — see
+  `ClinicianClientLink`'s own docstring.
 - **Micronutrient gaps, protein quality, and bioavailability at a
   glance** (`GET /clients/{id}/summary`): reuses the exact same
   `_compute_day_summary()` the client's own diary page calls — not a

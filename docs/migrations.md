@@ -177,6 +177,14 @@ substitution-apply endpoint's staleness check), since that code would
 otherwise immediately break against a database missing the column it
 expects.
 
+**`096f80b058ab` (clinician invite by email) deletes unregistered
+invites on downgrade.** Re-tightening `clinician_client_links.
+client_user_id` back to `NOT NULL` can't coexist with any row still
+sitting at `client_user_id IS NULL` (an invite nobody has registered
+against yet), so `downgrade()` deletes those rows outright rather than
+failing the `ALTER` — a real, if narrow, loss of pending-invite state,
+same tradeoff as `dba3649596f0` below.
+
 **The baseline (`aac138c38096`) should never actually be downgraded on
 a real database.** Its `downgrade()` drops every table this app has —
 correct for local development iteration (Alembic needs *a* downgrade
