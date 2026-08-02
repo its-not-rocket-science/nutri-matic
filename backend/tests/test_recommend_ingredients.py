@@ -456,6 +456,26 @@ def test_carbon_footprint_goal_favours_lower_carbon_tier_candidate(db):
     assert [s.food_name for s in result.suggestions] == ["Lentils", "Cheddar cheese"]
 
 
+def test_carbon_footprint_classification_metadata_exposed_on_score(db):
+    """operational-hardening prompt 3: a non-zero carbon adjustment must
+    always carry a visible tier/confidence/provenance, resolved from the
+    candidate's own name (never a proxy, for direct ingredient
+    candidates)."""
+    profile = make_profile(db, goal="reduce_carbon_footprint")
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Cheddar cheese", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    by_name = {s.food_name: s for s in result.suggestions}
+    assert by_name["Cheddar cheese"].score.carbon_tier == "high"
+    assert by_name["Cheddar cheese"].score.carbon_confidence == "low"
+    assert by_name["Cheddar cheese"].score.carbon_provenance == "name_match"
+    assert by_name["Lentils"].score.carbon_tier == "low"
+    assert by_name["Lentils"].score.carbon_confidence == "low"
+    assert by_name["Lentils"].score.carbon_provenance == "name_match"
+
+
 def test_carbon_footprint_weight_scales_with_goal_priority_rank(db):
     """PR review: reduce_carbon_footprint at a lower priority rank must
     influence ranking less than at rank 1 — goals.py's documented 1/rank
@@ -513,6 +533,47 @@ def test_blood_sugar_stability_goal_favours_lower_gi_tier_candidate(db):
     assert by_name["Lentils"].score.glycaemic_load_adjustment > 0
     assert by_name["Raisins"].score.glycaemic_load_adjustment == 0.0  # medium tier — neutral
     assert by_name["Lentils"].score.total > by_name["Raisins"].score.total
+
+
+def test_blood_sugar_stability_classification_metadata_exposed_on_score(db):
+    """operational-hardening prompt 3: "Raisins" lands at the medium GI
+    tier — a real classification that deliberately contributes 0.0 to
+    the score (medium is the neutral middle, not "no data") — so its
+    tier/confidence/provenance must still be visible even though the
+    adjustment itself is zero; "Lentils" additionally carries a real
+    basis ("category_match", a researched whole-food category, not
+    negligible-carbohydrate)."""
+    profile = make_profile(db, goal="blood_sugar_stability")
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Raisins", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    by_name = {s.food_name: s for s in result.suggestions}
+    assert by_name["Raisins"].score.glycaemic_tier == "medium"
+    assert by_name["Raisins"].score.glycaemic_confidence == "low"
+    assert by_name["Raisins"].score.glycaemic_provenance == "name_match"
+    assert by_name["Raisins"].score.glycaemic_basis == "category_match"
+    assert by_name["Lentils"].score.glycaemic_tier == "low"
+    assert by_name["Lentils"].score.glycaemic_basis == "category_match"
+
+
+def test_blood_sugar_stability_negligible_carbohydrate_basis_for_meat_fish_eggs(db):
+    """operational-hardening prompt 3's own acceptance criterion: meat/
+    fish/eggs must never be presented as a measured "low GI" — the basis
+    field must say negligible_carbohydrate, distinct from a real
+    researched low-GI category like lentils."""
+    profile = make_profile(db, goal="blood_sugar_stability")
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Chicken breast", iron=10.0 / 150 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    by_name = {s.food_name: s for s in result.suggestions}
+    assert by_name["Chicken breast"].score.glycaemic_tier == "low"
+    assert by_name["Chicken breast"].score.glycaemic_basis == "negligible_carbohydrate"
+    assert by_name["Lentils"].score.glycaemic_tier == "low"
+    assert by_name["Lentils"].score.glycaemic_basis == "category_match"
 
 
 def test_blood_sugar_stability_weight_scales_with_goal_priority_rank(db):

@@ -49,7 +49,7 @@ from .candidate_metadata import is_plausible_serving, resolve_candidate_metadata
 from .carbon_footprint import carbon_tier_for_food
 from .data_quality import is_implausible
 from .dietary_filter import food_dietary_status, is_hard_excluded, load_constraint_tags
-from .glycaemic_load import glycaemic_tier_for_food
+from .glycaemic_load import GlycaemicClassification, glycaemic_classification_for_food
 from .goals import goal_keys_of, goal_priority_weight
 from .models import Food, FoodNutrient, Profile
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
@@ -405,14 +405,23 @@ def suggest_ingredients(
         suitability = food_dietary_status(food, db, profile)
         coverage = _candidate_data_coverage(food, candidate_rows, shortfall_keys)
         practicality = PracticalityInput(is_plausible_serving=is_plausible_serving(metadata, trial_quantity))
+        # "name_match" — these are always resolved from the candidate's
+        # own name (never a proxy), unlike recipe/pair/substitution
+        # candidates — see recommendation_scoring.ClassificationProvenance.
         carbon_tier = carbon_tier_for_food(food.name) if carbon_priority_weight is not None else None
-        glycaemic_tier = glycaemic_tier_for_food(food.name) if glycaemic_priority_weight is not None else None
+        glycaemic_classification = (
+            glycaemic_classification_for_food(food.name) if glycaemic_priority_weight is not None
+            else GlycaemicClassification(tier=None, basis=None)
+        )
 
         score = score_candidate(
             before_gaps, after_gaps, energy_added=energy_added, max_additional_energy=max_additional_energy,
             dietary_suitability=suitability, candidate_data_coverage=coverage, practicality=practicality,
             carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
-            glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            carbon_provenance="name_match" if carbon_tier is not None else None,
+            glycaemic_tier=glycaemic_classification.tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            glycaemic_provenance="name_match" if glycaemic_classification.tier is not None else None,
+            glycaemic_basis=glycaemic_classification.basis,
             weights=weights,
         )
         if score.total <= 0:

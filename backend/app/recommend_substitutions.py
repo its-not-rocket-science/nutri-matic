@@ -37,7 +37,7 @@ from .aggregation import (
 )
 from .carbon_footprint import carbon_tier_for_food
 from .dietary_filter import recipes_dietary_status
-from .glycaemic_load import glycaemic_tier_for_food
+from .glycaemic_load import glycaemic_classification_for_food
 from .goals import goal_keys_of, goal_priority_weight
 from .models import Food, FoodNutrient, Profile, Recipe, RobustnessResult, User
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
@@ -264,13 +264,18 @@ def suggest_substitutions(
 
         carbon_tier = None
         glycaemic_tier = None
+        glycaemic_basis = None
         if carbon_priority_weight is not None or glycaemic_priority_weight is not None:
+            # "dominant_ingredient_proxy" — the replacement recipe's own
+            # by-mass-dominant ingredient, same as recommend_recipes.py
             primary_food = primary_ingredient_food(replacement_items)
             if primary_food is not None:
                 if carbon_priority_weight is not None:
                     carbon_tier = carbon_tier_for_food(primary_food.name)
                 if glycaemic_priority_weight is not None:
-                    glycaemic_tier = glycaemic_tier_for_food(primary_food.name)
+                    glycaemic_classification = glycaemic_classification_for_food(primary_food.name)
+                    glycaemic_tier = glycaemic_classification.tier
+                    glycaemic_basis = glycaemic_classification.basis
 
         score = score_candidate(
             without_gaps, after_gaps, energy_added=energy_difference,
@@ -280,7 +285,10 @@ def suggest_substitutions(
             candidate_data_coverage=candidate_data_coverage,
             practicality=PracticalityInput(is_plausible_serving=True),
             carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
+            carbon_provenance="dominant_ingredient_proxy" if carbon_tier is not None else None,
             glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            glycaemic_provenance="dominant_ingredient_proxy" if glycaemic_tier is not None else None,
+            glycaemic_basis=glycaemic_basis,
             weights=weights,
         )
         if score.total <= 0:

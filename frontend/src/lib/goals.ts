@@ -67,7 +67,7 @@ export const GOAL_MESSAGES: Record<Goal, string> = {
 	reduce_carbon_footprint:
 		'Ingredient and recipe suggestions now give a modest nudge toward lower-carbon-footprint candidates — a coarse, name-based estimate, not a precise per-food measurement; see the methodology page for the honest limits.',
 	blood_sugar_stability:
-		'Ingredient and recipe suggestions now give a modest nudge toward lower-glycaemic-impact candidates — a coarse, name-based estimate (common staples like bread, rice, potato, and banana are deliberately left untiered, since their real impact varies too much by preparation to estimate from the name alone); see the methodology page for the honest limits.'
+		"Ingredient and recipe suggestions now give a modest nudge toward lower-glycaemic-impact candidates — a coarse, name-based estimate (common staples like bread, rice, potato, and banana are deliberately left untiered, since their real impact varies too much by preparation to estimate from the name alone). This is general nutritional information, not a prediction of your own blood-sugar response or medical advice; see the methodology page for the honest limits."
 };
 
 // weight_loss/visceral_fat_reduction only — the two goals that actually

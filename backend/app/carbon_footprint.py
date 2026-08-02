@@ -71,6 +71,17 @@ replacement recipe's own `primary_ingredient_food`, same as
 
 from typing import Literal
 
+# Operational-hardening prompt 3, requirement 11: bump whenever the
+# keyword lists below change materially (a food's classification could
+# flip tiers for a reason unrelated to any scoring-formula change) — the
+# same "so a previously-seen result can be told apart from one under a
+# different ruleset" contract recommendation_scoring.
+# RECOMMENDATION_MODEL_VERSION already has for the formula itself. Kept
+# separate from that constant deliberately: a keyword-list edit here
+# doesn't change the scoring formula, and a formula change doesn't
+# reclassify any food, so the two must be able to move independently.
+CARBON_CLASSIFICATION_VERSION = 1
+
 CarbonTier = Literal["very_high", "high", "medium", "low"]
 
 _VERY_HIGH_KEYWORDS = ["beef", "lamb", "mutton", "goat", "veal", "bison"]

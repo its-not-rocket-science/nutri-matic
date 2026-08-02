@@ -53,11 +53,45 @@ WIRED INTO CANDIDATE RANKING the same way reduce_carbon_footprint is
 `goals.goal_weight(rank)` for wherever blood_sugar_stability sits in the
 profile's ranked goal list, and every recommend_*.py module (ingredients,
 recipes, pairs, substitutions) only ever resolves a tier when that goal
-is actually active for the profile."""
+is actually active for the profile.
 
+CLASSIFICATION BASIS, EXPOSED, NOT JUST DOCUMENTED (operational-
+hardening prompt 3): `glycaemic_tier_for_food` alone can't tell an API
+consumer *why* a food landed in "low" — a lentil and a chicken breast
+both do, for entirely different reasons (one is a real, researched
+low-GI food category; the other has negligible carbohydrate at all,
+so GI doesn't meaningfully apply to it — see the paragraph above).
+`glycaemic_classification_for_food` returns both the tier and which of
+those two applies, threaded all the way through `recommendation_scoring.
+score_candidate` into the API response, so "Meat/fish/eggs described as
+negligible-carbohydrate... not as having a measured 'low GI'" is a real,
+checkable property of what a caller sees, not just true of this module's
+own prose."""
+
+from dataclasses import dataclass
 from typing import Literal
 
+# Operational-hardening prompt 3, requirement 11 — see carbon_footprint.
+# CARBON_CLASSIFICATION_VERSION's own docstring for why this is a
+# separate constant from RECOMMENDATION_MODEL_VERSION: bump whenever the
+# keyword lists below change materially, independent of any scoring-
+# formula change.
+GLYCAEMIC_CLASSIFICATION_VERSION = 1
+
 GlycaemicTier = Literal["high", "medium", "low"]
+# "category_match": a real, researched whole-food GI category (legumes,
+# fruit, non-starchy veg, dairy, tested grains). "negligible_
+# carbohydrate": GI is only defined for carbohydrate-containing foods at
+# all — these aren't "tested low", they're outside what GI measures.
+# Never conflated: a caller must be able to tell the two apart, not just
+# see "low" for both.
+GlycaemicBasis = Literal["category_match", "negligible_carbohydrate"]
+
+
+@dataclass(frozen=True)
+class GlycaemicClassification:
+    tier: GlycaemicTier | None
+    basis: GlycaemicBasis | None
 
 # Deliberately small and conservative — see module docstring for why
 # bread/rice/potato/banana are excluded entirely despite being common
@@ -87,37 +121,61 @@ _LOW_GI_KEYWORDS = [
     "apple", "orange", "berry", "strawberr", "blueberr", "raspberr", "cherry", "pear", "plum", "grapefruit", "peach", "kiwi",
     "spinach", "broccoli", "carrot", "cabbage", "cauliflower", "cucumber", "pepper", "tomato", "onion", "lettuce",
     "kale", "courgette", "zucchini", "mushroom", "asparagus", "celery",
-    "milk", "yogurt", "yoghurt", "cheese",
-    # deliberately no bare "nut" keyword — it's a substring of "doughnut"
-    # (PR review), and every common nut is already listed individually
-    # below anyway, so it added a collision risk with no real coverage
-    # benefit
-    "almond", "walnut", "peanut", "cashew", "pistachio", "seed",
+    # real, meaningful lactose content with published GI values — a
+    # different basis than the negligible-carbohydrate group below
+    "milk", "yogurt", "yoghurt",
     "quinoa", "barley", "bulgur", "pasta", "spaghetti", "noodle",
-    # negligible available carbohydrate — see module docstring's "negligible
-    # carbohydrate" paragraph for why these are here on different grounds
-    # than the rest of this tier
+]
+# Negligible available carbohydrate — GI is only defined for
+# carbohydrate-containing foods, so these aren't "tested low", the
+# concept doesn't meaningfully apply to them at all. Tiered "low" for
+# scoring purposes (the practical effect — negligible blood-glucose
+# response — is the same direction as a real low-GI food), but flagged
+# with a distinct basis so a caller never presents this as a measured
+# figure. Deliberately no bare "nut" keyword — it's a substring of
+# "doughnut" (PR review, see _HIGH_GI_KEYWORDS), and every common nut is
+# already listed individually, so it added a collision risk with no real
+# coverage benefit.
+_NEGLIGIBLE_CARB_KEYWORDS = [
+    "cheese", "almond", "walnut", "peanut", "cashew", "pistachio", "seed",
     "egg", "chicken", "turkey", "duck", "beef", "pork", "lamb", "fish", "salmon", "tuna", "cod", "shrimp", "prawn",
 ]
 
 # Checked in this order — highest-GI tier first — so a mixed name like
 # "honey-roasted almonds" tags as medium (the dominant sugar coating),
 # not low (matched on "almond"); same convention as carbon_footprint.py.
-_TIERED_KEYWORDS: list[tuple[GlycaemicTier, list[str]]] = [
-    ("high", _HIGH_GI_KEYWORDS),
-    ("medium", _MEDIUM_GI_KEYWORDS),
-    ("low", _LOW_GI_KEYWORDS),
+# Both "low"-tier keyword lists are checked together (category match
+# before negligible-carb, an arbitrary but fixed tie-break order — no
+# food should realistically match both) since neither can outrank high/
+# medium.
+_TIERED_KEYWORDS: list[tuple[GlycaemicTier, GlycaemicBasis, list[str]]] = [
+    ("high", "category_match", _HIGH_GI_KEYWORDS),
+    ("medium", "category_match", _MEDIUM_GI_KEYWORDS),
+    ("low", "category_match", _LOW_GI_KEYWORDS),
+    ("low", "negligible_carbohydrate", _NEGLIGIBLE_CARB_KEYWORDS),
 ]
 
 
-def glycaemic_tier_for_food(name: str) -> GlycaemicTier | None:
-    """First-match-wins keyword lookup against a food's name. None means
-    no keyword matched at all — an honest "don't know", never a guess."""
+def glycaemic_classification_for_food(name: str) -> GlycaemicClassification:
+    """First-match-wins keyword lookup against a food's name — both tier
+    and basis, so a caller can tell "a real researched low-GI food
+    category" apart from "GI doesn't really apply here" without having
+    to separately re-derive it. `GlycaemicClassification(None, None)`
+    means no keyword matched at all — an honest "don't know", never a
+    guess."""
     name_lower = name.lower()
-    for tier, keywords in _TIERED_KEYWORDS:
+    for tier, basis, keywords in _TIERED_KEYWORDS:
         if any(k in name_lower for k in keywords):
-            return tier
-    return None
+            return GlycaemicClassification(tier=tier, basis=basis)
+    return GlycaemicClassification(tier=None, basis=None)
+
+
+def glycaemic_tier_for_food(name: str) -> GlycaemicTier | None:
+    """Tier only — see glycaemic_classification_for_food for tier+basis
+    together. Kept as a thin wrapper since several call sites only ever
+    needed the tier before this prompt; new callers should prefer the
+    full classification."""
+    return glycaemic_classification_for_food(name).tier
 
 
 def glycaemic_tier_confidence(tier: GlycaemicTier | None) -> Literal["low"] | None:

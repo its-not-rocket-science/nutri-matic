@@ -40,3 +40,67 @@ const NO_SUGGESTION_REASON_MESSAGES: Record<string, string> = {
 export function noSuggestionReasonMessage(code: string): string {
 	return NO_SUGGESTION_REASON_MESSAGES[code] ?? 'No safe or useful addition found for the current priorities.';
 }
+
+// Operational-hardening prompt 3: labels/caveats for the carbon/
+// glycaemic classification metadata in ScoreBreakdown (see
+// RecommendationCard.svelte's "Why this ranked here" panel) — approximate,
+// category-based preferences, never shown as a bare adjustment number
+// with no tier/confidence/basis attached. Kept out of the component
+// itself so the actual wording lives in one place, same convention as
+// the safety/no-suggestion messages above.
+
+const CARBON_TIER_LABELS: Record<string, string> = {
+	very_high: 'very high',
+	high: 'high',
+	medium: 'medium',
+	low: 'low'
+};
+
+export function carbonTierLabel(tier: string): string {
+	return CARBON_TIER_LABELS[tier] ?? tier;
+}
+
+const GLYCAEMIC_TIER_LABELS: Record<string, string> = {
+	high: 'high',
+	medium: 'medium',
+	low: 'low'
+};
+
+export function glycaemicTierLabel(tier: string): string {
+	return GLYCAEMIC_TIER_LABELS[tier] ?? tier;
+}
+
+// "provenance" — whose name the classification actually came from.
+// Recipes/pairs/substitutions have no single name of their own to check,
+// so this is the honest "what this is actually based on" disclosure the
+// prompt's "dominant-ingredient recipe classification can miss important
+// ingredients" requirement calls for.
+export function classificationProvenanceNote(provenance: 'name_match' | 'dominant_ingredient_proxy' | null): string {
+	if (provenance === 'dominant_ingredient_proxy') {
+		return "based on this recipe's largest-by-weight ingredient only — other ingredients aren't reflected, and a different one could change the result";
+	}
+	if (provenance === 'name_match') {
+		return "based on this food's own name";
+	}
+	return '';
+}
+
+// "basis" — glycaemic-only: why a "low" classification landed there.
+// Never let a negligible-carbohydrate food (meat, fish, eggs, cheese,
+// nuts) read as if it had been lab-measured and scored low — GI simply
+// doesn't apply to a food with negligible carbohydrate at all.
+export function glycaemicBasisNote(basis: 'category_match' | 'negligible_carbohydrate' | null): string {
+	if (basis === 'negligible_carbohydrate') {
+		return "negligible carbohydrate — glycaemic index isn't really measured for foods like this, not a tested \"low\" result";
+	}
+	if (basis === 'category_match') {
+		return 'a published category average, not this specific food measured';
+	}
+	return '';
+}
+
+export const CARBON_METHODOLOGY_NOTE =
+	'A coarse, name-keyword estimate anchored to published food-carbon-footprint research — not a per-product lifecycle assessment, and not available for every food.';
+
+export const GLYCAEMIC_METHODOLOGY_NOTE =
+	"A coarse, name-keyword estimate, not a measured glycaemic index — GI itself isn't the same as glycaemic load (which also depends on portion size and carbohydrate quantity), and real GI varies with ripeness, variety and preparation. Common staples (bread, rice, potato, banana) are deliberately left unclassified rather than guessed. This is general nutritional information, not a prediction of your own blood-sugar response or medical advice.";

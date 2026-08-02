@@ -34,7 +34,7 @@ from .candidate_metadata import curated_key_for, is_plausible_serving, resolve_c
 from .carbon_footprint import carbon_tier_for_food
 from .data_quality import is_implausible
 from .dietary_filter import filter_excluded_foods, food_dietary_status
-from .glycaemic_load import glycaemic_tier_for_food
+from .glycaemic_load import glycaemic_classification_for_food
 from .goals import goal_keys_of, goal_priority_weight
 from .models import Food, FoodNutrient, Profile
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
@@ -242,13 +242,22 @@ def suggest_pairs(
         )
         energy_added = totals.get("energy", 0.0) - before_totals.get("energy", 0.0)
         suitability = food_dietary_status(food, db, profile)
+        # "name_match" — solo_score is one food's own contribution, never a proxy
         carbon_tier = carbon_tier_for_food(food.name) if carbon_priority_weight is not None else None
-        glycaemic_tier = glycaemic_tier_for_food(food.name) if glycaemic_priority_weight is not None else None
+        glycaemic_classification = (
+            glycaemic_classification_for_food(food.name) if glycaemic_priority_weight is not None else None
+        )
         result = score_candidate(
             before_gaps, gaps, energy_added=energy_added, max_additional_energy=max_additional_energy,
             dietary_suitability=suitability,
             carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
-            glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            carbon_provenance="name_match" if carbon_tier is not None else None,
+            glycaemic_tier=glycaemic_classification.tier if glycaemic_classification else None,
+            glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            glycaemic_provenance=(
+                "name_match" if glycaemic_classification and glycaemic_classification.tier is not None else None
+            ),
+            glycaemic_basis=glycaemic_classification.basis if glycaemic_classification else None,
             weights=weights,
         ).total
         solo_score_cache[food.id] = result
@@ -287,19 +296,28 @@ def suggest_pairs(
 
         carbon_tier = None
         glycaemic_tier = None
+        glycaemic_basis = None
         if carbon_priority_weight is not None or glycaemic_priority_weight is not None:
+            # "dominant_ingredient_proxy" — the pair's own stand-in tier
+            # comes from whichever food has the larger serving quantity,
+            # see _primary_pair_food's own docstring
             primary = _primary_pair_food(food_a, qty_a, food_b, qty_b)
             if carbon_priority_weight is not None:
                 carbon_tier = carbon_tier_for_food(primary.name)
             if glycaemic_priority_weight is not None:
-                glycaemic_tier = glycaemic_tier_for_food(primary.name)
+                glycaemic_classification = glycaemic_classification_for_food(primary.name)
+                glycaemic_tier = glycaemic_classification.tier
+                glycaemic_basis = glycaemic_classification.basis
 
         score = score_candidate(
             before_gaps, after_gaps, energy_added=combined_energy, max_additional_energy=max_additional_energy,
             dietary_suitability=worst_suitability,
             practicality=PracticalityInput(is_plausible_serving=both_servings_plausible),
             carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
+            carbon_provenance="dominant_ingredient_proxy" if carbon_tier is not None else None,
             glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            glycaemic_provenance="dominant_ingredient_proxy" if glycaemic_tier is not None else None,
+            glycaemic_basis=glycaemic_basis,
             weights=weights,
         )
         if score.total <= 0:

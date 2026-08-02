@@ -312,6 +312,25 @@ def test_carbon_footprint_goal_favours_lower_carbon_tier_recipe(db):
     assert by_name["Lentil Soup"].score.total > by_name["Beef Stew"].score.total
 
 
+def test_carbon_footprint_recipe_classification_metadata_is_dominant_ingredient_proxy(db):
+    """operational-hardening prompt 3: a recipe has no single tier of its
+    own — the classification came from the primary (by-mass-dominant)
+    ingredient's name, not the recipe's own name, and provenance must
+    say so explicitly rather than looking identical to a direct
+    ingredient-candidate classification."""
+    user = make_user(db, "carbon-provenance@example.com")
+    profile = make_profile(db, user, goal="reduce_carbon_footprint")
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    beef = make_food(db, "Beef mince", iron=10.0, energy=0.0)
+    make_recipe(db, user, "Beef Stew", 1, [(beef, 100)])
+
+    result = run(db, profile, user, rice, priority_nutrient_keys={"iron"})
+    suggestion = next(s for s in result.suggestions if s.recipe_name == "Beef Stew")
+    assert suggestion.score.carbon_tier == "very_high"
+    assert suggestion.score.carbon_confidence == "low"
+    assert suggestion.score.carbon_provenance == "dominant_ingredient_proxy"
+
+
 def test_carbon_footprint_recipe_adjustment_zero_when_goal_not_active(db):
     """Same two recipes, no reduce_carbon_footprint goal — carbon must
     never contribute to either recipe's score for a profile that didn't
@@ -350,6 +369,21 @@ def test_blood_sugar_stability_goal_favours_lower_gi_tier_recipe(db):
     assert by_name["Lentil Soup"].score.glycaemic_load_adjustment > 0
     assert by_name["Cornflakes Bowl"].score.glycaemic_load_adjustment < 0
     assert by_name["Lentil Soup"].score.total > by_name["Cornflakes Bowl"].score.total
+
+
+def test_blood_sugar_stability_recipe_classification_metadata_is_dominant_ingredient_proxy(db):
+    user = make_user(db, "gi-provenance@example.com")
+    profile = make_profile(db, user, goal="blood_sugar_stability")
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    cornflakes = make_food(db, "Cornflakes", iron=10.0, energy=0.0)
+    make_recipe(db, user, "Cornflakes Bowl", 1, [(cornflakes, 100)])
+
+    result = run(db, profile, user, rice, priority_nutrient_keys={"iron"})
+    suggestion = next(s for s in result.suggestions if s.recipe_name == "Cornflakes Bowl")
+    assert suggestion.score.glycaemic_tier == "high"
+    assert suggestion.score.glycaemic_confidence == "low"
+    assert suggestion.score.glycaemic_provenance == "dominant_ingredient_proxy"
+    assert suggestion.score.glycaemic_basis == "category_match"
 
 
 def test_blood_sugar_stability_recipe_adjustment_zero_when_goal_not_active(db):
