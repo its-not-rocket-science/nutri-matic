@@ -1268,7 +1268,19 @@ class ScoreBreakdownOut(BaseModel):
     VERSION` at the time this suggestion was scored — bump that constant
     (see its docstring) whenever the formula/weights change materially;
     this field lets a client detect when a previously-seen suggestion was
-    scored under a different model."""
+    scored under a different model.
+
+    Operational-hardening prompt 3: `carbon_footprint_adjustment`/
+    `glycaemic_load_adjustment` are approximate, opt-in ranking nudges,
+    never a measured emissions figure or an individual's predicted
+    glucose response — the accompanying `carbon_tier`/`carbon_
+    confidence`/`carbon_provenance` (and the glycaemic equivalents,
+    `glycaemic_basis` besides) exist so a client can say *why*, not just
+    *how much*, whenever the adjustment is non-zero. All six are `None`
+    together whenever the corresponding adjustment is exactly `0.0` for
+    lack of any signal (goal inactive, or the food's name matched no
+    keyword) — never a guessed classification standing in for "no
+    data"."""
 
     weighted_gap_reduction: float
     multi_nutrient_bonus: float
@@ -1281,7 +1293,25 @@ class ScoreBreakdownOut(BaseModel):
     uncertainty_penalty: float
     implausible_serving_penalty: float
     carbon_footprint_adjustment: float
+    # "very_high" | "high" | "medium" | "low", or None (no signal)
+    carbon_tier: str | None = None
+    # always "low" for a real classification, or None — see
+    # carbon_footprint.py's own docstring for why a name-keyword tier can
+    # never be reported as higher confidence than that
+    carbon_confidence: str | None = None
+    # "name_match" (the candidate's own name) or "dominant_ingredient_
+    # proxy" (a recipe/pair/substitution's by-mass-dominant ingredient
+    # standing in for the whole candidate) — or None
+    carbon_provenance: str | None = None
     glycaemic_load_adjustment: float
+    # "high" | "medium" | "low", or None
+    glycaemic_tier: str | None = None
+    glycaemic_confidence: str | None = None
+    glycaemic_provenance: str | None = None
+    # "category_match" (a real, researched whole-food GI category) or
+    # "negligible_carbohydrate" (GI doesn't meaningfully apply — meat,
+    # fish, eggs, cheese, nuts) — never conflated. See glycaemic_load.py.
+    glycaemic_basis: str | None = None
     total: float
     model_version: int
 

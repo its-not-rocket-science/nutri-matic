@@ -80,6 +80,13 @@ def test_blood_sugar_stability_goal_gives_a_real_bonus_on_the_curated_pair(db):
     matches = [s for s in result.suggestions if {s.first.food_name, s.second.food_name} == {"Yogurt, greek", "Strawberries, raw"}]
     assert matches
     assert matches[0].score.glycaemic_load_adjustment > 0
+    # operational-hardening prompt 3: yogurt is the pair's by-mass-
+    # dominant food, so provenance must say "dominant_ingredient_proxy",
+    # never "name_match" — a pair has no single name of its own either.
+    assert matches[0].score.glycaemic_tier == "low"
+    assert matches[0].score.glycaemic_confidence == "low"
+    assert matches[0].score.glycaemic_provenance == "dominant_ingredient_proxy"
+    assert matches[0].score.glycaemic_basis == "category_match"
 
 
 def test_blood_sugar_stability_adjustment_zero_when_goal_not_active(db):

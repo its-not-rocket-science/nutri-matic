@@ -29,12 +29,25 @@ always `None`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from .aggregation import ProteinQualityResult
-from .carbon_footprint import CarbonTier
+from .carbon_footprint import CarbonTier, carbon_tier_confidence
 from .dietary_tags import Suitability
-from .glycaemic_load import GlycaemicTier
+from .glycaemic_load import GlycaemicBasis, GlycaemicTier, glycaemic_tier_confidence
 from .nutrient_gap_analysis import NutrientGapResult, NutrientStatus
+
+# Operational-hardening prompt 3: how a carbon/glycaemic tier was
+# actually resolved for THIS candidate — the candidate's own name
+# ("name_match", recommend_ingredients.py) or a recipe/pair/
+# substitution's by-mass-dominant ingredient standing in for the whole
+# candidate ("dominant_ingredient_proxy" — see carbon_footprint.py's "A
+# recipe has no single tier of its own" paragraph). Shared between
+# carbon and glycaemic because the concept is identical for both — only
+# glycaemic additionally has GlycaemicBasis (category vs negligible-
+# carbohydrate), an orthogonal "why this tier" question this type
+# doesn't answer.
+ClassificationProvenance = Literal["name_match", "dominant_ingredient_proxy"]
 
 # Bump whenever ScoringWeights' defaults, the scoring formula itself, or
 # any other part of score_candidate's arithmetic changes materially enough
@@ -149,11 +162,29 @@ class ScoreBreakdown:
     # exactly 0.0 (medium tier, no tier data, or the goal wasn't active for
     # this caller) — see ScoringWeights.carbon_very_high_penalty's docstring
     carbon_footprint_adjustment: float
+    # Operational-hardening prompt 3: the classification behind
+    # carbon_footprint_adjustment, exposed rather than left implicit in
+    # the number alone — None/None/None whenever the adjustment is 0.0
+    # for lack of any signal (goal inactive, or no keyword matched).
+    # "Why this ranked here" and the API response both surface these
+    # directly, so a caller never has to reverse-engineer "was this
+    # measured or guessed" from a bare float.
+    carbon_tier: CarbonTier | None
+    carbon_confidence: Literal["low"] | None
+    carbon_provenance: ClassificationProvenance | None
     # positive (low-GI bonus), negative (high-GI penalty), or exactly 0.0
     # (medium tier, no tier data — including the deliberately-untiered
     # bread/rice/potato/banana staples, see glycaemic_load.py — or the
     # goal wasn't active for this caller)
     glycaemic_load_adjustment: float
+    glycaemic_tier: GlycaemicTier | None
+    glycaemic_confidence: Literal["low"] | None
+    glycaemic_provenance: ClassificationProvenance | None
+    # "category_match" (a real, researched whole-food GI category) or
+    # "negligible_carbohydrate" (GI doesn't meaningfully apply at all —
+    # meat/fish/eggs/cheese/nuts) — never conflated, see glycaemic_load.
+    # py's own module docstring. None whenever glycaemic_tier is None.
+    glycaemic_basis: GlycaemicBasis | None
     total: float
     # which scoring-formula version produced this breakdown — hardening
     # prompt 3, same constant every ScoreBreakdown this module produces
@@ -339,8 +370,11 @@ def score_candidate(
     practicality: PracticalityInput | None = None,
     carbon_tier: CarbonTier | None = None,
     carbon_priority_weight: float = 1.0,
+    carbon_provenance: ClassificationProvenance | None = None,
     glycaemic_tier: GlycaemicTier | None = None,
     glycaemic_priority_weight: float = 1.0,
+    glycaemic_provenance: ClassificationProvenance | None = None,
+    glycaemic_basis: GlycaemicBasis | None = None,
     weights: ScoringWeights = DEFAULT_WEIGHTS,
 ) -> ScoreBreakdown:
     """Scores one already-simulated candidate — `before_gaps`/`after_gaps`
@@ -361,11 +395,26 @@ def score_candidate(
     actual priority rank among the profile's active goals — this
     function has no way to look that up itself, so a caller passing a
     real `carbon_tier` must also resolve and pass the matching weight
-    (see goals.py's documented 1/rank multi-goal policy).
+    (see goals.py's documented 1/rank multi-goal policy). `carbon_
+    provenance` (operational-hardening prompt 3) should be "name_match"
+    when `carbon_tier` came from the candidate's own name, or
+    "dominant_ingredient_proxy" when it came from a recipe/pair/
+    substitution's by-mass-dominant ingredient standing in for the whole
+    candidate — required whenever `carbon_tier` is not None, so the API
+    response can always say which. `carbon_confidence` isn't a parameter
+    here — it's derived automatically from `carbon_tier` via
+    `carbon_footprint.carbon_tier_confidence` (always "low" for a real
+    match, never something a caller could accidentally overstate).
 
-    `glycaemic_tier`/`glycaemic_priority_weight` are `carbon_tier`/
-    `carbon_priority_weight`'s exact counterparts for the
-    blood_sugar_stability goal — see glycaemic_load.py.
+    `glycaemic_tier`/`glycaemic_priority_weight`/`glycaemic_provenance`
+    are `carbon_tier`/`carbon_priority_weight`/`carbon_provenance`'s
+    exact counterparts for the blood_sugar_stability goal — see
+    glycaemic_load.py. `glycaemic_basis` ("category_match" or
+    "negligible_carbohydrate", from `glycaemic_load.
+    glycaemic_classification_for_food`) is the one thing carbon has no
+    equivalent for: an orthogonal "why this tier" fact distinct from
+    provenance's "whose name" — required whenever `glycaemic_tier` is
+    not None, same as provenance.
     """
     gap_reduction, multi_nutrient_bonus, improved = _gap_reduction(before_gaps, after_gaps, weights)
     excess = _excess_penalty(before_gaps, after_gaps, weights)
@@ -380,6 +429,8 @@ def score_candidate(
     practicality_bonus, serving_penalty = _practicality(practicality, weights)
     carbon_footprint_adjustment = _carbon_footprint_adjustment(carbon_tier, carbon_priority_weight, weights)
     glycaemic_load_adjustment = _glycaemic_load_adjustment(glycaemic_tier, glycaemic_priority_weight, weights)
+    carbon_confidence = carbon_tier_confidence(carbon_tier)
+    glycaemic_confidence = glycaemic_tier_confidence(glycaemic_tier)
 
     total = (
         gap_reduction
@@ -408,7 +459,14 @@ def score_candidate(
         uncertainty_penalty=uncertainty_penalty,
         implausible_serving_penalty=serving_penalty,
         carbon_footprint_adjustment=carbon_footprint_adjustment,
+        carbon_tier=carbon_tier,
+        carbon_confidence=carbon_confidence,
+        carbon_provenance=carbon_provenance if carbon_tier is not None else None,
         glycaemic_load_adjustment=glycaemic_load_adjustment,
+        glycaemic_tier=glycaemic_tier,
+        glycaemic_confidence=glycaemic_confidence,
+        glycaemic_provenance=glycaemic_provenance if glycaemic_tier is not None else None,
+        glycaemic_basis=glycaemic_basis if glycaemic_tier is not None else None,
         total=total,
         nutrients_improved=improved,
         nutrients_worsened=worsened,

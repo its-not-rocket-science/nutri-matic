@@ -348,13 +348,51 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 		per-food measurement — USDA FoodData Central (this app's only data source) doesn't publish
 		per-food greenhouse-gas/land-use figures or glycaemic-index values, and no supplementary
 		dataset is joined against the catalogue. Both instead use coarse, name-keyword category
-		tiering anchored to published research (food-system life-cycle-assessment literature for
-		carbon; the Foster-Powell/University of Sydney glycaemic-index tables for blood sugar) —
-		honestly low-confidence, never a fabricated precise figure. Blood-sugar stability is the
-		more conservative of the two: common staples like bread, rice, potato, and banana are
-		deliberately left untiered altogether, because their real glycaemic impact varies too much
-		by preparation, variety, and ripeness for a name alone to reliably classify.
+		tiering anchored to published research (food-system life-cycle-assessment <em>literature</em>
+		for carbon; the Foster-Powell/University of Sydney glycaemic-index tables for blood sugar) —
+		honestly low-confidence, never a fabricated precise figure, and never a per-product
+		measurement of the specific food in front of you: a "very high" carbon tier is not a
+		lifecycle assessment of that product, and a "low" glycaemic tier is not a lab-measured
+		glycaemic index for it.
 	</p>
+	<p>
+		A recipe or recipe-pair has no single tier of its own — the classification comes from
+		whichever ingredient dominates the recipe by weight, which can miss what actually matters
+		(a small amount of a very-high-carbon or high-GI ingredient elsewhere in the recipe isn't
+		reflected). Every suggestion's own "Why this ranked here" panel states which food the
+		classification actually came from, so this is never hidden inside a single unexplained
+		number.
+	</p>
+	<p>
+		Blood-sugar stability is the more conservative of the two, for a few reasons worth stating
+		plainly:
+	</p>
+	<ul>
+		<li>
+			Glycaemic index (GI) and glycaemic load are not the same thing — GI alone doesn't account
+			for portion size or how much carbohydrate a serving actually contains, both of which
+			materially change the real blood-sugar effect of eating something. This app tiers GI
+			category only, not glycaemic load.
+		</li>
+		<li>
+			Real GI varies with preparation, variety and ripeness enough to cross an entire tier
+			boundary for some foods — common staples (bread, rice, potato, banana) are deliberately
+			left <strong>untiered</strong> altogether rather than guessed, because their name alone
+			can't reliably convey which side of that boundary a given serving falls on.
+		</li>
+		<li>
+			Meat, fish, eggs, cheese and nuts are tiered "low" on a different basis than a real
+			researched low-GI food (lentils, most fruit and vegetables): GI is only defined for
+			carbohydrate-containing foods at all, so a negligible-carbohydrate food isn't "tested
+			low" — the concept doesn't meaningfully apply to it. Every suggestion's own breakdown
+			says which of the two applies.
+		</li>
+		<li>
+			This is general nutritional information, not a prediction of your own blood-sugar
+			response and not medical advice — individual glucose response depends on far more than
+			any single food's category.
+		</li>
+	</ul>
 	<p class="muted">
 		Not implemented, for a different reason than a missing dataset: a broader
 		recovery/anti-inflammatory goal beyond the omega-3 signal already covered under longevity.

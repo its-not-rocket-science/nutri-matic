@@ -783,11 +783,31 @@ export interface ScoreBreakdown {
 	// exactly 0 (medium tier, no tier data, or reduce_carbon_footprint
 	// wasn't an active goal for this suggestion)
 	carbon_footprint_adjustment: number;
+	// Operational-hardening prompt 3: classification metadata alongside
+	// the two approximate/opt-in adjustment terms above — never show the
+	// adjustment number alone without these, see recommendationSafety.ts's
+	// carbonTierLabel/glycaemicTierLabel for the honest, no-false-
+	// precision copy these drive. All fields in a pair (carbon_tier/
+	// carbon_confidence/carbon_provenance, or the four glycaemic ones) are
+	// `null` together whenever there's no real classification to report —
+	// a `null` tier never means "measured as zero", only "no signal".
+	carbon_tier: 'very_high' | 'high' | 'medium' | 'low' | null;
+	carbon_confidence: 'low' | null;
+	carbon_provenance: 'name_match' | 'dominant_ingredient_proxy' | null;
 	// positive (low-GI bonus), negative (high-GI penalty), or exactly 0
 	// (medium tier, no tier data — including the deliberately-untiered
 	// bread/rice/potato/banana staples, see the backend's
 	// glycaemic_load.py — or blood_sugar_stability wasn't active)
 	glycaemic_load_adjustment: number;
+	glycaemic_tier: 'high' | 'medium' | 'low' | null;
+	glycaemic_confidence: 'low' | null;
+	glycaemic_provenance: 'name_match' | 'dominant_ingredient_proxy' | null;
+	// "category_match" (a real, researched whole-food GI category) or
+	// "negligible_carbohydrate" (GI doesn't meaningfully apply — meat,
+	// fish, eggs, cheese, nuts) — never conflated. A food described as
+	// negligible-carbohydrate must never be shown as having a measured
+	// "low GI".
+	glycaemic_basis: 'category_match' | 'negligible_carbohydrate' | null;
 	total: number;
 	model_version: number;
 }
