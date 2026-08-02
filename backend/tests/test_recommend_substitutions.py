@@ -175,6 +175,13 @@ def test_blood_sugar_stability_goal_favours_lower_gi_tier_replacement(db):
     assert by_name["Lentil Bowl"].score.glycaemic_load_adjustment > 0
     assert by_name["Cornflakes Bowl"].score.glycaemic_load_adjustment < 0
     assert by_name["Lentil Bowl"].score.total > by_name["Cornflakes Bowl"].score.total
+    # operational-hardening prompt 3: the replacement recipe's own
+    # by-mass-dominant ingredient, same provenance concept as
+    # recommend_recipes.py — never "name_match" for a recipe candidate.
+    assert by_name["Cornflakes Bowl"].score.glycaemic_tier == "high"
+    assert by_name["Cornflakes Bowl"].score.glycaemic_confidence == "low"
+    assert by_name["Cornflakes Bowl"].score.glycaemic_provenance == "dominant_ingredient_proxy"
+    assert by_name["Lentil Bowl"].score.glycaemic_basis == "category_match"
 
 
 def test_blood_sugar_stability_adjustment_zero_when_goal_not_active(db):

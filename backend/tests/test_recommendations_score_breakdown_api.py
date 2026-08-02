@@ -16,7 +16,7 @@ from app.models import Food, FoodNutrient, Recipe, RecipeIngredient, User
 from app.reference_patterns import AMINO_ACIDS
 from app.recommendation_scoring import RECOMMENDATION_MODEL_VERSION
 
-BREAKDOWN_FIELDS = (
+NUMERIC_BREAKDOWN_FIELDS = (
     "weighted_gap_reduction",
     "multi_nutrient_bonus",
     "protein_quality_benefit",
@@ -32,6 +32,27 @@ BREAKDOWN_FIELDS = (
     "total",
     "model_version",
 )
+# operational-hardening prompt 3: classification metadata alongside the
+# two approximate/opt-in adjustment terms — strings or None, never a
+# plain number, so validated separately from NUMERIC_BREAKDOWN_FIELDS
+# above.
+CLASSIFICATION_BREAKDOWN_FIELDS = (
+    "carbon_tier",
+    "carbon_confidence",
+    "carbon_provenance",
+    "glycaemic_tier",
+    "glycaemic_confidence",
+    "glycaemic_provenance",
+    "glycaemic_basis",
+)
+# PR review: int-or-None, not string-or-None and not "always a real
+# number" — must fulfil the "tell a previously-seen classification apart
+# from one under a different ruleset" purpose, so validated on its own.
+VERSION_BREAKDOWN_FIELDS = (
+    "carbon_classification_version",
+    "glycaemic_classification_version",
+)
+BREAKDOWN_FIELDS = NUMERIC_BREAKDOWN_FIELDS + CLASSIFICATION_BREAKDOWN_FIELDS + VERSION_BREAKDOWN_FIELDS
 
 
 @pytest.fixture
@@ -94,12 +115,61 @@ def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def owner_profile(client, token):
+    profiles = client.get("/api/profiles", headers=auth_headers(token)).json()
+    return next(p for p in profiles if p["is_account_owner"])
+
+
+_BASE_PROFILE_PAYLOAD = {
+    "name": "Me",
+    "sex": None, "birth_year": None, "activity_level": None,
+    "is_pregnant": False, "is_lactating": False, "weight_kg": None, "height_cm": None,
+}
+
+
 def _assert_valid_breakdown(breakdown: dict):
     assert set(breakdown.keys()) == set(BREAKDOWN_FIELDS)
-    for key in BREAKDOWN_FIELDS:
+    for key in NUMERIC_BREAKDOWN_FIELDS:
         value = breakdown[key]
         assert isinstance(value, (int, float)), f"{key} is not a plain number: {value!r}"
+    for key in CLASSIFICATION_BREAKDOWN_FIELDS:
+        value = breakdown[key]
+        assert value is None or isinstance(value, str), f"{key} is not a string or None: {value!r}"
+    for key in VERSION_BREAKDOWN_FIELDS:
+        value = breakdown[key]
+        assert value is None or isinstance(value, int), f"{key} is not an int or None: {value!r}"
     assert breakdown["model_version"] == RECOMMENDATION_MODEL_VERSION
+    # operational-hardening prompt 3's own acceptance criterion: a
+    # classification is present exactly when there's real signal to
+    # report, independent of whether that signal happened to score as
+    # neutral — "medium" carbon/GI tiers are a REAL classification that
+    # deliberately contributes 0.0 (see recommendation_scoring.py's
+    # _carbon_footprint_adjustment/_glycaemic_load_adjustment: only
+    # high/very_high/low tiers move the score; medium is the honest
+    # boring middle, not "no data"). So the invariant checked here is
+    # "tier present iff confidence/provenance present", NOT "adjustment
+    # non-zero iff tier present" — a non-zero adjustment always implies a
+    # tier (checked separately below), but the converse doesn't hold.
+    if breakdown["carbon_tier"] is None:
+        assert breakdown["carbon_confidence"] is None
+        assert breakdown["carbon_provenance"] is None
+        assert breakdown["carbon_classification_version"] is None
+        assert breakdown["carbon_footprint_adjustment"] == 0.0
+    else:
+        assert breakdown["carbon_confidence"] == "low"
+        assert breakdown["carbon_provenance"] in ("name_match", "dominant_ingredient_proxy")
+        assert breakdown["carbon_classification_version"] >= 1
+    if breakdown["glycaemic_tier"] is None:
+        assert breakdown["glycaemic_confidence"] is None
+        assert breakdown["glycaemic_provenance"] is None
+        assert breakdown["glycaemic_basis"] is None
+        assert breakdown["glycaemic_classification_version"] is None
+        assert breakdown["glycaemic_load_adjustment"] == 0.0
+    else:
+        assert breakdown["glycaemic_confidence"] == "low"
+        assert breakdown["glycaemic_provenance"] in ("name_match", "dominant_ingredient_proxy")
+        assert breakdown["glycaemic_basis"] in ("category_match", "negligible_carbohydrate")
+        assert breakdown["glycaemic_classification_version"] >= 1
     expected_total = (
         breakdown["weighted_gap_reduction"]
         + breakdown["multi_nutrient_bonus"]
@@ -134,6 +204,42 @@ def test_ingredient_suggestion_score_breakdown(client):
     assert "score_breakdown" in suggestion
     assert suggestion["score_breakdown"]["total"] == pytest.approx(suggestion["score"])
     _assert_valid_breakdown(suggestion["score_breakdown"])
+
+
+def test_ingredient_suggestion_carbon_and_glycaemic_classification_end_to_end(client):
+    """operational-hardening prompt 3: with reduce_carbon_footprint/
+    blood_sugar_stability actually active on the profile, the real HTTP
+    JSON response must carry real, non-None classification metadata —
+    not just the correct schema shape (already covered above, where no
+    goal is active and every field is legitimately None)."""
+    token = register_and_token(client, "carbon-e2e@example.com")
+    owner = owner_profile(client, token)
+    client.put(
+        f"/api/profiles/{owner['id']}",
+        json={**_BASE_PROFILE_PAYLOAD, "goals": ["reduce_carbon_footprint", "blood_sugar_stability"]},
+        headers=auth_headers(token),
+    )
+    client.post(
+        "/api/diary", json={"entry_date": "2026-01-01", "meal": "lunch", "food_id": 1, "quantity_g": 200},
+        headers=auth_headers(token),
+    )
+    res = client.get(
+        "/api/recommendations/ingredients", params={"entry_date": "2026-01-01"}, headers=auth_headers(token),
+    )
+    assert res.status_code == 200
+    body = res.json()
+    lentils = next((s for s in body["suggestions"] if s["food_name"] == "Lentils"), None)
+    assert lentils is not None, "Lentils must be suggested to exercise a real classification"
+    breakdown = lentils["score_breakdown"]
+    assert breakdown["carbon_tier"] == "low"
+    assert breakdown["carbon_confidence"] == "low"
+    assert breakdown["carbon_provenance"] == "name_match"
+    assert breakdown["carbon_classification_version"] >= 1
+    assert breakdown["glycaemic_tier"] == "low"
+    assert breakdown["glycaemic_confidence"] == "low"
+    assert breakdown["glycaemic_provenance"] == "name_match"
+    assert breakdown["glycaemic_basis"] == "category_match"
+    assert breakdown["glycaemic_classification_version"] >= 1
 
 
 def test_recipe_suggestion_score_breakdown(client):

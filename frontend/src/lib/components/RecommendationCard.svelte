@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { nutrientLabel } from '$lib/nutrientLabels';
+	import {
+		CARBON_METHODOLOGY_NOTE,
+		GLYCAEMIC_METHODOLOGY_NOTE,
+		carbonTierLabel,
+		classificationProvenanceNote,
+		glycaemicBasisNote,
+		glycaemicTierLabel
+	} from '$lib/recommendationSafety';
 	import type { ScoreBreakdown } from '$lib/types';
 
 	/** Generic rendering of one nutrient-gap recommendation — an ingredient,
@@ -59,25 +67,67 @@
 	// terms that can be a bonus OR a penalty depending on the candidate's
 	// own tier, not fixed like every other row — sign/label follow the
 	// actual value here rather than a static BREAKDOWN_ROWS entry.
+	// Operational-hardening prompt 3: each also carries a `detail` line —
+	// tier/confidence/basis/provenance — so the adjustment number never
+	// stands alone with no explanation of what produced it. "Why this
+	// ranked here" is already an expandable `<details>` panel (never the
+	// main card body), matching the prompt's "compact UI copy with
+	// expandable detail... not buried only in a distant legal page".
+	function classificationDetail(
+		tier: string | null,
+		confidence: string | null,
+		provenance: string | null,
+		basis: string | null,
+		tierLabel: (tier: string) => string,
+		methodologyNote: string
+	): string {
+		if (!tier) return '';
+		const parts = [`${tierLabel(tier)} tier`, confidence ? `${confidence} confidence` : null];
+		const provenanceNote = classificationProvenanceNote(provenance as 'name_match' | 'dominant_ingredient_proxy' | null);
+		if (provenanceNote) parts.push(provenanceNote);
+		const basisNote = glycaemicBasisNote(basis as 'category_match' | 'negligible_carbohydrate' | null);
+		if (basisNote) parts.push(basisNote);
+		return `${parts.filter(Boolean).join(' · ')}. ${methodologyNote}`;
+	}
+
 	const DUAL_SIGN_ROWS: {
 		key: 'carbon_footprint_adjustment' | 'glycaemic_load_adjustment';
 		positiveLabel: string;
 		negativeLabel: string;
+		detail: (breakdown: ScoreBreakdown) => string;
 	}[] = [
 		{
 			key: 'carbon_footprint_adjustment',
 			positiveLabel: 'Lower carbon footprint',
-			negativeLabel: 'Higher carbon footprint'
+			negativeLabel: 'Higher carbon footprint',
+			detail: (b) =>
+				classificationDetail(
+					b.carbon_tier,
+					b.carbon_confidence,
+					b.carbon_provenance,
+					null,
+					carbonTierLabel,
+					CARBON_METHODOLOGY_NOTE
+				)
 		},
 		{
 			key: 'glycaemic_load_adjustment',
 			positiveLabel: 'Lower glycaemic impact',
-			negativeLabel: 'Higher glycaemic impact'
+			negativeLabel: 'Higher glycaemic impact',
+			detail: (b) =>
+				classificationDetail(
+					b.glycaemic_tier,
+					b.glycaemic_confidence,
+					b.glycaemic_provenance,
+					b.glycaemic_basis,
+					glycaemicTierLabel,
+					GLYCAEMIC_METHODOLOGY_NOTE
+				)
 		}
 	];
 
 	function breakdownRows(breakdown: ScoreBreakdown) {
-		const rows = BREAKDOWN_ROWS.map((row) => ({ ...row, value: breakdown[row.key] as number })).filter(
+		const rows = BREAKDOWN_ROWS.map((row) => ({ ...row, value: breakdown[row.key] as number, detail: '' })).filter(
 			(row) => Math.abs(row.value) > 0.005
 		);
 		for (const row of DUAL_SIGN_ROWS) {
@@ -87,7 +137,8 @@
 					key: row.key,
 					label: value > 0 ? row.positiveLabel : row.negativeLabel,
 					sign: value > 0 ? '+' : '−',
-					value
+					value,
+					detail: row.detail(breakdown)
 				});
 			}
 		}
@@ -135,8 +186,13 @@
 			<ul class="score-breakdown">
 				{#each breakdownRows(scoreBreakdown) as row (row.key)}
 					<li>
-						<span>{row.label}</span>
-						<span class="muted">{row.sign}{Math.abs(row.value).toFixed(2)}</span>
+						<div class="score-breakdown-row">
+							<span>{row.label}</span>
+							<span class="muted">{row.sign}{Math.abs(row.value).toFixed(2)}</span>
+						</div>
+						{#if row.detail}
+							<p class="muted score-breakdown-detail">{row.detail}</p>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -193,9 +249,14 @@
 		flex-direction: column;
 		gap: var(--space-1);
 	}
-	.score-breakdown li {
+	.score-breakdown-row {
 		display: flex;
 		justify-content: space-between;
 		gap: var(--space-2);
+	}
+	.score-breakdown-detail {
+		margin: 0;
+		font-size: var(--font-size-xs, 0.8em);
+		font-style: italic;
 	}
 </style>

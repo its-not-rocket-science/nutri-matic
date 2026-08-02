@@ -31,7 +31,7 @@ from .aggregation import (
     scale_recipe_ingredients,
 )
 from .carbon_footprint import carbon_tier_for_food
-from .glycaemic_load import glycaemic_tier_for_food
+from .glycaemic_load import GlycaemicBasis, glycaemic_classification_for_food
 from .dietary_filter import filter_excluded_recipes, recipes_dietary_status
 from .goals import goal_keys_of, goal_priority_weight
 from .models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, RobustnessResult, User, Profile
@@ -334,14 +334,17 @@ def suggest_recipes(
             candidate_data_coverage = min(candidate_data_coverage or 1.0, 0.6)
 
         carbon_tier = None
-        glycaemic_tier = None
+        glycaemic_tier: str | None = None
+        glycaemic_basis: GlycaemicBasis | None = None
         if carbon_priority_weight is not None or glycaemic_priority_weight is not None:
             primary_food = primary_ingredient_food(recipe_items_at_1_serving)
             if primary_food is not None:
                 if carbon_priority_weight is not None:
                     carbon_tier = carbon_tier_for_food(primary_food.name)
                 if glycaemic_priority_weight is not None:
-                    glycaemic_tier = glycaemic_tier_for_food(primary_food.name)
+                    glycaemic_classification = glycaemic_classification_for_food(primary_food.name)
+                    glycaemic_tier = glycaemic_classification.tier
+                    glycaemic_basis = glycaemic_classification.basis
 
         score = score_candidate(
             before_gaps, after_gaps, energy_added=energy_added, max_additional_energy=max_additional_energy,
@@ -349,8 +352,13 @@ def suggest_recipes(
             dietary_suitability=suitability, ingredient_confidence=ingredient_confidence,
             candidate_data_coverage=candidate_data_coverage,
             practicality=PracticalityInput(is_plausible_serving=True),  # a recipe's own serving size is always "plausible" by definition
+            # "dominant_ingredient_proxy" — a recipe has no single tier of
+            # its own, see primary_ingredient_food's own docstring
             carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
+            carbon_provenance="dominant_ingredient_proxy" if carbon_tier is not None else None,
             glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            glycaemic_provenance="dominant_ingredient_proxy" if glycaemic_tier is not None else None,
+            glycaemic_basis=glycaemic_basis,
             weights=weights,
         )
         if score.total <= 0:

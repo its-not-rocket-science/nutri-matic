@@ -1,4 +1,12 @@
-from app.carbon_footprint import carbon_tier_confidence, carbon_tier_for_food
+from app.carbon_footprint import CARBON_CLASSIFICATION_VERSION, carbon_tier_confidence, carbon_tier_for_food
+
+
+def test_classification_version_is_a_real_int():
+    """operational-hardening prompt 3, requirement 11: a real, bumpable
+    version constant exists for the classification ruleset itself,
+    independent of RECOMMENDATION_MODEL_VERSION."""
+    assert isinstance(CARBON_CLASSIFICATION_VERSION, int)
+    assert CARBON_CLASSIFICATION_VERSION >= 1
 
 
 def test_ruminant_meat_is_very_high():
