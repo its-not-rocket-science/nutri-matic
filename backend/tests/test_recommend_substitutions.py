@@ -153,6 +153,46 @@ def test_multi_gap_improvement_reports_key_nutrient_differences(db):
         assert "protein" in suggestion.key_nutrient_differences
 
 
+def test_blood_sugar_stability_goal_favours_lower_gi_tier_replacement(db):
+    """blood_sugar_stability active: two replacement recipes add the
+    exact same real iron by the exact same amount, at the exact same
+    energy (so replacement_servings/energy_difference are identical for
+    both) — the only thing that can separate them is
+    glycaemic_tier_for_food on each replacement's primary ingredient:
+    "Cornflakes" is high GI, "Lentils" is low."""
+    user = make_user(db, "gi-active@example.com")
+    profile = make_profile(db, user, goal="blood_sugar_stability")
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    cornflakes = make_food(db, "Cornflakes", iron=10.0, energy=130)
+    lentils = make_food(db, "Lentils", iron=10.0, energy=130)
+    original = make_recipe(db, user, "Plain Rice Bowl", 1, [(rice, 200)])
+    make_recipe(db, user, "Cornflakes Bowl", 1, [(cornflakes, 200)])
+    make_recipe(db, user, "Lentil Bowl", 1, [(lentils, 200)])
+
+    result = run(db, profile, user, original, priority_nutrient_keys={"iron"})
+    by_name = {s.replacement_recipe_name: s for s in result.suggestions}
+    assert set(by_name) == {"Cornflakes Bowl", "Lentil Bowl"}
+    assert by_name["Lentil Bowl"].score.glycaemic_load_adjustment > 0
+    assert by_name["Cornflakes Bowl"].score.glycaemic_load_adjustment < 0
+    assert by_name["Lentil Bowl"].score.total > by_name["Cornflakes Bowl"].score.total
+
+
+def test_blood_sugar_stability_adjustment_zero_when_goal_not_active(db):
+    user = make_user(db, "gi-inactive@example.com")
+    profile = make_profile(db, user)
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    cornflakes = make_food(db, "Cornflakes", iron=10.0, energy=130)
+    lentils = make_food(db, "Lentils", iron=10.0, energy=130)
+    original = make_recipe(db, user, "Plain Rice Bowl", 1, [(rice, 200)])
+    make_recipe(db, user, "Cornflakes Bowl", 1, [(cornflakes, 200)])
+    make_recipe(db, user, "Lentil Bowl", 1, [(lentils, 200)])
+
+    result = run(db, profile, user, original, priority_nutrient_keys={"iron"})
+    assert len(result.suggestions) == 2
+    for s in result.suggestions:
+        assert s.score.glycaemic_load_adjustment == 0.0
+
+
 def test_deterministic_repeated_requests(db):
     user = make_user(db, "g@example.com")
     profile = make_profile(db, user)

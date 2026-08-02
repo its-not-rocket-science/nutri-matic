@@ -59,12 +59,15 @@ ranking exactly as much as rank-1 — violating goals.py's own documented
 1/rank multi-goal policy every other goal-driven signal follows) — see
 `score_candidate`'s `carbon_priority_weight` parameter. A recipe has no
 single tier of its own;
-`recommend_recipes._primary_ingredient_food` (the same by-mass-dominant
+`recommend_recipes.primary_ingredient_food` (the same by-mass-dominant
 ingredient already used for suggestion deduplication) stands in for "the
 recipe's food name" rather than inventing a second aggregation rule.
-`recommend_pairs.py`/`recommend_substitutions.py` are not wired — left
-for a further follow-up rather than assumed identical to the ingredient/
-recipe cases without its own review."""
+`recommend_pairs.py` uses the larger-quantity food of the pair as the
+same kind of stand-in (`recommend_pairs._primary_pair_food`) — a
+condiment-plus-base pair, the common case, makes this an easy call, the
+base dwarfs the condiment in mass. `recommend_substitutions.py` uses the
+replacement recipe's own `primary_ingredient_food`, same as
+`recommend_recipes.py`."""
 
 from typing import Literal
 
