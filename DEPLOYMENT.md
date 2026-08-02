@@ -24,6 +24,8 @@ matters — i.e. anywhere that isn't your own laptop.
 | `FRONTEND_URL` | Yes, once `SMTP_HOST` is set | `http://localhost:5173` | Base URL used to build the `/invite/{token}` join link sent in a clinician invite email — set to the real deployed frontend origin, or every invite email links back to localhost. |
 | `INVITE_RATE_LIMIT_PER_ACCOUNT` / `INVITE_RATE_LIMIT_PER_ACCOUNT_WINDOW_SECONDS` | No | `20` / `3600` | Per-clinician cap on outbound invite emails — see `app/invite_protection.py`. Only the unregistered-invite path (which actually sends email) counts against this. |
 | `INVITE_RATE_LIMIT_GLOBAL` / `INVITE_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `200` / `3600` | Global circuit breaker on total invite-email volume. Same in-process, per-instance caveat as `DEMO_RATE_LIMIT_GLOBAL` above. |
+| `RELEASE_VERSION` | No | unset | Backend release tag (the deployed commit SHA), used by Sentry for "which deploy introduced this error" triage — a no-op string if `SENTRY_DSN` isn't also set. Wired automatically end-to-end: `.github/workflows/deploy.yml`'s deploy job exports it into the SSH session that runs `docker compose up -d backend`, and `docker-compose.yml` threads it through to the container. No manual step needed on a normal deploy. |
+| `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE` | No | unset / `0.1` | Enables backend error monitoring — see `docs/monitoring.md` for the full picture (frontend equivalents, scrubbing policy, source maps, alerting). |
 
 ## Minimal production checklist
 

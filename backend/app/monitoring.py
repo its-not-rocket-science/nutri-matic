@@ -173,6 +173,49 @@ def init_monitoring() -> bool:
     return True
 
 
+def validate_monitoring_config() -> None:
+    """Operational-hardening prompt 4, requirement 1: production must not
+    silently run with no error monitoring at all. Call once, right after
+    `init_monitoring()` (see main.py) — a no-op when monitoring actually
+    initialised.
+
+    Deliberately a loud WARN, not the hard-fail-at-import pattern
+    `auth.py`'s `_resolve_jwt_secret`/`redis_rate_limit.
+    validate_rate_limit_config` use for `JWT_SECRET`/`REDIS_URL`: those
+    guard security and rate-limit *integrity*, where starting anyway
+    would be actively unsafe. Missing observability is a real
+    operational risk — but making the whole app's availability depend on
+    a third-party monitoring vendor being configured would itself be a
+    new production risk this app doesn't need; "can't see errors" is a
+    materially different failure mode than "forges auth tokens" or
+    "unlimited account creation". `requirement 1`'s own wording offers
+    "warn loudly OR fail" — this is the warn-loudly half.
+
+    The log call itself reaches container/CI stderr even with no
+    handler configured anywhere in this app (confirmed, not assumed —
+    see `test_warns_via_pythons_own_last_resort_handler_with_no_
+    configured_handler` in tests/test_monitoring.py): Python's logging
+    module falls back to printing WARNING+ records to stderr
+    (`logging.lastResort`) when no handler exists on the logger or any
+    ancestor up to root, which is exactly this app's situation before
+    `init_monitoring()` ever calls `sentry_sdk.init()` — so this is
+    visible in plain container logs regardless of whether Sentry itself
+    is reachable, not just useful once monitoring is already working."""
+    if is_initialized():
+        return
+    if os.environ.get("APP_ENV", "development") != "production":
+        return
+    logging.getLogger("app.monitoring").error(
+        "monitoring_not_configured",
+        extra={
+            "detail": (
+                "APP_ENV=production but SENTRY_DSN is unset — starting anyway, but running "
+                "with no error monitoring at all. Set SENTRY_DSN. See docs/monitoring.md."
+            )
+        },
+    )
+
+
 def alembic_head_and_current(database_url: str) -> tuple[str | None, str | None]:
     """Returns (current_revision, head_revision) for the readiness
     endpoint's migration-head check. `current` is read directly from the

@@ -1,0 +1,6 @@
+{
+	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"env": {
+		"PUBLIC_RELEASE_VERSION": "$VERCEL_GIT_COMMIT_SHA"
+	}
+}

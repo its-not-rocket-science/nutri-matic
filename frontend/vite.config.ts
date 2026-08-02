@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { defineConfig, loadEnv } from 'vite';
 
 // Public-launch hardening prompt 5: the backend origin varies per
@@ -113,8 +114,51 @@ export default defineConfig(({ mode }) => {
 						'frame-ancestors': ['none']
 					}
 				}
-			})
+			}),
+			// Operational-hardening prompt 4, requirement 3: source-map
+			// upload, gated on all three of SENTRY_AUTH_TOKEN/SENTRY_ORG/
+			// SENTRY_PROJECT being set — every local/dev/CI build today (no
+			// token configured anywhere) gets exactly the same plugin list
+			// as before this line existed. Only a production build step
+			// with all three set (an org-scoped Sentry API token, never
+			// committed — see docs/monitoring.md) actually uploads
+			// anything. Bundled with @sentry/sveltekit already (no new
+			// package.json dependency). `filesToDeleteAfterUpload` removes
+			// the .map files from the built output once Sentry has them —
+			// uploaded for symbolication, never served publicly (this
+			// prompt's own explicit instruction). UNVERIFIED against a real
+			// deploy — this session has no SENTRY_AUTH_TOKEN/org/project to
+			// test against; see docs/monitoring.md's manual checklist.
+			//
+			// Caught by PR review: requiring only SENTRY_AUTH_TOKEN let the
+			// plugin load with SENTRY_ORG/SENTRY_PROJECT missing, which
+			// fails the build with a Sentry config error instead of the
+			// documented optional no-op — now all three are required
+			// before the plugin is added at all.
+			...(env.SENTRY_AUTH_TOKEN && env.SENTRY_ORG && env.SENTRY_PROJECT
+				? [
+						sentryVitePlugin({
+							authToken: env.SENTRY_AUTH_TOKEN,
+							org: env.SENTRY_ORG,
+							project: env.SENTRY_PROJECT,
+							release: { name: env.PUBLIC_RELEASE_VERSION || undefined },
+							sourcemaps: {
+								filesToDeleteAfterUpload: ['**/*.map']
+							}
+						})
+					]
+				: [])
 		],
+		// Caught by PR review: Vite disables production source maps by
+		// default, so even with every Sentry credential set the plugin
+		// above would have had nothing to upload. Only generated when
+		// actually uploading — 'hidden' emits the .map files without a
+		// `//# sourceMappingURL=` comment in the shipped JS (never
+		// advertises a map the plugin is about to delete anyway), and
+		// costs nothing on ordinary builds where the plugin doesn't load.
+		build: {
+			sourcemap: env.SENTRY_AUTH_TOKEN && env.SENTRY_ORG && env.SENTRY_PROJECT ? 'hidden' : false
+		},
 		test: {
 			environment: 'node'
 		}
