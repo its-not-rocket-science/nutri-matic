@@ -18,6 +18,25 @@ services:
       timeout: 5s
       retries: 5
 
+  # Operational-hardening prompt 2: shared/durable store for the demo-
+  # endpoint rate limiter (see backend/app/redis_rate_limit.py). Included
+  # in the default local dev/test compose file so `docker compose up`
+  # gives a faithful environment out of the box — same reasoning as
+  # postgres above, not a separate opt-in setup step. Rate-limit data is
+  # inherently ephemeral (every key carries its own short TTL — see
+  # redis_rate_limit.py), so no volume/persistence is configured; a
+  # restart just means every counter starts fresh, same as the
+  # in-process fallback already did.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     environment:
@@ -30,10 +49,13 @@ services:
       # manager), never reuse the value below outside local development.
       JWT_SECRET: "1596dfe31d13c3682f357d84658459591506c44c91bb23eb8e063d12087e4799"
       CORS_ORIGINS: ${CORS_ORIGINS}
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
 volumes:

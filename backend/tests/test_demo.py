@@ -148,6 +148,60 @@ def test_demo_global_circuit_breaker_trips_before_per_ip_limit(client, monkeypat
     assert res.status_code == 429
 
 
+def test_demo_returns_503_not_a_silent_bypass_when_the_shared_store_errors(client, monkeypatch):
+    """requirement 7: this endpoint fails CLOSED, not open, when the
+    shared rate-limit store is configured but unreachable — a store
+    outage must never become "unlimited account creation". Simulated by
+    making get_redis_rate_limiter return a limiter whose hit() always
+    raises, regardless of whether a real Redis is available to this test
+    run — this is about demo_protection.py's own failure-handling code,
+    not Redis itself (see test_redis_rate_limit.py for the real-Redis
+    coverage)."""
+    import app.demo_protection as demo_protection
+    from app.redis_rate_limit import RateLimitStoreError
+
+    class _AlwaysBrokenLimiter:
+        def hit(self, key, limit, window_seconds):
+            raise RateLimitStoreError("simulated store outage")
+
+    monkeypatch.setattr(demo_protection, "get_redis_rate_limiter", lambda: _AlwaysBrokenLimiter())
+
+    res = client.post("/api/auth/demo")
+    assert res.status_code == 503
+    assert res.json()["detail"] == "Demo accounts are temporarily unavailable. Try again shortly."
+
+
+def test_demo_rate_limit_logs_never_include_the_raw_client_ip(client, monkeypatch, caplog):
+    """requirement 4/9: telemetry is counts/scope only, never the raw
+    client address — checked against the real log records emitted for
+    both a rate-limit trip and a store error, not just inferred from
+    reading the source."""
+    import app.demo_protection as demo_protection
+    from app.redis_rate_limit import RateLimitStoreError
+
+    monkeypatch.setattr(demo_protection, "DEMO_PER_IP_LIMIT", 1)
+    with caplog.at_level("WARNING", logger="app.demo"):
+        assert client.post("/api/auth/demo").status_code == 201
+        assert client.post("/api/auth/demo").status_code == 429
+    assert any(r.message == "demo_rate_limited" for r in caplog.records)
+
+    class _AlwaysBrokenLimiter:
+        def hit(self, key, limit, window_seconds):
+            raise RateLimitStoreError("simulated store outage")
+
+    monkeypatch.setattr(demo_protection, "get_redis_rate_limiter", lambda: _AlwaysBrokenLimiter())
+    with caplog.at_level("ERROR", logger="app.demo"):
+        client.post("/api/auth/demo")
+    assert any(r.message == "demo_rate_limit_store_error" for r in caplog.records)
+
+    # TestClient's synthetic client host/any real IP shape — never in the
+    # log text at all, for either event type
+    assert "testclient" not in caplog.text
+    for record in caplog.records:
+        assert not hasattr(record, "ip")
+        assert not hasattr(record, "client_ip")
+
+
 def test_demo_creation_failure_leaves_no_partial_account(client, monkeypatch):
     """create_demo_account does all its work in one session, committed
     once at the end — an exception partway through must leave zero rows

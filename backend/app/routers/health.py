@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from ..database import DATABASE_URL, get_db
 from ..monitoring import alembic_head_and_current
+from ..redis_rate_limit import REDIS_URL, RateLimitStoreError, get_redis_rate_limiter
 
 router = APIRouter(prefix="/api", tags=["health"])
 _logger = logging.getLogger("app.health")
@@ -79,5 +80,22 @@ def readiness(db: Session = Depends(get_db), database_url: str = Depends(get_dat
             status_code=503,
             detail=f"database schema not at migration head (current={current!r}, head={head!r})",
         )
+
+    # Operational-hardening prompt 2: only checked when REDIS_URL is
+    # actually configured — a dev/CI environment with no Redis at all is
+    # a legitimate, explicitly-selected local/test fallback (see
+    # redis_rate_limit.py's own docstring and validate_rate_limit_config,
+    # which already refuses to start at all if APP_ENV=production and
+    # REDIS_URL is unset), not something readiness should ever fail for.
+    # Once configured, an unreachable store must fail readiness — the
+    # rate limiter protecting POST /api/auth/demo silently degrading has
+    # the same "unlimited account creation" consequence a database
+    # outage has for everything else this endpoint checks.
+    if REDIS_URL:
+        redis_limiter = get_redis_rate_limiter()
+        try:
+            redis_limiter.ping()
+        except RateLimitStoreError as exc:
+            raise HTTPException(status_code=503, detail=f"rate limit store unavailable: {exc}")
 
     return {"status": "ready"}
