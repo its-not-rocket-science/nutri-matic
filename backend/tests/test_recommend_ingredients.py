@@ -493,6 +493,51 @@ def test_carbon_footprint_adjustment_zero_when_goal_not_active(db):
         assert s.score.carbon_footprint_adjustment == 0.0
 
 
+def test_blood_sugar_stability_goal_favours_lower_gi_tier_candidate(db):
+    """blood_sugar_stability active: two curated, equally-eligible
+    candidates close the exact same real iron gap by the exact same
+    amount — the only thing that can separate them is
+    glycaemic_tier_for_food: "Raisins" matches the medium GI tier,
+    "Lentils" the low tier (no curated food cleanly matches the high
+    tier — that stronger swing is covered directly in
+    test_recommendation_scoring.py and, with a food not constrained to
+    the curated allowlist, in test_recommend_recipes.py)."""
+    profile = make_profile(db, goal="blood_sugar_stability")
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Raisins", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    by_name = {s.food_name: s for s in result.suggestions}
+    assert set(by_name) == {"Raisins", "Lentils"}
+    assert by_name["Lentils"].score.glycaemic_load_adjustment > 0
+    assert by_name["Raisins"].score.glycaemic_load_adjustment == 0.0  # medium tier — neutral
+    assert by_name["Lentils"].score.total > by_name["Raisins"].score.total
+
+
+def test_blood_sugar_stability_weight_scales_with_goal_priority_rank(db):
+    profile = make_profile(db)
+    profile.goals = ["exploring", "blood_sugar_stability"]  # rank 2 -> weight 0.5
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    weights = ScoringWeights()
+    assert result.suggestions[0].score.glycaemic_load_adjustment == pytest.approx(weights.glycaemic_low_bonus * 0.5)
+
+
+def test_blood_sugar_stability_adjustment_zero_when_goal_not_active(db):
+    profile = make_profile(db)
+    current = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    make_food(db, "Raisins", iron=10.0 / 30 * 100, energy=0.0)
+    make_food(db, "Lentils", iron=10.0 / 130 * 100, energy=0.0)
+
+    result = run(db, profile, current, priority_nutrient_keys={"iron"})
+    assert len(result.suggestions) == 2
+    for s in result.suggestions:
+        assert s.score.glycaemic_load_adjustment == 0.0
+
+
 @pytest.fixture
 def client():
     """The live demo-day regression fixture, end to end through the real

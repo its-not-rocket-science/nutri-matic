@@ -218,6 +218,32 @@ def test_carbon_footprint_adjustment_scaled_by_priority_weight():
     assert half_weight.carbon_footprint_adjustment == pytest.approx(full_weight.carbon_footprint_adjustment * 0.5)
 
 
+def test_glycaemic_load_neutral_when_no_tier_given():
+    result = score_candidate([], [], glycaemic_tier=None)
+    assert result.glycaemic_load_adjustment == 0.0
+
+
+def test_glycaemic_load_neutral_for_medium_tier():
+    result = score_candidate([], [], glycaemic_tier="medium")
+    assert result.glycaemic_load_adjustment == 0.0
+
+
+def test_glycaemic_load_penalty_for_high_tier():
+    result = score_candidate([], [], glycaemic_tier="high")
+    assert result.glycaemic_load_adjustment < 0.0
+
+
+def test_glycaemic_load_bonus_for_low_tier():
+    result = score_candidate([], [], glycaemic_tier="low")
+    assert result.glycaemic_load_adjustment > 0.0
+
+
+def test_glycaemic_load_adjustment_scaled_by_priority_weight():
+    full_weight = score_candidate([], [], glycaemic_tier="high", glycaemic_priority_weight=1.0)
+    half_weight = score_candidate([], [], glycaemic_tier="high", glycaemic_priority_weight=0.5)
+    assert half_weight.glycaemic_load_adjustment == pytest.approx(full_weight.glycaemic_load_adjustment * 0.5)
+
+
 def test_practicality_neutral_when_no_data():
     result = score_candidate([], [], practicality=None)
     assert result.practicality == 0.0
@@ -252,6 +278,7 @@ def test_score_breakdown_total_equals_component_sum():
         + result.dietary_fit
         + result.practicality
         + result.carbon_footprint_adjustment
+        + result.glycaemic_load_adjustment
         - result.upper_limit_penalty
         - result.above_preferred_penalty
         - result.energy_overshoot_penalty
@@ -279,6 +306,7 @@ def test_score_breakdown_total_equals_component_sum_with_multi_nutrient_bonus():
         + result.dietary_fit
         + result.practicality
         + result.carbon_footprint_adjustment
+        + result.glycaemic_load_adjustment
         - result.upper_limit_penalty
         - result.above_preferred_penalty
         - result.energy_overshoot_penalty

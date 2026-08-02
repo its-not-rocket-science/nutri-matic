@@ -66,6 +66,7 @@ def _score_breakdown_out(score: ScoreBreakdown) -> schemas.ScoreBreakdownOut:
         uncertainty_penalty=score.uncertainty_penalty,
         implausible_serving_penalty=score.implausible_serving_penalty,
         carbon_footprint_adjustment=score.carbon_footprint_adjustment,
+        glycaemic_load_adjustment=score.glycaemic_load_adjustment,
         total=score.total,
         model_version=score.model_version,
     )

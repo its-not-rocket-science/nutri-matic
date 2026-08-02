@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from .aggregation import ProteinQualityResult
 from .carbon_footprint import CarbonTier
 from .dietary_tags import Suitability
+from .glycaemic_load import GlycaemicTier
 from .nutrient_gap_analysis import NutrientGapResult, NutrientStatus
 
 # Bump whenever ScoringWeights' defaults, the scoring formula itself, or
@@ -42,7 +43,7 @@ from .nutrient_gap_analysis import NutrientGapResult, NutrientStatus
 # section) for why a cache key needs this, and prompt 14's maintainer
 # instructions for when to bump it. Not tied to the feature's own prompt
 # numbering — this only tracks the scoring formula/weights.
-RECOMMENDATION_MODEL_VERSION = 2
+RECOMMENDATION_MODEL_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,12 @@ class ScoringWeights:
     carbon_very_high_penalty: float = 0.4
     carbon_high_penalty: float = 0.2
     carbon_low_bonus: float = 0.1
+    # glycaemic_load_adjustment — same gating/priority-weighting contract
+    # as the carbon terms above, see glycaemic_load.py's own docstring for
+    # why this one carries an even sharper coarse-tiering caveat than
+    # carbon does.
+    glycaemic_high_penalty: float = 0.3
+    glycaemic_low_bonus: float = 0.1
 
 
 DEFAULT_WEIGHTS = ScoringWeights()
@@ -142,6 +149,11 @@ class ScoreBreakdown:
     # exactly 0.0 (medium tier, no tier data, or the goal wasn't active for
     # this caller) — see ScoringWeights.carbon_very_high_penalty's docstring
     carbon_footprint_adjustment: float
+    # positive (low-GI bonus), negative (high-GI penalty), or exactly 0.0
+    # (medium tier, no tier data — including the deliberately-untiered
+    # bread/rice/potato/banana staples, see glycaemic_load.py — or the
+    # goal wasn't active for this caller)
+    glycaemic_load_adjustment: float
     total: float
     # which scoring-formula version produced this breakdown — hardening
     # prompt 3, same constant every ScoreBreakdown this module produces
@@ -294,6 +306,17 @@ def _carbon_footprint_adjustment(tier: CarbonTier | None, priority_weight: float
     return 0.0
 
 
+def _glycaemic_load_adjustment(tier: GlycaemicTier | None, priority_weight: float, weights: ScoringWeights) -> float:
+    """Same shape as `_carbon_footprint_adjustment` — see that function's
+    docstring for the `priority_weight` contract. "medium" and "no tier
+    data" both stay neutral, same reasoning as carbon's "medium"."""
+    if tier == "high":
+        return -weights.glycaemic_high_penalty * priority_weight
+    if tier == "low":
+        return weights.glycaemic_low_bonus * priority_weight
+    return 0.0
+
+
 def _practicality(practicality: PracticalityInput | None, weights: ScoringWeights) -> tuple[float, float]:
     if practicality is None or practicality.is_plausible_serving is None:
         return 0.0, 0.0  # no data — neutral, never guessed either way
@@ -316,6 +339,8 @@ def score_candidate(
     practicality: PracticalityInput | None = None,
     carbon_tier: CarbonTier | None = None,
     carbon_priority_weight: float = 1.0,
+    glycaemic_tier: GlycaemicTier | None = None,
+    glycaemic_priority_weight: float = 1.0,
     weights: ScoringWeights = DEFAULT_WEIGHTS,
 ) -> ScoreBreakdown:
     """Scores one already-simulated candidate — `before_gaps`/`after_gaps`
@@ -337,6 +362,10 @@ def score_candidate(
     function has no way to look that up itself, so a caller passing a
     real `carbon_tier` must also resolve and pass the matching weight
     (see goals.py's documented 1/rank multi-goal policy).
+
+    `glycaemic_tier`/`glycaemic_priority_weight` are `carbon_tier`/
+    `carbon_priority_weight`'s exact counterparts for the
+    blood_sugar_stability goal — see glycaemic_load.py.
     """
     gap_reduction, multi_nutrient_bonus, improved = _gap_reduction(before_gaps, after_gaps, weights)
     excess = _excess_penalty(before_gaps, after_gaps, weights)
@@ -350,6 +379,7 @@ def score_candidate(
     uncertainty_penalty = _uncertainty_penalty(ingredient_confidence, candidate_data_coverage, weights)
     practicality_bonus, serving_penalty = _practicality(practicality, weights)
     carbon_footprint_adjustment = _carbon_footprint_adjustment(carbon_tier, carbon_priority_weight, weights)
+    glycaemic_load_adjustment = _glycaemic_load_adjustment(glycaemic_tier, glycaemic_priority_weight, weights)
 
     total = (
         gap_reduction
@@ -358,6 +388,7 @@ def score_candidate(
         + dietary_fit
         + practicality_bonus
         + carbon_footprint_adjustment
+        + glycaemic_load_adjustment
         - upper_limit_penalty
         - above_preferred_penalty
         - energy_overshoot_penalty
@@ -377,6 +408,7 @@ def score_candidate(
         uncertainty_penalty=uncertainty_penalty,
         implausible_serving_penalty=serving_penalty,
         carbon_footprint_adjustment=carbon_footprint_adjustment,
+        glycaemic_load_adjustment=glycaemic_load_adjustment,
         total=total,
         nutrients_improved=improved,
         nutrients_worsened=worsened,

@@ -342,17 +342,27 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 		</li>
 	</ul>
 	<p>
-		<strong>Reduce carbon footprint</strong> is selectable but honestly doesn't change any
-		recommendation yet. USDA FoodData Central (this app's only data source) doesn't publish
-		per-food greenhouse-gas or land-use figures, and there's no supplementary emissions dataset
-		joined against the catalogue. Wiring this goal into candidate ranking is flagged as
-		follow-up work rather than forced in at low confidence now.
+		<strong>Reduce carbon footprint</strong> and <strong>blood-sugar stability</strong> both give
+		ingredient/recipe suggestions a modest nudge toward lower-tier candidates, using the same
+		priority-weighted-by-rank policy as the nutrient-emphasis goals above. Neither is a precise
+		per-food measurement — USDA FoodData Central (this app's only data source) doesn't publish
+		per-food greenhouse-gas/land-use figures or glycaemic-index values, and no supplementary
+		dataset is joined against the catalogue. Both instead use coarse, name-keyword category
+		tiering anchored to published research (food-system life-cycle-assessment literature for
+		carbon; the Foster-Powell/University of Sydney glycaemic-index tables for blood sugar) —
+		honestly low-confidence, never a fabricated precise figure. Blood-sugar stability is the
+		more conservative of the two: common staples like bread, rice, potato, and banana are
+		deliberately left untiered altogether, because their real glycaemic impact varies too much
+		by preparation, variety, and ripeness for a name alone to reliably classify.
 	</p>
 	<p class="muted">
-		Not implemented, for the same honesty reasons: a blood-sugar-stability goal (would need
-		glycaemic-index/load data FDC doesn't publish for most foods) and a broader
-		recovery/anti-inflammatory goal beyond the omega-3 signal already covered under longevity
-		(would need polyphenol/antioxidant data FDC doesn't track at all).
+		Not implemented, for a different reason than a missing dataset: a broader
+		recovery/anti-inflammatory goal beyond the omega-3 signal already covered under longevity.
+		USDA published an antioxidant-capacity (ORAC) database and then withdrew it in 2012,
+		citing no evidence that a food's lab-measured antioxidant capacity translates into a real
+		antioxidant or anti-inflammatory effect in the body — so even where polyphenol/antioxidant
+		composition data exists elsewhere, wiring it in as an "anti-inflammatory" signal would be
+		overstating what the science actually supports.
 	</p>
 </section>
 
@@ -415,9 +425,9 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 <section id="limitations">
 	<h2>What this app doesn't do</h2>
 	<ul>
-		<li>No phytate, tannin, oxalate, or polyphenol data — real inhibitors of mineral absorption that FDC simply doesn't track.</li>
-		<li>No glycaemic-index/load data — a type 2 diabetes condition is stored for reference (see Profile) but doesn't weight suggestions against high-glycaemic-load foods; FDC doesn't publish that figure for the large majority of foods.</li>
-		<li>No per-food carbon-footprint/emissions data — the "reduce carbon footprint" goal is selectable but doesn't change recommendations yet; see the Goals section above.</li>
+		<li>No phytate, tannin, oxalate, or polyphenol data — real inhibitors of mineral absorption that FDC simply doesn't track. (This is also why there's no broader antioxidant/anti-inflammatory goal — see the Goals section above for why that's a science gap, not just a data one.)</li>
+		<li>No real glycaemic-index/load data — a type 2 diabetes condition is stored for reference (see Profile). The "blood-sugar stability" goal uses a coarse, name-based tier estimate instead (see the Goals section above), not a measured figure; FDC doesn't publish real GI values for the large majority of foods.</li>
+		<li>No real per-food carbon-footprint/emissions data — the "reduce carbon footprint" goal uses a coarse, name-based tier estimate instead (see the Goals section above), not a measured figure.</li>
 		<li>Branded/packaged foods can't be scored for protein quality — nutrition labels don't publish amino acid profiles.</li>
 		<li>"Estimated" digestibility and iron-split values are broad category averages, not measurements of the specific food in front of you.</li>
 		<li>DRV confidence varies a lot by nutrient — some increments are confirmed against a live source, others are commonly-cited figures recalled from secondary sources. Hover any nutrient for its specific note.</li>

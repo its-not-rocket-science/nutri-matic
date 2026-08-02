@@ -783,6 +783,11 @@ export interface ScoreBreakdown {
 	// exactly 0 (medium tier, no tier data, or reduce_carbon_footprint
 	// wasn't an active goal for this suggestion)
 	carbon_footprint_adjustment: number;
+	// positive (low-GI bonus), negative (high-GI penalty), or exactly 0
+	// (medium tier, no tier data — including the deliberately-untiered
+	// bread/rice/potato/banana staples, see the backend's
+	// glycaemic_load.py — or blood_sugar_stability wasn't active)
+	glycaemic_load_adjustment: number;
 	total: number;
 	model_version: number;
 }
