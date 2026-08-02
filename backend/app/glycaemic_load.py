@@ -51,9 +51,9 @@ WIRED INTO CANDIDATE RANKING the same way reduce_carbon_footprint is
 `recommendation_scoring.score_candidate` takes an optional
 `glycaemic_tier`, applies a deliberately modest bonus/penalty scaled by
 `goals.goal_weight(rank)` for wherever blood_sugar_stability sits in the
-profile's ranked goal list, and both `recommend_ingredients.py`/
-`recommend_recipes.py` only ever resolve a tier when that goal is
-actually active for the profile."""
+profile's ranked goal list, and every recommend_*.py module (ingredients,
+recipes, pairs, substitutions) only ever resolves a tier when that goal
+is actually active for the profile."""
 
 from typing import Literal
 
