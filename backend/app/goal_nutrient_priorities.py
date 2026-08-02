@@ -61,21 +61,28 @@ way to verify for any individual:
   distinction from strength training's slower, more sustained
   contractions), zinc.
 
-Deliberately NOT implemented, despite being reasonable candidates —
+Deliberately NOT implemented, despite being a reasonable candidate —
 flagged rather than forced in with weak support, per this prompt's own
 instruction:
 
-- blood-sugar stability: would need glycaemic-index/load data this
-  app's FDC-derived catalogue doesn't carry for the large majority of
-  foods (GI is a lab-measured value FDC doesn't publish).
 - a broader "recovery/anti-inflammatory" goal beyond the omega-3 signal
-  already covered under longevity: would need polyphenol/antioxidant
-  data FDC doesn't track at all.
+  already covered under longevity: this one isn't a missing-data
+  problem the way the others are — USDA published an antioxidant-
+  capacity (ORAC) database and then withdrew it in 2012, stating there
+  was no evidence a food's measured antioxidant capacity translates
+  into a real antioxidant/anti-inflammatory effect in the body. Wiring
+  in polyphenol/antioxidant composition data as an "anti-inflammatory"
+  signal (even data that does exist, e.g. Phenol-Explorer) would
+  overstate what the underlying science actually supports.
 
-reduce_carbon_footprint is intentionally absent from this module — it's
-a property of candidate *foods* (see carbon_footprint.py's coarse,
-explicitly low-confidence category tiering), not a nutrient target, so
-it doesn't fit `_find_worst_gap`'s nutrient-gap model at all.
+reduce_carbon_footprint and blood_sugar_stability are both intentionally
+absent from this module — each is a property of candidate *foods* (see
+carbon_footprint.py's/glycaemic_load.py's coarse, explicitly
+low-confidence category tiering), not a nutrient target, so neither fits
+`_find_worst_gap`'s nutrient-gap model at all. Both instead feed
+`recommendation_scoring.score_candidate` directly (see
+recommend_ingredients.py/recommend_recipes.py) — a separate mechanism
+from everything else in this module.
 """
 
 from .goals import goal_weight

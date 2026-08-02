@@ -1281,6 +1281,7 @@ class ScoreBreakdownOut(BaseModel):
     uncertainty_penalty: float
     implausible_serving_penalty: float
     carbon_footprint_adjustment: float
+    glycaemic_load_adjustment: float
     total: float
     model_version: int
 

@@ -330,6 +330,43 @@ def test_carbon_footprint_recipe_adjustment_zero_when_goal_not_active(db):
         assert s.score.carbon_footprint_adjustment == 0.0
 
 
+def test_blood_sugar_stability_goal_favours_lower_gi_tier_recipe(db):
+    """blood_sugar_stability active: two single-ingredient recipes close
+    the exact same real iron gap by the exact same amount — the only
+    thing that can separate them is glycaemic_tier_for_food on each
+    recipe's primary ingredient: "Cornflakes" is high GI, "Lentils" is
+    low."""
+    user = make_user(db, "gi-active@example.com")
+    profile = make_profile(db, user, goal="blood_sugar_stability")
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    cornflakes = make_food(db, "Cornflakes", iron=10.0, energy=0.0)
+    lentils = make_food(db, "Lentils", iron=10.0, energy=0.0)
+    make_recipe(db, user, "Cornflakes Bowl", 1, [(cornflakes, 100)])
+    make_recipe(db, user, "Lentil Soup", 1, [(lentils, 100)])
+
+    result = run(db, profile, user, rice, priority_nutrient_keys={"iron"})
+    by_name = {s.recipe_name: s for s in result.suggestions}
+    assert set(by_name) == {"Cornflakes Bowl", "Lentil Soup"}
+    assert by_name["Lentil Soup"].score.glycaemic_load_adjustment > 0
+    assert by_name["Cornflakes Bowl"].score.glycaemic_load_adjustment < 0
+    assert by_name["Lentil Soup"].score.total > by_name["Cornflakes Bowl"].score.total
+
+
+def test_blood_sugar_stability_recipe_adjustment_zero_when_goal_not_active(db):
+    user = make_user(db, "gi-inactive@example.com")
+    profile = make_profile(db, user)
+    rice = make_food(db, "White rice, cooked", energy=130, iron=0.1)
+    cornflakes = make_food(db, "Cornflakes", iron=10.0, energy=0.0)
+    lentils = make_food(db, "Lentils", iron=10.0, energy=0.0)
+    make_recipe(db, user, "Cornflakes Bowl", 1, [(cornflakes, 100)])
+    make_recipe(db, user, "Lentil Soup", 1, [(lentils, 100)])
+
+    result = run(db, profile, user, rice, priority_nutrient_keys={"iron"})
+    assert len(result.suggestions) == 2
+    for s in result.suggestions:
+        assert s.score.glycaemic_load_adjustment == 0.0
+
+
 def test_no_recipes_visible_returns_empty(db):
     user = make_user(db, "empty@example.com")
     profile = make_profile(db, user)

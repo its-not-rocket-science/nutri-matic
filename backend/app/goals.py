@@ -29,15 +29,16 @@ from .models import Profile, ProfileGoal
 # energy_goal.py's WEIGHT_LOSS_GOALS. longevity/athletic_stamina/
 # athletic_strength/athletic_power drive nutrient-priority weighting in
 # gap-suggestions/meal-optimize — see goal_nutrient_priorities.py.
-# reduce_carbon_footprint nudges candidate ranking in recommend_
-# ingredients.py/recommend_recipes.py via recommendation_scoring.
-# score_candidate's carbon_tier — see carbon_footprint.py's module
-# docstring for how and why it's deliberately modest/gated.
+# reduce_carbon_footprint/blood_sugar_stability both nudge candidate
+# ranking in recommend_ingredients.py/recommend_recipes.py via
+# recommendation_scoring.score_candidate's carbon_tier/glycaemic_tier —
+# see carbon_footprint.py's/glycaemic_load.py's own module docstrings for
+# how and why each is deliberately modest/gated.
 VALID_GOALS = {
     "protein_quality", "nutrient_gaps", "budget", "exploring",
     "weight_loss", "visceral_fat_reduction",
     "longevity", "athletic_stamina", "athletic_strength", "athletic_power",
-    "reduce_carbon_footprint",
+    "reduce_carbon_footprint", "blood_sugar_stability",
 }
 
 
@@ -97,6 +98,19 @@ def goal_weight(rank: int) -> float:
     """1-indexed priority rank -> relative scoring weight. See module
     docstring for the 1/rank policy."""
     return 1.0 / rank
+
+
+def goal_priority_weight(goal_keys: list[str], goal_key: str) -> float | None:
+    """`goal_weight` for `goal_key`'s actual position in `goal_keys`
+    (highest priority first — see `goal_keys_of`), or None if it isn't
+    active at all. Centralises the "resolve rank, then weight" pattern a
+    goal-gated scoring signal needs (carbon_footprint.py/glycaemic_load.py)
+    so it can't be reimplemented as a flat on/off check by accident — see
+    recommendation_scoring.score_candidate's carbon_priority_weight
+    docstring for why that distinction matters."""
+    if goal_key not in goal_keys:
+        return None
+    return goal_weight(goal_keys.index(goal_key) + 1)
 
 
 def replace_goals(db: Session, profile: Profile, goals: list[str]) -> None:

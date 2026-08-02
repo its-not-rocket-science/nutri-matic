@@ -31,8 +31,9 @@ from .aggregation import (
     scale_recipe_ingredients,
 )
 from .carbon_footprint import carbon_tier_for_food
+from .glycaemic_load import glycaemic_tier_for_food
 from .dietary_filter import filter_excluded_recipes, recipes_dietary_status
-from .goals import goal_keys_of, goal_weight
+from .goals import goal_keys_of, goal_priority_weight
 from .models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare, RobustnessResult, User, Profile
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
 from .nutrient_targets import AnalysisPeriod, NutrientTarget, adjust_target_for_remaining, resolve_nutrient_target
@@ -158,11 +159,12 @@ def _candidate_pool(
 def _primary_ingredient_food(items: list[WeightedFood]) -> Food | None:
     """The ingredient contributing the most mass — a real, inspectable
     signal (not a fabricated "recipe family"), used both to deduplicate
-    near-identical suggestions (prompt 7's diversity rule) and, when the
-    reduce_carbon_footprint goal is active, as the recipe's own stand-in
-    for carbon_tier_for_food (a recipe has no single carbon tier of its
-    own — the ingredient that dominates the recipe's mass is the most
-    honest single food name to tier)."""
+    near-identical suggestions (prompt 7's diversity rule) and, when
+    reduce_carbon_footprint or blood_sugar_stability is active, as the
+    recipe's own stand-in for carbon_tier_for_food/glycaemic_tier_for_food
+    (a recipe has no single tier of its own for either — the ingredient
+    that dominates the recipe's mass is the most honest single food name
+    to tier)."""
     if not items:
         return None
     return max(items, key=lambda i: i.quantity_g).food
@@ -227,10 +229,8 @@ def suggest_recipes(
     # identical comment/PR-review-caught issue for why a flat on/off check
     # isn't enough (goals.py's documented 1/rank multi-goal policy).
     goal_keys = goal_keys_of(profile)
-    carbon_priority_weight = (
-        goal_weight(goal_keys.index("reduce_carbon_footprint") + 1)
-        if "reduce_carbon_footprint" in goal_keys else None
-    )
+    carbon_priority_weight = goal_priority_weight(goal_keys, "reduce_carbon_footprint")
+    glycaemic_priority_weight = goal_priority_weight(goal_keys, "blood_sugar_stability")
     if priority_nutrient_keys is None and goal is not None:
         priority_nutrient_keys = GOAL_PRESETS.get(goal)
 
@@ -334,10 +334,14 @@ def suggest_recipes(
             candidate_data_coverage = min(candidate_data_coverage or 1.0, 0.6)
 
         carbon_tier = None
-        if carbon_priority_weight is not None:
+        glycaemic_tier = None
+        if carbon_priority_weight is not None or glycaemic_priority_weight is not None:
             primary_food = _primary_ingredient_food(recipe_items_at_1_serving)
             if primary_food is not None:
-                carbon_tier = carbon_tier_for_food(primary_food.name)
+                if carbon_priority_weight is not None:
+                    carbon_tier = carbon_tier_for_food(primary_food.name)
+                if glycaemic_priority_weight is not None:
+                    glycaemic_tier = glycaemic_tier_for_food(primary_food.name)
 
         score = score_candidate(
             before_gaps, after_gaps, energy_added=energy_added, max_additional_energy=max_additional_energy,
@@ -345,7 +349,9 @@ def suggest_recipes(
             dietary_suitability=suitability, ingredient_confidence=ingredient_confidence,
             candidate_data_coverage=candidate_data_coverage,
             practicality=PracticalityInput(is_plausible_serving=True),  # a recipe's own serving size is always "plausible" by definition
-            carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0, weights=weights,
+            carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
+            glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            weights=weights,
         )
         if score.total <= 0:
             rejected.append(RejectedRecipe(recipe.name, "did not meaningfully improve the current gaps"))

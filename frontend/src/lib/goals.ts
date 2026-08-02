@@ -12,9 +12,11 @@
 // meal-optimize — see the backend's goal_nutrient_priorities.py for the
 // evidence basis behind each one, and why the three athletic goals are
 // deliberately distinct rather than one generic "athlete" bucket.
-// reduce_carbon_footprint is selectable but doesn't yet change what's
-// recommended — see the backend's carbon_footprint.py for why (an honest,
-// documented gap: no per-food emissions data source is available yet).
+// reduce_carbon_footprint/blood_sugar_stability both give ingredient/
+// recipe suggestions a deliberately modest nudge toward lower-tier
+// candidates — see the backend's carbon_footprint.py/glycaemic_load.py
+// for the coarse, low-confidence, name-keyword tiering behind each (an
+// honestly-labelled nudge, not a precise per-food measurement).
 export type Goal =
 	| 'protein_quality'
 	| 'nutrient_gaps'
@@ -26,7 +28,8 @@ export type Goal =
 	| 'athletic_stamina'
 	| 'athletic_strength'
 	| 'athletic_power'
-	| 'reduce_carbon_footprint';
+	| 'reduce_carbon_footprint'
+	| 'blood_sugar_stability';
 
 export const GOAL_OPTIONS: { value: Goal; label: string }[] = [
 	{ value: 'protein_quality', label: 'Track protein quality' },
@@ -39,7 +42,8 @@ export const GOAL_OPTIONS: { value: Goal; label: string }[] = [
 	{ value: 'athletic_stamina', label: 'Athletic performance — stamina/endurance' },
 	{ value: 'athletic_strength', label: 'Athletic performance — strength' },
 	{ value: 'athletic_power', label: 'Athletic performance — power' },
-	{ value: 'reduce_carbon_footprint', label: 'Reduce carbon footprint' }
+	{ value: 'reduce_carbon_footprint', label: 'Reduce carbon footprint' },
+	{ value: 'blood_sugar_stability', label: 'Blood-sugar stability' }
 ];
 
 export const GOAL_MESSAGES: Record<Goal, string> = {
@@ -61,7 +65,9 @@ export const GOAL_MESSAGES: Record<Goal, string> = {
 	athletic_power:
 		'Gap-suggestions and meal-optimize now give extra weight to protein, phosphorus, and zinc — phosphorus specifically for the fast ATP/phosphocreatine energy system explosive training draws on.',
 	reduce_carbon_footprint:
-		"We don't have a reliable per-food carbon-footprint data source yet, so this doesn't change recommendations today — set as a marker of intent for now; see the methodology page for the honest reason why."
+		'Ingredient and recipe suggestions now give a modest nudge toward lower-carbon-footprint candidates — a coarse, name-based estimate, not a precise per-food measurement; see the methodology page for the honest limits.',
+	blood_sugar_stability:
+		'Ingredient and recipe suggestions now give a modest nudge toward lower-glycaemic-impact candidates — a coarse, name-based estimate (common staples like bread, rice, potato, and banana are deliberately left untiered, since their real impact varies too much by preparation to estimate from the name alone); see the methodology page for the honest limits.'
 };
 
 // weight_loss/visceral_fat_reduction only — the two goals that actually

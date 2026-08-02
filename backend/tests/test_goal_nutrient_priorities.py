@@ -55,6 +55,13 @@ def test_carbon_footprint_goal_has_no_nutrient_emphasis():
     assert "reduce_carbon_footprint" not in GOAL_NUTRIENT_EMPHASIS
 
 
+def test_blood_sugar_stability_goal_has_no_nutrient_emphasis():
+    """Same reasoning as reduce_carbon_footprint — blood_sugar_stability
+    is a food-level signal (see glycaemic_load.py), not a nutrient-gap
+    one, so it must not appear here either."""
+    assert "blood_sugar_stability" not in GOAL_NUTRIENT_EMPHASIS
+
+
 def test_every_emphasized_nutrient_is_actually_optimisation_eligible():
     """PR review: epa/dha (no individual DRV — only a combined EPA+DHA
     target) and sodium (a maximum-guideline nutrient with no upward
