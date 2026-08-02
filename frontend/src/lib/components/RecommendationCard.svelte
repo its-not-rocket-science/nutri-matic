@@ -55,22 +55,41 @@
 		{ key: 'implausible_serving_penalty', label: 'Unusual serving size', sign: '−' }
 	];
 
+	// carbon_footprint_adjustment/glycaemic_load_adjustment are the two
+	// terms that can be a bonus OR a penalty depending on the candidate's
+	// own tier, not fixed like every other row — sign/label follow the
+	// actual value here rather than a static BREAKDOWN_ROWS entry.
+	const DUAL_SIGN_ROWS: {
+		key: 'carbon_footprint_adjustment' | 'glycaemic_load_adjustment';
+		positiveLabel: string;
+		negativeLabel: string;
+	}[] = [
+		{
+			key: 'carbon_footprint_adjustment',
+			positiveLabel: 'Lower carbon footprint',
+			negativeLabel: 'Higher carbon footprint'
+		},
+		{
+			key: 'glycaemic_load_adjustment',
+			positiveLabel: 'Lower glycaemic impact',
+			negativeLabel: 'Higher glycaemic impact'
+		}
+	];
+
 	function breakdownRows(breakdown: ScoreBreakdown) {
 		const rows = BREAKDOWN_ROWS.map((row) => ({ ...row, value: breakdown[row.key] as number })).filter(
 			(row) => Math.abs(row.value) > 0.005
 		);
-		// carbon_footprint_adjustment is the one term that's a bonus OR a
-		// penalty depending on the candidate's own carbon tier, not fixed
-		// like every other row — sign/label follow the actual value here
-		// rather than a static config entry.
-		const carbon = breakdown.carbon_footprint_adjustment;
-		if (Math.abs(carbon) > 0.005) {
-			rows.push({
-				key: 'carbon_footprint_adjustment',
-				label: carbon > 0 ? 'Lower carbon footprint' : 'Higher carbon footprint',
-				sign: carbon > 0 ? '+' : '−',
-				value: carbon
-			});
+		for (const row of DUAL_SIGN_ROWS) {
+			const value = breakdown[row.key];
+			if (Math.abs(value) > 0.005) {
+				rows.push({
+					key: row.key,
+					label: value > 0 ? row.positiveLabel : row.negativeLabel,
+					sign: value > 0 ? '+' : '−',
+					value
+				});
+			}
 		}
 		return rows;
 	}
