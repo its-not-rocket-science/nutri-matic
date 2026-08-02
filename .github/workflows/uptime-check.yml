@@ -1,0 +1,48 @@
+# Operational-hardening prompt 4, requirement 7: "uptime checks" —
+# achievable entirely from this repository, without needing external
+# SaaS credentials (UptimeRobot/Pingdom/etc. all require an account this
+# session has no way to create or verify). Runs the same read-only
+# app/smoke_check.py a human already runs manually post-deploy (see
+# docs/monitoring.md), on a schedule instead, against the public
+# frontend/backend URLs only — no --include-demo-flow, no DATABASE_URL:
+# production Postgres isn't reachable from a public runner anyway (see
+# demo-purge.yml's own note on this), and an uptime check has no reason
+# to write anything.
+#
+# A failed run shows as a red X on this workflow and (depending on each
+# watcher's own GitHub notification settings) an email/notification —
+# this is a genuine, always-on signal, but it is NOT the same as a
+# paged on-call alert with a named owner; see docs/monitoring.md's own
+# "alert ownership: not assigned" caveat, which still applies here.
+name: Uptime check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # every 15 minutes
+  workflow_dispatch: {}
+
+concurrency:
+  group: uptime-check
+  cancel-in-progress: true
+
+jobs:
+  smoke-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Run read-only smoke check against production
+        working-directory: backend
+        run: |
+          python -m app.smoke_check \
+            --backend-url https://api.nutri-matic.uk \
+            --frontend-url https://nutri-matic.uk

@@ -5,7 +5,7 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .monitoring import init_monitoring
+from .monitoring import init_monitoring, validate_monitoring_config
 from .redis_rate_limit import validate_rate_limit_config
 from .routers import (
     account,
@@ -40,6 +40,11 @@ from .routers import (
 # No-op unless SENTRY_DSN is set — see app/monitoring.py and
 # docs/monitoring.md (operational-hardening prompt 5).
 init_monitoring()
+# Operational-hardening prompt 4, requirement 1: logs a loud ERROR (never
+# raises — see validate_monitoring_config's own docstring for why this is
+# deliberately not the hard-fail-at-import pattern JWT_SECRET/REDIS_URL
+# use) if APP_ENV=production and SENTRY_DSN was never set.
+validate_monitoring_config()
 
 # Operational-hardening prompt 2, requirement 10: raises (refusing to
 # start) if APP_ENV=production and REDIS_URL isn't set — same fail-fast-

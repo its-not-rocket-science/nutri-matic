@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { defineConfig, loadEnv } from 'vite';
 
 // Public-launch hardening prompt 5: the backend origin varies per
@@ -113,7 +114,34 @@ export default defineConfig(({ mode }) => {
 						'frame-ancestors': ['none']
 					}
 				}
-			})
+			}),
+			// Operational-hardening prompt 4, requirement 3: source-map
+			// upload, entirely gated on SENTRY_AUTH_TOKEN — every local/
+			// dev/CI build today (no token configured anywhere) gets
+			// exactly the same plugin list as before this line existed.
+			// Only a production build step with the token set (an
+			// org-scoped Sentry API token, never committed — see
+			// docs/monitoring.md) actually uploads anything. Bundled with
+			// @sentry/sveltekit already (no new package.json dependency).
+			// `filesToDeleteAfterUpload` removes the .map files from the
+			// built output once Sentry has them — uploaded for
+			// symbolication, never served publicly (this prompt's own
+			// explicit instruction). UNVERIFIED against a real deploy —
+			// this session has no SENTRY_AUTH_TOKEN/org/project to test
+			// against; see docs/monitoring.md's manual checklist.
+			...(env.SENTRY_AUTH_TOKEN
+				? [
+						sentryVitePlugin({
+							authToken: env.SENTRY_AUTH_TOKEN,
+							org: env.SENTRY_ORG,
+							project: env.SENTRY_PROJECT,
+							release: { name: env.PUBLIC_RELEASE_VERSION || undefined },
+							sourcemaps: {
+								filesToDeleteAfterUpload: ['**/*.map']
+							}
+						})
+					]
+				: [])
 		],
 		test: {
 			environment: 'node'

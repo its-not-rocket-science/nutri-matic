@@ -1,9 +1,72 @@
 # Monitoring and alerting
 
-Public-launch hardening prompt 6, building on operational-hardening
-prompt 5's original version of this document (kept below where still
-accurate; superseded parts are marked as such rather than silently
-rewritten).
+Operational-hardening prompt 4, building on public-launch hardening
+prompt 6's version of this document (kept below where still accurate;
+superseded parts are marked as such rather than silently rewritten).
+
+## New this round (operational-hardening prompt 4)
+
+- **`validate_monitoring_config()`** (`app/monitoring.py`, called from
+  `main.py` right after `init_monitoring()`) — logs a loud `ERROR`
+  (`monitoring_not_configured`) if `APP_ENV=production` and
+  `SENTRY_DSN` was never set, then continues starting up. Deliberately
+  a warning, not the hard-fail-at-import pattern `JWT_SECRET`/
+  `REDIS_URL` use (see `app/auth.py`/`app/redis_rate_limit.py`): missing
+  observability is a real operational risk, but making the whole app's
+  availability depend on a third-party monitoring vendor being
+  configured would itself be a new production risk this app doesn't
+  need — "can't see errors" is a materially different failure mode than
+  "forges auth tokens" or "unlimited account creation". The log call
+  reaches container/CI stderr even with zero handlers configured
+  anywhere in this app, via Python's own `logging.lastResort` fallback
+  — confirmed with a real subprocess (not assumed), see
+  `test_warns_via_pythons_own_last_resort_handler_with_no_configured_handler`
+  in `tests/test_monitoring.py`.
+- **`RELEASE_VERSION` is now actually wired**, superseding this
+  document's own prior "nothing currently sets this automatically"
+  note: `.github/workflows/deploy.yml`'s deploy job exports
+  `RELEASE_VERSION=<the exact deployed commit SHA>` into the SSH
+  session before `docker compose build backend`/`up -d backend`, and
+  `docker-compose.yml`'s `backend.environment` threads it through via
+  `${RELEASE_VERSION:-}` — the same shell-interpolation pattern
+  `CORS_ORIGINS` already used. No manual step on a normal deploy.
+- **Frontend source-map upload** (requirement 5's gap, closed) —
+  `frontend/vite.config.ts` conditionally adds `@sentry/vite-plugin`'s
+  `sentryVitePlugin()` (bundled transitively via the already-installed
+  `@sentry/sveltekit`; no new `package.json` dependency) when
+  `SENTRY_AUTH_TOKEN` is set at build time, uploading readable stack
+  traces and then deleting the `.map` files from the deployed bundle.
+  Entirely absent — not erroring — when `SENTRY_AUTH_TOKEN` is unset,
+  same as every other optional-credential path in this repo. UNVERIFIED
+  against a real Sentry org (this session has no `SENTRY_AUTH_TOKEN`);
+  verified instead that `npm run build` still succeeds cleanly with it
+  unset.
+- **`frontend/vercel.json`** (new) maps `PUBLIC_RELEASE_VERSION` to
+  Vercel's own `$VERCEL_GIT_COMMIT_SHA` system env var, so the frontend
+  release tag lines up with the backend's `RELEASE_VERSION` without a
+  manual per-deploy step — UNVERIFIED against a real Vercel deploy in
+  this session (no live Vercel project access); relies on
+  `$env/dynamic/public` reading this at request time on the deployed
+  serverless function, matching how `PUBLIC_SENTRY_DSN` already works.
+- **Deploy annotations** (requirement 9) — a new, optional, non-blocking
+  step in `deploy.yml`'s `deploy` job records a Sentry release + a
+  production deploy against it via Sentry's REST API, gated on
+  `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECTS` (plural — this step
+  can annotate multiple Sentry projects, e.g. backend and frontend,
+  unlike the single-project `SENTRY_PROJECT` the build-time source-map
+  step above uses) all being set. Every Sentry API call uses `|| echo
+  "::warning::..."`, never `set -e` — a monitoring-annotation failure
+  can never fail the deploy itself. UNVERIFIED against a real Sentry
+  org, same caveat as above.
+- **Uptime check** (requirement 7) — `.github/workflows/uptime-check.yml`
+  runs the existing read-only `app/smoke_check.py` against
+  `https://api.nutri-matic.uk`/`https://nutri-matic.uk` every 15
+  minutes, achievable entirely from this repository without an external
+  uptime-SaaS account. A failing run is a visible red X on the workflow
+  (plus, depending on each watcher's own GitHub notification settings,
+  an email) — a real always-on signal, but not the same as a paged
+  on-call alert with a named owner; "alert ownership: not assigned"
+  below still applies to this too.
 
 ## Pre-flight reality check (done before any code this round)
 
@@ -165,12 +228,14 @@ check passed against `https://api.nutri-matic.uk` /
 |---|---|---|---|
 | `SENTRY_DSN` | No | unset (backend monitoring disabled) | Enables backend Sentry. |
 | `SENTRY_TRACES_SAMPLE_RATE` | No | `0.1` | Backend performance-trace sampling once `SENTRY_DSN` is set. |
-| `RELEASE_VERSION` | No | unset | Backend release tag (e.g. a commit SHA) — set in CI/deploy for "which deploy introduced this error" triage. Nothing currently sets this automatically; it must be wired into whatever deploys the backend. |
-| `APP_ENV` | Already required (`DEPLOYMENT.md`) | `development` | Reused as Sentry's `environment` tag, backend and frontend both. |
+| `RELEASE_VERSION` | No | unset | Backend release tag — now wired automatically end-to-end by `deploy.yml`/`docker-compose.yml` (see "New this round" above); nothing to configure manually on a normal deploy. |
+| `APP_ENV` | Already required (`DEPLOYMENT.md`) | `development` | Reused as Sentry's `environment` tag, backend and frontend both. When `production` and `SENTRY_DSN` is unset, `validate_monitoring_config()` logs a loud `ERROR` at startup (see "New this round" above) — starts anyway, doesn't block. |
 | `PUBLIC_SENTRY_DSN` | No | unset (frontend monitoring disabled) | Enables frontend Sentry (client + server). Set in Vercel's project env vars per environment, same mechanism as `VITE_API_URL` — see `docs/frontend-deployment.md`. |
 | `PUBLIC_SENTRY_ENVIRONMENT` | No | `development` | Frontend's `environment` tag. |
-| `PUBLIC_RELEASE_VERSION` | No | unset | Frontend release tag. Vercel exposes the deployed commit SHA as `VERCEL_GIT_COMMIT_SHA` at build time, but that's not a `PUBLIC_`-prefixed var SvelteKit exposes to the client automatically — set `PUBLIC_RELEASE_VERSION` explicitly (e.g. via a Vercel build-step env mapping) if release tagging is wanted. |
+| `PUBLIC_RELEASE_VERSION` | No | unset | Frontend release tag — now wired automatically via `frontend/vercel.json`'s `env` mapping to Vercel's own `$VERCEL_GIT_COMMIT_SHA` (see "New this round" above); nothing to configure manually on Vercel, UNVERIFIED against a live deploy. |
 | `PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | No | `0.1` | Frontend performance-trace sampling. |
+| `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT` | No | unset (no source-map upload) | Frontend build-time only — enables `sentryVitePlugin()` in `vite.config.ts` to upload readable source maps. Singular `SENTRY_PROJECT`: one frontend build targets one Sentry project. |
+| `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECTS` | No | unset (no deploy annotation) | `deploy.yml`'s deploy job only — records a Sentry release + production deploy annotation. Plural `SENTRY_PROJECTS` (comma-separated): this step can annotate more than one Sentry project (e.g. backend and frontend) in one deploy. Same `SENTRY_AUTH_TOKEN`/`SENTRY_ORG` secret names as the build-time pair above but a distinct GitHub Actions secret from the frontend build's own env — don't assume setting one sets the other. |
 
 ## Local / default behaviour
 
@@ -194,14 +259,14 @@ in this repo's PR history).
 4. Confirm activation: trigger a real WARNING+ (e.g. a failed login) and
    confirm it reaches the Sentry project within a few minutes, for both
    backend and frontend independently.
-5. **Source maps** (frontend): not configured this round — uploading
-   readable stack traces requires a `SENTRY_AUTH_TOKEN` (org-scoped,
-   must never be committed) wired into the build step, which this
-   session has no way to create or verify. Until that's done, frontend
-   Sentry events will show minified/bundled stack traces rather than
-   original source locations — usable for triage by message/tags, less
-   so for exact line numbers. Documented as a known gap, not silently
-   left unmentioned.
+5. **Source maps** (frontend): the build-step wiring now exists
+   (`sentryVitePlugin()` in `vite.config.ts`, see "New this round"
+   above) — set `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` (org-
+   scoped token, must never be committed) as Vercel build-env vars to
+   activate it. Until that secret is actually set on the real Vercel
+   project, frontend Sentry events will still show minified/bundled
+   stack traces rather than original source locations — the code is no
+   longer the gap, an actual token being provisioned still is.
 
 **Provider**: unchanged reasoning from the prior version of this
 document — Sentry is what the prompt names as the lightweight default;
@@ -218,8 +283,8 @@ integration anywhere in the codebase).
 | Condition | Suggested threshold | Where the signal comes from |
 |---|---|---|
 | Sustained 5xx errors | >1% of requests over 5 minutes | `elevated_status_response` (any route) / Sentry issue rate |
-| Backend unavailable | `/api/health` fails for >1 minute | Uptime check against `https://api.nutri-matic.uk/api/health` |
-| Readiness failure | `/api/ready` returns 503 for >2 minutes | Uptime check against `/api/ready` |
+| Backend unavailable | `/api/health` fails for >1 minute | `.github/workflows/uptime-check.yml` — runs `app/smoke_check.py` against production every 15 minutes; a failed run is a red X on the workflow (plus email, depending on watcher notification settings) |
+| Readiness failure | `/api/ready` returns 503 for >2 minutes | Same `uptime-check.yml` run |
 | Migration failure | `alembic upgrade head` exits non-zero in `Dockerfile`'s `CMD` | **Infra-level only** — this app's own code never runs if this step fails (see pre-flight table); must be the container platform's own deploy-failure/crash-loop alert, not anything in this repo |
 | Demo-creation abuse | Sustained `demo_rate_limited`/`no_eligible_candidates`-style rejection rate, or the global circuit breaker (`demo_protection.py`) tripping repeatedly | Existing prompt-1 telemetry |
 | Purge failure / retained-demo backlog | `python -m app.demo_purge report`'s `expired_demo_accounts` count staying nonzero/growing across runs | Existing prompt-2 tooling — no scheduled alerting wraps this yet (`.github/workflows/demo-purge.yml` is dry-run-only on its schedule, per its own design) |
@@ -329,9 +394,10 @@ or controlled from this repository.
   impossible from inside this app (see pre-flight table); flagged as an
   infra-level requirement, not implemented as a code workaround that
   couldn't actually work.
-- **Source-map upload** for frontend Sentry — needs a `SENTRY_AUTH_TOKEN`
-  this session has no way to create or verify; documented as a manual
-  follow-up, not silently skipped.
+- **Source-map upload activation** for frontend Sentry — the build-step
+  code now exists (this round), but still needs a real
+  `SENTRY_AUTH_TOKEN` this session has no way to create or verify;
+  documented as a manual follow-up, not silently skipped.
 - **Live alert/dashboard configuration** — no Sentry/alerting account
   exists to configure against (confirmed via the pre-flight check, not
   assumed); the tables above are the specification for once one exists.

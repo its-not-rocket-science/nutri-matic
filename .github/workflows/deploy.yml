@@ -132,6 +132,7 @@ jobs:
             git fetch origin
             git checkout $DEPLOY_SHA
             echo 'Deploying commit: '\$(git rev-parse HEAD)
+            export RELEASE_VERSION=$DEPLOY_SHA
             docker compose build backend
             docker compose up -d backend
           "
@@ -160,3 +161,39 @@ jobs:
               sleep 5
             done
           done
+
+      # Operational-hardening prompt 4, requirement 9: "deploy
+      # annotations/releases". Entirely optional and non-blocking —
+      # SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECTS are not required
+      # secrets; this step no-ops (echoes a skip message, exits 0) when
+      # they're unset, same as every other optional-credential path this
+      # repo already follows (demo-purge.yml, redis_rate_limit.py). Never
+      # allowed to fail the deploy itself over a monitoring-annotation
+      # problem — `|| echo` on the curl calls, not `set -e`. Creates a
+      # Sentry release named after the exact deployed commit SHA (the
+      # same value RELEASE_VERSION/PUBLIC_RELEASE_VERSION tag events
+      # with — see app/monitoring.py/hooks.*.ts) and records a production
+      # deploy against it, so Sentry's own UI can show "this error first
+      # appeared in this release" and "these releases have been deployed
+      # to production". UNVERIFIED against a real Sentry org — this
+      # session has no SENTRY_AUTH_TOKEN to test against; see
+      # docs/monitoring.md's manual checklist.
+      - name: Record a Sentry release/deploy annotation (optional)
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECTS: ${{ secrets.SENTRY_PROJECTS }}
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ] || [ -z "$SENTRY_ORG" ] || [ -z "$SENTRY_PROJECTS" ]; then
+            echo "SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECTS not fully configured — skipping release annotation (see docs/monitoring.md)."
+            exit 0
+          fi
+          projects_json=$(printf '%s' "$SENTRY_PROJECTS" | tr ',' '\n' | sed 's/^ *//;s/ *$//' | jq -R . | jq -s .)
+          curl -sf -X POST "https://sentry.io/api/0/organizations/$SENTRY_ORG/releases/" \
+            -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" -H "Content-Type: application/json" \
+            -d "{\"version\": \"$DEPLOY_SHA\", \"projects\": $projects_json, \"refs\": [{\"repository\": \"its-not-rocket-science/nutri-matic\", \"commit\": \"$DEPLOY_SHA\"}]}" \
+            || echo "::warning::Sentry release creation failed — deploy itself is unaffected, see docs/monitoring.md"
+          curl -sf -X POST "https://sentry.io/api/0/organizations/$SENTRY_ORG/releases/$DEPLOY_SHA/deploys/" \
+            -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" -H "Content-Type: application/json" \
+            -d '{"environment": "production"}' \
+            || echo "::warning::Sentry deploy annotation failed — deploy itself is unaffected, see docs/monitoring.md"
