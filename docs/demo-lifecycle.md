@@ -16,6 +16,7 @@ DEMO_LIFETIME_HOURS`.
 | Env var | Default | Purpose |
 |---|---|---|
 | `DEMO_LIFETIME_HOURS` | `24` | How long a demo account lives from creation. Matches the existing 24h JWT access-token expiry (`app/auth.py`) by default, so in the common case a demo session's token and its account expire together. |
+| `DEMO_PURGE_GRACE_PERIOD_HOURS` | `0.5` | Operational-hardening prompt 1: an account is eligible for purge only once it's been expired for at least this long, not at the exact expiry instant — see `app/demo_purge.py`'s `DEFAULT_GRACE_PERIOD_HOURS` docstring for the rationale (clock-skew buffer, small investigation window). Auth already blocks an expired demo immediately regardless of this — it only delays *deletion*. |
 
 ## Expiry enforcement
 
@@ -71,12 +72,23 @@ python -m app.demo_purge report                     # counts only
 python -m app.demo_purge purge                       # dry-run (default)
 python -m app.demo_purge purge --apply                # actually deletes
 python -m app.demo_purge purge --apply --batch-size 200
+python -m app.demo_purge purge --apply --max-batches 50 --grace-period-hours 0.5   # both shown at their defaults
 ```
 
 - **Batched** by user id (default 100/batch) — each batch is its own
   transaction, so a large backlog never holds one long lock. A failure
   partway through leaves earlier batches purged and the rest untouched;
   safe to just re-run.
+- **Bounded per run** (`--max-batches`, default 50 — operational-
+  hardening prompt 1 requirement 8): a run stops after this many batches
+  regardless of backlog size, rather than potentially running for an
+  unbounded time. `PurgeReport.hit_batch_limit`/the CLI's own "N expired
+  account(s) still remain" line say so explicitly when it happens — the
+  next scheduled run picks up automatically (nothing about batching
+  assumes one run clears the whole backlog; see Idempotent below).
+- **Grace period** (`--grace-period-hours`, default 0.5 — requirement
+  7): an account becomes eligible only once expired for at least this
+  long, not at the exact expiry instant. See the env var table above.
 - **Idempotent** — already-deleted users simply aren't selected again.
   Safe under concurrent/repeated runs: a delete-by-id-list matching zero
   rows (because another run already removed them) is a no-op, not an
@@ -84,6 +96,17 @@ python -m app.demo_purge purge --apply --batch-size 200
 - **Dry-run reports every matching account** (`user_id` + `email`), not
   just a count — the whole point is a human being able to review
   exactly what would be deleted.
+- **One structured summary log per run** (`demo_purge_run_summary`,
+  logger `app.demo` — requirement 9): `scanned`/`eligible`/`deleted`/
+  `failed`/`hit_batch_limit`/`remaining_expired`/`duration_seconds`.
+  Counts only, never account emails — those stay in the dry-run
+  console report above, a deliberately separate, human-review-only path
+  (see the SAFETY GATE below for why that distinction matters). A
+  mid-run failure logs `failed: true` with whatever was already
+  committed still reflected in `deleted`, then re-raises — `main()`
+  logs a second `demo_purge_failed` line and exits non-zero either way
+  (requirement 10), so a failure is visible to both structured-log
+  monitoring and GitHub Actions' own pass/fail status.
 - **Deletion order.** No FK to `users.id` (or the tables hanging off a
   recipe/profile) in this schema declares `ON DELETE CASCADE` (checked
   against every table in `app/models.py`), so every dependent row is
@@ -154,18 +177,14 @@ skip that review — it only refuses to delete anything without `--apply`
 being passed explicitly. See prompts.txt's EXECUTION SAFETY
 REQUIREMENTS for the full text of this constraint.
 
-As of this writing, neither the migration rehearsal (upgrade/downgrade
-against a **restored copy of actual production data**) nor the
-backfill/purge dry-run against **actual production** has been performed
-— this session has no production database credentials or SSH access
-(see the EXECUTION SAFETY REQUIREMENTS' credential-scoping check). The
-migration and purge logic have been verified against a real, throwaway
-Postgres instance (`tests/test_migrations.py`, `tests/test_demo_purge.py`)
-and against the full backend test suite, which is necessary but **not**
-a substitute for rehearsing against a real copy of production's actual
-data and reviewing the actual production dry-run output — both of those
-steps still need to happen, by whoever has that access, before this is
-applied to production.
+This still applies with the scheduled workflow now running `--apply`
+automatically every night (see Scheduling below) — the one-time human
+dry-run review described here is what happens **before** scheduled
+apply runs are ever turned on for the first time, not something that
+happens per-run afterward. Once live, routine visibility comes from the
+structured `demo_purge_run_summary`/`demo_purge_batch` log lines (see
+Purge above) and GitHub Actions' own pass/fail status, not a human
+reading an account list every night.
 
 ## Reporting — `app/demo_purge.py report`
 
@@ -175,25 +194,86 @@ account counts, independent of the purge job itself.
 ## Scheduling — `.github/workflows/demo-purge.yml`
 
 GitHub Actions is the only scheduling mechanism this repo already has
-(see `ci.yml`) — reused rather than inventing a new one. **Not active
-out of the box**: the job checks for a `PRODUCTION_DATABASE_URL` secret
-and no-ops with a log message if it's unset; adding that secret is a
-repo-admin action outside what a workflow-file change should do
-unilaterally. The daily schedule always runs in dry-run mode
-(`github.event.inputs.apply` is unset for a `schedule` trigger) — only a
-manually triggered `workflow_dispatch` run with `apply` checked can
-actually delete anything. Routine reporting can run unattended; a real
-deletion always requires someone to explicitly trigger it.
+(see `ci.yml`) — reused rather than inventing a new one.
 
-To actually activate scheduled dry-run reporting:
-1. Add the `PRODUCTION_DATABASE_URL` secret (Settings → Secrets →
-   Actions) — pointed at a role with read access at minimum.
-2. Confirm a GitHub-hosted runner can actually reach it — not
-   guaranteed if production Postgres is only reachable from a private
-   network, which is a common setup this repo doesn't verify.
-3. Only after a human has run at least one manual
-   `python -m app.demo_purge purge` dry-run against production and
-   reviewed it, consider a manual `workflow_dispatch` run with `apply`
-   checked. Do not flip this to routine unattended `--apply` runs
-   without separately deciding that's wanted — this document does not
-   recommend that as a next step.
+**Runs over SSH via `docker compose exec`**, the same way
+`deploy.yml`'s rehearse-migration job and `migrate-profiles.yml` reach
+the server — production Postgres isn't directly reachable from a
+GitHub-hosted runner, so this executes `python -m app.demo_purge purge
+[--apply]` inside the already-running `backend` container rather than
+connecting to the database directly. This replaced an earlier design
+that used a raw `PRODUCTION_DATABASE_URL` secret from the runner — that
+design was never actually reachable and is why, as of the previous
+version of this document, scheduled purging had still never run for
+real despite the workflow file existing.
+
+**The scheduled (cron) run always applies** — `python -m app.demo_purge
+purge --apply` — this is deliberate, not a bug: operational-hardening
+prompt 1 asked for genuinely automatic deletion, not another
+dry-run-only schedule. A manual `workflow_dispatch` run still defaults
+to dry-run unless the `apply` box is explicitly checked.
+
+**No `environment: production` approval gate on this job** — unlike
+`migrate-profiles.yml`'s manual one-off, a required-reviewer gate on a
+nightly schedule would mean clicking "approve" every night, which isn't
+automatic. The real gate is server-side: `PROD_SSH_KEY` (the same
+restricted deploy key `deploy.yml`/`migrate-profiles.yml` already use)
+can only run the exact commands allowlisted in
+`/root/deploy-allowed-commands.sh` on the server — until the two
+`app.demo_purge purge` / `app.demo_purge purge --apply` entries are
+added there (a one-time, human-reviewed authorisation, not a per-run
+click), every invocation of this workflow is rejected by the server
+itself with a non-zero exit, which shows as a failed (not silently
+green) GitHub Actions run.
+
+**Fails closed AND loud** if `PROD_SSH_KEY`/`PROD_SSH_HOST` aren't
+configured — `exit 1` with an `::error::` annotation, not the previous
+design's silent `exit 0`. No deletion happens either way; the
+difference is that a missing/broken configuration now shows as a
+failing scheduled job instead of a quietly-succeeding no-op that could
+mask a broken pipeline for weeks.
+
+**Concurrency-locked** (`concurrency: group: demo-purge-production`,
+`cancel-in-progress: false`) — two runs never execute at once on
+purpose, even though `purge_expired_demo_accounts` is safe if they did
+(idempotent, see Purge above); an in-flight run is never killed
+mid-batch, a queued one just waits its turn.
+
+### Production rehearsal procedure — before enabling scheduled `--apply` for real
+
+1. **Add the SSH allowlist entries.** On the server, `case` branches for
+   both `docker compose exec -T backend python -m app.demo_purge purge`
+   and `... purge --apply` must exist in
+   `/root/deploy-allowed-commands.sh` (same pattern as the existing
+   `migrate_profiles` entries) — without these, every run of this
+   workflow fails closed at the SSH layer regardless of anything else
+   below. This is a manual, human-reviewed server change; it cannot be
+   done from this repository.
+2. **Manual dry-run against production first**, reviewed by a human —
+   either `workflow_dispatch` with `apply` unchecked, or directly over
+   SSH: `ssh <host> "cd nutri-matic && docker compose exec -T backend
+   python -m app.demo_purge purge"`. Confirm the account list looks
+   right (only genuinely expired demo accounts, no surprises).
+3. **Restored-database rehearsal** (recommended, not yet a hard
+   requirement of this workflow): run the same dry-run against a
+   restored copy of production data, same way `deploy.yml`'s
+   rehearse-migration job rehearses schema migrations, to see the
+   purge's behaviour against a realistic backlog size before it ever
+   touches the live database.
+4. **One manual `workflow_dispatch` apply run**, reviewed — check the
+   `demo_purge_run_summary`/`demo_purge_batch` log lines in the Actions
+   run output match the dry-run's expectations (same accounts, sane row
+   counts).
+5. **Let the schedule run once, then observe** — check the next
+   scheduled run's summary log and GitHub Actions status before
+   considering this "activated". Confirm `demo_account_counts`
+   (`python -m app.demo_purge report`) trends down toward zero expired
+   accounts over the following days rather than accumulating.
+6. **Rollback/disable**, if anything looks wrong at any point: remove
+   (or comment out) the two `demo_purge` case branches from
+   `/root/deploy-allowed-commands.sh` — this immediately fails closed
+   again for every future run (scheduled or manual) without touching
+   this repository at all. To stop the schedule itself without a server
+   change, disable the workflow from the repo's Actions tab (Actions →
+   "Demo account purge" → "..." → Disable workflow) — `workflow_dispatch`
+   dry-runs still work; the cron trigger won't fire.
