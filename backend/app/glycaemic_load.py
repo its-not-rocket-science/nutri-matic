@@ -63,7 +63,16 @@ GlycaemicTier = Literal["high", "medium", "low"]
 # bread/rice/potato/banana are excluded entirely despite being common
 # carbohydrate staples, rather than assigned a tier that preparation/
 # variety/ripeness could easily make wrong.
-_HIGH_GI_KEYWORDS = ["cornflake", "puffed rice", "rice krispies", "pretzel", "watermelon", "glucose", "dextrose"]
+_HIGH_GI_KEYWORDS = [
+    "cornflake", "puffed rice", "rice krispies", "pretzel", "watermelon", "glucose", "dextrose",
+    # PR review: refined-sugar/beverage products whose name can coincide
+    # with an unrelated whole-food keyword below (a doughnut isn't a nut;
+    # an orange soda isn't an orange) — checked first specifically so
+    # these uncontroversially-high-GI processed foods can't be masked by
+    # a LOW-tier substring collision. Not an attempt to catalogue every
+    # confectionery/beverage product, just the common collision risks.
+    "doughnut", "donut", "candy", "soda", "soft drink", "cola", "sports drink", "energy drink",
+]
 _MEDIUM_GI_KEYWORDS = [
     "raisin", "sultana", "honey", "couscous", "oat", "porridge", "muesli", "pineapple", "mango",
     # juice, checked before the LOW tier's whole-fruit keywords below —
@@ -79,7 +88,11 @@ _LOW_GI_KEYWORDS = [
     "spinach", "broccoli", "carrot", "cabbage", "cauliflower", "cucumber", "pepper", "tomato", "onion", "lettuce",
     "kale", "courgette", "zucchini", "mushroom", "asparagus", "celery",
     "milk", "yogurt", "yoghurt", "cheese",
-    "nut", "almond", "walnut", "peanut", "cashew", "pistachio", "seed",
+    # deliberately no bare "nut" keyword — it's a substring of "doughnut"
+    # (PR review), and every common nut is already listed individually
+    # below anyway, so it added a collision risk with no real coverage
+    # benefit
+    "almond", "walnut", "peanut", "cashew", "pistachio", "seed",
     "quinoa", "barley", "bulgur", "pasta", "spaghetti", "noodle",
     # negligible available carbohydrate — see module docstring's "negligible
     # carbohydrate" paragraph for why these are here on different grounds

@@ -36,6 +36,25 @@ def test_mixed_name_prefers_highest_gi_tier():
     assert glycaemic_tier_for_food("Honey-roasted almonds") == "medium"
 
 
+def test_doughnut_does_not_inherit_low_tier_nut_substring():
+    """Real collision caught by review: a bare "nut" keyword matched
+    inside "doughnut" — a refined-sugar, deep-fried food with nothing to
+    do with actual nuts. Every common nut is listed individually
+    (almond/walnut/peanut/cashew/pistachio), so dropping the bare "nut"
+    keyword loses no real coverage."""
+    assert glycaemic_tier_for_food("Glazed doughnut") != "low"
+    assert glycaemic_tier_for_food("Glazed doughnut") == "high"
+    assert glycaemic_tier_for_food("Walnuts, raw") == "low"
+
+
+def test_flavoured_soft_drink_does_not_inherit_whole_fruit_low_tier():
+    """Real collision caught by review: "Soft drink, orange" matched the
+    whole-fruit "orange" keyword and inherited its low tier — a
+    sugar-sweetened soda has nothing in common with the fruit it's
+    flavoured to taste like."""
+    assert glycaemic_tier_for_food("Soft drink, orange") == "high"
+
+
 def test_juice_does_not_inherit_whole_fruit_low_tier():
     """Real collision risk: "orange juice"/"apple juice" contain a LOW-tier
     whole-fruit keyword as a substring, but juice (no fibre, faster
