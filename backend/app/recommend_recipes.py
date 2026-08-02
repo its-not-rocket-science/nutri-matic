@@ -156,7 +156,7 @@ def _candidate_pool(
     return pool
 
 
-def _primary_ingredient_food(items: list[WeightedFood]) -> Food | None:
+def primary_ingredient_food(items: list[WeightedFood]) -> Food | None:
     """The ingredient contributing the most mass — a real, inspectable
     signal (not a fabricated "recipe family"), used both to deduplicate
     near-identical suggestions (prompt 7's diversity rule) and, when
@@ -170,8 +170,8 @@ def _primary_ingredient_food(items: list[WeightedFood]) -> Food | None:
     return max(items, key=lambda i: i.quantity_g).food
 
 
-def _primary_ingredient_food_id(items: list[WeightedFood]) -> int | None:
-    food = _primary_ingredient_food(items)
+def primary_ingredient_food_id(items: list[WeightedFood]) -> int | None:
+    food = primary_ingredient_food(items)
     return food.id if food is not None else None
 
 
@@ -183,7 +183,7 @@ def _deduplicate_by_primary_ingredient(suggestions: list[RecipeSuggestion], item
     seen_primary: set[int] = set()
     result: list[RecipeSuggestion] = []
     for suggestion in suggestions:
-        primary = _primary_ingredient_food_id(items_by_recipe_id.get(suggestion.recipe_id, []))
+        primary = primary_ingredient_food_id(items_by_recipe_id.get(suggestion.recipe_id, []))
         if primary is not None and primary in seen_primary:
             continue
         if primary is not None:
@@ -336,7 +336,7 @@ def suggest_recipes(
         carbon_tier = None
         glycaemic_tier = None
         if carbon_priority_weight is not None or glycaemic_priority_weight is not None:
-            primary_food = _primary_ingredient_food(recipe_items_at_1_serving)
+            primary_food = primary_ingredient_food(recipe_items_at_1_serving)
             if primary_food is not None:
                 if carbon_priority_weight is not None:
                     carbon_tier = carbon_tier_for_food(primary_food.name)

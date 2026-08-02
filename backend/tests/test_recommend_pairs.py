@@ -65,6 +65,35 @@ def test_curated_pair_yogurt_and_berries(db):
     assert any({"Yogurt, greek", "Strawberries, raw"} == set(pair) for pair in names)
 
 
+def test_blood_sugar_stability_goal_gives_a_real_bonus_on_the_curated_pair(db):
+    """blood_sugar_stability active: the yogurt+strawberries curated pair
+    forms regardless of goal (see test_curated_pair_yogurt_and_berries),
+    but with the goal active its glycaemic_load_adjustment must be
+    nonzero — yogurt (150g default serving, the pair's by-mass-dominant/
+    "primary" food per _primary_pair_food) matches the low GI tier."""
+    profile = make_profile(db, goal="blood_sugar_stability")
+    rice = make_food(db, "White rice, cooked", energy=130, calcium=1.0, vitamin_c=0.0)
+    make_food(db, "Yogurt, greek", calcium=110.0, energy=59)
+    make_food(db, "Strawberries, raw", vitamin_c=59.0, energy=32)
+
+    result = run(db, profile, rice, priority_nutrient_keys={"calcium", "vitamin_c"})
+    matches = [s for s in result.suggestions if {s.first.food_name, s.second.food_name} == {"Yogurt, greek", "Strawberries, raw"}]
+    assert matches
+    assert matches[0].score.glycaemic_load_adjustment > 0
+
+
+def test_blood_sugar_stability_adjustment_zero_when_goal_not_active(db):
+    profile = make_profile(db)
+    rice = make_food(db, "White rice, cooked", energy=130, calcium=1.0, vitamin_c=0.0)
+    make_food(db, "Yogurt, greek", calcium=110.0, energy=59)
+    make_food(db, "Strawberries, raw", vitamin_c=59.0, energy=32)
+
+    result = run(db, profile, rice, priority_nutrient_keys={"calcium", "vitamin_c"})
+    matches = [s for s in result.suggestions if {s.first.food_name, s.second.food_name} == {"Yogurt, greek", "Strawberries, raw"}]
+    assert matches
+    assert matches[0].score.glycaemic_load_adjustment == 0.0
+
+
 def test_condiment_base_pair_toast_and_peanut_butter(db):
     profile = make_profile(db)
     rice = make_food(db, "White rice, cooked", energy=130, fiber_total=0.4, magnesium=1.0)

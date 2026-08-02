@@ -31,8 +31,11 @@ from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_nutrients
 from .candidate_metadata import curated_key_for, is_plausible_serving, resolve_candidate_metadata
+from .carbon_footprint import carbon_tier_for_food
 from .data_quality import is_implausible
 from .dietary_filter import filter_excluded_foods, food_dietary_status
+from .glycaemic_load import glycaemic_tier_for_food
+from .goals import goal_keys_of, goal_priority_weight
 from .models import Food, FoodNutrient, Profile
 from .nutrient_gap_analysis import NutrientStatus, analyse_nutrient_gaps
 from .nutrient_targets import AnalysisPeriod, NutrientTarget, adjust_target_for_remaining, resolve_nutrient_target
@@ -115,6 +118,18 @@ def _pair_allowed(food_a: Food, meta_a, food_b: Food, meta_b) -> bool:
     return False
 
 
+def _primary_pair_food(food_a: Food, qty_a: float, food_b: Food, qty_b: float) -> Food:
+    """The pair's own stand-in for a single carbon/glycaemic tier — same
+    "by-mass-dominant ingredient" convention recommend_recipes.py's
+    `primary_ingredient_food` uses, generalised to two whole foods
+    instead of a recipe's many ingredients. A condiment-plus-base pair
+    (the common case _pair_allowed permits) is exactly the scenario this
+    is built for: the condiment's quantity is deliberately tiny relative
+    to the base, so the base is the honest single food name to tier, not
+    an arbitrary pick between the two."""
+    return food_a if qty_a >= qty_b else food_b
+
+
 def _candidate_pool(db: Session, target_keys: list[str], excluded_food_ids: set[int]) -> list[Food]:
     seen_ids = set(excluded_food_ids)
     candidates: list[Food] = []
@@ -156,6 +171,12 @@ def suggest_pairs(
 ) -> PairSuggestionResult:
     excluded_food_ids = excluded_food_ids or set()
     weights = weights or ScoringWeights()
+    # same gated, priority-weighted carbon/glycaemic signal as
+    # recommend_ingredients.py/recommend_recipes.py — see goals.
+    # goal_priority_weight's own docstring for the contract.
+    goal_keys = goal_keys_of(profile)
+    carbon_priority_weight = goal_priority_weight(goal_keys, "reduce_carbon_footprint")
+    glycaemic_priority_weight = goal_priority_weight(goal_keys, "blood_sugar_stability")
 
     before_totals = aggregate_nutrients(items, nutrients_by_food_id)
     target_by_key: dict[str, NutrientTarget] = {}
@@ -221,9 +242,14 @@ def suggest_pairs(
         )
         energy_added = totals.get("energy", 0.0) - before_totals.get("energy", 0.0)
         suitability = food_dietary_status(food, db, profile)
+        carbon_tier = carbon_tier_for_food(food.name) if carbon_priority_weight is not None else None
+        glycaemic_tier = glycaemic_tier_for_food(food.name) if glycaemic_priority_weight is not None else None
         result = score_candidate(
             before_gaps, gaps, energy_added=energy_added, max_additional_energy=max_additional_energy,
-            dietary_suitability=suitability, weights=weights,
+            dietary_suitability=suitability,
+            carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
+            glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
+            weights=weights,
         ).total
         solo_score_cache[food.id] = result
         return result
@@ -259,10 +285,21 @@ def suggest_pairs(
             and is_plausible_serving(metadata_by_id[food_b.id], qty_b)
         )
 
+        carbon_tier = None
+        glycaemic_tier = None
+        if carbon_priority_weight is not None or glycaemic_priority_weight is not None:
+            primary = _primary_pair_food(food_a, qty_a, food_b, qty_b)
+            if carbon_priority_weight is not None:
+                carbon_tier = carbon_tier_for_food(primary.name)
+            if glycaemic_priority_weight is not None:
+                glycaemic_tier = glycaemic_tier_for_food(primary.name)
+
         score = score_candidate(
             before_gaps, after_gaps, energy_added=combined_energy, max_additional_energy=max_additional_energy,
             dietary_suitability=worst_suitability,
             practicality=PracticalityInput(is_plausible_serving=both_servings_plausible),
+            carbon_tier=carbon_tier, carbon_priority_weight=carbon_priority_weight or 1.0,
+            glycaemic_tier=glycaemic_tier, glycaemic_priority_weight=glycaemic_priority_weight or 1.0,
             weights=weights,
         )
         if score.total <= 0:
