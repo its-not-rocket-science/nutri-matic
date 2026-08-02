@@ -58,7 +58,6 @@ import hmac
 import logging
 import os
 import secrets
-import time
 
 _logger = logging.getLogger("app.rate_limit")
 
@@ -98,17 +97,35 @@ class RateLimitStoreError(Exception):
 
 
 # Sliding-window-log, atomic via one EVAL round trip — see module
-# docstring's "ATOMICITY" section. KEYS[1]=bucket key; ARGV: now (float
-# seconds), window_seconds, limit, a client-generated unique member
-# token (guards against two hits landing on the exact same float
-# timestamp, however unlikely, colliding in the sorted set and being
-# undercounted).
+# docstring's "ATOMICITY" section. KEYS[1]=bucket key; ARGV:
+# window_seconds, limit, a client-generated unique member token (guards
+# against two hits landing on the exact same timestamp, however
+# unlikely, colliding in the sorted set and being undercounted), and an
+# optional now-override (empty string = use Redis's own TIME command).
+#
+# PR review: `now` used to come from each Python process's own
+# `time.time()` — in a genuinely multi-instance deployment (the whole
+# point of this module), independently-clocked hosts could disagree
+# about "now" against the one shared window, letting a fast/skewed host
+# prematurely evict another host's still-valid entries, or reopen the
+# budget entirely if the skew approaches the window size. Reading the
+# clock inside the atomic script itself (Redis's own `TIME`) makes every
+# caller, regardless of host, agree on exactly one clock — the shared
+# store's own. Still overridable (`now` kwarg) for deterministic window-
+# expiry tests, which need a controllable clock no real client-vs-server
+# split can give them.
 _LUA_SLIDING_WINDOW_HIT = """
 local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local window = tonumber(ARGV[2])
-local limit = tonumber(ARGV[3])
-local member = ARGV[4]
+local window = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+local member = ARGV[3]
+local now
+if ARGV[4] == '' then
+  local t = redis.call('TIME')
+  now = tonumber(t[1]) + tonumber(t[2]) / 1000000
+else
+  now = tonumber(ARGV[4])
+end
 
 redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
 local count = redis.call('ZCARD', key)
@@ -126,6 +143,32 @@ redis.call('EXPIRE', key, math.ceil(window) + 1)
 return {1, 0}
 """
 
+# Read-only counterpart to the script above — prunes expired entries and
+# reports whether `key` currently has room, WITHOUT recording a hit (no
+# ZADD). PR review: used to decide "is the global circuit breaker
+# already open" before ever touching per-IP state (see demo_protection.
+# py's own comment on why) — same clock-override contract as the hit
+# script above.
+_LUA_SLIDING_WINDOW_PEEK = """
+local key = KEYS[1]
+local window = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+local now
+if ARGV[3] == '' then
+  local t = redis.call('TIME')
+  now = tonumber(t[1]) + tonumber(t[2]) / 1000000
+else
+  now = tonumber(ARGV[3])
+end
+
+redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
+local count = redis.call('ZCARD', key)
+if count < limit then
+  return 1
+end
+return 0
+"""
+
 
 class RedisSlidingWindowRateLimiter:
     """Same `hit(key, limit, window_seconds) -> (allowed, retry_after)`
@@ -138,17 +181,35 @@ class RedisSlidingWindowRateLimiter:
         self._client = client
 
     def hit(self, key: str, limit: int, window_seconds: float, *, now: float | None = None) -> tuple[bool, int]:
-        """`now` defaults to the real clock; overridable for deterministic
-        window-expiry tests (see test_redis_rate_limit.py), same
-        testability seam rate_limit.SlidingWindowRateLimiter's own tests
-        get via monkeypatching `time.monotonic` directly."""
+        """`now` defaults to Redis's own clock (see the Lua script's own
+        comment for why); overridable for deterministic window-expiry
+        tests (see test_redis_rate_limit.py), same testability seam
+        rate_limit.SlidingWindowRateLimiter's own tests get via
+        monkeypatching `time.monotonic` directly."""
         try:
-            now = now if now is not None else time.time()
-            member = f"{now:.6f}:{secrets.token_hex(4)}"
+            member = secrets.token_hex(8)
+            now_arg = "" if now is None else f"{now:.6f}"
             allowed, retry_after = self._client.eval(
-                _LUA_SLIDING_WINDOW_HIT, 1, key, now, window_seconds, limit, member,
+                _LUA_SLIDING_WINDOW_HIT, 1, key, window_seconds, limit, member, now_arg,
             )
             return bool(allowed), int(retry_after)
+        except Exception as exc:
+            raise RateLimitStoreError(str(exc)) from exc
+
+    def peek(self, key: str, limit: int, window_seconds: float, *, now: float | None = None) -> bool:
+        """Read-only: would `key` currently be allowed, without
+        recording a hit. See demo_protection.py's own use of this —
+        checking whether the global circuit breaker is already open
+        BEFORE creating any new per-IP state, so a distributed/many-IP
+        flood can't create unbounded Redis keys once the shared budget
+        is already exhausted (PR review — the previous per-IP-checked-
+        first design had no cardinality bound at all in that state,
+        unlike the in-process fallback's own DEFAULT_MAX_TRACKED_KEYS
+        cap)."""
+        try:
+            now_arg = "" if now is None else f"{now:.6f}"
+            allowed = self._client.eval(_LUA_SLIDING_WINDOW_PEEK, 1, key, window_seconds, limit, now_arg)
+            return bool(allowed)
         except Exception as exc:
             raise RateLimitStoreError(str(exc)) from exc
 

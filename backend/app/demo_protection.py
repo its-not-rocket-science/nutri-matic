@@ -95,8 +95,20 @@ def enforce_demo_rate_limit(request: Request) -> None:
     "FAIL-CLOSED" section for why this endpoint specifically refuses
     rather than silently allowing unlimited creation during a store
     outage. Otherwise records the hit against both windows and returns.
-    Per-IP is checked first so an already-blocked IP never consumes
-    global budget."""
+
+    Per-IP is checked (and recorded) before global, so a single already-
+    blocked IP repeatedly hammering the endpoint never keeps consuming
+    shared global budget on every rejected request. On the Redis backend
+    specifically, that ordering is preceded by a read-only `peek` at the
+    global bucket (PR review): without it, a distributed/many-IP flood
+    could create a fresh, persistent per-IP Redis key on every single
+    request — even once global is already exhausted and every one of
+    those requests is doomed to a 429 anyway — with no cardinality bound
+    at all, unlike the in-process fallback's own DEFAULT_MAX_TRACKED_KEYS
+    cap. Peeking first means no new per-IP state is ever created once
+    the shared budget is already closed, while the *real* global
+    increment still only happens after per-IP passes, preserving the
+    original single-IP protection too."""
     redis_limiter = get_redis_rate_limiter()
     ip = _client_ip(request)
     ip_key = hash_rate_limit_key(ip) if redis_limiter is not None else ip
@@ -104,6 +116,11 @@ def enforce_demo_rate_limit(request: Request) -> None:
 
     try:
         if redis_limiter is not None:
+            if not redis_limiter.peek(global_key, DEMO_GLOBAL_LIMIT, DEMO_GLOBAL_WINDOW_SECONDS):
+                _demo_logger.warning("demo_rate_limited", extra={"scope": "global", "retry_after_seconds": 1})
+                raise HTTPException(
+                    status_code=429, detail=_RATE_LIMIT_DETAIL, headers={"Retry-After": "1"}
+                )
             ip_allowed, ip_retry_after = redis_limiter.hit(ip_key, DEMO_PER_IP_LIMIT, DEMO_PER_IP_WINDOW_SECONDS)
         else:
             ip_allowed, ip_retry_after = _per_ip_limiter.hit(ip_key, DEMO_PER_IP_LIMIT, DEMO_PER_IP_WINDOW_SECONDS)

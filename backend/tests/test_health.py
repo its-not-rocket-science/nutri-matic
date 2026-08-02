@@ -86,6 +86,49 @@ def test_health_endpoints_do_not_leak_secrets(client, monkeypatch):
     assert "internal-host" not in ready_body
 
 
+def test_readiness_checks_redis_only_when_configured(client, monkeypatch):
+    monkeypatch.setattr(health_router, "alembic_head_and_current", lambda url: ("a", "a"))
+    monkeypatch.setattr(health_router, "REDIS_URL", None)
+    res = client.get("/api/ready")
+    assert res.status_code == 200  # no Redis configured — not checked, not a failure
+
+
+def test_readiness_fails_when_redis_configured_but_unreachable(client, monkeypatch):
+    from app.redis_rate_limit import RateLimitStoreError
+
+    class _BrokenLimiter:
+        def ping(self):
+            raise RateLimitStoreError("Error 111 connecting to internal-redis-host:6379. Connection refused.")
+
+    monkeypatch.setattr(health_router, "alembic_head_and_current", lambda url: ("a", "a"))
+    monkeypatch.setattr(health_router, "REDIS_URL", "redis://internal-redis-host:6379/0")
+    monkeypatch.setattr(health_router, "get_redis_rate_limiter", lambda: _BrokenLimiter())
+
+    res = client.get("/api/ready")
+    assert res.status_code == 503
+
+
+def test_readiness_does_not_leak_redis_connection_details_when_unreachable(client, monkeypatch):
+    """PR review: redis-py connection errors commonly embed the internal
+    host/port — this unauthenticated endpoint must never echo that back,
+    same sanitised convention the database check already follows (type
+    name only, full detail stays server-side in the log)."""
+    from app.redis_rate_limit import RateLimitStoreError
+
+    class _BrokenLimiter:
+        def ping(self):
+            raise RateLimitStoreError("Error 111 connecting to internal-redis-host:6379. Connection refused.")
+
+    monkeypatch.setattr(health_router, "alembic_head_and_current", lambda url: ("a", "a"))
+    monkeypatch.setattr(health_router, "REDIS_URL", "redis://internal-redis-host:6379/0")
+    monkeypatch.setattr(health_router, "get_redis_rate_limiter", lambda: _BrokenLimiter())
+
+    body = client.get("/api/ready").text
+    assert "internal-redis-host" not in body
+    assert "6379" not in body
+    assert "Connection refused" not in body
+
+
 def test_readiness_when_alembic_version_table_missing(client, monkeypatch):
     """A genuinely fresh/never-migrated database — current revision is
     None, not an exception. Must still report a clean 503, not a 500."""

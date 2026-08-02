@@ -161,6 +161,9 @@ def test_demo_returns_503_not_a_silent_bypass_when_the_shared_store_errors(clien
     from app.redis_rate_limit import RateLimitStoreError
 
     class _AlwaysBrokenLimiter:
+        def peek(self, key, limit, window_seconds):
+            raise RateLimitStoreError("simulated store outage")
+
         def hit(self, key, limit, window_seconds):
             raise RateLimitStoreError("simulated store outage")
 
@@ -186,6 +189,9 @@ def test_demo_rate_limit_logs_never_include_the_raw_client_ip(client, monkeypatc
     assert any(r.message == "demo_rate_limited" for r in caplog.records)
 
     class _AlwaysBrokenLimiter:
+        def peek(self, key, limit, window_seconds):
+            raise RateLimitStoreError("simulated store outage")
+
         def hit(self, key, limit, window_seconds):
             raise RateLimitStoreError("simulated store outage")
 

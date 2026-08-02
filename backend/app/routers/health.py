@@ -96,6 +96,13 @@ def readiness(db: Session = Depends(get_db), database_url: str = Depends(get_dat
         try:
             redis_limiter.ping()
         except RateLimitStoreError as exc:
-            raise HTTPException(status_code=503, detail=f"rate limit store unavailable: {exc}")
+            # PR review: redis-py connection errors commonly embed the
+            # internal host/port in their message — str(exc) on this
+            # unauthenticated endpoint would leak that to any caller.
+            # Same sanitised convention the database check above already
+            # uses (type name only in the response); the full detail
+            # still reaches operators, via this log line.
+            _logger.error("readiness_redis_unavailable", extra={"error": str(exc)})
+            raise HTTPException(status_code=503, detail=f"rate limit store unavailable: {type(exc).__name__}")
 
     return {"status": "ready"}
