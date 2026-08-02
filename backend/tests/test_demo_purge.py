@@ -376,6 +376,145 @@ def test_purge_clears_profile_goals_before_profile(db):
     assert db.query(Profile).filter(Profile.id == profile_id).one_or_none() is None
 
 
+def test_grace_period_defers_purge_past_exact_expiry(db):
+    """operational-hardening prompt 1, requirement 7: an account isn't
+    eligible at the exact expiry instant — only once expired for at
+    least grace_period_hours."""
+    now = datetime.now(timezone.utc)
+    user = User(
+        email="just-expired@demo.nutrimatic.local", password_hash="x", is_demo=True,
+        expires_at=now - timedelta(minutes=5),
+    )
+    db.add(user)
+    db.commit()
+
+    within_grace = purge_expired_demo_accounts(db, dry_run=False, grace_period_hours=1.0, now=now)
+    assert within_grace.total_users == 0
+    assert db.query(User).count() == 1
+
+    past_grace = purge_expired_demo_accounts(db, dry_run=False, grace_period_hours=0.01, now=now)
+    assert past_grace.total_users == 1
+    assert db.query(User).count() == 0
+
+
+def test_grace_period_reflected_in_counts_and_remaining(db):
+    now = datetime.now(timezone.utc)
+    db.add(User(
+        email="just-expired@demo.nutrimatic.local", password_hash="x", is_demo=True,
+        expires_at=now - timedelta(minutes=5),
+    ))
+    db.commit()
+
+    assert count_would_purge(db, now=now, grace_period_hours=1.0) == 0
+    assert count_would_purge(db, now=now, grace_period_hours=0.01) == 1
+    counts = demo_account_counts(db, now=now, grace_period_hours=1.0)
+    assert counts["expired_demo_accounts"] == 0
+    assert counts["active_demo_accounts"] == 1
+
+
+def test_max_batches_stops_early_and_reports_remaining(db):
+    """requirement 8: one run never processes an unbounded backlog —
+    stops after max_batches, flags hit_batch_limit, and reports how many
+    are left for the next run to pick up."""
+    for i in range(5):
+        make_demo_user(db, expired=True, email=f"demo-{i}@demo.nutrimatic.local")
+    db.commit()
+
+    report = purge_expired_demo_accounts(db, dry_run=False, batch_size=2, max_batches=2)
+    assert report.total_users == 4  # 2 batches * 2 — the 5th is left
+    assert report.hit_batch_limit is True
+    assert report.remaining_expired == 1
+    assert db.query(User).count() == 1
+
+    # the next "run" (no max_batches limit this time) finishes the backlog
+    follow_up = purge_expired_demo_accounts(db, dry_run=False, batch_size=2)
+    assert follow_up.total_users == 1
+    assert follow_up.hit_batch_limit is False
+    assert follow_up.remaining_expired == 0
+    assert db.query(User).count() == 0
+
+
+def test_run_summary_logged_with_counts_never_emails(db, caplog):
+    """requirement 9: one structured summary log line per run with
+    scanned/deleted/failed/remaining/duration — and, separately,
+    requirement 9's 'do not log personal data': no email appears in it,
+    even though the dry-run console report (a distinct, human-review-
+    only path) does print them deliberately."""
+    make_demo_user(db, expired=True, email="summary@demo.nutrimatic.local")
+    db.commit()
+
+    with caplog.at_level("INFO", logger="app.demo"):
+        purge_expired_demo_accounts(db, dry_run=False)
+
+    summary = next(r for r in caplog.records if r.message == "demo_purge_run_summary")
+    assert summary.scanned == 1
+    assert summary.deleted == 1
+    assert summary.failed is False
+    assert summary.remaining_expired == 0
+    assert "summary@demo.nutrimatic.local" not in caplog.text
+
+
+def test_run_summary_logs_failed_true_and_still_reflects_partial_progress(db, monkeypatch, caplog):
+    """A batch that raises mid-run must still leave earlier batches
+    purged (already covered by idempotency elsewhere) and the summary
+    log must say failed=True rather than silently reporting success."""
+    make_demo_user(db, expired=True, email="a@demo.nutrimatic.local")
+    make_demo_user(db, expired=True, email="b@demo.nutrimatic.local")
+    db.commit()
+
+    call_count = {"n": 0}
+    original = demo_purge._delete_batch
+
+    def flaky_delete_batch(db_arg, user_ids):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise RuntimeError("simulated failure")
+        return original(db_arg, user_ids)
+
+    monkeypatch.setattr(demo_purge, "_delete_batch", flaky_delete_batch)
+
+    with caplog.at_level("INFO", logger="app.demo"):
+        with pytest.raises(RuntimeError):
+            purge_expired_demo_accounts(db, dry_run=False, batch_size=1)
+
+    summary = next(r for r in caplog.records if r.message == "demo_purge_run_summary")
+    assert summary.failed is True
+    assert summary.deleted == 1  # the first batch committed before the second raised
+    assert db.query(User).count() == 1
+
+
+def test_cli_purge_apply_respects_max_batches_and_grace_period(db, monkeypatch, capsys):
+    Session = sessionmaker(bind=db.get_bind())
+    monkeypatch.setattr(demo_purge, "SessionLocal", Session)
+
+    for i in range(3):
+        make_demo_user(db, expired=True, email=f"cli-{i}@demo.nutrimatic.local")
+    db.commit()
+
+    demo_purge_main(["purge", "--apply", "--batch-size", "1", "--max-batches", "1"])
+    out = capsys.readouterr().out
+    assert "Purged 1 demo account" in out
+    assert "Stopped after 1 batch(es)" in out
+    assert "2 expired account(s) still remain" in out
+    assert db.query(User).count() == 2
+
+
+def test_cli_main_exits_non_zero_and_logs_on_failure(db, monkeypatch, caplog):
+    Session = sessionmaker(bind=db.get_bind())
+    monkeypatch.setattr(demo_purge, "SessionLocal", Session)
+    monkeypatch.setattr(
+        demo_purge, "purge_expired_demo_accounts",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    with caplog.at_level("ERROR", logger="app.demo"):
+        with pytest.raises(SystemExit) as exc_info:
+            demo_purge.main(["purge", "--apply"])
+
+    assert exc_info.value.code == 1
+    assert any(r.message == "demo_purge_failed" for r in caplog.records)
+
+
 def test_cli_report_prints_counts(db, monkeypatch, capsys):
     Session = sessionmaker(bind=db.get_bind())
     monkeypatch.setattr(demo_purge, "SessionLocal", Session)

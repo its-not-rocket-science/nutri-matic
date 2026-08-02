@@ -1,32 +1,37 @@
-# Public-launch hardening prompt 2's "wire scheduling into the actual
-# deployment architecture" step. GitHub Actions is the only scheduling
-# mechanism this repository already has (see ci.yml) — there is no
-# cron/task-scheduler config anywhere else in this repo, so this is that
-# mechanism, not a new one invented for this.
+# Operational-hardening prompt 1: the previous version of this file
+# connected with a raw `PRODUCTION_DATABASE_URL` secret from a
+# GitHub-hosted runner — a design that was never actually activated
+# (production Postgres isn't directly reachable from a public runner;
+# see migrate-profiles.yml's/deploy.yml's own comments on this exact
+# point) and, even if it had been, the scheduled (cron) trigger only
+# ever ran dry-run, so nothing was ever genuinely automatic. Rewritten to
+# use the same SSH + `docker compose exec` pattern deploy.yml's
+# rehearse-migration job and migrate-profiles.yml already use — runs
+# inside the already-running backend container, so there's no separate
+# "is this really production" question: it's the exact same runtime the
+# live app uses.
 #
-# Deliberately NOT active out of the box: `PRODUCTION_DATABASE_URL`
-# is not set by this file (secrets can only be added via the repo's own
-# Settings -> Secrets, a repo-admin action outside what a workflow-file
-# change can or should do unilaterally). Without it, every scheduled run
-# just prints a message and exits — merging this file alone starts
-# nothing destructive.
+# PROD_SSH_KEY/PROD_SSH_HOST are the same repo-level secrets deploy.yml's
+# rehearse-migration job already uses without a `production` environment
+# gate (see that job) — deliberately NOT gated behind
+# `environment: production` here either, unlike migrate-profiles.yml's
+# manual one-off: this job runs on a schedule, and a required-reviewer
+# gate on every run would mean someone has to click "approve" every
+# single night, which is not "genuinely automatic deletion" (this
+# prompt's own wording). The real gate is server-side: the restricted
+# deploy key can only run the exact commands allowlisted in
+# /root/deploy-allowed-commands.sh (see docs/demo-lifecycle.md) — until a
+# human has added the demo_purge entries there (a manual, one-time,
+# reviewed authorisation, not a per-run click), every invocation of this
+# workflow is rejected by the server itself. That rejection is a failed
+# step (non-zero exit), not a silent no-op — see the "fail closed, not
+# fail silent" note below.
 #
-# Before ever enabling this for real, see docs/demo-lifecycle.md's
-# runbook: a GitHub-hosted runner also needs actual network reachability
-# to wherever production Postgres lives (not guaranteed — a database
-# only reachable from a private network won't accept a connection from a
-# public runner without additional infrastructure this repo doesn't
-# have), and — per this round's EXECUTION SAFETY REQUIREMENTS — at least
-# one manual `python -m app.demo_purge purge` dry-run against production,
-# reviewed by a human, must happen before this workflow is ever pointed
-# at production with `--apply`.
-#
-# The daily schedule always runs dry-run only (`github.event.inputs.apply`
-# is unset/false for a `schedule` trigger, never true) — only a manual
-# `workflow_dispatch` run with the `apply` input checked can actually
-# delete anything. This is deliberate: routine reporting can run
-# unattended, but a real deletion always requires someone to explicitly
-# trigger it.
+# The daily schedule always runs with `--apply` — this is the "genuinely
+# automatic deletion" this prompt asked for, not another dry-run-only
+# schedule. A manual `workflow_dispatch` run still defaults to dry-run
+# (`apply` unchecked) and requires the box to be explicitly ticked to
+# delete anything outside the schedule.
 name: Demo account purge
 
 on:
@@ -35,31 +40,48 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: "Actually delete (unchecked = dry-run report only)"
+        description: "Actually delete (unchecked = dry-run report only). The scheduled run always applies."
         type: boolean
         default: false
+
+# Single-run mechanism (requirement 6): two overlapping purge runs are
+# already safe on their own (purge_expired_demo_accounts is idempotent —
+# see demo_purge.py's own docstring), but there's no reason to ever run
+# two at once on purpose. cancel-in-progress stays false so an in-flight
+# destructive run is never killed mid-batch — it either finishes its
+# current batch cleanly or the next scheduled/manual run just queues
+# behind it.
+concurrency:
+  group: demo-purge-production
+  cancel-in-progress: false
 
 jobs:
   purge:
     name: Demo purge
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -r backend/requirements.txt
-      - name: Run purge (dry-run unless PRODUCTION_DATABASE_URL is configured and apply requested)
-        working-directory: backend
+      - name: Run demo purge on the server
         env:
-          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
         run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "PRODUCTION_DATABASE_URL is not configured — see docs/demo-lifecycle.md. Skipping (no-op)."
-            exit 0
+          # Fail closed AND loud (requirement 3 + requirement 10): a
+          # missing secret must not silently report success every night
+          # while doing nothing — that could mask a broken pipeline for
+          # weeks. No deletion happens either way (fail closed), but this
+          # run shows as a failed, visible red X (fail loud), not a
+          # quiet no-op the way the previous design's `exit 0` did.
+          if [ -z "$SSH_KEY" ] || [ -z "$SSH_HOST" ]; then
+            echo "::error::PROD_SSH_KEY/PROD_SSH_HOST not configured — see docs/demo-lifecycle.md. Refusing to run (fail closed)."
+            exit 1
           fi
-          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
-            python -m app.demo_purge purge --apply
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            CMD="python -m app.demo_purge purge --apply"
           else
-            python -m app.demo_purge purge
+            CMD="python -m app.demo_purge purge"
           fi
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" \
+            "cd nutri-matic && docker compose exec -T backend $CMD"

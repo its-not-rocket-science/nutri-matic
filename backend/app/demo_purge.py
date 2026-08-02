@@ -45,8 +45,10 @@ re-run — already-deleted users simply won't be selected again).
 
 import argparse
 import logging
+import os
+import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -87,6 +89,28 @@ from .models import (
 _logger = logging.getLogger("app.demo")
 
 DEFAULT_BATCH_SIZE = 100
+# operational-hardening prompt 1, requirement 7: an account is eligible
+# only once it's been expired for at least this long, not at the exact
+# expiry instant — a buffer against clock skew across the fleet (auth
+# already blocks an expired demo immediately regardless of this; this
+# only delays the *deletion*) and a small window for investigating a
+# report about an account shortly before it would otherwise vanish.
+# Overridable via DEMO_PURGE_GRACE_PERIOD_HOURS for operational tuning
+# without a code change; 30 minutes is comfortably longer than any
+# reasonable clock drift and short enough not to meaningfully extend how
+# long an expired demo account's data lingers (still governed by the
+# same DEMO_LIFETIME_HOURS=24 default as the account's own lifetime).
+DEFAULT_GRACE_PERIOD_HOURS = float(os.environ.get("DEMO_PURGE_GRACE_PERIOD_HOURS", "0.5"))
+# requirement 8: bounds one invocation's work regardless of backlog size
+# — each batch is already its own transaction (never one unbounded
+# transaction), but an unbounded number of batches in a single run could
+# still monopolise a scheduled job's time budget. A capped run reports
+# how many remain; the next scheduled run picks up where this one left
+# off (purge_expired_demo_accounts's usual re-query-each-batch behaviour
+# already makes this safe — nothing here assumes a single run finishes
+# the whole backlog). 50 batches * 100/batch = 5,000 accounts/run, far
+# beyond any realistic nightly backlog for this app's actual demo volume.
+DEFAULT_MAX_BATCHES_PER_RUN = 50
 
 
 @dataclass
@@ -101,6 +125,16 @@ class PurgeReport:
     dry_run: bool
     batches: list[BatchResult]
     duration_seconds: float = 0.0
+    # requirement 8: True when this run stopped because it hit
+    # max_batches, not because the backlog was exhausted — the caller
+    # (scheduled workflow) should expect the next run to continue where
+    # this one left off, not assume the backlog is clear.
+    hit_batch_limit: bool = False
+    # requirement 9's "remaining expired count" — computed after this
+    # run finishes (whether it exhausted the backlog or hit the batch
+    # limit), so a summary log/report always answers "is there more work
+    # outstanding" without a separate manual query.
+    remaining_expired: int = 0
 
     @property
     def total_users(self) -> int:
@@ -111,17 +145,23 @@ class PurgeReport:
         return sum(sum(b.row_counts.values()) for b in self.batches)
 
 
-def _expired_demo_users_query(db: Session, now: datetime):
-    # is_expired_demo's own logic, expressed as a query rather than
-    # per-row in Python — must stay equivalent to that function (tests
-    # cover both), since this is what actually selects purge candidates.
+def _eligible_before(now: datetime, grace_period_hours: float) -> datetime:
+    return now - timedelta(hours=grace_period_hours)
+
+
+def _expired_demo_users_query(db: Session, eligible_before: datetime):
+    # is_expired_demo's own logic (plus the grace-period offset the
+    # caller already folded into eligible_before), expressed as a query
+    # rather than per-row in Python — must stay equivalent to that
+    # function modulo the grace period (tests cover both), since this is
+    # what actually selects purge candidates.
     return db.query(User.id, User.email).filter(
-        User.is_demo.is_(True), User.expires_at.isnot(None), User.expires_at <= now
+        User.is_demo.is_(True), User.expires_at.isnot(None), User.expires_at <= eligible_before
     ).order_by(User.id)
 
 
-def _expired_demo_user_ids(db: Session, now: datetime, limit: int) -> list[int]:
-    return [uid for (uid, _email) in _expired_demo_users_query(db, now).limit(limit).all()]
+def _expired_demo_user_ids(db: Session, eligible_before: datetime, limit: int) -> list[int]:
+    return [uid for (uid, _email) in _expired_demo_users_query(db, eligible_before).limit(limit).all()]
 
 
 def _delete_batch(db: Session, user_ids: list[int]) -> dict[str, int]:
@@ -258,15 +298,39 @@ def _delete_batch(db: Session, user_ids: list[int]) -> dict[str, int]:
 
 
 def purge_expired_demo_accounts(
-    db: Session, *, dry_run: bool = True, batch_size: int = DEFAULT_BATCH_SIZE, now: datetime | None = None
+    db: Session,
+    *,
+    dry_run: bool = True,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    max_batches: int = DEFAULT_MAX_BATCHES_PER_RUN,
+    grace_period_hours: float = DEFAULT_GRACE_PERIOD_HOURS,
+    now: datetime | None = None,
 ) -> PurgeReport:
     """Idempotent: users already deleted in a prior run simply won't be
     selected again. Safe to call repeatedly, including concurrently —
     each batch is its own transaction, and two overlapping runs racing
     for the same batch just means one of them deletes zero rows for any
     user id the other already removed (a delete-by-id-list matching zero
-    rows is a no-op, not an error)."""
+    rows is a no-op, not an error).
+
+    `max_batches` bounds one run's work regardless of backlog size
+    (requirement 8) — a run that hits the limit stops with
+    `PurgeReport.hit_batch_limit=True` rather than continuing
+    indefinitely; the next scheduled run resumes automatically (nothing
+    here assumes one run clears the whole backlog). `grace_period_hours`
+    delays eligibility past the exact expiry instant (requirement 7).
+
+    Emits one structured `demo_purge_run_summary` log line
+    (scanned/deleted/failed/remaining/duration — requirement 9) whether
+    or not anything was actually eligible, and — for the destructive
+    path — lets any exception from `_delete_batch`/`db.commit()`
+    propagate after logging what completed so far, rather than
+    swallowing it: batches already committed stay purged (the
+    already-documented idempotent/partial-progress behaviour), and the
+    caller (CLI/workflow) sees a non-zero exit either way (requirement
+    10)."""
     now = now if now is not None else datetime.now(timezone.utc)
+    eligible_before = _eligible_before(now, grace_period_hours)
     started = datetime.now(timezone.utc)
     batches: list[BatchResult] = []
 
@@ -275,49 +339,91 @@ def purge_expired_demo_accounts(
         # way the destructive path must — every matching row is reported
         # (chunked into batch_size-sized groups purely for readability),
         # since the whole point is a human reviewing the complete list,
-        # not a sample of it.
-        rows = _expired_demo_users_query(db, now).all()
+        # not a sample of it. max_batches doesn't apply here either, for
+        # the same reason.
+        rows = _expired_demo_users_query(db, eligible_before).all()
         for i in range(0, len(rows), batch_size):
             chunk = rows[i : i + batch_size]
             batches.append(BatchResult(user_ids=[uid for uid, _ in chunk], emails=[e for _, e in chunk]))
-        return PurgeReport(dry_run=True, batches=batches, duration_seconds=0.0)
+        report = PurgeReport(dry_run=True, batches=batches, duration_seconds=0.0, remaining_expired=0)
+        _log_run_summary(report, scanned=report.total_users, failed=False)
+        return report
 
-    while True:
-        user_ids = _expired_demo_user_ids(db, now, batch_size)
-        if not user_ids:
-            break
+    hit_batch_limit = False
+    failed = False
+    try:
+        batch_number = 0
+        while True:
+            if batch_number >= max_batches:
+                hit_batch_limit = True
+                break
+            user_ids = _expired_demo_user_ids(db, eligible_before, batch_size)
+            if not user_ids:
+                break
 
-        emails = [e for (e,) in db.query(User.email).filter(User.id.in_(user_ids)).all()]
-        row_counts = _delete_batch(db, user_ids)
-        db.commit()
-        _logger.info(
-            "demo_purge_batch",
-            extra={"user_count": len(user_ids), "row_counts": row_counts},
+            emails = [e for (e,) in db.query(User.email).filter(User.id.in_(user_ids)).all()]
+            row_counts = _delete_batch(db, user_ids)
+            db.commit()
+            _logger.info(
+                "demo_purge_batch",
+                extra={"user_count": len(user_ids), "row_counts": row_counts},
+            )
+            batches.append(BatchResult(user_ids=user_ids, emails=emails, row_counts=row_counts))
+            batch_number += 1
+
+            if len(user_ids) < batch_size:
+                break
+    except Exception:
+        failed = True
+        raise
+    finally:
+        duration = (datetime.now(timezone.utc) - started).total_seconds()
+        remaining = count_would_purge(db, now=now, grace_period_hours=grace_period_hours)
+        report = PurgeReport(
+            dry_run=dry_run, batches=batches, duration_seconds=duration,
+            hit_batch_limit=hit_batch_limit, remaining_expired=remaining,
         )
-        batches.append(BatchResult(user_ids=user_ids, emails=emails, row_counts=row_counts))
+        _log_run_summary(report, scanned=report.total_users + remaining, failed=failed)
 
-        if len(user_ids) < batch_size:
-            break
-
-    duration = (datetime.now(timezone.utc) - started).total_seconds()
-    return PurgeReport(dry_run=dry_run, batches=batches, duration_seconds=duration)
+    return report
 
 
-def count_would_purge(db: Session, now: datetime | None = None) -> int:
+def _log_run_summary(report: PurgeReport, *, scanned: int, failed: bool) -> None:
+    """The one required structured summary line per run (requirement 9)
+    — counts only, never account emails (those stay in the per-batch dry-
+    run console report/`_cmd_purge`'s human-review output, a deliberately
+    separate, manual-trigger-only path)."""
+    _logger.info(
+        "demo_purge_run_summary",
+        extra={
+            "dry_run": report.dry_run,
+            "scanned": scanned,
+            "eligible": scanned,
+            "deleted": report.total_users if not report.dry_run else 0,
+            "failed": failed,
+            "hit_batch_limit": report.hit_batch_limit,
+            "remaining_expired": report.remaining_expired,
+            "duration_seconds": report.duration_seconds,
+        },
+    )
+
+
+def count_would_purge(db: Session, now: datetime | None = None, grace_period_hours: float = DEFAULT_GRACE_PERIOD_HOURS) -> int:
     now = now if now is not None else datetime.now(timezone.utc)
+    eligible_before = _eligible_before(now, grace_period_hours)
     return (
         db.query(User.id)
-        .filter(User.is_demo.is_(True), User.expires_at.isnot(None), User.expires_at <= now)
+        .filter(User.is_demo.is_(True), User.expires_at.isnot(None), User.expires_at <= eligible_before)
         .count()
     )
 
 
-def demo_account_counts(db: Session, now: datetime | None = None) -> dict[str, int]:
+def demo_account_counts(db: Session, now: datetime | None = None, grace_period_hours: float = DEFAULT_GRACE_PERIOD_HOURS) -> dict[str, int]:
     """The 'emergency operational command' counts: total/active/expired
     demo accounts, independent of the purge job itself."""
     now = now if now is not None else datetime.now(timezone.utc)
     total = db.query(User.id).filter(User.is_demo.is_(True)).count()
-    expired = count_would_purge(db, now=now)
+    expired = count_would_purge(db, now=now, grace_period_hours=grace_period_hours)
     return {"total_demo_accounts": total, "expired_demo_accounts": expired, "active_demo_accounts": total - expired}
 
 
@@ -336,7 +442,10 @@ def _cmd_purge(args: argparse.Namespace) -> None:
     db = SessionLocal()
     try:
         dry_run = not args.apply
-        report = purge_expired_demo_accounts(db, dry_run=dry_run, batch_size=args.batch_size)
+        report = purge_expired_demo_accounts(
+            db, dry_run=dry_run, batch_size=args.batch_size,
+            max_batches=args.max_batches, grace_period_hours=args.grace_period_hours,
+        )
         if dry_run:
             print(f"DRY RUN — would purge {report.total_users} expired demo account(s). No rows deleted.")
             for batch in report.batches:
@@ -350,6 +459,16 @@ def _cmd_purge(args: argparse.Namespace) -> None:
             print(f"Purged {report.total_users} demo account(s), {report.total_rows} dependent row(s) total.")
             for i, batch in enumerate(report.batches, start=1):
                 print(f"  Batch {i}: {len(batch.user_ids)} accounts, rows: {batch.row_counts}")
+            if report.hit_batch_limit:
+                print(
+                    f"Stopped after {args.max_batches} batch(es) (--max-batches) — "
+                    f"{report.remaining_expired} expired account(s) still remain for the next run."
+                )
+            elif report.remaining_expired:
+                # not expected in the common case (the loop only stops
+                # early on hit_batch_limit or an empty query), but stated
+                # explicitly rather than silently omitted if it ever does
+                print(f"{report.remaining_expired} expired account(s) still remain (see logs).")
             print(f"Duration: {report.duration_seconds:.2f}s")
     finally:
         db.close()
@@ -367,10 +486,34 @@ def main(argv: list[str] | None = None) -> None:
         "--apply", action="store_true", help="Actually delete. Without this, always dry-run."
     )
     purge_parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
+    purge_parser.add_argument(
+        "--max-batches", type=int, default=DEFAULT_MAX_BATCHES_PER_RUN,
+        help="Stop after this many batches, leaving the rest for the next run (requirement 8).",
+    )
+    purge_parser.add_argument(
+        "--grace-period-hours", type=float, default=DEFAULT_GRACE_PERIOD_HOURS,
+        help="Only purge accounts expired for at least this long (requirement 7).",
+    )
     purge_parser.set_defaults(func=_cmd_purge)
 
     args = parser.parse_args(argv)
-    args.func(args)
+    try:
+        args.func(args)
+    except Exception as exc:
+        # Belt-and-braces on top of the already-non-zero exit an
+        # uncaught exception produces by default (operational-hardening
+        # prompt 1, requirement 10: "a partial or failed deletion must
+        # return a non-zero exit status", "visible to monitoring and
+        # GitHub Actions") — an explicit, unambiguous exit code plus a
+        # one-line error `_logger` record (structured, so it's the same
+        # kind of thing monitoring already watches `app.demo` for),
+        # rather than relying solely on Python's default traceback/exit
+        # behaviour being "good enough". In `main()` itself (not just the
+        # `if __name__ == "__main__":` guard) so it fires the same way
+        # whether this runs as a script or is called directly.
+        _logger.error("demo_purge_failed", extra={"error": str(exc)})
+        print(f"demo_purge failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
