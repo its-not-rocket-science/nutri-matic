@@ -88,6 +88,19 @@ from .models import (
 
 _logger = logging.getLogger("app.demo")
 
+# PR review: run standalone (`python -m app.demo_purge`, exactly how the
+# scheduled workflow invokes this — see demo-purge.yml), nothing else in
+# the process ever configures a handler the way the live FastAPI app's
+# monitoring.py does, so this module's own INFO records (demo_purge_
+# run_summary/demo_purge_batch — the automatic scheduled job's only real
+# observability) were silently dropped by the root logger's default
+# WARNING level. `force=False` (the default) makes this a no-op if a
+# handler is already configured (e.g. under pytest, or if this were ever
+# imported into the running app), so it only takes effect for a genuine
+# standalone CLI invocation.
+def _configure_cli_logging() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+
 DEFAULT_BATCH_SIZE = 100
 # operational-hardening prompt 1, requirement 7: an account is eligible
 # only once it's been expired for at least this long, not at the exact
@@ -146,6 +159,16 @@ class PurgeReport:
 
 
 def _eligible_before(now: datetime, grace_period_hours: float) -> datetime:
+    # PR review: the single choke point every caller (purge and the
+    # report/count path alike) goes through — a negative grace period
+    # moves eligibility into the *future* relative to now, which would
+    # select accounts that haven't even expired yet. Checked here, not
+    # only in purge_expired_demo_accounts, so count_would_purge/
+    # demo_account_counts (the `report` command) can't silently compute
+    # a wrong "expired" count from a misconfigured negative env var
+    # either.
+    if grace_period_hours < 0:
+        raise ValueError(f"grace_period_hours must be >= 0, got {grace_period_hours!r}")
     return now - timedelta(hours=grace_period_hours)
 
 
@@ -328,7 +351,9 @@ def purge_expired_demo_accounts(
     swallowing it: batches already committed stay purged (the
     already-documented idempotent/partial-progress behaviour), and the
     caller (CLI/workflow) sees a non-zero exit either way (requirement
-    10)."""
+    10). `grace_period_hours < 0` raises ValueError (via `_eligible_
+    before`, its single choke point) before any query runs — see that
+    function's own docstring."""
     now = now if now is not None else datetime.now(timezone.utc)
     eligible_before = _eligible_before(now, grace_period_hours)
     started = datetime.now(timezone.utc)
@@ -345,7 +370,16 @@ def purge_expired_demo_accounts(
         for i in range(0, len(rows), batch_size):
             chunk = rows[i : i + batch_size]
             batches.append(BatchResult(user_ids=[uid for uid, _ in chunk], emails=[e for _, e in chunk]))
-        report = PurgeReport(dry_run=True, batches=batches, duration_seconds=0.0, remaining_expired=0)
+        # PR review: a dry-run deletes nothing, so every scanned account
+        # is still outstanding — remaining_expired must reflect that, not
+        # a hard-coded 0 (which falsely claimed no work remained). Real
+        # elapsed time too, not a hard-coded 0.0 (misleading for a
+        # potentially large full-table scan).
+        duration = (datetime.now(timezone.utc) - started).total_seconds()
+        total_scanned = sum(len(b.user_ids) for b in batches)
+        report = PurgeReport(
+            dry_run=True, batches=batches, duration_seconds=duration, remaining_expired=total_scanned,
+        )
         _log_run_summary(report, scanned=report.total_users, failed=False)
         return report
 
@@ -354,11 +388,21 @@ def purge_expired_demo_accounts(
     try:
         batch_number = 0
         while True:
-            if batch_number >= max_batches:
-                hit_batch_limit = True
-                break
+            # Query BEFORE checking the batch limit (PR review): if the
+            # backlog is exactly max_batches * batch_size, the batch that
+            # exactly clears it would otherwise be followed by a limit
+            # check that fires before ever learning the backlog is
+            # actually empty — hit_batch_limit=True with remaining_
+            # expired=0 is a contradiction the CLI/summary log must never
+            # produce. Fetching first (a cheap read) and only THEN
+            # deciding "is there more work, and are we out of batches"
+            # means hit_batch_limit is only ever set when a next batch
+            # genuinely exists.
             user_ids = _expired_demo_user_ids(db, eligible_before, batch_size)
             if not user_ids:
+                break
+            if batch_number >= max_batches:
+                hit_batch_limit = True
                 break
 
             emails = [e for (e,) in db.query(User.email).filter(User.id.in_(user_ids)).all()]
@@ -375,6 +419,15 @@ def purge_expired_demo_accounts(
                 break
     except Exception:
         failed = True
+        # PR review: an exception here (e.g. a DB error inside
+        # _delete_batch/db.commit()) leaves the session's transaction in
+        # SQLAlchemy's failed/pending-rollback state — any further query
+        # on it (count_would_purge below, in the finally block) would
+        # raise PendingRollbackError, masking the real failure and
+        # silently skipping the demo_purge_run_summary(failed=True) log
+        # this whole run exists to guarantee. Roll back first so the
+        # finally block's own query can actually run.
+        db.rollback()
         raise
     finally:
         duration = (datetime.now(timezone.utc) - started).total_seconds()
@@ -475,6 +528,7 @@ def _cmd_purge(args: argparse.Namespace) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
+    _configure_cli_logging()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     subparsers = parser.add_subparsers(dest="command", required=True)
 

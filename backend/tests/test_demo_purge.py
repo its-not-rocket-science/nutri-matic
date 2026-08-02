@@ -102,6 +102,12 @@ def test_dry_run_reports_specific_accounts_and_writes_nothing(db):
     assert report.batches[0].user_ids == [user.id]
     assert report.batches[0].emails == ["demo-a@demo.nutrimatic.local"]
     assert db.query(User).count() == 1  # nothing deleted
+    # PR review: a dry-run deletes nothing, so every scanned account is
+    # still outstanding — remaining_expired must say so, not a
+    # hard-coded 0 (which falsely claimed no work remained). duration
+    # must be real elapsed time too, not a hard-coded 0.0.
+    assert report.remaining_expired == 1
+    assert report.duration_seconds >= 0.0
 
 
 def test_purge_removes_expired_demo_and_leaves_others_untouched(db):
@@ -412,6 +418,16 @@ def test_grace_period_reflected_in_counts_and_remaining(db):
     assert counts["active_demo_accounts"] == 1
 
 
+def test_negative_grace_period_rejected_by_count_and_report_paths_too(db):
+    """PR review's fix lives in _eligible_before, the shared choke point
+    — must reject for count_would_purge/demo_account_counts (the
+    `report` command's path), not only purge_expired_demo_accounts."""
+    with pytest.raises(ValueError):
+        count_would_purge(db, grace_period_hours=-0.5)
+    with pytest.raises(ValueError):
+        demo_account_counts(db, grace_period_hours=-0.5)
+
+
 def test_max_batches_stops_early_and_reports_remaining(db):
     """requirement 8: one run never processes an unbounded backlog —
     stops after max_batches, flags hit_batch_limit, and reports how many
@@ -432,6 +448,36 @@ def test_max_batches_stops_early_and_reports_remaining(db):
     assert follow_up.hit_batch_limit is False
     assert follow_up.remaining_expired == 0
     assert db.query(User).count() == 0
+
+
+def test_max_batches_exact_backlog_boundary_does_not_falsely_report_hit_limit(db):
+    """PR review: when the backlog is exactly max_batches * batch_size,
+    the final permitted batch clears it completely — the run must not
+    then claim hit_batch_limit=True with remaining_expired=0, a
+    contradiction (there's nothing left to hit a limit against)."""
+    for i in range(4):
+        make_demo_user(db, expired=True, email=f"exact-{i}@demo.nutrimatic.local")
+    db.commit()
+
+    report = purge_expired_demo_accounts(db, dry_run=False, batch_size=2, max_batches=2)
+    assert report.total_users == 4
+    assert report.hit_batch_limit is False
+    assert report.remaining_expired == 0
+    assert db.query(User).count() == 0
+
+
+def test_negative_grace_period_rejected(db):
+    """PR review: a negative grace period moves eligibility into the
+    future relative to now, which would delete accounts that haven't
+    even expired yet — reject outright rather than let the arithmetic
+    silently do the wrong thing."""
+    make_demo_user(db, expired=True)
+    db.commit()
+
+    with pytest.raises(ValueError):
+        purge_expired_demo_accounts(db, dry_run=False, grace_period_hours=-1.0)
+    # nothing was deleted — the rejection happens before any query/delete
+    assert db.query(User).count() == 1
 
 
 def test_run_summary_logged_with_counts_never_emails(db, caplog):
@@ -457,7 +503,20 @@ def test_run_summary_logged_with_counts_never_emails(db, caplog):
 def test_run_summary_logs_failed_true_and_still_reflects_partial_progress(db, monkeypatch, caplog):
     """A batch that raises mid-run must still leave earlier batches
     purged (already covered by idempotency elsewhere) and the summary
-    log must say failed=True rather than silently reporting success."""
+    log must say failed=True rather than silently reporting success.
+
+    PR review: on Postgres, a failure inside a real flush/commit leaves
+    the session in SQLAlchemy's pending-rollback state, and the finally
+    block's own count_would_purge query would raise PendingRollbackError
+    there unless purge_expired_demo_accounts rolls back first — masking
+    both the original exception and this exact failed=True guarantee.
+    SQLite (this file's backend, for speed/no-external-dependency) does
+    not reproduce that specific invalidation for a plain RuntimeError
+    raised before touching the DB, so this test's real job is confirming
+    the *contract* (original exception propagates, summary still logs
+    failed=True, earlier batches stay committed) rather than the exact
+    Postgres exception type; the db.rollback() fix itself is
+    unconditional and correct on both backends regardless."""
     make_demo_user(db, expired=True, email="a@demo.nutrimatic.local")
     make_demo_user(db, expired=True, email="b@demo.nutrimatic.local")
     db.commit()
