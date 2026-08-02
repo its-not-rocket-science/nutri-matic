@@ -19,6 +19,7 @@ def _reset_monitoring_state(monkeypatch):
     re-initialising with dsn=None after every test tears that global
     state back down."""
     monkeypatch.delenv("SENTRY_DSN", raising=False)
+    monkeypatch.delenv("APP_ENV", raising=False)
     monitoring._initialized = False
     yield
     monitoring._initialized = False
@@ -40,6 +41,66 @@ def test_init_monitoring_initialises_when_dsn_is_set(monkeypatch):
     result = monitoring.init_monitoring()
     assert result is True
     assert monitoring.is_initialized() is True
+
+
+class TestValidateMonitoringConfig:
+    """Operational-hardening prompt 4, requirement 1."""
+
+    def test_logs_loud_error_when_production_and_no_dsn(self, monkeypatch, caplog):
+        monkeypatch.setenv("APP_ENV", "production")
+        monitoring.init_monitoring()  # no DSN — stays uninitialised
+        with caplog.at_level("ERROR", logger="app.monitoring"):
+            monitoring.validate_monitoring_config()
+        assert any(r.message == "monitoring_not_configured" for r in caplog.records)
+
+    def test_never_raises_even_in_production_with_no_dsn(self, monkeypatch):
+        """Deliberately a warning, not the hard-fail-at-import pattern
+        JWT_SECRET/REDIS_URL use — see validate_monitoring_config's own
+        docstring for why missing observability shouldn't block startup
+        the same way missing security/rate-limit config does."""
+        monkeypatch.setenv("APP_ENV", "production")
+        monitoring.init_monitoring()
+        monitoring.validate_monitoring_config()  # must not raise
+
+    def test_silent_when_monitoring_is_actually_initialised(self, monkeypatch, caplog):
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("SENTRY_DSN", "https://abc123@o0.ingest.sentry.io/123")
+        monitoring.init_monitoring()
+        with caplog.at_level("ERROR", logger="app.monitoring"):
+            monitoring.validate_monitoring_config()
+        assert not any(r.message == "monitoring_not_configured" for r in caplog.records)
+
+    def test_silent_outside_production_with_no_dsn(self, monkeypatch, caplog):
+        """development (the default) with no SENTRY_DSN is the normal,
+        expected local/CI state — must never warn."""
+        monitoring.init_monitoring()
+        with caplog.at_level("ERROR", logger="app.monitoring"):
+            monitoring.validate_monitoring_config()
+        assert not any(r.message == "monitoring_not_configured" for r in caplog.records)
+
+    def test_warns_via_pythons_own_last_resort_handler_with_no_configured_handler(self, monkeypatch, capsys):
+        """The log call must actually be visible in container/CI stderr
+        even though nothing in this app calls logging.basicConfig() or
+        otherwise attaches a handler before this point — Python's own
+        fallback (logging.lastResort) is what makes that true, checked
+        here directly rather than assumed. Uses a real subprocess (not
+        just the in-process caplog capture above) so pytest's own log
+        capture handler — attached to the root logger for the rest of
+        this test suite — can't mask whether a handler would genuinely
+        be present in a real, undecorated run."""
+        import os
+        import subprocess
+        import sys
+
+        child_env = {**os.environ, "APP_ENV": "production"}
+        child_env.pop("SENTRY_DSN", None)
+        result = subprocess.run(
+            [sys.executable, "-c", "from app import monitoring; monitoring.validate_monitoring_config()"],
+            cwd=str(monitoring.BACKEND_DIR),
+            env=child_env,
+            capture_output=True, text=True,
+        )
+        assert "monitoring_not_configured" in result.stderr
 
 
 def test_captures_uncaught_exceptions_via_the_auto_enabled_fastapi_integration(monkeypatch):

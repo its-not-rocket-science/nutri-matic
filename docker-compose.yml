@@ -50,6 +50,16 @@ services:
       JWT_SECRET: "1596dfe31d13c3682f357d84658459591506c44c91bb23eb8e063d12087e4799"
       CORS_ORIGINS: ${CORS_ORIGINS}
       REDIS_URL: redis://redis:6379/0
+      # Operational-hardening prompt 4, requirement 2: "wire backend and
+      # frontend events to the same release identifier/commit SHA".
+      # ${RELEASE_VERSION:-} — same interpolation-from-the-invoking-
+      # shell's-environment pattern CORS_ORIGINS above already relies on;
+      # deploy.yml's deploy job exports RELEASE_VERSION=<the exact
+      # rehearsed/deployed commit SHA> in the same SSH session that runs
+      # `docker compose up -d backend`, so this picks it up automatically
+      # on every real deploy. Empty locally/in CI (harmless — app/
+      # monitoring.py's release= is already optional).
+      RELEASE_VERSION: ${RELEASE_VERSION:-}
     ports:
       - "8000:8000"
     depends_on:
