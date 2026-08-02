@@ -13,8 +13,10 @@ matters — i.e. anywhere that isn't your own laptop.
 | `JWT_SECRET` | Yes (enforced) | `dev-secret-change-me` | Signs auth tokens. The default is a fixed, public string committed to source — anyone can read it and forge a token for any user id. Generate a real one: `python -c "import secrets; print(secrets.token_hex(32))"`. |
 | `APP_ENV` | Yes — set to `production` | `development` | When `production`, the app refuses to start if `JWT_SECRET` isn't explicitly set, rather than silently falling back to the public dev value (see `backend/app/auth.py::_resolve_jwt_secret`). This is the enforcement mechanism, not just documentation — set it. |
 | `CORS_ORIGINS` | Yes | `http://localhost:5173` | Comma-separated list of frontend origins allowed to call the API (e.g. `https://app.example.com,https://staging.example.com`). |
-| `DEMO_RATE_LIMIT_PER_IP` / `DEMO_RATE_LIMIT_PER_IP_WINDOW_SECONDS` | No | `5` / `3600` | Per-IP cap on `POST /api/auth/demo`. See `docs/rate-limiting.md` — in-memory, per-process, resets on restart. |
-| `DEMO_RATE_LIMIT_GLOBAL` / `DEMO_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `300` / `3600` | Global circuit breaker on total demo-account creation. Same doc — becomes `limit × instance count` if the backend is ever scaled horizontally. |
+| `REDIS_URL` | Yes (enforced) | unset | Shared, durable store for the demo-endpoint rate limiter (`app/redis_rate_limit.py`). When `APP_ENV=production` and this is unset, the app refuses to start rather than silently falling back to the process-local, reset-on-every-deploy limiter — see `docs/rate-limiting.md`. Local dev via `docker compose up` already sets this to the bundled `redis` service. |
+| `DEMO_RATE_LIMIT_PER_IP` / `DEMO_RATE_LIMIT_PER_IP_WINDOW_SECONDS` | No | `5` / `3600` | Per-IP cap on `POST /api/auth/demo`. See `docs/rate-limiting.md`. |
+| `DEMO_RATE_LIMIT_GLOBAL` / `DEMO_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `300` / `3600` | Global circuit breaker on total demo-account creation. Same doc. |
+| `TRUSTED_PROXY_HOP_COUNT` | Only if a reverse proxy/CDN sits in front of this API | `0` (trust nothing) | How many `X-Forwarded-For` hops to trust for rate-limiting's client-IP resolution. Left at `0`, every request is attributed to the raw socket peer, which is *wrong* if a proxy is actually in front (every request then appears to come from the proxy's own address) — but that's a safer default than trusting an unconfigured header. This repository has no reverse-proxy/CDN configuration tracked in it; set this explicitly if the real deployment has one. See `docs/rate-limiting.md`. |
 | `SMTP_HOST` | Only if inviting unregistered clinician clients | unset (email sending disabled) | Enables `app/email_sender.py`. Without it, `POST /api/clinician/invites` to an email with no account returns `503` rather than pretending to send anything — see that module's own docstring. |
 | `SMTP_PORT` | No | `587` | SMTP relay port. |
 | `SMTP_USERNAME` / `SMTP_PASSWORD` | No | unset | SMTP auth — login is skipped if either is unset (some relays allow unauthenticated/IP-allowlisted send). |
@@ -50,6 +52,13 @@ matters — i.e. anywhere that isn't your own laptop.
    for the build command, Vercel project configuration, and the smoke
    tests this was verified against, and `docs/security-headers.md` for
    the canonical-domain redirect and CSP/security-header design.
+6. Set `REDIS_URL` to a real Redis instance — required (the app refuses
+   to start without it once `APP_ENV=production`) for the demo-endpoint
+   rate limiter to be genuinely shared and durable across
+   restarts/instances rather than the process-local fallback. See
+   `docs/rate-limiting.md`. If a reverse proxy or CDN sits in front of
+   this API, also set `TRUSTED_PROXY_HOP_COUNT` — left at its default of
+   `0`, every request appears to come from the proxy's own address.
 
 ## Deployment checklist (production-hardening prompt 4)
 

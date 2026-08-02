@@ -40,9 +40,23 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
+      # Operational-hardening prompt 2: gives test_redis_rate_limit.py a
+      # real Redis to run against, same "skip locally if unreachable,
+      # must run for real in CI" convention as the postgres-only tests
+      # (test_verify_pre_alembic_schema.py etc.) already use.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://nutrimatic:nutrimatic@localhost:5432/nutrimatic
       JWT_SECRET: ci-test-secret-not-for-production-use
+      REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
