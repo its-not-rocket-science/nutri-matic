@@ -45,7 +45,14 @@ CLASSIFICATION_BREAKDOWN_FIELDS = (
     "glycaemic_provenance",
     "glycaemic_basis",
 )
-BREAKDOWN_FIELDS = NUMERIC_BREAKDOWN_FIELDS + CLASSIFICATION_BREAKDOWN_FIELDS
+# PR review: int-or-None, not string-or-None and not "always a real
+# number" — must fulfil the "tell a previously-seen classification apart
+# from one under a different ruleset" purpose, so validated on its own.
+VERSION_BREAKDOWN_FIELDS = (
+    "carbon_classification_version",
+    "glycaemic_classification_version",
+)
+BREAKDOWN_FIELDS = NUMERIC_BREAKDOWN_FIELDS + CLASSIFICATION_BREAKDOWN_FIELDS + VERSION_BREAKDOWN_FIELDS
 
 
 @pytest.fixture
@@ -128,6 +135,9 @@ def _assert_valid_breakdown(breakdown: dict):
     for key in CLASSIFICATION_BREAKDOWN_FIELDS:
         value = breakdown[key]
         assert value is None or isinstance(value, str), f"{key} is not a string or None: {value!r}"
+    for key in VERSION_BREAKDOWN_FIELDS:
+        value = breakdown[key]
+        assert value is None or isinstance(value, int), f"{key} is not an int or None: {value!r}"
     assert breakdown["model_version"] == RECOMMENDATION_MODEL_VERSION
     # operational-hardening prompt 3's own acceptance criterion: a
     # classification is present exactly when there's real signal to
@@ -143,19 +153,23 @@ def _assert_valid_breakdown(breakdown: dict):
     if breakdown["carbon_tier"] is None:
         assert breakdown["carbon_confidence"] is None
         assert breakdown["carbon_provenance"] is None
+        assert breakdown["carbon_classification_version"] is None
         assert breakdown["carbon_footprint_adjustment"] == 0.0
     else:
         assert breakdown["carbon_confidence"] == "low"
         assert breakdown["carbon_provenance"] in ("name_match", "dominant_ingredient_proxy")
+        assert breakdown["carbon_classification_version"] >= 1
     if breakdown["glycaemic_tier"] is None:
         assert breakdown["glycaemic_confidence"] is None
         assert breakdown["glycaemic_provenance"] is None
         assert breakdown["glycaemic_basis"] is None
+        assert breakdown["glycaemic_classification_version"] is None
         assert breakdown["glycaemic_load_adjustment"] == 0.0
     else:
         assert breakdown["glycaemic_confidence"] == "low"
         assert breakdown["glycaemic_provenance"] in ("name_match", "dominant_ingredient_proxy")
         assert breakdown["glycaemic_basis"] in ("category_match", "negligible_carbohydrate")
+        assert breakdown["glycaemic_classification_version"] >= 1
     expected_total = (
         breakdown["weighted_gap_reduction"]
         + breakdown["multi_nutrient_bonus"]
@@ -220,10 +234,12 @@ def test_ingredient_suggestion_carbon_and_glycaemic_classification_end_to_end(cl
     assert breakdown["carbon_tier"] == "low"
     assert breakdown["carbon_confidence"] == "low"
     assert breakdown["carbon_provenance"] == "name_match"
+    assert breakdown["carbon_classification_version"] >= 1
     assert breakdown["glycaemic_tier"] == "low"
     assert breakdown["glycaemic_confidence"] == "low"
     assert breakdown["glycaemic_provenance"] == "name_match"
     assert breakdown["glycaemic_basis"] == "category_match"
+    assert breakdown["glycaemic_classification_version"] >= 1
 
 
 def test_recipe_suggestion_score_breakdown(client):

@@ -32,9 +32,14 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from .aggregation import ProteinQualityResult
-from .carbon_footprint import CarbonTier, carbon_tier_confidence
+from .carbon_footprint import CARBON_CLASSIFICATION_VERSION, CarbonTier, carbon_tier_confidence
 from .dietary_tags import Suitability
-from .glycaemic_load import GlycaemicBasis, GlycaemicTier, glycaemic_tier_confidence
+from .glycaemic_load import (
+    GLYCAEMIC_CLASSIFICATION_VERSION,
+    GlycaemicBasis,
+    GlycaemicTier,
+    glycaemic_tier_confidence,
+)
 from .nutrient_gap_analysis import NutrientGapResult, NutrientStatus
 
 # Operational-hardening prompt 3: how a carbon/glycaemic tier was
@@ -172,6 +177,15 @@ class ScoreBreakdown:
     carbon_tier: CarbonTier | None
     carbon_confidence: Literal["low"] | None
     carbon_provenance: ClassificationProvenance | None
+    # PR review: CARBON_CLASSIFICATION_VERSION only fulfils its own
+    # stated purpose (telling a previously-seen result apart from one
+    # produced under a different keyword ruleset) if it's actually
+    # reachable by a caller — a constant that exists but is never
+    # threaded anywhere can't do that. None whenever carbon_tier is None
+    # (nothing was classified, so no ruleset version applies), the real
+    # int otherwise — never caller-suppliable, same reasoning as
+    # carbon_confidence.
+    carbon_classification_version: int | None
     # positive (low-GI bonus), negative (high-GI penalty), or exactly 0.0
     # (medium tier, no tier data — including the deliberately-untiered
     # bread/rice/potato/banana staples, see glycaemic_load.py — or the
@@ -185,6 +199,7 @@ class ScoreBreakdown:
     # meat/fish/eggs/cheese/nuts) — never conflated, see glycaemic_load.
     # py's own module docstring. None whenever glycaemic_tier is None.
     glycaemic_basis: GlycaemicBasis | None
+    glycaemic_classification_version: int | None
     total: float
     # which scoring-formula version produced this breakdown — hardening
     # prompt 3, same constant every ScoreBreakdown this module produces
@@ -431,6 +446,8 @@ def score_candidate(
     glycaemic_load_adjustment = _glycaemic_load_adjustment(glycaemic_tier, glycaemic_priority_weight, weights)
     carbon_confidence = carbon_tier_confidence(carbon_tier)
     glycaemic_confidence = glycaemic_tier_confidence(glycaemic_tier)
+    carbon_classification_version = CARBON_CLASSIFICATION_VERSION if carbon_tier is not None else None
+    glycaemic_classification_version = GLYCAEMIC_CLASSIFICATION_VERSION if glycaemic_tier is not None else None
 
     total = (
         gap_reduction
@@ -462,11 +479,13 @@ def score_candidate(
         carbon_tier=carbon_tier,
         carbon_confidence=carbon_confidence,
         carbon_provenance=carbon_provenance if carbon_tier is not None else None,
+        carbon_classification_version=carbon_classification_version,
         glycaemic_load_adjustment=glycaemic_load_adjustment,
         glycaemic_tier=glycaemic_tier,
         glycaemic_confidence=glycaemic_confidence,
         glycaemic_provenance=glycaemic_provenance if glycaemic_tier is not None else None,
         glycaemic_basis=glycaemic_basis if glycaemic_tier is not None else None,
+        glycaemic_classification_version=glycaemic_classification_version,
         total=total,
         nutrients_improved=improved,
         nutrients_worsened=worsened,

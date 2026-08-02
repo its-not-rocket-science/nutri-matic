@@ -794,6 +794,12 @@ export interface ScoreBreakdown {
 	carbon_tier: 'very_high' | 'high' | 'medium' | 'low' | null;
 	carbon_confidence: 'low' | null;
 	carbon_provenance: 'name_match' | 'dominant_ingredient_proxy' | null;
+	// Which version of the carbon-tiering keyword ruleset produced
+	// carbon_tier — independent of model_version (a ruleset edit doesn't
+	// change the scoring formula, and vice versa), so this is the only
+	// way to tell a previously-seen classification apart from one under
+	// a different ruleset. null whenever carbon_tier is null.
+	carbon_classification_version: number | null;
 	// positive (low-GI bonus), negative (high-GI penalty), or exactly 0
 	// (medium tier, no tier data — including the deliberately-untiered
 	// bread/rice/potato/banana staples, see the backend's
@@ -808,6 +814,9 @@ export interface ScoreBreakdown {
 	// negligible-carbohydrate must never be shown as having a measured
 	// "low GI".
 	glycaemic_basis: 'category_match' | 'negligible_carbohydrate' | null;
+	// carbon_classification_version's exact counterpart for the
+	// glycaemic-tiering ruleset.
+	glycaemic_classification_version: number | null;
 	total: number;
 	model_version: number;
 }

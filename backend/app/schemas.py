@@ -1303,6 +1303,13 @@ class ScoreBreakdownOut(BaseModel):
     # proxy" (a recipe/pair/substitution's by-mass-dominant ingredient
     # standing in for the whole candidate) — or None
     carbon_provenance: str | None = None
+    # PR review: recommendation_scoring.CARBON_CLASSIFICATION_VERSION
+    # threaded all the way through — a keyword-ruleset edit (unlike a
+    # scoring-formula edit) doesn't bump model_version, so this is the
+    # only way a client can tell a previously-seen classification apart
+    # from one produced under a different ruleset. None whenever
+    # carbon_tier is None.
+    carbon_classification_version: int | None = None
     glycaemic_load_adjustment: float
     # "high" | "medium" | "low", or None
     glycaemic_tier: str | None = None
@@ -1312,6 +1319,7 @@ class ScoreBreakdownOut(BaseModel):
     # "negligible_carbohydrate" (GI doesn't meaningfully apply — meat,
     # fish, eggs, cheese, nuts) — never conflated. See glycaemic_load.py.
     glycaemic_basis: str | None = None
+    glycaemic_classification_version: int | None = None
     total: float
     model_version: int
 

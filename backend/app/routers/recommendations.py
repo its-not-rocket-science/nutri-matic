@@ -69,11 +69,13 @@ def _score_breakdown_out(score: ScoreBreakdown) -> schemas.ScoreBreakdownOut:
         carbon_tier=score.carbon_tier,
         carbon_confidence=score.carbon_confidence,
         carbon_provenance=score.carbon_provenance,
+        carbon_classification_version=score.carbon_classification_version,
         glycaemic_load_adjustment=score.glycaemic_load_adjustment,
         glycaemic_tier=score.glycaemic_tier,
         glycaemic_confidence=score.glycaemic_confidence,
         glycaemic_provenance=score.glycaemic_provenance,
         glycaemic_basis=score.glycaemic_basis,
+        glycaemic_classification_version=score.glycaemic_classification_version,
         total=score.total,
         model_version=score.model_version,
     )
