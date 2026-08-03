@@ -60,6 +60,19 @@ services:
       # on every real deploy. Empty locally/in CI (harmless — app/
       # monitoring.py's release= is already optional).
       RELEASE_VERSION: ${RELEASE_VERSION:-}
+      # Prompt-5 validation finding: production runs behind a reverse
+      # proxy (confirmed live via the `Via: 1.1 Caddy` response header on
+      # api.nutri-matic.uk) but nothing here ever set this, so it was
+      # silently defaulting to 0 ("trust nothing") — every request was
+      # reaching the app as Caddy's own address, collapsing the per-IP
+      # demo-creation limit into a second global-only one (see
+      # demo_protection.py's own docstring for what this value means).
+      # Same shell-interpolation pattern as CORS_ORIGINS/RELEASE_VERSION
+      # above — set TRUSTED_PROXY_HOP_COUNT in the server's own env
+      # (e.g. its .env file next to this compose file) to the number of
+      # proxy hops actually in front of the app; see DEPLOYMENT.md and
+      # docs/rate-limiting.md.
+      TRUSTED_PROXY_HOP_COUNT: ${TRUSTED_PROXY_HOP_COUNT:-0}
     ports:
       - "8000:8000"
     depends_on:
