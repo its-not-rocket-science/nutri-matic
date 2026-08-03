@@ -4,6 +4,27 @@ Operational-hardening prompt 4, building on public-launch hardening
 prompt 6's version of this document (kept below where still accurate;
 superseded parts are marked as such rather than silently rewritten).
 
+## Post-validation fixes (2026-08-03)
+
+Prompt 5's final validation (see the published validation report)
+found two live, confirmed gaps — both now closed:
+
+- **Demo-purge SSH allowlist** — `/root/deploy-allowed-commands.sh`
+  never had the `demo_purge` case branches added, so every invocation
+  (scheduled or manual) was rejected at the SSH layer since the
+  Prompt-1 rewrite. Added; verified with a reviewed manual dry-run (14
+  expired accounts found, all matching the expected demo-account
+  pattern) followed by a reviewed manual `--apply` run (14 accounts /
+  211 dependent rows purged in 0.38s), then a follow-up dry-run
+  confirming zero remaining backlog. The nightly schedule now runs for
+  real.
+- **`TRUSTED_PROXY_HOP_COUNT`** — wired through `docker-compose.yml`
+  and set to `1` on the production server (Caddy is confirmed, via its
+  own `Via` response header, to be the one proxy hop in front of the
+  app). Per-IP demo-creation limiting was silently collapsing into a
+  second global-only limit before this; real per-visitor limiting is
+  now in effect.
+
 ## New this round (operational-hardening prompt 4)
 
 - **`validate_monitoring_config()`** (`app/monitoring.py`, called from
@@ -287,7 +308,7 @@ integration anywhere in the codebase).
 | Readiness failure | `/api/ready` returns 503 for >2 minutes | Same `uptime-check.yml` run |
 | Migration failure | `alembic upgrade head` exits non-zero in `Dockerfile`'s `CMD` | **Infra-level only** — this app's own code never runs if this step fails (see pre-flight table); must be the container platform's own deploy-failure/crash-loop alert, not anything in this repo |
 | Demo-creation abuse | Sustained `demo_rate_limited`/`no_eligible_candidates`-style rejection rate, or the global circuit breaker (`demo_protection.py`) tripping repeatedly | Existing prompt-1 telemetry |
-| Purge failure / retained-demo backlog | `python -m app.demo_purge report`'s `expired_demo_accounts` count staying nonzero/growing across runs | Existing prompt-2 tooling — no scheduled alerting wraps this yet (`.github/workflows/demo-purge.yml` is dry-run-only on its schedule, per its own design) |
+| Purge failure / retained-demo backlog | `python -m app.demo_purge report`'s `expired_demo_accounts` count staying nonzero/growing across runs | Existing prompt-1 tooling — the scheduled run genuinely applies nightly (not dry-run-only, correcting a stale claim this row previously made). No dedicated alerting wraps a *silent* failure yet — a rejected/crashed run still shows as a red X on `.github/workflows/demo-purge.yml` itself, which is the real signal until something more specific is added. |
 | Database connection exhaustion | `slow_readiness_db_check` firing repeatedly, or `/api/ready`'s "database unavailable" outcome, sustained | New this round |
 | Abnormal recommendation latency (by mode) | `recommendation_request`'s `duration_ms` p95 exceeds a baseline, per `mode` tag | Baseline must come from real production traffic once available — no synthetic number here would be honest |
 | Sudden rise in substitution 409/422 | `substitution_apply_outcome` non-`200_success` rate spikes relative to a rolling baseline | Existing telemetry |
