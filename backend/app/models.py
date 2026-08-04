@@ -964,3 +964,139 @@ class SavedFilterPreset(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+
+
+class CompoundObservation(Base):
+    """A single reported value for how much of some dietary compound (e.g.
+    "phytate" — see docs/phytate-evidence-review.md; oxalate/tannin are
+    explicitly out of scope for now) a specific food/preparation contains,
+    as published in one external dataset. Generic across compounds by
+    design — nothing here is phytate-specific — so a later compound adds
+    rows with a new `compound` value, not a schema change.
+
+    Deliberately a separate table from Food/FoodNutrient: this data has a
+    different provenance/confidence shape (external per-compound
+    literature compilations, not the FDC catalog Food/FoodNutrient are
+    built from), and an observation may have no confident match to a Food
+    row at all — matched_food_id is nullable so it's still stored for a
+    maintainer to review rather than silently dropped (see prompts.txt
+    Prompt 2/3's ground rules).
+    """
+
+    __tablename__ = "compound_observations"
+    __table_args__ = (
+        # match_relationship reuses RecipeIngredientProvenance's
+        # AliasRelationship vocabulary (exact / regional_equivalent /
+        # close_analogue / category_proxy — see ingredient_aliases.py)
+        # plus "needs_review" for a candidate match no ingestion script
+        # could confidently place (prompts.txt Prompt 3). Enforced here,
+        # not just documented in a comment, because a silently-invented
+        # sixth value would defeat the point of a shared, honest
+        # confidence vocabulary.
+        CheckConstraint(
+            "match_relationship IN ('exact', 'regional_equivalent', 'close_analogue', "
+            "'category_proxy', 'needs_review')",
+            name="ck_compound_observation_match_relationship",
+        ),
+        # normalised_value/unit/basis are derived together (see their
+        # column comments) — fully present or fully absent, never partial.
+        CheckConstraint(
+            "(normalised_value IS NULL AND normalised_unit IS NULL AND normalised_basis IS NULL) "
+            "OR (normalised_value IS NOT NULL AND normalised_unit IS NOT NULL AND normalised_basis IS NOT NULL)",
+            name="ck_compound_observation_normalised_all_or_none",
+        ),
+        # lets re-running an ingestion script find "this exact source row
+        # already has an observation" instead of duplicating it. Silent
+        # for sources with no row identifier (source_row_identifier NULL
+        # never conflicts with another NULL under standard unique-
+        # constraint semantics) — those sources need their own dedup
+        # strategy in the ingestion script, out of scope here.
+        UniqueConstraint(
+            "compound", "source_dataset_name", "source_dataset_version", "source_row_identifier",
+            name="uq_compound_observation_source_row",
+        ),
+        Index("ix_compound_observations_compound_food", "compound", "matched_food_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # "phytate" for this phase; generic so oxalate/tannin (separately
+    # scoped) can reuse this table later without a migration.
+    compound: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # specific form/fraction the source measured, where it distinguishes
+    # one (e.g. "IP6", "total inositol phosphates") — null when the
+    # source reports one undifferentiated total.
+    compound_fraction: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # value and unit exactly as the source dataset published them — never
+    # altered, so this is always independently recoverable even if
+    # normalisation logic below changes or turns out to be wrong.
+    original_value: Mapped[float] = mapped_column(Float, nullable=False)
+    original_unit: Mapped[str] = mapped_column(String, nullable=False)
+    # "per_100g_edible_portion" | "per_100g_dry_matter" | other source-
+    # stated basis — explicit per row rather than assumed at the dataset
+    # level, since a single source can mix bases across entries (see
+    # docs/phytate-evidence-review.md on wet/dry-basis reporting).
+    original_basis: Mapped[str] = mapped_column(String, nullable=False)
+
+    # this app's normalised value/unit/basis, when normalisation (e.g. a
+    # dry-matter -> edible-portion conversion) was needed and possible —
+    # all three null together when the original value already matched
+    # what this app standardises on, so there was nothing to derive.
+    normalised_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    normalised_unit: Mapped[str | None] = mapped_column(String, nullable=True)
+    normalised_basis: Mapped[str | None] = mapped_column(String, nullable=True)
+    # human-readable account of how normalised_value was derived from
+    # original_value (e.g. "converted from dry-matter using source-
+    # reported moisture content of 11.2%") — the working, not just the
+    # result, so a reviewer can sanity-check the conversion itself.
+    normalisation_method: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # the food name/description exactly as the source dataset gave it —
+    # not FDC's name for whatever it eventually gets matched to.
+    source_food_description: Mapped[str] = mapped_column(String, nullable=False)
+    # cooking/processing state as the source described it ("raw", "boiled
+    # 30 min", "dehulled and milled") — free text, since sources vary
+    # widely in how (or whether) they record this.
+    source_preparation_state: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # dataset-level metadata, constant across one ingestion run rather
+    # than per-row source data — an ingestion script sets these from its
+    # own constants (see docs/phytate-evidence-review.md's citation
+    # list), not from anything row-specific.
+    source_dataset_name: Mapped[str] = mapped_column(String, nullable=False)
+    source_dataset_citation: Mapped[str] = mapped_column(String, nullable=False)
+    source_dataset_version: Mapped[str] = mapped_column(String, nullable=False)
+    source_access_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # analytical method, in the source's own terms (e.g. PhyFoodComp's
+    # HPLC vs anion-exchange vs colorimetric-precipitation tagnames) —
+    # null when the source doesn't record it for this row.
+    analytical_method: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # a stable per-row identifier from the source dataset itself (its own
+    # row/food code), where it has one — see uq_compound_observation_source_row.
+    # Null for sources with no such identifier.
+    source_row_identifier: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # honest match-confidence metadata for matched_food_id below — see
+    # the ck_compound_observation_match_relationship CheckConstraint for
+    # allowed values. Always set, even when matched_food_id is null (a
+    # "needs_review" observation is still worth storing — see class
+    # docstring).
+    match_relationship: Mapped[str] = mapped_column(String, nullable=False)
+    match_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # human-readable justification for the match (or for why it was left
+    # needs_review) — shown to whoever reviews the flagged list in Prompt 3.
+    match_rationale: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # nullable: an observation with no confident FDC match is still
+    # stored (ground rules, Prompt 2) rather than discarded — it just
+    # can't be used in any FDC-food-keyed display until it's matched.
+    matched_food_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("foods.id"), nullable=True, index=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
