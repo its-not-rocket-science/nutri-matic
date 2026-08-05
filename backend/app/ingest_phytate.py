@@ -1,19 +1,19 @@
 """One-off ingestion script for phytate compound observations (prompts.txt
 Prompt 3 of the phytate/mineral-bioavailability extension) — populates
-CompoundObservation rows with compound="phytate" from a normalised
-intermediate CSV.
+CompoundObservation rows with compound="phytate", from either a
+normalised intermediate CSV (see RawObservation) or a real
+PhyFoodComp_1.0.xlsx workbook (via app.phyfoodcomp_adapter).
 
-STATUS — placeholder input format. The intended real source, FAO/
-INFOODS/IZiNCG PhyFoodComp1.0, is blocked on an unresolved licence
-question (see docs/phytate-evidence-review.md); its actual file has not
-been obtained, so this script cannot yet parse PhyFoodComp's own column
-layout. What IS built and tested here is everything downstream of
-parsing: honest match-confidence assignment (Prompt 3 rule 2),
-needs-review flagging (rule 3), and idempotent re-ingestion (rule 4) —
-the parts that don't change once a real file is in hand. When the
-licence is resolved, add a thin adapter mapping PhyFoodComp's actual
-columns into load_rows()'s RawObservation shape below; nothing else in
-this file should need to change as a result.
+STATUS — the real file has been obtained and app.phyfoodcomp_adapter
+parses its actual column layout (see that module for the workbook
+structure). Licence: confirmed non-commercial-only from the workbook's
+own embedded copyright notice (see docs/phytate-evidence-review.md §1) —
+fine for free-tier/research use with FAO attribution; paid-tier use
+needs a separate written answer from FAO. **Do not write real ingested
+rows to any database used by a paid tier, and do not merge/ship a real
+(non-dry-run) ingestion until both (a) FAO's paid-tier answer arrives
+and (b) a human has reviewed the needs-review sample this script
+prints** (prompts.txt's Prompt 3 stop point).
 
 Usage:
     python -m app.ingest_phytate --csv path/to/phytate_rows.csv \
@@ -21,9 +21,14 @@ Usage:
         --dataset-citation "FAO/INFOODS/IZiNCG. Global food composition database for phytate, version 1.0." \
         --dataset-version "1.0" --access-date 2026-08-01
 
+    python -m app.ingest_phytate --xlsx path/to/PhyFoodComp_1.0.xlsx \
+        --dataset-name "PhyFoodComp1.0" --dataset-citation "..." \
+        --dataset-version "1.0" --access-date 2026-08-05 --dry-run
+
 Input CSV columns (see RawObservation): food_description, value, unit,
 basis (required); preparation_state, compound_fraction,
-analytical_method, row_identifier (optional, blank if absent).
+analytical_method, row_identifier (optional, blank if absent). Not
+needed for --xlsx, which reads a real workbook directly.
 
 Matching reuses this app's existing food-matching infrastructure
 (app.stock_recipes.food_matching.match_ingredient — the same fuzzy/
@@ -48,7 +53,6 @@ from pathlib import Path
 
 from .database import Base, SessionLocal, engine
 from .models import CompoundObservation
-from .search import search_foods_by_name
 from .stock_recipes.food_matching import MatchResult, match_ingredient
 
 COMPOUND = "phytate"
@@ -108,22 +112,25 @@ def load_rows(csv_path: Path) -> list[RawObservation]:
     return rows
 
 
-def _ambiguous_candidates(db, description: str) -> tuple[bool, str | None]:
+def _ambiguous_candidates(match: MatchResult, description: str) -> tuple[bool, str | None]:
     """True (plus an explanatory rationale) when the top two name-search
     candidates are too textually similar to the source description, and
     to each other, to place confidently — computed independently of
     match_ingredient's own candidate scores, which are a fixed rank-based
     placeholder rather than a real similarity measure (see
-    AMBIGUOUS_SIMILARITY_MARGIN). Reuses search_foods_by_name, this app's
-    existing fuzzy-search service, rather than a new one."""
-    candidates = search_foods_by_name(db, description, limit=2)
-    if len(candidates) < 2:
+    AMBIGUOUS_SIMILARITY_MARGIN). Reuses match.candidates (already
+    populated by match_ingredient's own search_foods_by_name call) rather
+    than issuing a second, identical fuzzy-search query — this app's
+    fuzzy tier falls back to a Postgres trigram scan that, at the scale
+    of the real Food catalog, is expensive enough that a second query per
+    observation would double an already-costly path for no benefit."""
+    if len(match.candidates) < 2:
         return False, None
 
     def similarity(name: str) -> float:
         return SequenceMatcher(None, description.strip().lower(), name.lower()).ratio()
 
-    top, runner_up = candidates[0], candidates[1]
+    top, runner_up = match.candidates[0], match.candidates[1]
     top_score, runner_up_score = similarity(top.name), similarity(runner_up.name)
     if (top_score - runner_up_score) < AMBIGUOUS_SIMILARITY_MARGIN:
         return True, (
@@ -133,9 +140,7 @@ def _ambiguous_candidates(db, description: str) -> tuple[bool, str | None]:
     return False, None
 
 
-def classify_match(
-    db, match: MatchResult, description: str, preparation_state: str | None, basis: str,
-) -> tuple[str, str]:
+def classify_match(match: MatchResult, description: str, preparation_state: str | None, basis: str) -> tuple[str, str]:
     """Maps a MatchResult from the app's existing food-matching
     infrastructure onto this table's honest match_relationship vocabulary
     (prompts.txt Prompt 3 rule 2). Never returns "exact": match_ingredient
@@ -148,7 +153,7 @@ def classify_match(
     if match.food is None:
         return "needs_review", "no FDC candidate found for this source description"
 
-    ambiguous, ambiguous_rationale = _ambiguous_candidates(db, description)
+    ambiguous, ambiguous_rationale = _ambiguous_candidates(match, description)
     if ambiguous:
         return "needs_review", ambiguous_rationale
 
@@ -181,11 +186,21 @@ def ingest_rows(
 ) -> dict:
     stats = {"considered": 0, "inserted": 0, "updated": 0, "needs_review": 0}
     needs_review_samples: list[dict] = []
+    # a single PhyFoodComp food entry commonly yields several
+    # RawObservation rows (one per populated tagname column) sharing the
+    # exact same food_description — cached so match_ingredient's fuzzy
+    # search (an expensive Postgres trigram scan against this app's real
+    # Food catalog) only runs once per distinct description, not once per
+    # observation.
+    match_cache: dict[str, MatchResult] = {}
 
     for row in rows:
         stats["considered"] += 1
-        match = match_ingredient(db, row.food_description)
-        relationship, rationale = classify_match(db, match, row.food_description, row.preparation_state, row.basis)
+        match = match_cache.get(row.food_description)
+        if match is None:
+            match = match_ingredient(db, row.food_description)
+            match_cache[row.food_description] = match
+        relationship, rationale = classify_match(match, row.food_description, row.preparation_state, row.basis)
         matched_food_id = match.food.id if match.food is not None else None
 
         if relationship == "needs_review":
@@ -248,7 +263,11 @@ def ingest_rows(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--csv", required=True, help="Path to the intermediate phytate-rows CSV (see module docstring)")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--csv", help="Path to the intermediate phytate-rows CSV (see module docstring)")
+    source.add_argument(
+        "--xlsx", help="Path to a real PhyFoodComp_1.0.xlsx (see app.phyfoodcomp_adapter)",
+    )
     parser.add_argument("--dataset-name", required=True)
     parser.add_argument("--dataset-citation", required=True)
     parser.add_argument("--dataset-version", required=True)
@@ -256,16 +275,31 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Parse and classify without writing to the DB")
     args = parser.parse_args()
 
-    csv_path = Path(args.csv)
-    if not csv_path.is_file():
-        print(f"error: not a file: {csv_path}", file=sys.stderr)
-        sys.exit(1)
     access_date = datetime.strptime(args.access_date, "%Y-%m-%d").date()
+
+    if args.csv:
+        csv_path = Path(args.csv)
+        if not csv_path.is_file():
+            print(f"error: not a file: {csv_path}", file=sys.stderr)
+            sys.exit(1)
+        rows = load_rows(csv_path)
+    else:
+        from .phyfoodcomp_adapter import load_phyfoodcomp_workbook
+        xlsx_path = Path(args.xlsx)
+        if not xlsx_path.is_file():
+            print(f"error: not a file: {xlsx_path}", file=sys.stderr)
+            sys.exit(1)
+        rows, adapter_stats = load_phyfoodcomp_workbook(xlsx_path)
+        print(
+            f"parsed workbook: sheets={adapter_stats['sheets']} rows_considered={adapter_stats['rows_considered']} "
+            f"rows_skipped_no_description={adapter_stats['rows_skipped_no_description']} "
+            f"values_skipped_non_numeric={adapter_stats['values_skipped_non_numeric']} "
+            f"observations_built={adapter_stats['observations_built']}"
+        )
 
     if not args.dry_run:
         Base.metadata.create_all(bind=engine)
 
-    rows = load_rows(csv_path)
     db = SessionLocal()
     try:
         stats, needs_review_samples = ingest_rows(
