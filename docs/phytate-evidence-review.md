@@ -2,8 +2,9 @@
 
 Scoped by Prompt 1 of the phytate/mineral-bioavailability extension (see
 `prompts.txt`). This is a pre-work document only — no schema or code
-changes. **Do not proceed to Prompt 2 until a human has reviewed the
-licensing section below and resolved the open question it flags.**
+changes. **Do not populate real PhyFoodComp data (Prompt 3) into a paid
+tier until the commercial-use request in §1 has had a written answer
+from FAO.**
 
 Per the extension's terminology rule: this document and the feature it
 scopes describe phytate's effect on mineral bioavailability, not an
@@ -11,52 +12,65 @@ scopes describe phytate's effect on mineral bioavailability, not an
 it as purely negative would be inaccurate and is out of scope for how this
 app communicates.
 
-## 1. Licence / redistribution terms — UNRESOLVED, needs direct human follow-up
+## 1. Licence / redistribution terms — CONFIRMED non-commercial; commercial use needs a separate FAO request
 
 The target dataset is FAO/INFOODS/IZiNCG's **PhyFoodComp** (version 1.0),
-hosted as an Excel download via the FAO INFOODS "tables and databases"
-page and catalogued in FAO's Open Knowledge repository. I could not
-retrieve a PhyFoodComp-specific licence statement: FAO's Open Knowledge
-item page and the direct bitstream URL both returned HTTP 403 to
-automated fetches, and neither the INFOODS tables-and-databases page nor
-the IZiNCG blog post announcing the database states a licence for this
-specific dataset.
+distributed as an Excel workbook (`PhyFoodComp_1.0.xlsx`) directly from
+FAO's INFOODS "tables and databases" page. The FAO Open Knowledge
+catalogue page for the same item returned HTTP 403 to automated fetches
+throughout this review, but the workbook itself is a plain, unauthenticated
+download and carries its own copyright statement — the actual answer,
+not the catalogue page, is what settles this.
 
-What I could confirm, from FAO's general statistical-database terms
-(`fao.org/contact-us/terms/db-terms-of-use`):
+**The workbook's own "Introduction and copyright" sheet embeds a
+copyright/disclaimer notice as an image** (`xl/media/image1.png` inside
+the `.xlsx`, positioned directly under that sheet's text — not visible
+via a normal cell-text read, only by unzipping the `.xlsx` and opening
+the image directly). In full:
 
-- FAO's default for corporate statistical databases is **CC BY 4.0**,
-  *"unless specified otherwise in their metadata or webpage."*
-- That default explicitly **prohibits use "for or in conjunction with the
-  promotion of a commercial enterprise and/or its product(s) or
-  services"** — a real constraint given this app's tiered/commercial
-  ambitions (see `docs/tiered-commercial-model.md`); CC BY 4.0's own
-  attribution terms do not on their own permit that use.
-- FAO states some datasets carry **third-party content with different,
-  more restrictive terms**, and puts the burden on the reuser to check.
-  PhyFoodComp is a plausible candidate for this: it was compiled by
-  extracting values from >250 published journal articles (see §2), which
-  raises exactly the kind of third-party-content question FAO's terms
-  warn about — the compiled *database* and the underlying *published
-  measurements* are not obviously covered by the same licence.
-- FAO's blanket move to CC BY 4.0 "Open Access" is dated to 2024;
-  pre-2024 FAO repository items have historically used more restrictive
-  licences (e.g. CC BY-NC-SA 3.0 IGO). PhyFoodComp1.0's release predates
-  2024 (the methodology paper is 2019; the dataset item appears to date
-  to around 2021), so it is not safe to assume the current default
-  applies retroactively without checking the item's own metadata.
+> The designations employed and the presentation of material in this
+> information product do not imply the expression of any opinion
+> whatsoever on the part of the Food and Agriculture Organization of the
+> United Nations (FAO)... The views expressed in this information product
+> are those of the author(s) and do not necessarily reflect the views or
+> policies of FAO.
+>
+> ISBN 978-92-5-109790-8
+>
+> © FAO, 2018
+>
+> FAO encourages the use, reproduction and dissemination of material in
+> this information product. Except where otherwise indicated, material
+> may be copied, downloaded and printed for private study, research and
+> teaching purposes, **or for use in non-commercial products or
+> services**, provided that appropriate acknowledgement of FAO as the
+> source and copyright holder is given and that FAO's endorsement of
+> users' views, products or services is not implied in any way.
+>
+> **All requests for translation and adaptation rights and for resale and
+> other commercial use rights should be made via
+> www.fao.org/contact-us/licence-request or addressed to
+> copyright@fao.org.**
 
-**Action required before Prompt 2 starts:** a human needs to either (a)
-open the FAO Open Knowledge item page directly in a browser (it blocked
-automated fetching here) and read its Rights/Licence metadata field, or
-(b) email `copyright@fao.org` referencing the PhyFoodComp1.0 item and ask
-directly whether redistribution of derived/normalised values inside an
-open-source, commercially-licensed application is permitted, and under
-what attribution terms. Do not populate the schema from Prompt 2 with
-real PhyFoodComp values until this is answered — a NonCommercial or
-third-party-restricted licence would block the ingestion step (Prompt 3)
-entirely as currently scoped, or at minimum require gating the feature
-out of paid tiers.
+This is a standard FAO non-commercial notice, not CC BY 4.0 — confirms
+the concern this section originally flagged as unresolved (FAO's general
+terms restrict commercial-enterprise use; this item-specific notice is
+even more direct about it) rather than resolving it in the app's favour.
+Non-commercial use — free tier, research/methodology-page use, this
+app's own development — is unambiguously covered ("appropriate
+acknowledgement of FAO" required, see the citation format in §4).
+**Use inside this app's paid tiers is not covered by this notice as
+written** and needs a separate written answer from FAO under their
+commercial-licence-request process.
+
+**Status:** the licence-clarification email already sent to
+`copyright@fao.org` (see conversation history) covers this — it asks
+directly whether commercial-tier use is permitted and on what terms.
+Until FAO replies, treat phytate data as **non-commercial-tier only**:
+fine to build, test, and ship in the app's free tier once real ingestion
+(Prompt 3) is complete — the file itself is now in hand (see the
+download above), so that's no longer blocked — but gate it out of any
+paid tier until a written commercial-use answer arrives.
 
 ## 2. What PhyFoodComp actually contains
 
@@ -140,15 +154,21 @@ not a link dump.
    paper for PhyFoodComp itself: how foods were selected, how values were
    normalised to EP, and the quality-screening process in §3 above. This
    is the citation for the dataset's construction, distinct from the
-   dataset artifact's own (still-unresolved, see §1) licence.
+   dataset artifact's own (non-commercial, see §1) licence.
 
-2. **FAO/INFOODS/IZiNCG. Global food composition database for phytate,
-   version 1.0 (PhyFoodComp1.0).** FAO, Rome. Accessed via
-   `fao.org/infoods/infoods/tables-and-databases`. — the dataset artifact
-   itself, as distinct from the methods paper above; this is the citation
-   Prompt 2's `source_dataset_name`/`source_dataset_version` fields should
-   point to. Exact publication date to confirm once the licence question
-   in §1 is resolved and the file is actually in hand.
+2. **FAO/IZiNCG (2018). FAO/INFOODS/IZiNCG Global Food Composition
+   Database for Phytate, Version 1.0 - PhyFoodComp 1.0. Rome, Italy.**
+   ISBN 978-92-5-109790-8. Prepared by Sergio Dahdouh, Fernanda Grande,
+   Sarah Nájera Espinosa, Morgane Fialon, Anna Vincent, Rosalind Gibson,
+   Janet King, Doris Rittenschober & U. Ruth Charrondière. Downloaded
+   directly from
+   `fao.org/fileadmin/templates/food_composition/documents/PhyFoodComp_1.0.xlsx`
+   (linked from `fao.org/infoods/infoods/tables-and-databases`) —
+   citation and ISBN confirmed from the workbook's own "Introduction and
+   copyright" sheet (see §1), not just the announcement page. This is the
+   dataset artifact itself, as distinct from the methods paper above, and
+   the citation Prompt 2's `source_dataset_name`/`source_dataset_version`
+   fields should point to.
 
 3. **Hotz C, Brown KH, eds (2004). "Assessment of the risk of zinc
    deficiency in populations and options for its control." International
@@ -182,10 +202,9 @@ supply the interpretive cutoffs).
   items 2–3): resolved, documented above.
 - Citation list (Prompt 1 item 4): drafted above, ready for the
   methodology page once Prompt 4 ships.
-- **Licence (Prompt 1 item 1): not resolved.** This is a blocking
-  open question, not a formality — FAO's general terms include a
-  commercial-use restriction that may be directly incompatible with this
-  app's commercial tiers, and PhyFoodComp's own item-level licence
-  metadata was not accessible to confirm or rule this out. Get a
-  human to check the FAO item page directly and/or get a written answer
-  from FAO before Prompt 2 begins.
+- **Licence (Prompt 1 item 1): confirmed non-commercial-only, from the
+  PhyFoodComp1.0 workbook's own embedded copyright notice** (§1) —
+  free tier / research / methodology-page use is fine with FAO
+  attribution; paid-tier use needs a written commercial-licence answer
+  from FAO, requested via the email already sent to `copyright@fao.org`.
+  Build and ship to the free tier only until that reply arrives.
