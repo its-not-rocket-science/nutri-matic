@@ -168,10 +168,21 @@ def search_foods_by_name(db: Session, query: str, limit: int = 20) -> list[Food]
         return ranked
 
     already_matched_ids = {f.id for f in ranked}
+    # `name % :q` (not a bare `similarity(name, :q) > threshold` filter) is
+    # what actually lets Postgres serve this from ix_foods_name_trgm's GIN
+    # index — pg_trgm's index support is keyed to the `%`/`<->` operators
+    # specifically, not to an arbitrary function-call predicate, so the
+    # previous form silently fell back to a full sequential scan on every
+    # single call (found while profiling phytate-ingestion matching against
+    # the real 1.4M-row catalog: ~8-12s per query). `SET LOCAL` scopes the
+    # threshold to this transaction only, and reproduces the same 0.2 cutoff
+    # the old query used, so match results are unchanged — this is a pure
+    # index-usage fix, not a similarity-threshold/behaviour change.
+    db.execute(text("SET LOCAL pg_trgm.similarity_threshold = 0.2"))
     fuzzy_rows = db.execute(
         text(
-            "SELECT id FROM foods WHERE similarity(name, :q) > 0.2 "
-            "ORDER BY similarity(name, :q) DESC LIMIT :fetch_limit"
+            "SELECT id FROM foods WHERE name % :q "
+            "ORDER BY name <-> :q LIMIT :fetch_limit"
         ),
         {"q": query, "fetch_limit": limit * 2},
     ).fetchall()
