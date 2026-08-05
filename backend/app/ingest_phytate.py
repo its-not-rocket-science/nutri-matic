@@ -123,7 +123,30 @@ def _ambiguous_candidates(match: MatchResult, description: str) -> tuple[bool, s
     than issuing a second, identical fuzzy-search query — this app's
     fuzzy tier falls back to a Postgres trigram scan that, at the scale
     of the real Food catalog, is expensive enough that a second query per
-    observation would double an already-costly path for no benefit."""
+    observation would double an already-costly path for no benefit.
+
+    Found against the real ~1.4M-row Food catalog: the two top candidates
+    are very often the exact same food name twice, or the same name
+    differing only in case (duplicate/near-duplicate Branded Foods
+    catalog rows — different pack sizes or listings, identical
+    description text). Comparing each candidate's similarity only to the
+    query, as an earlier version of this function did, treated every one
+    of those as "ambiguous" — trivially true (identical names score
+    identically) but not meaningful, since picking either candidate gives
+    the same answer. Checked first, before the query-similarity
+    comparison, so it can short-circuit that false-positive pattern.
+
+    Deliberately an exact (case-insensitive) equality check, not a fuzzy
+    similarity threshold: an earlier attempt at the latter (>=0.9
+    candidate-to-candidate similarity) also swallowed genuinely different
+    foods that happen to share most of their name — "Beans, kidney,
+    red..." vs "...white..." differs by exactly as much text as two
+    duplicate SKUs differing by pack size, so a fuzzy threshold can't
+    tell them apart. Exact-text duplicates can be resolved safely; a
+    near-duplicate that isn't byte-for-byte identical (e.g. two pack
+    sizes with different unit text) still falls through to the
+    similarity-margin check below, erring toward needs_review rather than
+    risking a masked genuine difference."""
     if len(match.candidates) < 2:
         return False, None
 
@@ -131,6 +154,9 @@ def _ambiguous_candidates(match: MatchResult, description: str) -> tuple[bool, s
         return SequenceMatcher(None, description.strip().lower(), name.lower()).ratio()
 
     top, runner_up = match.candidates[0], match.candidates[1]
+    if top.name.lower() == runner_up.name.lower():
+        return False, None
+
     top_score, runner_up_score = similarity(top.name), similarity(runner_up.name)
     if (top_score - runner_up_score) < AMBIGUOUS_SIMILARITY_MARGIN:
         return True, (
