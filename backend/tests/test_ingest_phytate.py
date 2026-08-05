@@ -7,9 +7,10 @@ against a small in-memory SQLite Food set, not a mocked matcher — the
 point is testing these classification rules against how matching
 actually behaves.
 
-No real PhyFoodComp data here — see ingest_phytate's module docstring on
-why (licence unresolved, docs/phytate-evidence-review.md). All fixtures
-below are invented."""
+No real PhyFoodComp data here — invented fixtures only, so this suite
+stays independent of the real (non-commercial-only licensed, see
+docs/phytate-evidence-review.md §1) workbook. See
+test_phyfoodcomp_adapter.py for real-workbook-shaped parsing tests."""
 
 from datetime import date
 
@@ -83,7 +84,7 @@ def test_load_rows_parses_required_and_optional_columns(tmp_path):
 def test_classify_match_no_candidate_is_needs_review(session):
     match = match_ingredient(session, "Nonexistent Made Up Food Xyz")
     relationship, rationale = classify_match(
-        session, match, "Nonexistent Made Up Food Xyz", None, "per_100g_edible_portion",
+        match, "Nonexistent Made Up Food Xyz", None, "per_100g_edible_portion",
     )
     assert relationship == "needs_review"
     assert "no FDC candidate" in rationale
@@ -98,7 +99,7 @@ def test_classify_match_low_confidence_branded_fuzzy_match_is_needs_review(sessi
     match = match_ingredient(session, "Some Distant Fuzzy Branded Product")
     assert match.method == "fuzzy"
     relationship, rationale = classify_match(
-        session, match, "Some Distant Fuzzy Branded Product", None, "per_100g_edible_portion",
+        match, "Some Distant Fuzzy Branded Product", None, "per_100g_edible_portion",
     )
     assert relationship == "needs_review"
     assert "confidence" in rationale
@@ -109,7 +110,7 @@ def test_classify_match_prep_state_and_edible_basis_is_regional_equivalent(sessi
     session.commit()
     match = match_ingredient(session, "Wheat flour, whole grain")
     relationship, rationale = classify_match(
-        session, match, "Wheat flour, whole grain", "raw", "per_100g_edible_portion",
+        match, "Wheat flour, whole grain", "raw", "per_100g_edible_portion",
     )
     assert relationship == "regional_equivalent"
     assert "raw" in rationale
@@ -119,7 +120,7 @@ def test_classify_match_no_prep_state_is_close_analogue_not_exact(session):
     session.add(_food(name="Wheat flour, whole grain, raw"))
     session.commit()
     match = match_ingredient(session, "Wheat flour, whole grain")
-    relationship, _ = classify_match(session, match, "Wheat flour, whole grain", None, "per_100g_edible_portion")
+    relationship, _ = classify_match(match, "Wheat flour, whole grain", None, "per_100g_edible_portion")
     assert relationship == "close_analogue"
 
 
@@ -130,7 +131,7 @@ def test_classify_match_dry_matter_basis_never_reaches_regional_equivalent(sessi
     session.add(_food(name="Wheat flour, whole grain, raw"))
     session.commit()
     match = match_ingredient(session, "Wheat flour, whole grain")
-    relationship, _ = classify_match(session, match, "Wheat flour, whole grain", "raw", "per_100g_dry_matter")
+    relationship, _ = classify_match(match, "Wheat flour, whole grain", "raw", "per_100g_dry_matter")
     assert relationship != "regional_equivalent"
 
 
@@ -146,7 +147,7 @@ def test_classify_match_never_returns_exact(session, preparation_state, basis):
     session.add(_food(name="Wheat flour, whole grain, raw"))
     session.commit()
     match = match_ingredient(session, "Wheat flour, whole grain")
-    relationship, _ = classify_match(session, match, "Wheat flour, whole grain", preparation_state, basis)
+    relationship, _ = classify_match(match, "Wheat flour, whole grain", preparation_state, basis)
     assert relationship != "exact"
 
 
@@ -159,7 +160,7 @@ def test_classify_match_ambiguous_candidates_is_needs_review(session):
     session.add(_food(name="Beans, kidney, white, mature seeds, raw"))
     session.commit()
     match = match_ingredient(session, "Beans, kidney")
-    relationship, rationale = classify_match(session, match, "Beans, kidney", None, "per_100g_edible_portion")
+    relationship, rationale = classify_match(match, "Beans, kidney", None, "per_100g_edible_portion")
     assert relationship == "needs_review"
     assert "too textually similar" in rationale
 
