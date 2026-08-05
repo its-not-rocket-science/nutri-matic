@@ -165,6 +165,36 @@ def test_classify_match_ambiguous_candidates_is_needs_review(session):
     assert "too textually similar" in rationale
 
 
+def test_classify_match_exact_duplicate_candidate_names_are_not_flagged_ambiguous(session):
+    """Found against the real ~1.4M-row Food catalog: two Branded Foods
+    catalog rows commonly share the exact same description text (or
+    differ only in case) — that's the same food twice, not a real choice
+    between two different foods, and must not trip the ambiguity check
+    just because both score identically against the query."""
+    session.add(_food(name="Acme Foods RICE CRACKERS", data_type="branded_food"))
+    session.add(_food(name="acme foods rice crackers", data_type="branded_food"))
+    session.commit()
+    match = match_ingredient(session, "Acme Foods RICE CRACKERS")
+    relationship, rationale = classify_match(match, "Acme Foods RICE CRACKERS", None, "per_100g_edible_portion")
+    assert relationship != "needs_review"
+    assert "too textually similar" not in (rationale or "")
+
+
+def test_classify_match_near_but_not_exact_duplicate_names_still_needs_review(session):
+    """The exact-duplicate check must not overreach into masking a real
+    difference: two foods differing by nearly as little text as a
+    duplicate SKU pair (here, a variety/colour word) are a genuine choice
+    between two different foods and must still be flagged — this is the
+    same fixture as the ambiguous-candidates test above, confirming the
+    exact-match check doesn't swallow it."""
+    session.add(_food(name="Beans, kidney, red, mature seeds, raw"))
+    session.add(_food(name="Beans, kidney, white, mature seeds, raw"))
+    session.commit()
+    match = match_ingredient(session, "Beans, kidney")
+    relationship, _ = classify_match(match, "Beans, kidney", None, "per_100g_edible_portion")
+    assert relationship == "needs_review"
+
+
 # ---- ingest_rows ---------------------------------------------------------
 
 def test_ingest_rows_end_to_end_counts_and_needs_review_sample(session):
