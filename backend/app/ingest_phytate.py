@@ -15,6 +15,15 @@ rows to any database used by a paid tier, and do not merge/ship a real
 and (b) a human has reviewed the needs-review sample this script
 prints** (prompts.txt's Prompt 3 stop point).
 
+PROMPT 3B — two bugs found during the Prompt 3 human review are fixed
+here: _ambiguous_candidates no longer mislabels the selected candidate's
+own text similarity as "top_similarity" (see its docstring), and
+_prefer_infant_cereal_candidate corrects a category-retrieval bug for
+"Infant flour, cereal-based, ..." wording variants (see its docstring).
+Ingestion must be re-run and the needs_review output regenerated before
+the Prompt 3 human-review gate is considered current again — see
+prompts.txt's STATUS section.
+
 Usage:
     python -m app.ingest_phytate --csv path/to/phytate_rows.csv \
         --dataset-name "PhyFoodComp1.0" \
@@ -45,15 +54,18 @@ this script — see classify_match's docstring for why.
 
 import argparse
 import csv
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
 from .database import Base, SessionLocal, engine
-from .models import CompoundObservation
-from .stock_recipes.food_matching import MatchResult, match_ingredient
+from .models import CompoundObservation, Food
+from .stock_recipes.food_matching import MatchCandidate, MatchResult, match_ingredient
 
 COMPOUND = "phytate"
 
@@ -146,24 +158,121 @@ def _ambiguous_candidates(match: MatchResult, description: str) -> tuple[bool, s
     near-duplicate that isn't byte-for-byte identical (e.g. two pack
     sizes with different unit text) still falls through to the
     similarity-margin check below, erring toward needs_review rather than
-    risking a masked genuine difference."""
+    risking a masked genuine difference.
+
+    PROMPT 3B bug 1 fix: this compares match.candidates[0] ("selected" —
+    match_ingredient's own top-ranked/chosen candidate) against
+    match.candidates[1] ("runner_up"), same pair and same trigger
+    arithmetic as before (so which rows get flagged needs_review is
+    unchanged) — the bug was purely in how the result got reported
+    downstream. The old code called candidates[0]'s score "top_similarity"
+    unconditionally, which is wrong whenever the runner-up's text
+    similarity is actually higher: a row could report top_similarity=0.81
+    for the selected candidate while the runner-up scored 0.82 — a higher
+    score hiding under a name that implied it couldn't exist. Confirmed in
+    238/794 reviewed rows (see
+    docs/phytate-review/prompt3b_bug_evidence_and_fixtures.csv). Now the
+    rationale always names both the selected candidate's own similarity
+    and whichever of the two candidates actually scores highest, so the
+    gap between "selected" and "best available" is never silently
+    dropped."""
     if len(match.candidates) < 2:
         return False, None
 
     def similarity(name: str) -> float:
         return SequenceMatcher(None, description.strip().lower(), name.lower()).ratio()
 
-    top, runner_up = match.candidates[0], match.candidates[1]
-    if top.name.lower() == runner_up.name.lower():
+    selected, runner_up = match.candidates[0], match.candidates[1]
+    if selected.name.lower() == runner_up.name.lower():
         return False, None
 
-    top_score, runner_up_score = similarity(top.name), similarity(runner_up.name)
-    if (top_score - runner_up_score) < AMBIGUOUS_SIMILARITY_MARGIN:
+    selected_similarity = similarity(selected.name)
+    runner_up_similarity = similarity(runner_up.name)
+
+    if (selected_similarity - runner_up_similarity) < AMBIGUOUS_SIMILARITY_MARGIN:
+        if selected_similarity >= runner_up_similarity:
+            best_name, best_similarity = selected.name, selected_similarity
+        else:
+            best_name, best_similarity = runner_up.name, runner_up_similarity
+        selected_is_best = best_name.lower() == selected.name.lower()
+        best_note = (
+            "" if selected_is_best else
+            f" — note: the selected candidate is NOT the highest-similarity one; "
+            f"{best_name!r} scored higher"
+        )
         return True, (
-            f"top two name-search candidates ({top.name!r}, {runner_up.name!r}) are too textually similar "
-            f"to the source description ({top_score:.2f} vs {runner_up_score:.2f} similarity) to place confidently"
+            f"top two name-search candidates ({selected.name!r} [selected], {runner_up.name!r}) are too "
+            f"textually similar to the source description (selected candidate similarity: "
+            f"{selected_similarity:.2f}; runner-up similarity: {runner_up_similarity:.2f}; "
+            f"best candidate similarity: {best_similarity:.2f}, held by {best_name!r}){best_note} "
+            "to place confidently"
         )
     return False, None
+
+
+_INFANT_OR_BABY_RE = re.compile(r"\b(infant|baby)\b", re.IGNORECASE)
+_BABYFOOD_CEREAL_DRY_FORTIFIED_RE = re.compile(r"^Babyfood, cereal,.*dry fortified", re.IGNORECASE)
+# Grain words worth trying to match specifically before falling back to
+# whatever babyfood-cereal candidate sorts first — see
+# _prefer_infant_cereal_candidate.
+_GRAIN_WORDS = ("barley", "rice", "oat", "wheat", "corn", "maize", "millet", "rye", "mixed", "multigrain")
+
+
+def _prefer_infant_cereal_candidate(db: Session, description: str, match: MatchResult) -> MatchResult:
+    """PROMPT 3B bug 2 fix. A source description matching /infant|baby/i
+    should always prefer FDC's dedicated "Babyfood, cereal, [grain], dry
+    fortified" category over whatever the general-purpose fuzzy search
+    ranks highest by raw text overlap.
+
+    Confirmed cluster: 93 "Infant flour, cereal-based, ..." rows, where
+    the wording "commercially produced" pulled in "Babyfood, baked
+    product, finger snacks cereal fortified" (48 rows) and "Pie, apple,
+    commercially prepared, enriched flour" (26 rows) — both share the
+    incidental phrase "commercially produced/prepared" with the source
+    description far more than the actually-correct "Babyfood, cereal,
+    ..., dry fortified" entries do, so raw text-overlap ranking picked
+    the wrong category outright. The near-identical wording "commercial"
+    (no "-ly produced") already found the right category correctly,
+    proving the correct candidates exist in FDC — this is a
+    retrieval/ranking bug for one wording variant, not a missing-data
+    case. See prompts.txt PROMPT 3B and
+    docs/phytate-review/review_5_infant_flour_cluster.csv.
+
+    Deliberately narrow and explicit rather than a general retrieval
+    overhaul, per PROMPT 3B's own instruction — this queries the babyfood-
+    cereal category directly instead of trying to make the general fuzzy
+    ranker smarter about category words in general."""
+    if not _INFANT_OR_BABY_RE.search(description):
+        return match
+
+    if match.food is not None and _BABYFOOD_CEREAL_DRY_FORTIFIED_RE.match(match.food.name):
+        return match  # already the right category
+
+    babyfood_cereal_candidates = (
+        db.query(Food)
+        .filter(Food.name.ilike("Babyfood, cereal,%dry fortified%"))
+        .order_by(Food.name)
+        .all()
+    )
+    if not babyfood_cereal_candidates:
+        return match
+
+    description_lower = description.lower()
+    grain = next((g for g in _GRAIN_WORDS if g in description_lower), None)
+    chosen = next(
+        (f for f in babyfood_cereal_candidates if grain and grain in f.name.lower()),
+        babyfood_cereal_candidates[0],
+    )
+
+    new_candidates = [MatchCandidate(food_id=chosen.id, name=chosen.name, score=1.0)] + [
+        c for c in match.candidates if c.food_id != chosen.id
+    ]
+    return MatchResult(
+        food=chosen,
+        method="category_override",
+        confidence=max(match.confidence or 0.0, CLOSE_ANALOGUE_MIN_CONFIDENCE),
+        candidates=new_candidates,
+    )
 
 
 def classify_match(match: MatchResult, description: str, preparation_state: str | None, basis: str) -> tuple[str, str]:
@@ -225,6 +334,7 @@ def ingest_rows(
         match = match_cache.get(row.food_description)
         if match is None:
             match = match_ingredient(db, row.food_description)
+            match = _prefer_infant_cereal_candidate(db, row.food_description, match)
             match_cache[row.food_description] = match
         relationship, rationale = classify_match(match, row.food_description, row.preparation_state, row.basis)
         matched_food_id = match.food.id if match.food is not None else None

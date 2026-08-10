@@ -20,10 +20,17 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
-from app.ingest_phytate import RawObservation, classify_match, ingest_rows, load_rows
+from app.ingest_phytate import (
+    RawObservation,
+    _ambiguous_candidates,
+    _prefer_infant_cereal_candidate,
+    classify_match,
+    ingest_rows,
+    load_rows,
+)
 from app.models import CompoundObservation, Food
 from app.reference_patterns import AMINO_ACIDS
-from app.stock_recipes.food_matching import match_ingredient
+from app.stock_recipes.food_matching import MatchCandidate, MatchResult, match_ingredient
 
 
 def _food(**overrides):
@@ -193,6 +200,151 @@ def test_classify_match_near_but_not_exact_duplicate_names_still_needs_review(se
     match = match_ingredient(session, "Beans, kidney")
     relationship, _ = classify_match(match, "Beans, kidney", None, "per_100g_edible_portion")
     assert relationship == "needs_review"
+
+
+# ---- PROMPT 3B bug 1: top_similarity mislabeling ------------------------
+
+def test_ambiguous_candidates_reports_true_best_not_just_selected_candidate():
+    """Regression for PROMPT 3B bug 1, using the exact fixture from
+    docs/phytate-review/prompt3b_bug_evidence_and_fixtures.csv row
+    02010020:PHYTCPPI ("Potato, raw" selected to a sweet-potato entry at
+    0.23 similarity, while the runner-up "Potatoes, raw, skin" scores
+    0.73 — a higher score that the old code's "top_similarity" label
+    hid). The trigger condition (still comparing candidates[0] vs [1], so
+    which rows get flagged is unchanged) is not what's under test here —
+    what's under test is that the rationale correctly attributes each
+    score to the right candidate instead of calling the selected (lower)
+    score "top"."""
+    description = "Potato, raw"
+    selected_name = "Sweet potato, raw, unprepared (Includes foods for USDA's Food Distribution Program)"
+    runner_up_name = "Potatoes, raw, skin"
+    match = MatchResult(
+        food=_food(name=selected_name),
+        method="fuzzy",
+        confidence=0.65,
+        candidates=[
+            MatchCandidate(food_id=1, name=selected_name, score=1.0),
+            MatchCandidate(food_id=2, name=runner_up_name, score=0.92),
+        ],
+    )
+    ambiguous, rationale = _ambiguous_candidates(match, description)
+
+    assert ambiguous is True
+    # both scores must appear, correctly attributed...
+    assert "selected candidate similarity: 0.23" in rationale
+    assert "runner-up similarity: 0.73" in rationale
+    # ...and the higher (runner-up's) score must be identified as the best
+    # one, not silently reported only under the selected candidate's label.
+    assert f"best candidate similarity: 0.73, held by {runner_up_name!r}" in rationale
+    assert "selected candidate is NOT the highest-similarity one" in rationale
+
+
+def test_ambiguous_candidates_notes_nothing_extra_when_selected_is_already_best():
+    """When the selected candidate genuinely is the higher-similarity one,
+    the rationale must not claim otherwise — the "selected is not best"
+    note is conditional, not always appended."""
+    description = "Beans, kidney"
+    match = MatchResult(
+        food=_food(name="Beans, kidney, red, mature seeds, raw"),
+        method="fuzzy",
+        confidence=0.65,
+        candidates=[
+            MatchCandidate(food_id=1, name="Beans, kidney, red, mature seeds, raw", score=1.0),
+            MatchCandidate(food_id=2, name="Beans, kidney, white, mature seeds, raw", score=0.92),
+        ],
+    )
+    ambiguous, rationale = _ambiguous_candidates(match, description)
+
+    assert ambiguous is True
+    assert "NOT the highest-similarity one" not in rationale
+
+
+# ---- PROMPT 3B bug 2: infant/baby cereal category retrieval -------------
+
+def test_infant_cereal_override_prefers_babyfood_cereal_over_wrong_category(session):
+    """Regression for PROMPT 3B bug 2 (see
+    docs/phytate-review/review_5_infant_flour_cluster.csv): a raw fuzzy
+    match on "Infant flour, cereal-based, commercially produced,
+    fortified" picks a wrong-category food (finger snacks, pie) purely
+    because it shares the incidental phrase "commercially produced" with
+    the description. When a real "Babyfood, cereal, ..., dry fortified"
+    candidate exists, it must be preferred instead."""
+    session.add(_food(name="Babyfood, baked product, finger snacks cereal fortified"))
+    session.add(_food(name="Pie, apple, commercially prepared, enriched flour"))
+    session.add(_food(name="Babyfood, cereal, barley, dry fortified"))
+    session.add(_food(name="Babyfood, cereal, rice, dry fortified"))
+    session.commit()
+
+    description = "Infant flour, cereal-based, commercially produced, fortified"
+    # the wrong-category match this reproduces from the real ~1.4M-row
+    # catalog (see review_5_infant_flour_cluster.csv) — built directly
+    # rather than relying on a toy in-memory DB's fuzzy-search ranking to
+    # happen to reproduce the same wrong pick.
+    finger_snack = session.query(Food).filter_by(name="Babyfood, baked product, finger snacks cereal fortified").one()
+    wrong_match = MatchResult(
+        food=finger_snack, method="fuzzy", confidence=0.65,
+        candidates=[MatchCandidate(food_id=finger_snack.id, name=finger_snack.name, score=1.0)],
+    )
+    assert not wrong_match.food.name.startswith("Babyfood, cereal,")
+
+    corrected = _prefer_infant_cereal_candidate(session, description, wrong_match)
+
+    assert corrected.food.name.startswith("Babyfood, cereal,")
+    assert corrected.food.name.endswith("dry fortified")
+    assert corrected.confidence >= 0.7
+
+
+def test_infant_cereal_override_picks_matching_grain_when_stated(session):
+    session.add(_food(name="Babyfood, cereal, barley, dry fortified"))
+    session.add(_food(name="Babyfood, cereal, rice, dry fortified"))
+    session.commit()
+
+    description = "Infant flour, cereal-based, rice, commercial, fortified"
+    match = match_ingredient(session, description)
+    corrected = _prefer_infant_cereal_candidate(session, description, match)
+
+    assert corrected.food.name == "Babyfood, cereal, rice, dry fortified"
+
+
+def test_infant_cereal_override_is_noop_for_non_infant_descriptions(session):
+    """The category preference must not fire for unrelated descriptions
+    just because a babyfood-cereal row happens to exist in the catalog."""
+    session.add(_food(name="Babyfood, cereal, rice, dry fortified"))
+    session.add(_food(name="Rice flour, white, raw"))
+    session.commit()
+
+    description = "Rice flour, white, raw"
+    match = match_ingredient(session, description)
+    corrected = _prefer_infant_cereal_candidate(session, description, match)
+
+    assert corrected is match
+
+
+def test_infant_flour_cluster_never_matches_finger_snack_or_pie(session):
+    """End-to-end regression across the full confirmed cluster pattern
+    from review_5_infant_flour_cluster.csv: both wording variants
+    ("commercially produced" and "commercial") must resolve to a real
+    babyfood-cereal-dry-fortified candidate, never the finger-snack or
+    pie candidates that outrank it on raw text similarity alone."""
+    session.add(_food(name="Babyfood, baked product, finger snacks cereal fortified"))
+    session.add(_food(name="Pie, apple, commercially prepared, enriched flour"))
+    session.add(_food(name="Babyfood, cereal, barley, dry fortified"))
+    session.add(_food(name="Babyfood, cereal, rice, dry fortified"))
+    session.commit()
+
+    descriptions = [
+        "Infant flour, cereal-based, commercially produced, fortified",
+        "Infant flour, cereal-based, commercial, fortified",
+    ]
+    for description in descriptions:
+        match = match_ingredient(session, description)
+        corrected = _prefer_infant_cereal_candidate(session, description, match)
+        relationship, _ = classify_match(corrected, description, None, "per_100g_edible_portion")
+
+        assert "finger snacks" not in corrected.food.name.lower()
+        assert not corrected.food.name.lower().startswith("pie,")
+        assert corrected.food.name.startswith("Babyfood, cereal,")
+        assert relationship != "needs_review"
 
 
 # ---- ingest_rows ---------------------------------------------------------
