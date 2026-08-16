@@ -196,6 +196,259 @@ distinction explicitly since Prompt 4's UI copy needs to attribute the
 PhyFoodComp defines those bands (it reports values; these two papers
 supply the interpretive cutoffs).
 
+## 5. review_3 (branded, low-confidence bucket) — sampling methodology & result
+
+Per the phytate-review protocol's step 4: a reproducible random sample
+(fixed seed, `sampled_for_review=YES` column in
+`docs/phytate-review/review_3_branded_low_confidence.csv`) of **120 rows**
+out of the full **752-row** branded/low-confidence bucket was reviewed by
+hand, one row at a time. Sample size was chosen to give roughly a
+±8–9 percentage-point margin on the estimated error rate at 95%
+confidence in the worst case, per the protocol's original design (sized
+against the 748-row bucket this pool was originally exported at; the
+752-row regenerated export is close enough not to warrant a re-sample).
+
+**Result: 77 reject, 42 approve, 1 deferred** (a duplicate row already
+reviewed in `review_4_special_cases.csv`) — a **64.7% reject rate**
+(77/119 judged rows). At 95% confidence that's 64.7% ± 8.6 percentage
+points (56.1–73.3%), consistent with the ±8–9pp design target; applying
+a finite-population correction for sampling 119 of 748 tightens that
+slightly to roughly ±7.9pp.
+
+**Confidence in the untouched ~628 rows: low.** A majority-reject rate
+this high means the pipeline's confidence-threshold-only acceptance rule
+is *more often wrong than right* for this specific bucket — candidates
+here are dominated by coincidental word-overlap mismatches (a legume
+matched to an unrelated snack/soup/condiment sharing one word with its
+name; several outright bizarre brand mismatches, e.g. a denim-clothing
+company's name matched to a bean snack, an auto-parts company's name
+matched to salsa) rather than genuine near-misses. This is a materially
+worse hit rate than review_1's ambiguous bucket (which ran closer to a
+roughly even split once auto-flagged and classifier-caught mismatches
+were removed). **Recommendation: do not let the remaining ~628
+branded/low-confidence rows reach production via the confidence
+threshold alone — either review the full bucket by hand, or treat this
+bucket's candidates as `unresolved` by default until reviewed.** This
+finding should also inform Prompt 3's matching-rule work: branded-food
+fuzzy matching at this confidence tier appears to be picking up
+brand-name/product-name text overlap without any real category
+correspondence far more often than not.
+
+## 6. Compound-tag handling — code check (phytate-review protocol step 6)
+
+Read `backend/app/ingest_phytate.py` (`ingest_rows`, `RawObservation`),
+`backend/app/phyfoodcomp_adapter.py` (`load_phyfoodcomp_workbook`,
+`_PHYTATE_TAGNAMES`), and `CompoundObservation` in `backend/app/models.py`
+end to end. Three questions, three checked (not assumed) answers:
+
+**1. No averaging across different tags for the same food — confirmed.**
+`load_phyfoodcomp_workbook` loops over all 16 `_PHYTATE_TAGNAMES` per food
+row (`phyfoodcomp_adapter.py:183-206`) and appends one `RawObservation`
+per *populated* tag cell, each carrying its own `value` and
+`compound_fraction=tagname`. `ingest_rows` then inserts one
+`CompoundObservation` row per `RawObservation`
+(`ingest_phytate.py:386-392`), keyed by
+`(compound, source_dataset_name, source_dataset_version,
+source_row_identifier)` — and `source_row_identifier` is built as
+`f"{row_identifier}:{tagname}"` (`phyfoodcomp_adapter.py:204`), so the tag
+is baked into the uniqueness key itself. Nowhere in either file is a
+`sum()`, `+=`, or mean/average computed across tags — confirmed by
+absence, not just by not finding a bug. This matches every multi-tag food
+seen throughout the phytate-review CSVs (e.g. `16010086:IP5`,
+`16010086:IP5_A_IP6`, `16010086:IP6` as three distinct rows for one food).
+
+**2. Phosphorus-based tags (PPI/PPD/PP-) — NOT converted, but clearly
+labelled and stored separately, which is the documented fallback the
+protocol allows.** `original_value` is stored verbatim
+(`ingest_phytate.py:369`, "never altered" per its own column comment in
+`models.py:1031-1033`) — no ×3.55-type phytate-phosphorus→phytic-acid
+molecular conversion factor is applied anywhere. The model *has*
+`normalised_value`/`normalised_unit`/`normalised_basis`/
+`normalisation_method` columns built for exactly this kind of derived
+conversion, but they are never populated by this ingestion path — the
+`fields` dict passed to both insert and update in `ingest_rows`
+(`ingest_phytate.py:366-384`) has no `normalised_*` keys at all, and
+`phyfoodcomp_adapter.py`'s own docstring (line 29) explains why: it only
+implemented normalisation for the wet/dry-*basis* conversion PhyFoodComp
+already resolved at compilation time, not the phosphorus/phytic-acid unit
+conversion. What the schema *does* guarantee: each phosphorus tag gets
+its own self-documenting `analytical_method` text ("Phytate phosphorus,
+determined by indirect precipitation", etc. —
+`phyfoodcomp_adapter.py:71-73`), distinct from the phytic-acid tags'
+wording ("Phytic acid, determined by..."), and its own `compound_fraction`
+value (`PPI`/`PPD`/`PP-`) — so a phosphorus-basis row is unambiguous and
+never silently mixed with a phytic-acid-basis row. **This satisfies the
+protocol's explicit fallback ("or are stored separately, clearly
+labelled, if not converted") but not the primary ask** — a future
+consumer must know to apply the phosphorus→phytic-acid conversion itself
+(or explicitly choose not to compare phosphorus-tag rows against
+phytic-acid-tag rows) since the database will not do it for them.
+
+**3. IP3-IP6/IP5_A_IP6/IP4_A_IP5_A_IP6/IPSUM — not summed, and each is
+distinctly labelled as to what it already represents — confirmed.** All
+six inositol-phosphate tagnames go through the exact same per-tag loop as
+check 1 — `IP5_A_IP6` and `IP4_A_IP5_A_IP6` are *pre-summed* values as
+published by the source (their `analytical_method` text says so
+explicitly: "summed" — `phyfoodcomp_adapter.py:78-80`), stored as their
+own independent rows, never added on top of the individual `IP3`-`IP6`
+rows to build a second total. No aggregation code exists in either file.
+
+**Forward-looking risk, not a bug in the code that exists today:** there
+is currently no downstream consumer of `CompoundObservation` at all — a
+repo-wide search found only the model, this ingestion script, and the
+adapter referencing it; no router, no display/API code reads this table
+yet (Prompt 4's ratio/display work hasn't been built). That means the
+"isn't summed in a way that double-counts" property is true today only
+because *nothing sums anything yet*. The real double-counting and
+phosphorus-conversion risk lands on whatever Prompt 4 code eventually
+picks "the" phytate value for a food to show in the app or compute a
+phytate:mineral molar ratio with — it must not naively sum `IP3+IP4+IP5+
+IP6+IP5_A_IP6+IPSUM` (triple/quadruple-counting the overlapping
+fractions), and it must not compare a `PP-`/`PPI`/`PPD` row directly
+against a `PHYTC*` row without applying the phosphorus→phytic-acid
+conversion first. Flagging this explicitly for whoever writes that code,
+since the ingestion layer being correct is necessary but not sufficient —
+this check does not extend past ingestion because nothing past ingestion
+exists to check yet.
+
+## 7. review_6 (accepted matches) — result, FULL BUCKET (updated from sample)
+
+**Update: the initial 211-row stratified sample below was followed up
+with a full review of the remaining 638 accepted rows** (in
+`docs/phytate-review/review_6b_accepted_remainder.csv`), so **all 849
+accepted rows have now been individually reviewed**, not just the
+sample. Final result across all 849:
+
+**504 reject, 297 approve, 48 replace — a 59.4% reject rate.** This
+confirms the sample's finding was not a statistical fluke skewed by an
+unlucky draw — the majority of this dataset's previously-accepted,
+already-in-production-eligible matches are wrong, checked exhaustively,
+not estimated.
+
+The remainder-review surfaced the same failure patterns as the sample
+(recurring word-coincidence "garbage bucket" candidates absorbing many
+unrelated foods, false-cognate species names, silently-dropped
+prep/processing state, unconfirmed ripeness/maturity/fat-content/color
+assumptions baked into a candidate name) plus a few new ones worth
+naming: the arbitrary-grain-default infant-flour bug recurred here too
+(43 more rows, replaced to the mixed-grain generic for consistency with
+review_5); several rows matched to **"Adidas Ag ORGANIC REFINED COCONUT
+OIL"** for complex multi-ingredient dishes that only happened to mention
+coconut oil as one minor ingredient (the sportswear company's coconut-oil
+private-label product, an obviously wrong and almost certainly
+pipeline-glitch match); and repeated instances of a source's own explicit
+attribute (ripe/unripe, seeded/seedless, a specific color) directly
+contradicting the same attribute on the matched candidate.
+
+**Original sample writeup follows, superseded in scope (see above) but
+kept for the stratification methodology and reasoning trail:**
+
+## 7a. review_6 (accepted matches, stratified sample) — original result
+
+Per phytate-review-protocol.txt step 5: `docs/phytate-review/export_accepted.py`
+(new script, written this session — see its docstring) exported every
+observation with `match_relationship != 'needs_review'` — the rows the
+ingestion pipeline was confident enough to accept without flagging for
+human review, and which can currently reach production untouched. **849
+such rows exist.** Per the protocol's stratified design: all 86 rows
+whose description contains a cultivar/variety/processing/coagulant
+qualifier were taken outright (`sample_stratum=high_risk_keyword`), plus
+a fixed-seed random sample of 125 from the remaining 763
+(`sample_stratum=random_sample`) — 211 rows total, in
+`docs/phytate-review/review_6_accepted_sample.csv`, all individually
+reviewed by hand.
+
+**Result: 151 reject, 55 approve, 5 replace — a 71.6% reject rate.**
+Split by stratum: **88.4% reject among the high-risk rows** (as
+expected — these are exactly the descriptions most likely to have had
+their distinguishing detail silently discarded), and **60.0% reject even
+in the plain random sample** — meaning a majority of this dataset's
+*accepted, already-in-production-eligible* matches are wrong even
+without targeting the highest-risk rows. This is a **worse** rate than
+review_3's low-confidence-branded bucket (64.7% reject) and far worse
+than review_1's ambiguous bucket, despite these being the rows the
+pipeline was most confident about.
+
+Recurring failure patterns found (several confirmed systemic, not
+one-off, by recurring across multiple unrelated source rows in this
+211-row sample alone):
+- **A small number of candidates acting as "garbage buckets"** that
+  wrongly absorb many unrelated foods purely on shared vocabulary: "Seeds,
+  watermelon seed kernels, dried" matched to Sesbania, soybean, lentil,
+  and roselle (21 rows in this sample alone); "Seeds, breadfruit seeds,
+  roasted" matched to African oil bean, Achi, and Ofo (three unrelated
+  West African seeds); "Cornsalad, raw" and "Fonio, grain, dry, raw" both
+  wrongly absorbing plain "Corn"/"Maize" rows (10 rows combined).
+- **False-cognate species names**: "Milletia" (a legume tree) vs millet
+  grain, "Manila tamarind" vs true tamarind, "Bajra" (pearl millet) vs
+  bananas, "Rajmah" (kidney bean) vs blackberries, "Red gram" (pigeon
+  pea) vs grapes — common/vernacular food names that share a word or
+  sound with something completely unrelated.
+- **Coagulant mismatches in tofu** (the exact concern review_4's
+  TOFU_COAGULANT tag exists for): CaCl2 matched to a nigari-prepared
+  candidate, MgCl2 matched to a calcium-sulfate-prepared candidate — real
+  chemistry differences with a direct effect on the food's mineral
+  content, the thing this whole feature exists to describe accurately.
+- **Silently dropped prep/processing state** with a real compositional
+  effect: raw vs dried vs roasted vs fermented vs extruded vs pearled —
+  each pair confirmed materially changes phytate content, not just
+  wording.
+- **Unconfirmed assumptions bundled into the candidate name**: "peeled"
+  where the source says nothing about peeling (or explicitly contradicts
+  it), a specific coagulant/fat-content/ripeness/maturity-stage assumed
+  without source support.
+
+**This changed the overall picture materially.** The protocol's own
+concern going in was that the 799(→849)-row accepted bucket was "the
+single most important gap" because rejected/uncertain rows can't reach
+production but these already can — this sample confirmed that concern was
+correct, and worse than expected: this bucket's error rate was not lower
+than the flagged buckets, it was higher. Following up, **the remaining
+638 rows were then reviewed in full** (see §7 above) rather than left at
+sample-only confidence — every one of the 849 accepted rows now has a
+verdict.
+
+## 8. Cross-file consistency check — 6 real conflicts found and resolved
+
+`docs/phytate-review/check_consistency.py` (new script, written this
+session) audits every review_*.csv file for structural consistency and
+cross-file duplication. First run found 6 real conflicts: the same
+`row_identifier` + candidate pair independently reviewed in both
+`review_1_ambiguous.csv` (this session's automated/heuristic pass) and
+`review_4_special_cases.csv` (a genuine pre-session human sign-off by
+Paul S, dated 06/08/2026) — with **opposite verdicts**. All 6 root-caused
+to the review_4 verdict being correct and review_1's being wrong,
+exposing two real bugs in this session's automation:
+
+1. **The word-overlap mismatch classifier doesn't know some real food
+   correspondences share no vocabulary.** "Bean starch, vermicelli" was
+   auto-rejected against "LUXURY VERMICELLI" because "bean"/"starch"
+   share no token with "vermicelli" — but bean-starch vermicelli
+   (cellophane/glass noodles) is a real, common product; the classifier
+   has no notion of this kind of ingredient-to-product-name gap.
+2. **The `PLANT_TO_ANIMAL_SUSPECT` auto_flag keyword heuristic
+   false-positives in two related ways**: (a) it flagged
+   "Soybean, curd cheese" as an animal product because "cheese" is in
+   its `ANIMAL_KEYWORDS` list, not accounting for soy products that
+   borrow dairy-analog naming ("soy milk", "curd cheese"); (b) it
+   flagged "Spanish fish, large" → "Fish, mackerel, spanish, raw" as a
+   plant-to-animal mismatch because "mackerel" (an animal keyword) isn't
+   literally in the source text, even though the source is already an
+   animal product ("fish") — the heuristic can't distinguish
+   generic-vs-specific-within-the-same-domain from a genuine
+   category mismatch.
+
+Fixed: all 6 review_1 rows now defer to review_4's existing verdict
+(see each row's `review_notes` for the pointer). Neither bug was fixed
+at the classifier-code level (would require reasoning knowledge —
+ingredient-to-product mappings, dairy-analog-naming awareness — a
+keyword/token heuristic can't cheaply have); both are now documented
+here as known limitations of the automated passes, worth keeping in mind
+if the same heuristics get reused or extended for a future ingestion
+run. The checker is safe to re-run at any time
+(`python check_consistency.py --dir .` from `docs/phytate-review/`) and
+should be run again after any further edits to these files.
+
 ## Summary for the human reviewer
 
 - Dataset content, structure, and reporting-basis questions (Prompt 1
