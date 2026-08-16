@@ -65,8 +65,10 @@ def upgrade() -> None:
             name='ck_compound_observation_match_relationship',
         ),
         sa.CheckConstraint(
-            '(normalised_value IS NULL AND normalised_unit IS NULL AND normalised_basis IS NULL) '
-            'OR (normalised_value IS NOT NULL AND normalised_unit IS NOT NULL AND normalised_basis IS NOT NULL)',
+            '(normalised_value IS NULL AND normalised_unit IS NULL AND normalised_basis IS NULL '
+            'AND normalisation_method IS NULL) '
+            'OR (normalised_value IS NOT NULL AND normalised_unit IS NOT NULL AND normalised_basis IS NOT NULL '
+            'AND normalisation_method IS NOT NULL)',
             name='ck_compound_observation_normalised_all_or_none',
         ),
         sa.ForeignKeyConstraint(['matched_food_id'], ['foods.id']),

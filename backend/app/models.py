@@ -998,11 +998,16 @@ class CompoundObservation(Base):
             "'category_proxy', 'needs_review')",
             name="ck_compound_observation_match_relationship",
         ),
-        # normalised_value/unit/basis are derived together (see their
-        # column comments) — fully present or fully absent, never partial.
+        # normalised_value/unit/basis/method are derived together (see
+        # their column comments) — fully present or fully absent, never
+        # partial. normalisation_method is included so incomplete
+        # conversion provenance (a normalised triple with no recorded
+        # method, or a method with no normalised triple) can't persist.
         CheckConstraint(
-            "(normalised_value IS NULL AND normalised_unit IS NULL AND normalised_basis IS NULL) "
-            "OR (normalised_value IS NOT NULL AND normalised_unit IS NOT NULL AND normalised_basis IS NOT NULL)",
+            "(normalised_value IS NULL AND normalised_unit IS NULL AND normalised_basis IS NULL "
+            "AND normalisation_method IS NULL) "
+            "OR (normalised_value IS NOT NULL AND normalised_unit IS NOT NULL AND normalised_basis IS NOT NULL "
+            "AND normalisation_method IS NOT NULL)",
             name="ck_compound_observation_normalised_all_or_none",
         ),
         # lets re-running an ingestion script find "this exact source row
