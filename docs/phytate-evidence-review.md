@@ -196,7 +196,53 @@ distinction explicitly since Prompt 4's UI copy needs to attribute the
 PhyFoodComp defines those bands (it reports values; these two papers
 supply the interpretive cutoffs).
 
-## 5. review_3 (branded, low-confidence bucket) — sampling methodology & result
+## 5. review_3 (branded, low-confidence bucket) — result, FULL BUCKET (updated from sample)
+
+**Update: the initial 120-row sample below was followed up with a full
+review of the remaining 633 unsampled rows** in
+`docs/phytate-review/review_3_branded_low_confidence.csv`, so **all 752
+rows in this bucket have now been individually reviewed**, not just the
+sample. Final result across all 752:
+
+**544 reject, 208 approve — a 72.3% reject rate.** This is *higher* than
+the 119-row sample's 64.7%, not lower — confirming the sample's warning
+undersold the problem rather than overstating it, the same direction
+review_6's full-bucket follow-up moved in (see §7 below). All 633
+remainder-review rows carry `reviewer`/`review_date` left blank and
+`"DRAFT -- confirm before sign-off."` in `review_notes`, matching the
+draft convention used for the original sample before Paul S's sign-off;
+they are not yet signed off.
+
+The remainder review surfaced the same failure patterns as the sample
+(coincidental word-overlap mismatches, wrong species/genus disguised by
+a shared common name, missing or contradicted named ingredients, wrong
+product form — raw vs prepared, whole vs milled, unpopped vs popped)
+plus several new standout examples worth a human's attention:
+"Nonpareil" almonds matched to nonpareil-graded **capers** (an
+unrelated size-grading term coincidentally shared with the almond
+cultivar name); **turmeric powder matched to "HexArmor" — a
+safety-equipment/gloves company, not a food company at all**; a
+faba-bean research prep matched to **"GRASS RUN FARMS 100% GRASS FED
+BEEF FOR STEW"** (a plant legume matched to beef); and two separate
+"groundnut" (peanut) source rows both matched to Goya **"RICE WITH
+GROUND BEEF"** — "groundnut" read as "ground" + beef, a word-segmentation
+trap distinct from the mismatch types already documented in §8's
+classifier-bug writeup. The Japonica-cultivar N-fertilization cluster
+(pigmentation mismatch against "BLACK JAPONICA RICE") and the
+Finnish-porridge-vs-Filipino-chicken-rice-porridge cluster, both
+recurring heavily in the sample, recurred at similar scale in the
+remainder (dozens of rows each) — confirming these are systemic,
+bucket-wide candidate-pool problems rather than sample artifacts.
+
+**Recommendation unchanged and now confirmed at full-bucket scale: do
+not let this bucket's approved rows reach production via the confidence
+threshold alone.** Even the 208 approved rows are overwhelmingly
+category-estimate matches with lost specificity (cultivar, GM line,
+treatment duration, brand) rather than exact matches — appropriate for
+a labelled "estimate" tier, not for treating this bucket's matches as
+equivalent to the review_4/5/6 buckets' human-confirmed matches.
+
+## 5a. review_3 (branded, low-confidence bucket) — original sample result
 
 Per the phytate-review protocol's step 4: a reproducible random sample
 (fixed seed, `sampled_for_review=YES` column in
@@ -215,22 +261,20 @@ points (56.1–73.3%), consistent with the ±8–9pp design target; applying
 a finite-population correction for sampling 119 of 748 tightens that
 slightly to roughly ±7.9pp.
 
-**Confidence in the untouched ~628 rows: low.** A majority-reject rate
-this high means the pipeline's confidence-threshold-only acceptance rule
-is *more often wrong than right* for this specific bucket — candidates
-here are dominated by coincidental word-overlap mismatches (a legume
-matched to an unrelated snack/soup/condiment sharing one word with its
-name; several outright bizarre brand mismatches, e.g. a denim-clothing
-company's name matched to a bean snack, an auto-parts company's name
-matched to salsa) rather than genuine near-misses. This is a materially
-worse hit rate than review_1's ambiguous bucket (which ran closer to a
-roughly even split once auto-flagged and classifier-caught mismatches
-were removed). **Recommendation: do not let the remaining ~628
-branded/low-confidence rows reach production via the confidence
-threshold alone — either review the full bucket by hand, or treat this
-bucket's candidates as `unresolved` by default until reviewed.** This
-finding should also inform Prompt 3's matching-rule work: branded-food
-fuzzy matching at this confidence tier appears to be picking up
+**This sample's concern was confirmed, and understated, by the full-bucket
+review in §5 above** — the untouched-at-the-time ~628 rows were flagged
+as low-confidence based on this sample; the full pass found their actual
+reject rate (73.8% among just the remainder) ran even higher than the
+sample predicted. Candidates in this bucket are dominated by coincidental
+word-overlap mismatches (a legume matched to an unrelated snack/soup/
+condiment sharing one word with its name; several outright bizarre brand
+mismatches, e.g. a denim-clothing company's name matched to a bean snack,
+an auto-parts company's name matched to salsa) rather than genuine
+near-misses. This was a materially worse hit rate than review_1's
+ambiguous bucket (which ran closer to a roughly even split once
+auto-flagged and classifier-caught mismatches were removed). This
+finding also informs Prompt 3's matching-rule work: branded-food fuzzy
+matching at this confidence tier appears to be picking up
 brand-name/product-name text overlap without any real category
 correspondence far more often than not.
 
