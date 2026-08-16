@@ -9,3 +9,8 @@ dist/
 .DS_Store
 .coverage
 .stock_recipe_cache*/
+
+# Real FDC catalog exports and the real (non-commercial-licensed)
+# PhyFoodComp workbook — large and/or not redistributable, see
+# backend/app/ingest_phytate.py's module docstring.
+/data/

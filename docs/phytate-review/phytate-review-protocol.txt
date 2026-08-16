@@ -1,0 +1,168 @@
+PHYTATE MATCH REVIEW — EXACT ITEMS AND STEPS
+================================================================
+This is the human sign-off prompts.txt requires before Prompt 3
+(phytate ingestion) can be trusted. Four files accompany this document,
+each pre-built with the missing columns the earlier AI reviews flagged
+(review_verdict, approved_fdc_food, rejection_reason, match_scope,
+reviewer, review_date, review_notes) and, where possible, pre-computed
+flags to speed up the actual judgment calls. Nothing in these files has
+been decided for you — every review_verdict cell is blank and waiting.
+
+WHAT NEEDS REVIEW, IN PRIORITY ORDER
+================================================================
+
+1. review_4_special_cases.csv — 72 rows — REVIEW ALL, HIGHEST PRIORITY
+   - 37 tofu/soybean-curd rows (broader than the "8" figure quoted
+     earlier, which only covered the subset inside the 794-shortlist —
+     this file has every tofu-related row across all needs_review
+     buckets, including ones in the 748-branded and 1462-unreviewed
+     pools that hadn't been looked at before).
+   - 33 zero-value rows — need a decision on whether each zero is a
+     plausible analytical zero (oils, refined starch, water) or one
+     that's lost a "trace" / "below detection limit" qualifier during
+     extraction.
+   - 2 low-phytate-variety rows — includes a SECOND instance ("Wheat
+     flour, Wampum (spring wheat), low phytate-content") that none of
+     the three prior reviews caught; only the corn one was previously
+     flagged.
+   Why highest priority: small (72 rows, a few hours at most), and each
+   one is a case where a wrong or fuzzy match is actively misleading
+   for this feature's specific purpose (mineral content, breeding-line
+   phytate reduction), not just imprecise.
+
+2. review_2_no_candidate_138.csv — 138 rows — REVIEW ALL
+   Small enough to fully review rather than sample. For each: confirm
+   there's genuinely no reasonable FDC match (in which case leave
+   unresolved/reject with match_scope=unusable), or identify a match
+   the automated pipeline missed. A missed-but-findable match here is
+   more valuable to catch than in the 794 set, since these currently
+   contribute nothing at all to the dataset.
+
+3. review_1_ambiguous_794.csv — 794 rows — REVIEW ALL, BUT FASTER
+   THAN A COLD READ
+   Pre-computed for you:
+   - similarity_field_was_mislabeled = YES on 238 rows — the tool's own
+     top_similarity number doesn't match the actual highest score
+     quoted in its rationale text for these. Don't trust top_similarity
+     at face value while reviewing; best_candidate_similarity and
+     runner_up_similarity are the corrected columns.
+   - auto_flag is pre-populated on 94 rows with a mechanical guess at
+     which known bad pattern applies (PLANT_TO_ANIMAL_SUSPECT,
+     LEAFY_GREEN_GARBAGE_BUCKET_SUSPECT, SPURIOUS_SALT_SUSPECT) — these
+     are suggestions to speed you up, not verdicts; still make the real
+     call yourself, since the flag is a keyword heuristic and can be
+     wrong in either direction.
+   - Roughly a quarter to a third of these are expected to be genuinely
+     correct matches that only got flagged because of a close runner-up
+     (varietal/brand-name differences) — don't assume "in this file"
+     means "wrong."
+
+4. review_3_branded_748_sample120.csv — 748 rows, 120 flagged
+   sampled_for_review=YES — REVIEW ONLY THE 120 FLAGGED ROWS
+   These 120 are a reproducible random sample (fixed seed) of the full
+   748 low-confidence-branded bucket, sized to give roughly a ±8-9
+   percentage-point margin on an estimated error rate at 95%
+   confidence in the worst case. Review only the YES rows. The NO rows
+   stay as-is (accepted into needs_review by the confidence-threshold
+   rule alone, per the pipeline's existing design) — do not review all
+   748 by hand, that defeats the point of sampling.
+
+5. NOT YET AVAILABLE — the 799 accepted (non-needs_review) matches
+   None of the uploaded files contain these. This is the single most
+   important gap across every review so far: rejected/uncertain rows
+   can't reach production, but these 799 already can. Before Prompt 3
+   ships, get a new export from the ingestion script covering every
+   observation where needs_review was NOT set — total should be 799
+   (3941 - 3142). Once you have that export, apply the same sampling
+   approach as item 4 above (see STEP 5 below for the exact method),
+   with extra weight on any row where the source description contains
+   a cultivar, plant-part, fermentation/germination/soaking, milling,
+   or coagulant qualifier — those are exactly the details a "confident"
+   auto-match is most likely to have silently discarded.
+
+6. Compound-tag handling — NOT a per-row review, a code check
+   Confirmed present in the real data: PPI/PPD/PP- (raw phytate-
+   phosphorus, unconverted) sit alongside PHYTCPPI/PHYTCPPD/PHYTC-/
+   PHYTCA/PHYTCPP (already-converted phytic acid) and five inositol-
+   phosphate fraction tags (IP3-IP6, IPSUM, IP5_A_IP6) that overlap
+   each other. Before Prompt 3's ingestion script is trusted, read it
+   yourself (or have Claude Code walk you through it) and confirm these
+   15 tags are kept distinct end to end — not averaged, not silently
+   treated as one interchangeable "phytate value." This blocks
+   everything else if it's wrong, since it would mean the underlying
+   numbers are unsound regardless of how good the food-matching is.
+
+
+EXACT STEPS TO PERFORM THE REVIEW
+================================================================
+
+Step 1 — Open review_4_special_cases.csv first.
+For each row, fill in:
+  - review_verdict: approve / reject / replace / unresolved
+  - approved_fdc_food: the food name to actually use, if approve or
+    replace (leave blank if reject)
+  - match_scope: exact / category_estimate / unusable
+  - rejection_reason: short free text if reject (e.g. "wrong coagulant
+    — CaCl2 source matched to nigari candidate")
+  - reviewer / review_date: your name and today's date
+  - review_notes: anything future-you or Claude Code needs to know
+For the 33 zero-value rows specifically, review_notes should record
+what kind of zero it plausibly is (measured-zero / trace / below-
+detection-limit / unclear) even if you can't be certain — "unclear, no
+qualifier preserved in source extract" is a valid and useful note.
+
+Step 2 — review_2_no_candidate_138.csv, same columns, same process.
+Most rows will legitimately end as review_verdict=unresolved,
+match_scope=unusable — that's fine and expected, not a failure of the
+review. Flag anywhere you spot an FDC food the pipeline should have
+found but didn't; note it in review_notes so it can inform a future
+matching-rule improvement, separate from this review's sign-off.
+
+Step 3 — review_1_ambiguous_794.csv.
+Sort or filter by auto_flag first and clear those 94 rows — they're the
+ones most likely to be quick "reject, obviously wrong" calls given the
+known bad patterns. Then work through the remaining 700 in any order.
+Where similarity_field_was_mislabeled=YES, don't let the tool's stated
+top_similarity anchor your judgment — look at the actual food
+descriptions and decide on the merits.
+
+Step 4 — review_3_branded_748_sample120.csv.
+Filter to sampled_for_review=YES (120 rows) and review only those.
+Once done, compute the approve/reject rate among the 120 and write a
+one-paragraph summary at the top of the file (or in
+docs/phytate-evidence-review.md) stating: sample size, error rate
+found, and your resulting confidence level in the untouched 628 —
+this is the "document your sampling methodology" gap both prior AI
+reviews correctly flagged as missing.
+
+Step 5 — Once the ingestion script can export the 799 accepted matches:
+  a. Export them to a CSV with the same columns as the files here.
+  b. Take a stratified sample: ALL rows where the description contains
+     any of {cultivar, variety, fermented, germinated, soaked, milled,
+     roasted, irradiated, coagulant terms (CaCl2/MgCl2/CaSO4/nigari)} —
+     these are the highest-risk accepted matches. Then add a plain
+     random sample of ~100-150 of the remainder for a general error-
+     rate estimate, same statistical logic as Step 4.
+  c. Review that combined set with the same verdict columns.
+  d. This step is the one most likely to surface a real problem, since
+     nothing in the 799 has been looked at by a human at all yet.
+
+Step 6 — Compound-tag code check.
+Not a spreadsheet task. Read (or have Claude Code summarize) whatever
+function in the ingestion pipeline reads compound_fraction and turns it
+into a stored value. Confirm: no averaging across different tags for
+the same food, phosphorus-based tags get the XP conversion factor
+applied (or are stored separately, clearly labelled, if not converted),
+and the IP3-IP6/IPSUM/IP5_A_IP6 fractions aren't summed in a way that
+double-counts overlapping fractions. Write the answer into
+docs/phytate-evidence-review.md regardless of outcome — if it turns out
+fine, that's still worth recording as a checked, not assumed, fact.
+
+Step 7 — Sign-off.
+The review is sign-off-ready when: Steps 1-4 are complete with every
+row given a verdict, Step 5's sample has been reviewed once the export
+exists, and Step 6 has a written, confirmed answer. At that point,
+produce the final approved-mapping list (every row where
+review_verdict is approve or replace, using approved_fdc_food) — that
+list, not the raw needs_review files, is what Prompt 2/3's ingestion
+should actually import.
