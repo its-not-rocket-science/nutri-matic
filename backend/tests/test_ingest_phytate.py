@@ -123,6 +123,21 @@ def test_classify_match_prep_state_and_edible_basis_is_regional_equivalent(sessi
     assert "raw" in rationale
 
 
+def test_classify_match_prep_state_substring_does_not_false_positive():
+    """Regression: 'raw' must not match inside 'straw' -- the prep-state
+    check requires a whole-word match, not a raw substring search (a
+    candidate named 'Straw mushrooms, canned' must not be treated as
+    prep-state-confirmed for a source description stating 'raw')."""
+    match = MatchResult(
+        food=_food(name="Straw mushrooms, canned"),
+        method="fuzzy",
+        confidence=0.7,
+        candidates=[MatchCandidate(food_id=1, name="Straw mushrooms, canned", score=0.9)],
+    )
+    relationship, _ = classify_match(match, "Mushrooms", "raw", "per_100g_edible_portion")
+    assert relationship != "regional_equivalent"
+
+
 def test_classify_match_no_prep_state_is_close_analogue_not_exact(session):
     session.add(_food(name="Wheat flour, whole grain, raw"))
     session.commit()
@@ -382,6 +397,34 @@ def test_reingesting_the_same_rows_is_idempotent(session):
     assert stats2["inserted"] == 0
     assert stats2["updated"] == 1
     assert session.query(CompoundObservation).count() == 1
+
+
+def test_duplicate_row_identifier_within_one_batch_dedupes_not_double_inserts(session):
+    """Regression: db (SessionLocal in production, see database.py) runs
+    with autoflush=False, so the existing-row query can't see a
+    db.add() queued earlier in this same call -- two input rows sharing
+    a row_identifier (duplicate/malformed source data) would otherwise
+    both be treated as new, and the second insert would violate
+    uq_compound_observation_source_row at commit time and roll back the
+    whole batch instead of updating in place."""
+    session.autoflush = False
+    session.add(_food(name="Wheat flour, whole grain, raw"))
+    session.commit()
+
+    rows = [
+        _row(food_description="Wheat flour, whole grain", preparation_state="raw", row_identifier="DUP-1"),
+        _row(
+            food_description="Wheat flour, whole grain", preparation_state="raw", row_identifier="DUP-1",
+            value=999.0,
+        ),
+    ]
+    stats, _ = ingest_rows(session, rows, dry_run=False, **DATASET_KWARGS)
+
+    assert stats["inserted"] == 1
+    assert stats["updated"] == 1
+    saved = session.query(CompoundObservation).filter_by(source_row_identifier="DUP-1").all()
+    assert len(saved) == 1
+    assert saved[0].original_value == 999.0
 
 
 def test_rows_without_row_identifier_are_always_inserted(session):

@@ -298,7 +298,9 @@ def classify_match(match: MatchResult, description: str, preparation_state: str 
             f"match confidence {confidence:.2f} below the {NEEDS_REVIEW_CONFIDENCE_THRESHOLD} needs-review threshold"
         )
 
-    prep_aligned = bool(preparation_state) and preparation_state.strip().lower() in match.food.name.lower()
+    prep_aligned = bool(preparation_state) and re.search(
+        rf"\b{re.escape(preparation_state.strip().lower())}\b", match.food.name.lower()
+    ) is not None
     if prep_aligned and basis == EDIBLE_PORTION_BASIS:
         return "regional_equivalent", (
             f"name match with preparation state {preparation_state!r} confirmed present in "
@@ -328,6 +330,16 @@ def ingest_rows(
     # Food catalog) only runs once per distinct description, not once per
     # observation.
     match_cache: dict[str, MatchResult] = {}
+    # existing's query below won't see a row added earlier in this same
+    # loop -- db is SessionLocal, which runs with autoflush=False (see
+    # database.py) so a pending db.add() isn't visible to a query until
+    # the next explicit flush/commit. Two input rows sharing a
+    # row_identifier (duplicate/malformed source data) would otherwise
+    # both be treated as new, and the later db.add() would violate
+    # uq_compound_observation_source_row at commit time and roll back
+    # the whole batch instead of updating in place. Tracked here so the
+    # second row updates the first row's in-memory object directly.
+    pending_by_identifier: dict[str, CompoundObservation] = {}
 
     for row in rows:
         stats["considered"] += 1
@@ -350,18 +362,20 @@ def ingest_rows(
         if dry_run:
             continue
 
-        existing = (
-            db.query(CompoundObservation)
-            .filter(
-                CompoundObservation.compound == COMPOUND,
-                CompoundObservation.source_dataset_name == dataset_name,
-                CompoundObservation.source_dataset_version == dataset_version,
-                CompoundObservation.source_row_identifier == row.row_identifier,
-            )
-            .one_or_none()
-            if row.row_identifier is not None
-            else None
-        )
+        existing = None
+        if row.row_identifier is not None:
+            existing = pending_by_identifier.get(row.row_identifier)
+            if existing is None:
+                existing = (
+                    db.query(CompoundObservation)
+                    .filter(
+                        CompoundObservation.compound == COMPOUND,
+                        CompoundObservation.source_dataset_name == dataset_name,
+                        CompoundObservation.source_dataset_version == dataset_version,
+                        CompoundObservation.source_row_identifier == row.row_identifier,
+                    )
+                    .one_or_none()
+                )
 
         fields = dict(
             compound=COMPOUND,
@@ -384,12 +398,17 @@ def ingest_rows(
         )
 
         if existing is None:
-            db.add(CompoundObservation(**fields))
+            obs = CompoundObservation(**fields)
+            db.add(obs)
             stats["inserted"] += 1
         else:
+            obs = existing
             for key, value in fields.items():
-                setattr(existing, key, value)
+                setattr(obs, key, value)
             stats["updated"] += 1
+
+        if row.row_identifier is not None:
+            pending_by_identifier[row.row_identifier] = obs
 
     if not dry_run:
         db.commit()
