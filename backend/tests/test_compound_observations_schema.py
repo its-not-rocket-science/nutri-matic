@@ -122,6 +122,11 @@ def test_match_relationship_accepts_every_shared_vocabulary_value(session, relat
     {"normalised_unit": "mg"},
     {"normalised_basis": "per_100g_edible_portion"},
     {"normalised_value": 42.0, "normalised_unit": "mg"},
+    {"normalisation_method": "converted from dry matter"},
+    {
+        "normalised_value": 42.0, "normalised_unit": "mg",
+        "normalised_basis": "per_100g_edible_portion",
+    },
 ])
 def test_normalised_triple_rejects_partial_values(session, partial_fields):
     obs = CompoundObservation(**_minimal_kwargs(**partial_fields))
@@ -152,6 +157,7 @@ def test_normalised_triple_accepts_all_none_together(session):
     assert obs.normalised_value is None
     assert obs.normalised_unit is None
     assert obs.normalised_basis is None
+    assert obs.normalisation_method is None
 
 
 def test_duplicate_source_row_identifier_is_rejected(session):
