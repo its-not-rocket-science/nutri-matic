@@ -259,9 +259,18 @@ def _prefer_infant_cereal_candidate(db: Session, description: str, match: MatchR
 
     description_lower = description.lower()
     grain = next((g for g in _GRAIN_WORDS if g in description_lower), None)
+    # A description naming no grain at all, or naming one FDC has no
+    # dedicated babyfood-cereal candidate for (corn/maize/millet, per the
+    # human review in review_5_infant_flour_cluster.csv/
+    # review_6_accepted_sample.csv/review_6b_accepted_remainder.csv —
+    # FDC only has barley/mixed/oatmeal/rice/multigrain), must not fall
+    # back to whichever candidate sorts first alphabetically (barley) —
+    # that's an arbitrary, wrong single-grain claim the source never
+    # made. The honest fallback is the mixed-grain generic.
+    mixed_candidate = next((f for f in babyfood_cereal_candidates if "mixed" in f.name.lower()), None)
     chosen = next(
         (f for f in babyfood_cereal_candidates if grain and grain in f.name.lower()),
-        babyfood_cereal_candidates[0],
+        mixed_candidate or babyfood_cereal_candidates[0],
     )
 
     new_candidates = [MatchCandidate(food_id=chosen.id, name=chosen.name, score=1.0)] + [
