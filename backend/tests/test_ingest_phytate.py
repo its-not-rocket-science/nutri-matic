@@ -321,6 +321,41 @@ def test_infant_cereal_override_picks_matching_grain_when_stated(session):
     assert corrected.food.name == "Babyfood, cereal, rice, dry fortified"
 
 
+def test_infant_cereal_override_defaults_to_mixed_when_no_grain_stated(session):
+    """Regression: with no grain word in the description, the fallback
+    must be the honest mixed-grain candidate, not whichever candidate
+    happens to sort first alphabetically (barley) -- see
+    review_5_infant_flour_cluster.csv/review_6_accepted_sample.csv/
+    review_6b_accepted_remainder.csv, where dozens of these arbitrary
+    barley defaults were caught and replaced by hand."""
+    session.add(_food(name="Babyfood, cereal, barley, dry fortified"))
+    session.add(_food(name="Babyfood, cereal, mixed, dry fortified"))
+    session.add(_food(name="Babyfood, cereal, rice, dry fortified"))
+    session.commit()
+
+    description = "Infant flour, cereal-based, commercially produced"
+    match = match_ingredient(session, description)
+    corrected = _prefer_infant_cereal_candidate(session, description, match)
+
+    assert corrected.food.name == "Babyfood, cereal, mixed, dry fortified"
+
+
+def test_infant_cereal_override_defaults_to_mixed_when_stated_grain_has_no_candidate(session):
+    """Regression: FDC has no corn/maize/millet-specific babyfood-cereal
+    entry (only barley/mixed/oatmeal/rice/multigrain). A description
+    naming one of those grains must still fall back to mixed, not the
+    alphabetically-first candidate (barley)."""
+    session.add(_food(name="Babyfood, cereal, barley, dry fortified"))
+    session.add(_food(name="Babyfood, cereal, mixed, dry fortified"))
+    session.commit()
+
+    description = "Infant flour, cereal-based, maize based, commercially produced"
+    match = match_ingredient(session, description)
+    corrected = _prefer_infant_cereal_candidate(session, description, match)
+
+    assert corrected.food.name == "Babyfood, cereal, mixed, dry fortified"
+
+
 def test_infant_cereal_override_is_noop_for_non_infant_descriptions(session):
     """The category preference must not fire for unrelated descriptions
     just because a babyfood-cereal row happens to exist in the catalog."""

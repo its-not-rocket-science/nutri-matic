@@ -66,7 +66,13 @@ commercial-licence-request process.
 **Status:** the licence-clarification email already sent to
 `copyright@fao.org` (see conversation history) covers this — it asks
 directly whether commercial-tier use is permitted and on what terms.
-Until FAO replies, treat phytate data as **non-commercial-tier only**:
+That email went unanswered, so on 2026-08-16 the same request was also
+submitted through FAO's formal licence-request channel
+(`www.fao.org/contact-us/licence-request`, a Wufoo form at
+`faodata.wufoo.com/forms/z7x3p9/` — the FAO-wrapped page itself was
+throwing a submission error and had to be bypassed via the underlying
+Wufoo URL). Until FAO replies to either, treat phytate data as
+**non-commercial-tier only**:
 fine to build, test, and ship in the app's free tier once real ingestion
 (Prompt 3) is complete — the file itself is now in hand (see the
 download above), so that's no longer blocked — but gate it out of any
