@@ -212,6 +212,7 @@ def test_reject_and_unresolved_clear_matched_food_id(session, verdict):
     assert problems == []
     assert plans[0].fields["matched_food_id"] is None
     assert plans[0].fields["match_relationship"] == "needs_review"
+    assert plans[0].fields["match_rationale"].startswith("Human-reviewed")
 
 
 # ---- blocking problems: fatal, never auto-skipped ------------------------
@@ -255,6 +256,28 @@ def test_unreviewed_censored_row_is_auto_unresolved_not_blocked(session):
     assert len(plans) == 1
     assert plans[0].fields["matched_food_id"] is None
     assert plans[0].fields["match_relationship"] == "needs_review"
+
+
+def test_auto_unresolved_censored_row_rationale_is_never_labelled_human_reviewed(session):
+    """Bot review finding on PR #52: a CENSORED_ROW_AUTO_POLICY decision
+    must never be persisted with the same 'Human-reviewed' rationale
+    prefix a real reviewer's decision gets -- that would falsely claim
+    human review provenance for a row no reviewer ever saw."""
+    from app.ingest_phytate import RawObservation
+    raw_rows = [RawObservation(
+        food_description="Test food", value=None, value_qualifier="below_detection_limit",
+        unit="mg", basis="per_100g_edible_portion", compound_fraction="IP6", row_identifier="UNKNOWN:IP6",
+    )]
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 1}
+
+    _, _, plans = reconcile_rows(
+        session, raw_rows, adapter_stats, {}, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
+    )
+
+    rationale = plans[0].fields["match_rationale"]
+    assert "Human-reviewed" not in rationale
+    assert "Auto-classified" in rationale
+    assert "not human-reviewed" in rationale
 
 
 def test_unreviewed_numeric_row_is_still_blocked_not_auto_resolved(session):

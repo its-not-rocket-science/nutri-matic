@@ -73,6 +73,12 @@ from .phyfoodcomp_adapter import load_phyfoodcomp_workbook
 
 COMPOUND = "phytate"
 
+# Decision.source_file sentinel for a CENSORED_ROW_AUTO_POLICY synthetic
+# decision -- distinguishes it from every real review_*.csv filename so
+# the persisted match_rationale never claims human review provenance
+# for a row no reviewer ever saw.
+AUTO_CENSORED_SOURCE_FILE = "<auto: censored, unreviewed>"
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REVIEW_DIR = REPO_ROOT / "docs" / "phytate-review"
 DEFAULT_STABLE_ID_MAPPING = DEFAULT_REVIEW_DIR / "stable_id_mapping.csv"
@@ -379,7 +385,7 @@ def reconcile_rows(
                         "CENSORED_ROW_AUTO_POLICY (see module docstring): excluded from selection "
                         "regardless of food match, so food-matching review provides no scientific benefit"
                     ),
-                    source_file="<auto: censored, unreviewed>",
+                    source_file=AUTO_CENSORED_SOURCE_FILE,
                     food_description=row.food_description, compound_fraction=row.compound_fraction, value=None,
                 )
                 report["auto_unresolved_censored"] += 1
@@ -449,7 +455,13 @@ def reconcile_rows(
             report["unexpected"] += 1
             continue
 
-        rationale = f"Human-reviewed ({decision.verdict}): {decision.rationale}"
+        if decision.source_file == AUTO_CENSORED_SOURCE_FILE:
+            # Never label a CENSORED_ROW_AUTO_POLICY decision "Human-reviewed" --
+            # that would falsely claim human review provenance for a row no
+            # reviewer ever saw (bot review finding on PR #52).
+            rationale = f"Auto-classified (not human-reviewed, {decision.verdict}): {decision.rationale}"
+        else:
+            rationale = f"Human-reviewed ({decision.verdict}): {decision.rationale}"
         fields = dict(
             compound=COMPOUND, compound_fraction=row.compound_fraction, original_value=row.value,
             original_unit=row.unit, original_basis=row.basis,

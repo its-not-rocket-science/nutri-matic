@@ -368,3 +368,27 @@ wrong. Neither guess was right — checked directly, not assumed:
   problems; `final_approved_mapping.csv` has zero diff (as expected, since none of
   these 14 rows are approve/replace).
 
+## Bot review fixes on #52 (2026-08-22)
+
+Two real findings from automated PR review, both fixed:
+
+- **Rationale mislabelling**: a `CENSORED_ROW_AUTO_POLICY` synthetic decision was
+  passing through the same `f"Human-reviewed ({verdict}): ..."` formatter every real
+  reviewer decision does, so the persisted `match_rationale` for all 245
+  auto-classified censored rows would have falsely claimed human review provenance.
+  Fixed: `AUTO_CENSORED_SOURCE_FILE` sentinel added to `Decision.source_file`,
+  checked before formatting the rationale, so an auto-classified row is now
+  persisted as `"Auto-classified (not human-reviewed, unresolved): ..."` — never
+  `"Human-reviewed"`. New test proves it, alongside a new regression test proving a
+  genuinely human-reviewed decision still gets the `"Human-reviewed"` label
+  unchanged.
+- **Stale committed exceptions file**: `docs/phytate-review/stable_id_exceptions.csv`
+  had been updated after fixing the 6 `candidate_data_type` slips (208 → 202 rows) but
+  never updated again after applying the 105 overrides — the committed file still
+  listed all 202 duplicates, including the 105 already resolved, contradicting this
+  document's own reported 97-row remaining count. Fixed: replaced with the real
+  97-row exceptions file the override-aware resolver run actually produced, verified
+  zero overlap with `stable_id_exceptions_resolved.csv`'s 105 `row_identifier`s.
+
+Full backend suite passes after both fixes.
+
