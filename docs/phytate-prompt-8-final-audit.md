@@ -1,5 +1,10 @@
 # Phytate extension — Prompt 8 final audit
 
+> **Update (2026-08-22): manual actions 1–4 below have been worked, not just
+> planned** — see "Remediation of manual actions 1–4" at the end of this document
+> for what changed and the real numbers after re-running against the same real
+> catalogue. The rest of this document is the original audit, unchanged.
+
 Prompt 8 of the phytate/mineral-bioavailability extension (see `prompts.txt`). This is
 a reporting/audit pass, not a new feature — no production write happened, and no
 commercial-use flag was touched. Where this audit found a real, unresolved problem it
@@ -255,3 +260,63 @@ explicitly queries for it.
 Until all of the above: commercial permission stays `false`, phytate stays off every
 monetised surface, no unattended production import runs, and phytate is not marketed
 as part of any paid tier.
+
+## Remediation of manual actions 1–4 (2026-08-22)
+
+Re-established the same disposable-schema environment (real catalogue re-ingested,
+1,434,131 Food rows — identical to before) to actually work these rather than leave
+them purely as instructions.
+
+**1. Fixed the 6 `candidate_data_type` slips.** All 12 row instances (each of the 6
+`row_identifier`s appears in two review files) changed from `branded_food` to
+`sr_legacy_food` in `review_1_ambiguous.csv`, `review_3_branded_low_confidence.csv`,
+and `review_4_special_cases.csv`. `check_consistency.py` still reports zero problems.
+`final_approved_mapping.csv` regenerated — 6 lines changed, only the `candidate_data_type`
+column, nothing else. Re-running the resolver confirmed the fix: `missing` dropped
+from 6 to **0**, `resolved` rose from 931 to **937** (exactly +6).
+
+**2. The 202 real duplicates — 105 auto-resolved, 97 genuinely need Paul's judgement.**
+Rather than guess, wrote a one-off analysis (not committed — a throwaway script, not
+an app feature) that pulled every candidate Food row's `protein_g_per_100g` and full
+`FoodNutrient` amounts directly from the real ingested data and compared them per
+duplicate group:
+
+- **105 rows**: every candidate Food row is *nutritionally identical* — same protein,
+  same every nutrient FDC recorded for it (these are the real Branded Foods dataset's
+  own re-listings of one product under multiple `fdc_id`s, e.g. regional catalog
+  entries). Since the choice between them cannot change any figure this app computes,
+  the lowest `fdc_id` was picked deterministically and recorded, with that exact
+  justification, in `docs/phytate-review/stable_id_exceptions_resolved.csv`.
+- **97 rows**: candidates genuinely differ in at least one nutrient value (protein or
+  otherwise) despite sharing the reviewed name — these are real, different catalog
+  entries (different pack sizes/reformulations/regional listings with materially
+  different nutrition), and picking one requires actual judgement about which product
+  the original PhyFoodComp entry corresponds to, which this audit cannot supply.
+  Listed with every candidate's protein value for comparison in
+  `docs/phytate-review/stable_id_duplicates_still_needing_review.csv` — **not**
+  resolved, **not** guessed.
+
+**3. Censored-row auto-policy implemented in code**, not just documented as an idea:
+`app.import_reviewed_phytate_mappings` now auto-classifies an unreviewed
+`row_identifier` as `verdict="unresolved"` when — and only when — its workbook
+observation is censored (`value is None`); an unreviewed row with a real number is
+still a full blocking problem, unchanged. Counted separately in the reconciliation
+report as `auto_unresolved_censored`, so it's always visible how many rows were
+auto-handled versus genuinely reviewed by a human. Two new tests
+(`test_unreviewed_censored_row_is_auto_unresolved_not_blocked`,
+`test_unreviewed_numeric_row_is_still_blocked_not_auto_resolved`) prove the policy
+fires exactly for the censored case and never widens past it. Full backend suite
+passes with this change.
+
+**4. Re-ran the resolver with the 105 overrides applied**: `resolved: 1042` (937 direct
++ 105 override), `duplicate: 97`, `missing: 0`, `stale: 0` — 1042 + 97 = 1,139, every
+row still accounted for. `stable_id_mapping.csv` **still correctly does not exist** —
+97 exceptions remain open, and Prompt 2's own rule 8 forbids generating the canonical
+mapping while any do. This is progress (208 → 97 open items), not completion; the
+remaining 97 are the one piece of manual action 1–4 that has no defensible automated
+answer and is now Paul's decision to make, with the actual comparison data already
+prepared.
+
+The disposable schema was dropped again afterward; the real dev database was
+confirmed unchanged (7,857 Food rows) throughout.
+

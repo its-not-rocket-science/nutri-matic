@@ -32,6 +32,27 @@ Food.id no longer has the fdc_id the mapping recorded — refuses the
 write transaction while `problems` is non-empty, and `apply_plans` is
 never called in that case. That is this module's rollback guarantee —
 there is no partial-apply path to roll back from in the first place.
+
+CENSORED_ROW_AUTO_POLICY (documented manual action from prompts.txt
+PROMPT 8's audit): the real PhyFoodComp workbook has 245 censored
+observations (Prompt 5) whose row_identifier the seven signed
+review_*.csv files have never seen -- the pre-Prompt-5 adapter never
+gave a censored cell a RawObservation at all, so none of them ever went
+through human food-matching review. Rather than block the entire import
+on all 245 forever, an unreviewed row_identifier whose workbook
+observation is itself censored (value is None) is auto-classified
+verdict="unresolved" instead of raising a blocking problem -- justified
+because a censored observation carries no number to match against a
+mineral database in the first place (Prompt 6's selection service
+excludes it from `selected` regardless of which Food it's matched to,
+which is why it's never matched to one: matched_food_id stays NULL,
+identical to a genuinely human-reviewed "unresolved" row). This is
+counted separately in the reconciliation report
+(auto_unresolved_censored) so it's always visible how many rows were
+auto-handled versus actually reviewed by a human. An unreviewed
+row_identifier whose observation DOES have a real number is still a
+full blocking problem -- this policy never widens past exactly the
+censored case it was written for.
 """
 
 import argparse
@@ -327,6 +348,7 @@ def reconcile_rows(
         "censored_observations": adapter_stats["censored_observations_built"],
         "approved": 0, "replaced": 0, "rejected": 0, "unresolved": 0,
         "inserted": 0, "updated": 0, "unchanged": 0, "blocked": 0, "unexpected": 0,
+        "auto_unresolved_censored": 0,
     }
     problems: list[str] = []
     plans: list[RowPlan] = []
@@ -346,9 +368,25 @@ def reconcile_rows(
 
         decision = decisions.get(rid)
         if decision is None:
-            problems.append(f"{rid}: no review verdict covers this row_identifier")
-            report["blocked"] += 1
-            continue
+            if row.value is None:
+                # CENSORED_ROW_AUTO_POLICY (see module docstring) -- a
+                # censored observation review has never seen is
+                # auto-classified unresolved, not a blocking problem.
+                decision = Decision(
+                    row_identifier=rid, verdict="unresolved", approved_fdc_food="", candidate_data_type="",
+                    rationale=(
+                        "censored value, no review coverage -- auto-classified unresolved per "
+                        "CENSORED_ROW_AUTO_POLICY (see module docstring): excluded from selection "
+                        "regardless of food match, so food-matching review provides no scientific benefit"
+                    ),
+                    source_file="<auto: censored, unreviewed>",
+                    food_description=row.food_description, compound_fraction=row.compound_fraction, value=None,
+                )
+                report["auto_unresolved_censored"] += 1
+            else:
+                problems.append(f"{rid}: no review verdict covers this row_identifier")
+                report["blocked"] += 1
+                continue
 
         if decision.food_description and row.food_description != decision.food_description:
             problems.append(
@@ -469,7 +507,7 @@ def apply_plans(db: Session, plans: list[RowPlan]) -> None:
 def print_report(report: dict) -> None:
     for key in (
         "source_observations", "numeric_observations", "censored_observations",
-        "approved", "replaced", "rejected", "unresolved",
+        "approved", "replaced", "rejected", "unresolved", "auto_unresolved_censored",
         "inserted", "updated", "unchanged", "blocked", "unexpected",
     ):
         print(f"{key}: {report[key]}")

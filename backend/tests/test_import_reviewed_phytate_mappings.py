@@ -233,6 +233,49 @@ def test_unknown_row_identifier_is_blocked(session):
     assert any("no review verdict" in p for p in problems)
 
 
+def test_unreviewed_censored_row_is_auto_unresolved_not_blocked(session):
+    """CENSORED_ROW_AUTO_POLICY: an unreviewed row_identifier whose
+    workbook observation is censored (value=None) must not block the
+    entire import -- see module docstring for why this is safe."""
+    from app.ingest_phytate import RawObservation
+    raw_rows = [RawObservation(
+        food_description="Test food", value=None, value_qualifier="below_detection_limit",
+        unit="mg", basis="per_100g_edible_portion", compound_fraction="IP6", row_identifier="UNKNOWN:IP6",
+    )]
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 1}
+
+    report, problems, plans = reconcile_rows(
+        session, raw_rows, adapter_stats, {}, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
+    )
+
+    assert problems == []
+    assert report["blocked"] == 0
+    assert report["auto_unresolved_censored"] == 1
+    assert report["unresolved"] == 1  # counted both ways: verdict bucket + auto-policy bucket
+    assert len(plans) == 1
+    assert plans[0].fields["matched_food_id"] is None
+    assert plans[0].fields["match_relationship"] == "needs_review"
+
+
+def test_unreviewed_numeric_row_is_still_blocked_not_auto_resolved(session):
+    """The auto-policy must never widen past the censored case -- an
+    unreviewed row with a real number stays a full blocking problem."""
+    from app.ingest_phytate import RawObservation
+    raw_rows = [RawObservation(
+        food_description="Test food", value=100.0, unit="mg", basis="per_100g_edible_portion",
+        compound_fraction="IP6", row_identifier="UNKNOWN:IP6",
+    )]
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
+
+    report, problems, plans = reconcile_rows(
+        session, raw_rows, adapter_stats, {}, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
+    )
+
+    assert report["blocked"] == 1
+    assert report["auto_unresolved_censored"] == 0
+    assert plans == []
+
+
 def test_duplicate_row_identifier_within_workbook_is_blocked(session):
     from app.ingest_phytate import RawObservation
     raw_rows = [
