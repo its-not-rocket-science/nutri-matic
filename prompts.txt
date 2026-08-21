@@ -1,446 +1,535 @@
-NUTRI-MATIC — PHYTATE / MINERAL-BIOAVAILABILITY EXTENSION (PHASE 1-2 ONLY)
+NUTRI-MATIC — CLAUDE PROMPTS FOR THE NEXT PHYTATE STEPS
+Generated after repository inspection on 21 August 2026
+
+Current authoritative remote state
+==================================
+
+Repository: its-not-rocket-science/nutri-matic
+Current main commit: 10e0c3a4539081c7d1afaf2d1d0734bf006d9e22
+
+The remote repository currently contains:
+
+- the generic CompoundObservation schema;
+- the real PhyFoodComp 1.0 workbook adapter;
+- the automated phytate matching/dry-run pipeline;
+- seven signed review files;
+- final_approved_mapping.csv containing 1,139 approved/replacement mappings;
+- export and consistency tooling that now reports zero known review problems;
+- documentation recording that FAO has not yet granted commercial-use permission.
+
+The remote repository does NOT yet contain:
+
+- stable approved Food.id/fdc_id mappings;
+- an FDC catalogue-version manifest for the review;
+- an ingestion path that consumes the reviewed mapping;
+- a downstream phytate selection/aggregation service;
+- a phytate API or UI;
+- preservation of non-numerical values such as < LOD;
+- an enforceable licensing boundary preventing PhyFoodComp-derived data from
+  entering paid API, Professional or Enterprise features.
+
+Claude's local working tree reportedly also contains these untracked items:
+
+- backend/app/import_reviewed_phytate_mappings.py (or an equivalently named
+  path; locate it rather than assuming the path);
+- its test file;
+- claude-code-remote-approval/.
+
+Those files are not present on GitHub and have not been independently audited.
+Inspect and preserve them before writing replacement code.
+
+NON-NEGOTIABLE LICENSING CONSTRAINT
+===================================
+
+FAO has not yet answered the commercial-use request. Until written permission
+is received and deliberately activated:
+
+1. PhyFoodComp-dependent functionality must be a free scientific/personal-use
+   surface. It must never require a paid, Professional or Enterprise plan.
+2. Do not include PhyFoodComp data, calculations or derived outputs in a paid
+   API quota, Professional/clinician report, Enterprise/batch endpoint,
+   procurement/compliance service, paid export, or another monetised feature.
+3. A paid account may retain access to the same ordinary free personal surface
+   available to a free account, but the feature must not be presented, metered,
+   bundled, enhanced or sold as a paid benefit.
+4. Do not use plan membership alone as the licensing control. Implement an
+   explicit source-licence policy that downstream consumers must consult.
+5. The safe default is commercial use NOT permitted. Missing configuration,
+   unknown source or unknown feature surface must fail closed.
+6. Keep the PhyFoodComp workbook out of git and distributable application
+   artifacts. Do not duplicate it into fixtures.
+7. Do not run a real production write merely because the code is ready. Every
+   real import requires the reviewed mapping, exact source/catalogue identity,
+   mandatory dry-run reconciliation and explicit operator approval.
+8. Do not treat a future FAO reply as self-executing. Record and review its
+   exact terms before changing the policy flag or entitlement boundary.
+
+Run the following prompts sequentially. Use a separate branch and PR for each
+substantive prompt unless a prompt explicitly concludes that no code change is
+needed. Do not bundle unrelated fixes.
+
+
+PROMPT 1 — AUDIT AND COMPLETE THE UNTRACKED REVIEWED-MAPPING IMPORT WORK
+=======================================================================
+
+You are continuing the Nutri-Matic phytate/PhyFoodComp extension.
+
+Before changing anything:
+
+1. Run git status, identify the current branch/base, and inspect every untracked
+   file. In particular, locate import_reviewed_phytate_mappings.py, its tests,
+   and claude-code-remote-approval/.
+2. Do not delete, overwrite, stage or commit claude-code-remote-approval/ unless
+   it is clearly part of this feature and Paul explicitly authorises it.
+3. Diff the untracked importer conceptually against:
+   - backend/app/ingest_phytate.py;
+   - backend/app/phyfoodcomp_adapter.py;
+   - docs/phytate-review/final_approved_mapping.csv;
+   - docs/phytate-review/export_final_mapping.py;
+   - docs/phytate-review/check_consistency.py;
+   - CompoundObservation and Food in backend/app/models.py.
+4. Report whether the untracked importer already solves any of the following:
+   stable IDs, catalogue locking, review-file validation, rejected/unresolved
+   handling, transactional dry-run/apply, idempotence and licensing gates.
+5. Preserve useful existing work and improve it in place. Do not create a
+   second competing importer.
+
+Also reconcile repository state:
+
+- main is currently 10e0c3a unless it has advanced;
+- PR #39 is stale/duplicative evidence work and should be assessed for closure;
+- PR #42 is the trigram-index optimisation. Verify its base and tests, but do
+  not mix that performance change into the reviewed importer PR. The reviewed
+  importer should not need fuzzy matching at all.
+
+Deliverables:
+
+- a short audit report in the PR description;
+- a precise list of what the untracked code already did and what you changed;
+- no production database writes;
+- no staging of unrelated untracked material.
+
+Stop if the local files are missing or materially different from the summary;
+report what actually exists rather than fabricating continuity.
+
+
+PROMPT 2 — RESOLVE APPROVED FOOD NAMES TO STABLE IDS AND LOCK THE FDC CATALOGUE
+=============================================================================
+
+Build a deterministic resolver that converts the 1,139 human-approved target
+descriptions into stable target identities using the exact FDC catalogue that
+was used for the review.
+
+Required target identity
+------------------------
+
+For every approved/replacement mapping retain:
+
+- source row_identifier;
+- local Nutri-Matic Food.id;
+- USDA fdc_id;
+- approved food description as an audit copy;
+- FDC data_type;
+- review_verdict and match_scope;
+- reviewer, review_date and review notes;
+- FDC catalogue release/version;
+- a deterministic catalogue/import-manifest identifier.
+
+Do not treat local Food.id as externally stable. Store both Food.id and fdc_id.
+The importer must verify that they still refer to the same Food row.
+
+Catalogue identity
+------------------
+
+Identify how the current FDC ingest records its source release. The project is
+known to have used the FoodData Central CSV release dated 2025-12-18, but do not
+hard-code that merely from this prompt: verify it from repository configuration,
+ingest metadata or the actual catalogue used for review.
+
+If the existing schema has no reliable catalogue manifest, add a small,
+general-purpose import/source manifest rather than scattering a release string
+through 1,139 rows. It should record at least:
+
+- source/dataset name;
+- release/version;
+- import date;
+- stable checksum(s) for the relevant source/manifest inputs;
+- row counts useful for drift detection;
+- importer/methodology version.
+
+Resolution rules
+----------------
+
+1. Resolve against the exact reviewed catalogue only.
+2. A unique exact description match may be proposed automatically.
+3. Multiple Food rows with the same name are NOT uniquely resolved. Require a
+   deterministic fdc_id decision; never choose query order, minimum Food.id or
+   the first row returned.
+4. Missing descriptions are unresolved, not silently rematched fuzzily.
+5. Replacement verdicts receive the same stable-ID scrutiny as approvals.
+6. Prefer an appropriate generic Foundation/SR Legacy food over an arbitrary
+   branded record only when that choice is already supported by the signed
+   review. Do not rewrite scientific decisions automatically.
+7. Output a small exceptions CSV for duplicate, missing or stale targets.
+8. Do not allow the final stable mapping to be generated while any exception
+   remains unresolved.
+
+The canonical reviewed-mapping artifact must contain fdc_id. It may contain the
+local Food.id only as a catalogue-specific convenience; never use Food.id alone
+as the durable mapping key.
+
+Tests and acceptance criteria
+-----------------------------
+
+- unique description resolves to the correct Food.id + fdc_id;
+- duplicate description fails and enters the exception report;
+- absent target fails;
+- Food.id/fdc_id mismatch fails;
+- catalogue release/checksum mismatch fails;
+- mapping generation is deterministic across runs;
+- all 1,139 rows are accounted for as resolved or explicitly blocked;
+- no fuzzy matching is invoked;
+- no database writes occur in this prompt.
+
+Report exact totals for unique resolutions, duplicates, missing targets and
+manually resolved exceptions. Do not claim completion if exceptions remain.
+
+
+PROMPT 3 — IMPORT ONLY THE REVIEWED MAPPING, TRANSACTIONALLY AND IDEMPOTENTLY
+============================================================================
+
+Complete one canonical reviewed PhyFoodComp ingestion command. Extend the
+existing untracked importer if suitable; do not leave two competing write paths.
+
+The reviewed importer must consume:
+
+1. the real PhyFoodComp 1.0 workbook outside git;
+2. the signed review decision set;
+3. the stable-ID mapping from Prompt 2;
+4. the verified FDC catalogue manifest;
+5. explicit dataset citation/version/access metadata.
+
+It must never rerun match_ingredient or choose an FDC target from a food name.
+
+Required behaviour
+------------------
+
+- Approved/replacement observations receive exactly the reviewed fdc_id target.
+- Rejected and unresolved observations are either stored with
+  matched_food_id=NULL and an explicit reviewed-unusable/unresolved state, or
+  omitted according to one documented policy. They must never inherit the old
+  automated match.
+- Superseded duplicate review rows must not create observations.
+- Every workbook observation must reconcile to exactly one expected decision
+  state. Unknown, missing or duplicate row_identifiers are fatal.
+- Validate source food description, compound fraction and original value
+  against the signed record. Use an explicit numeric tolerance only where
+  serialisation genuinely requires it; document the tolerance.
+- Verify workbook checksum/version and FDC catalogue manifest before touching
+  the database.
+- Use one transaction. On any error, roll back everything.
+- Re-running the same reviewed import is idempotent.
+- Updating an existing row must not silently overwrite an observation imported
+  from a different source/catalogue/review version.
+
+CLI safety
+----------
+
+- Dry-run is the default.
+- Applying requires an explicit --apply flag and a second explicit acknowledgement
+  of the expected source and catalogue versions/checksums.
+- Print a deterministic reconciliation report before any apply:
+  source observations, numeric observations, censored/non-numeric observations,
+  approved, replaced, rejected, unresolved, inserted, updated, unchanged,
+  blocked and unexpected.
+- Never call Base.metadata.create_all in the production importer. Require the
+  reviewed migration state and fail if it is absent.
+- Do not add an automatic production workflow or scheduled import.
+
+Licensing safety
+----------------
+
+The command must require explicit import scope, initially only
+"noncommercial_free_surface". Reject "paid", "professional", "enterprise",
+"commercial_api" and unknown scopes while commercial permission is unresolved.
+Do not encode the hoped-for FAO answer as a default.
+
+Tests must cover rollback, idempotence, checksum drift, catalogue drift,
+Food.id/fdc_id mismatch, review-value mismatch, unknown row, duplicate row,
+rejected-row handling, attempts to invoke automated matching and every denied
+commercial scope.
+
+Run only fixture/staging dry-runs in this prompt. Do not import real data into
+production.
+
+
+PROMPT 4 — ADD A FAIL-CLOSED SOURCE-LICENCE POLICY AND FREE-SURFACE BOUNDARY
+============================================================================
+
+Nutri-Matic already has User.plan, entitlements.py and the plans free, trial,
+paid, professional and enterprise. FEATURE_ENTITLEMENTS currently defaults
+unknown features to universally available. That is a product-entitlement
+default, not an adequate source-licensing control.
+
+Implement a separate, explicit source-licence policy for data-dependent
+features. Do not overload FEATURE_ENTITLEMENTS with copyright semantics.
+
+Required policy model
+---------------------
+
+Create a small central registry/service describing at least:
+
+- source key (e.g. phyfoodcomp_1_0);
+- licence status (pending_commercial_permission initially);
+- permitted surfaces;
+- prohibited surfaces;
+- attribution requirements;
+- source/version/methodology identity;
+- whether redistribution/export is permitted;
+- date/status of the licence request;
+- an audit note pointing to docs/phytate-evidence-review.md.
+
+Define explicit surface keys, not vague paid/free booleans. At minimum:
+
+- personal_free_ui;
+- personal_free_internal_api;
+- public_api;
+- professional_dashboard;
+- clinician_report;
+- enterprise_batch;
+- paid_export;
+- internal_research_or_admin.
+
+While FAO permission is pending:
+
+- allow only the ordinary free personal surface and internal test/research use;
+- do not require a paid plan for any allowed phytate view;
+- exclude PhyFoodComp-derived fields from public API keys, higher paid API
+  quotas, professional/clinician outputs, enterprise/batch processing and paid
+  exports;
+- do not advertise phytate as a Pro/Professional/Enterprise differentiator;
+- do not create a better/richer phytate result for paid users;
+- fail closed for an unknown source or surface.
+
+Paid users may use the same ordinary personal free surface as free users, but
+the response must be identical in scientific content and must not consume or
+depend on paid entitlement. Add regression tests comparing free, trial, paid,
+professional and enterprise accounts on that surface.
+
+Enforcement must be server-side and close to the data consumer. Hiding a UI
+element is not enforcement. Add helpers that every query/service reading
+PhyFoodComp-derived CompoundObservation rows must call, and tests proving that
+direct router/service calls cannot bypass the policy.
+
+Add a startup/configuration check that warns loudly or fails closed if a
+PhyFoodComp consumer exists without a registered surface policy. Prefer a
+testable dependency/service boundary over grep alone, but add a repository
+policy test if that is the most reliable defence against accidental new uses.
+
+Do not set a commercial-use-enabled environment variable to true. If you add a
+future override, default it to false, require explicit source-specific terms,
+and make it impossible for a generic production flag to grant permission.
+
+Document the activation procedure for a future FAO reply, but do not activate
+it now.
+
+
+PROMPT 5 — PRESERVE CENSORED AND NON-NUMERICAL SOURCE OBSERVATIONS
+==================================================================
+
+The current adapter skips approximately 245 non-numerical cells such as
+"< LOD". Skipping is safer than converting them to zero, but it discards
+source provenance and makes coverage harder to describe honestly.
+
+Extend the generic CompoundObservation representation, via an Alembic
+migration, so an observation can preserve:
+
+- original reported text;
+- numerical original_value when present;
+- value qualifier: measured, reported_zero, below_detection_limit,
+  below_quantification_limit, trace, not_reported or unparseable;
+- detection/quantification limit when explicitly available;
+- whether the numerical value was source-reported, converted or imputed;
+- original unit and basis where supplied.
+
+Requirements:
+
+- Unknown, blank, trace and < LOD are never converted to zero.
+- A literal reported zero remains distinct from absent or below-LOD.
+- Retain the exact original cell text.
+- Do not invent a detection limit when the workbook supplies none.
+- Censored/non-numeric rows may be stored for provenance but must be excluded
+  from totals and molar ratios until a separately validated censored-data
+  policy exists.
+- Preserve backwards compatibility for existing numerical observations.
+- Update uniqueness/idempotence tests and workbook reconciliation counts.
+
+Do not put real PhyFoodComp workbook cells into public test fixtures. Use tiny
+synthetic fixtures shaped like the source format.
+
+Acceptance tests must cover numeric value, literal zero, < LOD, < LOQ, trace,
+blank, unexpected text, missing unit/basis and round-trip preservation.
+
+
+PROMPT 6 — BUILD A CONSERVATIVE PHYTATE OBSERVATION-SELECTION SERVICE
+=====================================================================
+
+Only after Prompts 1-5 are complete, build the downstream service that selects
+usable phytate observations for a food/meal. Do not build an absorption model.
+
+Scientific constraints
+----------------------
+
+- PHYTC*, IP6, PPI/PPD/PP-, IP5_A_IP6, IP4_A_IP5_A_IP6 and IPSUM are not
+  automatically interchangeable.
+- Never sum overlapping individual and already-summed fractions.
+- Never compare phytate-phosphorus directly with phytic-acid values without a
+  documented conversion.
+- Do not average analytical methods blindly.
+- Prefer a measured, preparation-compatible observation to an analogue or
+  category estimate.
+- Preserve multiple observations and variability rather than collapsing them
+  prematurely into one falsely authoritative number.
+- Missing or censored coverage remains unknown.
+- Phytate:mineral molar ratios are contextual indicators, not predictions of
+  individual absorption.
+
+Implement a versioned, deterministic selection policy returning:
+
+- chosen observation(s) or an explicit no-result reason;
+- compound tag/fraction;
+- value, unit and basis;
+- source and analytical method;
+- reviewed match scope/confidence;
+- preparation compatibility;
+- coverage and uncertainty status;
+- methodology/selection-policy version;
+- explanation of why an observation was selected or declined.
+
+Do not expose a single food-level phytate value when several incompatible
+observations exist and the policy cannot choose defensibly. Return a range or
+insufficient_data where appropriate.
+
+If implementing descriptive phytate:zinc or phytate:iron ratios, calculate at
+meal level, show the equation and input coverage, and decline when required
+inputs are missing or incompatible. Do not modify Nutri-Matic's existing
+absorbed-iron or zinc sufficiency calculations in this prompt.
+
+Every service entry point must require and enforce the source-licence surface
+from Prompt 4. Tests must prove paid/professional/enterprise consumers cannot
+call it under a prohibited surface.
+
+
+PROMPT 7 — ADD THE FREE PERSONAL PHYTATE UI/API WITH HONEST COPY
 ================================================================
-Scoped from a four-round AI-assisted design review (Deepseek proposal →
-ChatGPT critique → Deepseek response → ChatGPT final synthesis) on
-extending Nutri-Matic to model "anti-nutrient" effects on mineral
-bioavailability. That review converged on phytate as the only well-
-evidenced first target, oxalate and tannin as separately-scoped or
-deferred work, and a generic provenance-preserving schema over one table
-per compound. This document scopes ONLY the phytate work, deliberately
-smaller than the full staged plan the review discussed, so it fits as a
-single well-bounded piece of work rather than opening the whole roadmap
-at once.
 
-STATUS AS OF THIS UPDATE — READ THIS FIRST
-================================================================
-- Prompt 2 (generic schema): confirmed merged into this branch line
-  (its commit is in this branch's own history).
-- Prompt 1 (evidence/licensing review): **NOT merged into this branch
-  line** — confirmed via `git merge-base`. Its commits
-  (docs/phytate-evidence-review.md) exist only on the
-  phytate-prompt-1-evidence-review branch, which was never merged into
-  phytate-prompt-2-compound-observation-schema or anything built on top
-  of it. docs/phytate-evidence-review.md does not exist on this branch
-  despite being cited by prompts.txt and by comments in
-  backend/app/ingest_phytate.py / backend/tests/test_ingest_phytate.py.
-  This did not block PROMPT 3B (which only needed Prompt 2's schema, not
-  Prompt 1's document contents), but merge the Prompt 1 branch in before
-  anything that actually needs the evidence doc's content (e.g. Prompt
-  4's citation display, or anyone reading it for methodology questions).
-- Prompt 3 (ingestion + matching): implementation done, PR #41.
-- PROMPT 3B: DONE. Both bugs fixed in backend/app/ingest_phytate.py
-  (_ambiguous_candidates for Bug 1, _prefer_infant_cereal_candidate for
-  Bug 2), with regression tests in backend/tests/test_ingest_phytate.py.
-  Full backend suite passing (1389 passed).
-- Ingestion re-run against the real PhyFoodComp_1.0.xlsx and the real
-  ~1.4M-row FDC catalog (Foundation + SR Legacy + Branded):
-    considered=3941 inserted=3941 needs_review=3092 (was 3142 — down 50;
-    auto-accepted rose from 799 to 849).
-  Infant-flour cluster (94 rows, Bug 2): zero now match finger-snacks or
-  pie; all resolve to genuine "Babyfood, cereal, [grain], dry fortified"
-  candidates (48 clean enough to auto-accept as close_analogue, 45 still
-  needs_review but now correctly candidate-labeled instead of
-  wrong-category).
-- review_1/2/3/5 regenerated fresh from this corrected run via the new
-  docs/phytate-review/export_needs_review.py (reads directly from the
-  stored compound_observations rows — no re-matching). These are now
-  ONE ROW PER needs_review OBSERVATION (row_identifier), not deduped by
-  food_description — the original review_1's undocumented "794 shortlist
-  vs. 1462 spot-sampled-only pool" split was never committed as code and
-  isn't reproducible; this regeneration doesn't attempt to recreate it.
-  New counts: review_1 (ambiguous) 2202, review_2 (no_candidate) 138,
-  review_3 (branded_low_confidence) 752 (120 sampled, fixed seed —
-  see export_needs_review.py), review_5 (infant_flour_cluster,
-  cross-cutting) 45.
-- The pre-3B-fix files now live in docs/phytate-review/pre-3b-baseline/
-  (review_1/2/3/5 as they stood before PROMPT 3B — zero filled verdicts
-  in any of them, kept only as a diffing reference, not review input).
-- review_4_special_cases.csv was left untouched — its 39/72 verdicted
-  rows (tofu-coagulant cluster complete) predate PROMPT 3B and weren't
-  invalidated by it; the reviewer should still spot-check row identities
-  against the new run since the underlying matching changed, but a full
-  regeneration wasn't done for this file (see prompts.txt's original
-  guidance on reapplying this judgment rather than re-deriving from
-  scratch).
-- **Currently blocked at the standing gate**: "do not proceed past
-  Prompt 3 without a human reviewing the needs-review match list." Do
-  not start Prompt 4 yet.
-- NEXT ACTIONS, IN ORDER:
-  1. DONE — PROMPT 3B (both bugs fixed, regression tests added).
-  2. DONE — ingestion re-run.
-  3. DONE — review_1/2/3/5 regenerated fresh (see counts above).
-  4. Resume human review against the regenerated files. The reviewer's
-     accumulated food-identity judgment (tofu coagulants, cultivar color-
-     word patterns for common beans, false-friend genus names like
-     culantro vs. cilantro or alligator pepper vs. black pepper, research-
-     only processing variables that have no FDC representation) carries
-     forward conceptually even though the specific files are new.
-  5. Only then does PROMPT 3C's "review_verdict filled in" precondition
-     become meaningful — do not run 3C against the pre-3b-baseline files.
-  6. Separately: merge the phytate-prompt-1-evidence-review branch in
-     before anything needs docs/phytate-evidence-review.md's content.
+Build a small free personal-use phytate experience on top of the selection
+service. Do not expose it through paid API keys, clinician reports,
+Professional dashboards, Enterprise/batch tools or paid exports.
 
-Review artifacts (docs/phytate-review/, commit them — audit trail):
-  - review_4_special_cases.csv       — 72 rows; 39 done (tofu-coagulant
-                                        cluster complete), 33 pending
-                                        (zero-value qualifiers, low-
-                                        phytate-variety rows). Untouched
-                                        by PROMPT 3B's re-run.
-  - review_1_ambiguous.csv           — 2202 rows, regenerated post-3B,
-                                        blank verdicts.
-  - review_2_no_candidate.csv        — 138 rows, regenerated post-3B,
-                                        blank verdicts.
-  - review_3_branded_low_confidence.csv — 752 rows (120 sampled_for_review
-                                        =YES via fixed seed), regenerated
-                                        post-3B, blank verdicts.
-  - review_5_infant_flour_cluster.csv — 45 rows, regenerated post-3B,
-                                        blank verdicts. Down from the
-                                        original 93-row confirmed cluster
-                                        since Bug 2's fix resolved most of
-                                        them outright (see above).
-  - export_needs_review.py           — new: regenerates review_1/2/3/5
-                                        from the live compound_observations
-                                        table after any future re-run.
-  - prompt3b_bug_evidence_and_fixtures.csv — Bug 1 evidence: every
-                                        independently-confirmed instance
-                                        where top_similarity misreported
-                                        the true best score, with the
-                                        correct reference match. Used as
-                                        PROMPT 3B regression-test input,
-                                        not as 3C review input.
-  - phytate-review-protocol.txt      — the exact review procedure,
-                                        including the still-outstanding
-                                        Step 5 (sampling the 849
-                                        auto-accepted matches once an
-                                        export of them exists) and Step 6
-                                        (the compound-tag code check,
-                                        folded into PROMPT 3B below)
-  - review_helper.py                 — crossref/enrich tool used during
-                                        the prior review pass; its
-                                        crossref stage targeted the old
-                                        top_similarity-mislabeling bug
-                                        pattern, which PROMPT 3B fixed —
-                                        the enrich stage is still useful,
-                                        crossref's bug-1-detection isn't
-                                        expected to find anything new.
-  - pre-3b-baseline/                 — review_1, review_2, review_3,
-                                        review_5 as they stood before
-                                        PROMPT 3B. Zero filled verdicts
-                                        in any of them. Kept only as a
-                                        diffing reference for PROMPT 3B's
-                                        PR description ("how the counts
-                                        changed"), not as review input.
+Backend
+-------
 
-TERMINOLOGY
-----------------------------------------------------------------
-Do not use "anti-nutrient" anywhere in code, schema, UI copy, or
-documentation for this feature. Use "dietary compounds affecting mineral
-bioavailability" or simply "phytate" where the specific compound is
-meant. Phytate has genuine beneficial properties (antioxidant activity)
-alongside its mineral-binding effect — framing it as purely negative is
-inaccurate and works against this app's stated commitment to honest,
-non-alarmist communication.
+- Add only the minimum internal API needed by the ordinary personal UI.
+- Enforce personal_free_internal_api through the source-licence policy.
+- Return coverage, match scope, source citation, compound fraction,
+  preparation limitations and methodology version.
+- Use insufficient_data instead of zero when coverage is inadequate.
+- Ensure responses do not leak the entire licensed source dataset or enable a
+  bulk reconstruction endpoint.
+- Apply sensible pagination/response limits where individual observations are
+  shown.
 
-EXPLICIT NON-GOALS FOR THIS SCOPE — do not implement these here
-----------------------------------------------------------------
-- Oxalate data, in any form. Separately scoped work, not this prompt set.
-- Tannin or total-polyphenol data. Deferred per the review — no
-  sufficiently harmonised dataset exists yet, and total polyphenols are
-  not a valid proxy for tannins specifically.
-- Any absorption model. This phase produces phytate content and
-  phytate:mineral molar ratios as descriptive indicators only — it does
-  NOT modify the app's existing absorbed-iron calculation or claim to
-  predict an individual's actual mineral absorption.
-- Any clinical or condition-specific guidance (CKD, kidney stones, or
-  otherwise). Not in scope until a clinician-reviewed, condition-specific
-  feature is separately designed — see the review's explicit warning
-  that indiscriminate oxalate/mineral restriction advice can be actively
-  wrong for some patients.
-- Zinc absorption modelling. The review flagged this as needing its own
-  validated equations and methodology version, not a reuse of existing
-  protein-quality infrastructure by analogy. Out of scope here.
+Frontend
+--------
 
-GROUND RULES — same standing practice as the rest of this repo
-----------------------------------------------------------------
-- Run each prompt independently, one per Claude Code session; review the
-  diff yourself before merging.
-- Any new migration must be rehearsed against a restored copy of
-  production data before it touches the real database (see
-  docs/migrations.md and the deploy pipeline's rehearse-migration job).
-- Missing phytate data must remain visibly unknown — never displayed or
-  treated as zero. This is the same principle as Hardening Prompt 3's
-  missing-nutrient-as-zero fix; reuse that fix's UI patterns for
-  "insufficient data" messaging rather than inventing a new convention.
-- Reuse this app's existing confidence-graded matching infrastructure
-  (see backend/app/models.py's RecipeIngredientProvenance —
-  match_relationship, match_rationale, match_used_fallback,
-  match_validation_warning already exist for a different matching
-  problem and establish the right pattern) rather than building a
-  parallel matching system from scratch. Note: this infrastructure
-  reduces engineering effort in representing match confidence: it does
-  NOT itself validate that any specific PhyFoodComp-to-FDC match is
-  scientifically sound. A human review step for ambiguous matches is
-  still required (see Prompt 3, and PROMPT 3B/3C below).
+- Make the feature available on the same terms to free and paid-plan accounts
+  through the ordinary personal interface.
+- Do not show upgrade prompts, paid badges or premium positioning.
+- Label category estimates and analogues visibly.
+- Explain that phytate can reduce mineral bioavailability in some meal contexts
+  but also occurs in nutritious foods and is not simply a toxin.
+- State that ratios are indicators, not individual absorption predictions.
+- Show missing/partial coverage explicitly.
+- Link to the full free methodology and FAO/INFOODS attribution.
+
+Add tests showing identical phytate scientific output for otherwise-equivalent
+free, trial, paid, professional and enterprise accounts using the personal
+surface, and 403/fail-closed behaviour for prohibited professional/API/batch
+surface keys.
+
+Do not add oxalate, tannins, clinical kidney-stone advice or a general mineral-
+absorption correction in this prompt.
 
 
-PROMPT 1 — EVIDENCE AND LICENSING REVIEW (produces a document, no code)
-========================================================================
+PROMPT 8 — CI, STAGING REHEARSAL AND FINAL LICENSING/PRODUCTION AUDIT
+====================================================================
 
-Before any schema or ingestion work, produce a short evidence register
-for the FAO/INFOODS/IZiNCG PhyFoodComp phytate database:
+Perform a final audit after the preceding prompts. Do not make a production
+write automatically.
 
-1. Confirm the dataset's actual license/usage terms for redistribution
-   inside an open-source app — do not assume permissive reuse without
-   checking.
-2. Document what PhyFoodComp actually contains: number of foods, whether
-   entries specify cultivar/processing/analytical method, whether values
-   are reported wet-weight or dry-weight (both appear in the literature;
-   getting this wrong produces silently wrong ratios).
-3. Note any known gaps or quality concerns in the dataset itself.
-4. Produce a short annotated list of the 3-5 most load-bearing citations
-   for this feature (not a link dump) — this becomes the in-app
-   methodology-page citation for phytate data, matching how DIAAS/PDCAAS
-   sourcing is already documented.
+CI requirements
+---------------
 
-Output: a markdown document (e.g. docs/phytate-evidence-review.md), not
-code. Do not proceed to Prompt 2 until this is reviewed by a human.
+- Run the complete backend suite with real PostgreSQL and Redis where required.
+- Run frontend type checking, unit tests and production build.
+- Run review consistency and regenerate the canonical final mapping in CI;
+  fail if the committed output differs.
+- Validate all stable fdc_id targets against the pinned catalogue manifest.
+- Test the reviewed importer in fixture dry-run and rollback modes.
+- Test source-licence policy across all plan and surface combinations.
+- Add a dependency/policy test proving every PhyFoodComp consumer declares a
+  permitted surface.
+- Confirm no workbook or prohibited licensed source artifact is included in
+  git, frontend bundles, Docker layers or test artifacts.
 
+Staging rehearsal
+-----------------
 
-PROMPT 2 — GENERIC COMPOUND-OBSERVATION SCHEMA
-========================================================================
+Against a disposable restored database and the exact reviewed FDC catalogue:
 
-Design and migrate a generic schema for compound content observations,
-NOT a phytate-specific table — this needs to accommodate oxalate or
-other compounds being added later without a schema rework, even though
-only phytate is populated in this phase.
+1. run the real workbook import in mandatory dry-run mode;
+2. save the reconciliation counts and checksums privately;
+3. review all non-zero unexpected/blocked counts;
+4. apply only to the disposable database;
+5. rerun and prove idempotence;
+6. query approved, rejected, unresolved, censored and duplicate-tag examples;
+7. verify transaction rollback with one deliberately corrupted fixture;
+8. verify free personal access and prohibited paid-surface access;
+9. confirm no existing nutrient/recommendation behaviour changed.
 
-Each observation should record at minimum:
-- compound identifier (e.g. "phytate") and fraction if applicable;
-- reported value and unit;
-- reporting basis (per 100g edible portion vs. dry matter — must be
-  explicit, not assumed);
-- source food description and preparation state as given by the source
-  dataset;
-- source dataset name, citation, and version/access date;
-- analytical method, where the source provides it;
-- match type and confidence (exact / regional / analogue / proxy /
-  needs-review — reuse the existing match_relationship vocabulary from
-  RecipeIngredientProvenance rather than inventing new terms);
-- the original value exactly as published, plus any normalised value
-  and how it was derived, kept separately so the original is always
-  recoverable;
-- a foreign key to the matched FDC food, nullable (an observation with
-  no confident FDC match should still be storable rather than discarded).
+Licensing audit
+---------------
 
-Add the Alembic migration, rehearsed per the ground rules. Add or update
-backend/check_schema_drift.py coverage implicitly by ensuring the new
-model is included in Base.metadata as usual. Write tests for the schema
-itself (constraints, nullability) — no ingestion logic yet.
+Produce a matrix of every code path that reads CompoundObservation or returns a
+PhyFoodComp-derived result, with its declared surface and allow/deny outcome.
+Explicitly inspect:
 
+- personal diary/meal UI;
+- recommendation engines;
+- public API keys and quotas;
+- snapshots and exports;
+- clinician/professional dashboard and reports;
+- Enterprise/batch services;
+- admin/research utilities.
 
-PROMPT 3 — PHYTATE INGESTION AND FOOD MATCHING  [DONE — PR #41]
-========================================================================
+The final report must distinguish:
 
-Write a one-off ingestion script (matching the pattern of
-backend/app/ingest_fdc.py) that parses PhyFoodComp and populates the
-schema from Prompt 2 with compound="phytate" observations.
+- code complete;
+- staging validated;
+- free personal surface enabled;
+- production data imported;
+- commercial permission received.
 
-Matching:
-1. Reuse existing food-matching infrastructure (ingredient_aliases.py /
-   food_matching.py, per the review's finding that this already exists
-   for the stock-recipe pipeline) as the starting point for candidate
-   FDC matches — do not write a parallel fuzzy-matching system.
-2. Assign match confidence honestly. A same-name match between a
-   PhyFoodComp entry and an FDC food is NOT automatically "exact" —
-   cultivar, processing state, and moisture basis can all differ even
-   with identical names. Default to "regional" or "analogue" confidence
-   unless preparation state and moisture basis both clearly align;
-   reserve "exact" for genuinely verified matches.
-3. Any match the script cannot confidently place should be flagged
-   "needs-review" and NOT silently included in any user-facing
-   calculation until a human has reviewed the flagged list. Produce that
-   review list as a script output (count and sample, not necessarily
-   every row) so a human can actually look at it before this ships.
-4. Do not backfill or guess at foods PhyFoodComp doesn't cover — those
-   foods simply have no phytate observation, which the UI (Prompt 4)
-   must represent as unknown, not zero.
+These are separate states. Do not claim one implies another.
 
-Tests: ingestion parses correctly, match-confidence assignment matches
-the stated rules above, a deliberately ambiguous fixture case is flagged
-needs-review rather than silently matched, and re-running ingestion is
-idempotent (doesn't duplicate observations).
+Until Paul supplies a written FAO response and its terms are reviewed:
 
-RESULT: 3,941 observations parsed. 3,142 (79.7%) flagged needs_review;
-799 auto-accepted. A structured human review of the needs_review output
-is in progress (see STATUS section above and phytate-review-protocol.txt)
-and has found two confirmed bugs in this prompt's own code — see
-PROMPT 3B, which must land before this prompt is considered closed.
+- keep commercial permission false;
+- do not expose phytate through monetised surfaces;
+- do not run an unattended production import;
+- do not market the feature as part of any paid tier.
 
-
-PROMPT 3B — FIX BUGS FOUND DURING THE PROMPT 3 HUMAN REVIEW
-========================================================================
-Two specific, independently-verified bugs in the Prompt 3 ingestion/
-matching code (not data-quality judgment calls — actual code defects).
-Fix both. Add regression tests for both using the exact cases below so
-they can't silently regress.
-
-Bug 1 — the reported "top similarity" field doesn't mean what its name
-implies.
-In 238 of the 794-row reviewed shortlist, the stored similarity field
-does not equal the highest candidate-similarity score actually computed
-during matching — it reflects the SELECTED candidate's score, which is
-sometimes lower than an unselected alternative's score. Example: a row
-can store top_similarity=0.81 while the matching step's own internal
-comparison shows an alternative candidate scored 0.82. Find wherever
-this field is set in the ingestion/matching code and either (a) make it
-genuinely report the highest score seen among all candidates
-considered, renaming if needed to make that unambiguous, or (b) keep it
-as "selected candidate similarity" but add separate fields for
-best_candidate_similarity, runner_up_similarity, and similarity_margin
-so both numbers are available and clearly labelled. Do not just rename
-the field without also surfacing the true top score somewhere — the gap
-between "selected" and "best available" is itself useful review
-information and was lost entirely in the current output.
-Regression test: construct a fixture where the top-scoring candidate is
-NOT the selected one, and assert the output correctly distinguishes the
-two rather than reporting only the selected score under a name that
-implies it's the maximum.
-
-Bug 2 — a real, better candidate is available for one wording variant of
-a food but the matcher never finds it for a near-identical variant.
-Confirmed cluster: 93 total "Infant flour..." source rows. 48 of them
-(exact description "Infant flour, cereal-based, commercially produced,
-fortified") match to "Babyfood, baked product, finger snacks cereal
-fortified" — a solid snack food, not the dry powdered infant cereal the
-source description actually describes. A further 26 match to
-"Pie, apple, commercially prepared, enriched flour" via the shared
-phrase "commercially prepared/produced" — also wrong. Meanwhile, for the
-near-identical wording "Infant flour, cereal-based, commercial,
-fortified" (no "-ly produced"), the matcher correctly finds and selects
-"Babyfood, cereal, barley, dry fortified" / "Babyfood, cereal, rice, dry
-fortified" — the right category entirely. The correct-category
-candidates objectively exist in FDC and are being found for one wording
-variant while being missed for another — this is a retrieval/ranking
-bug, not a case where "the catalogue doesn't have it."
-Fix: add a category-aware preference so that when a source description
-matches /infant|baby/i and a "Babyfood, cereal, [grain], dry fortified"
-candidate exists for a plausible grain match, it's preferred over a
-higher raw-text-similarity but wrong-category candidate (baked
-snacks, pie, etc.). This can be a small, explicit rule rather than a
-general retrieval overhaul — the specific failure mode is narrow and
-well-characterised (see review_5_infant_flour_cluster.csv for every
-affected row, pre-tagged by pattern).
-Regression test: re-run matching on all 93 "Infant flour..." rows from
-review_5_infant_flour_cluster.csv; assert none of them match to a
-finger-snack, pie, or other non-babyfood-cereal candidate afterward, and
-that a real Babyfood-cereal-dry-fortified match is found wherever a
-plausible one exists in FDC.
-
-After both fixes land, re-run the full ingestion and regenerate the
-needs_review output — the 794/748/138 counts and the specific rows in
-the review CSVs will change. Do not attempt to hand-patch the existing
-review CSVs to match; regenerate from a clean re-run and let the human
-reviewer re-triage against the corrected output. Note in the PR
-description how the counts changed as a direct result of these two
-fixes (expect the needs_review total to drop, since both bugs currently
-route otherwise-fixable matches into needs_review or into confidently
-wrong auto-accepted territory rather than fixing them).
-
-
-PROMPT 3C — IMPORT THE REVIEWED MAPPINGS
-========================================================================
-Do not start this until PROMPT 3B has landed, ingestion has been
-re-run, and a human has filled in review_verdict (and, where
-applicable, approved_fdc_food / match_scope / rejection_reason) across
-the regenerated review files.
-
-Write a script that:
-1. Reads every row where review_verdict is "approve" or "replace" and
-   applies approved_fdc_food as the observation's matched FDC food,
-   setting match confidence/relationship fields appropriately (an
-   "approve" of the pipeline's own suggestion is different provenance
-   from a "replace" with a human-found alternative — record which
-   happened, don't collapse them to the same match_relationship value).
-2. Reads every row where review_verdict is "reject" or "unresolved" and
-   ensures the observation is stored with no FDC match (nullable FK,
-   per Prompt 2's schema) rather than silently keeping the old
-   incorrect auto-match.
-3. Is idempotent — re-running against the same reviewed CSVs produces
-   the same end state, doesn't duplicate observations.
-4. Refuses to run (fails loudly) if any row in the input CSVs has a
-   blank review_verdict — partial review files should not be partially
-   imported silently.
-5. Produces a summary: how many observations were approved as-is, how
-   many replaced, how many rejected, how many remain needs-review after
-   import (should be zero for the fully-reviewed files, but the 799
-   auto-accepted matches and the still-outstanding Step 5 sampling from
-   phytate-review-protocol.txt are separate from this import and don't
-   block it).
-
-Tests: the four behaviours above, plus a fixture confirming a rejected
-row's FDC match is genuinely cleared, not just flagged.
-
-Only once this import has run does Prompt 3's needs-review gate count as
-satisfied for the rows it covers. The 799 auto-accepted matches (Step 5
-of phytate-review-protocol.txt) are a separate, still-open item — flag
-this clearly in the PR description rather than implying full review
-coverage.
-
-
-PROMPT 4 — DESCRIPTIVE PHYTATE ANALYSIS (NO ABSORPTION CLAIMS)
-========================================================================
-
-Surface phytate content and phytate:mineral molar ratios as descriptive
-indicators on relevant views (food detail, recipe detail, diary day) —
-explicitly NOT as a modification to the existing absorbed-iron figure.
-
-1. Show raw phytate content (with the reporting-basis caveat from Prompt
-   2 — per 100g edible vs. dry matter must be clear to the reader, not
-   just recorded in the database) wherever a food/recipe/day has a
-   confident-enough observation.
-2. Compute phytate:zinc and phytate:mineral molar ratios where both
-   phytate and the relevant mineral are known, labelled clearly as an
-   indicator, not an absorption prediction — e.g. "high estimated
-   phytate:zinc ratio" rather than "reduces zinc absorption by X%".
-3. Where phytate data is missing or the FDC food had no confident match,
-   show "insufficient phytate data" rather than omitting the field
-   silently or implying zero — reuse Hardening Prompt 3's UI pattern for
-   this exactly.
-4. Where a food's phytate value came from a category-level/analogue
-   match rather than an exact match, say so in the UI — e.g. "phytate
-   estimate based on a similar food; confidence: moderate" — so a
-   coverage caveat is visible at the point of use, not just recorded in
-   the database.
-5. Do not add any goal, filter, or recommendation logic based on this
-   data in this phase — that's future work, separately scoped, once
-   descriptive display has been live and reviewed.
-
-Tests: correct ratio calculation, correct handling of missing-data cases
-(both "no phytate data at all" and "phytate known, mineral unknown" and
-vice versa), correct display of match-confidence caveats, and a
-regression fixture using a real food from the ingested dataset.
-
-
-SEQUENCING AND STOP POINT
-========================================================================
-Run in order: 1 → 2 → 3 → 3B → 3C → 4.
-
-Do not proceed past Prompt 1 without a human reviewing the evidence/
-licensing document.
-
-Do not proceed past Prompt 3 without a human reviewing the needs-review
-match list — currently in progress; PROMPT 3B's fixes and a re-run must
-happen first, since reviewing against known-buggy output wastes the
-reviewer's time re-litigating rows that a code fix will change anyway.
-
-Do not start Prompt 4 until PROMPT 3C's import has actually run against
-a fully-verdicted review file. "The review CSVs exist" is not the same
-as "the review is done" — check for blank review_verdict cells, not
-just the files' presence.
-
-This phase deliberately stops at descriptive display. Zinc/iron
-absorption modelling, oxalate, tannin, and any condition-specific
-guidance are all separate, future-scoped work — do not fold them into
-this set even if they seem like a natural next step partway through
-implementation. Revisit scoping them only after Prompt 4 has shipped and
-been used for a while.
+End with exact remaining manual actions, exact test results, exact import counts,
+and links to the relevant PRs/workflows. If any acceptance criterion fails,
+leave the feature disabled and report the blocker plainly.
