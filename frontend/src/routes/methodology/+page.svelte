@@ -216,7 +216,11 @@
 			food in this app's data today goes through the estimated path — FDC's heme/non-heme iron
 			fields exist but aren't populated in the ingested datasets.
 		</li>
-		<li>Phytates, tannins, and polyphenols — real inhibitors of iron absorption — aren't modelled at all, because FDC doesn't track them as nutrients.</li>
+		<li>
+			Phytate is now shown separately (see "Phytate" below), from a different source than FDC — but
+			is <strong>not yet incorporated into this absorption estimate</strong>. Tannins and
+			polyphenols remain completely untracked.
+		</li>
 	</ul>
 	<h3>Calcium:phosphorus</h3>
 	<p>
@@ -226,6 +230,49 @@
 		app presents the ratio as informational context, not a strict target, and says so in the
 		guidance text itself.
 	</p>
+</section>
+
+<section id="phytate">
+	<h2>Phytate</h2>
+	<p>
+		Shown on a food's own page (free for every account, on identical terms — nothing about this
+		feature is a paid/Professional/Enterprise benefit), sourced from
+		<strong>FAO/INFOODS/IZiNCG's PhyFoodComp, version 1.0</strong> — a food-composition compilation
+		for phytate, entirely separate from USDA FoodData Central. Commercial-use permission from FAO is
+		still pending as of this writing; while that's unresolved, phytate data is restricted to this
+		ordinary personal view and internal research use only — never a public API, Professional/
+		clinician output, Enterprise/batch feature, or paid export.
+	</p>
+	<p>
+		Phytate (phytic acid) can reduce how much iron, zinc, and calcium a meal's other foods
+		contribute to absorption — but it's also present in many nutritious whole grains, legumes, nuts,
+		and seeds, and isn't simply something to avoid. This page does not compute a phytate:zinc or
+		phytate:iron ratio, and does not feed into the absorbed-iron estimate above — that's a
+		deliberately separate, not-yet-built piece of work.
+	</p>
+	<ul>
+		<li>
+			Every value is labelled <span class="badge badge-estimated">estimate</span> — PhyFoodComp
+			entries are matched to this app's food catalog by category/analogue, not confirmed as the
+			exact same product, cultivar, or preparation as the source study measured.
+		</li>
+		<li>
+			Different phytate fractions (phytic acid by various analytical methods, phytate-phosphorus,
+			individual vs. summed inositol phosphates) are <strong>not interchangeable</strong> — this app
+			never averages across methods and never sums an individual fraction with a summed total that
+			already includes it. Where more than one incompatible measurement exists for a food, all of
+			them are shown rather than collapsed into one number.
+		</li>
+		<li>
+			A food's preparation state (raw, boiled, etc.), where the source recorded one, is shown
+			alongside its value — a mismatch between what you're asking about and what was actually
+			measured is flagged, not hidden.
+		</li>
+		<li>
+			Missing or below-detection-limit source data is shown as missing, never silently treated as
+			zero.
+		</li>
+	</ul>
 </section>
 
 <section id="energy">
@@ -445,8 +492,10 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 		</li>
 	</ul>
 	<p class="muted">
-		Not implemented: phytates, oxalates, and tannins. USDA FoodData Central doesn't track any of
-		them as nutrients, so there's nothing to compute from — see "What this app doesn't do" below.
+		Not implemented: oxalates and tannins — USDA FoodData Central doesn't track either as a
+		nutrient, so there's nothing to compute from. Phytate is tracked from a separate source (see the
+		Phytate section above) but isn't part of this protein-requirement calculation — see "What this
+		app doesn't do" below.
 	</p>
 </section>
 
@@ -463,7 +512,7 @@ women: BMR = 10×weight_kg + 6.25×height_cm − 5×age − 161</pre>
 <section id="limitations">
 	<h2>What this app doesn't do</h2>
 	<ul>
-		<li>No phytate, tannin, oxalate, or polyphenol data — real inhibitors of mineral absorption that FDC simply doesn't track. (This is also why there's no broader antioxidant/anti-inflammatory goal — see the Goals section above for why that's a science gap, not just a data one.)</li>
+		<li>No tannin, oxalate, or polyphenol data — real inhibitors of mineral absorption that FDC simply doesn't track. Phytate data exists (see the Phytate section above), from a separate source, but isn't wired into the absorption estimate or any molar-ratio calculation yet. (This is also why there's no broader antioxidant/anti-inflammatory goal — see the Goals section above for why that's a science gap, not just a data one.)</li>
 		<li>No real glycaemic-index/load data — a type 2 diabetes condition is stored for reference (see Profile). The "blood-sugar stability" goal uses a coarse, name-based tier estimate instead (see the Goals section above), not a measured figure; FDC doesn't publish real GI values for the large majority of foods.</li>
 		<li>No real per-food carbon-footprint/emissions data — the "reduce carbon footprint" goal uses a coarse, name-based tier estimate instead (see the Goals section above), not a measured figure.</li>
 		<li>Branded/packaged foods can't be scored for protein quality — nutrition labels don't publish amino acid profiles.</li>

@@ -4,7 +4,7 @@
 	import { api } from '$lib/api';
 	import NutrientBars from '$lib/components/NutrientBars.svelte';
 	import ScoreCard from '$lib/components/ScoreCard.svelte';
-	import type { Complement, Food, FoodProvenance, NutrientAmount, Score } from '$lib/types';
+	import type { Complement, Food, FoodProvenance, NutrientAmount, Phytate, Score } from '$lib/types';
 
 	const foodId = Number(page.params.id);
 
@@ -17,13 +17,14 @@
 	let pdcaasComplement: Complement | null = $state(null);
 	let nutrients: NutrientAmount[] = $state([]);
 	let provenance: FoodProvenance | null = $state(null);
+	let phytate: Phytate | null = $state(null);
 	let error: string | null = $state(null);
 	let loading = $state(true);
 
 	onMount(async () => {
 		try {
 			food = await api.getFood(foodId);
-			const [diaas, pdcaas, nutrientResult, provenanceResult] = await Promise.allSettled([
+			const [diaas, pdcaas, nutrientResult, provenanceResult, phytateResult] = await Promise.allSettled([
 				food.digestibility_diaas
 					? api.scoreFood(foodId, 'diaas')
 					: Promise.reject(new Error('No DIAAS digestibility data for this food.')),
@@ -31,7 +32,8 @@
 					? api.scoreFood(foodId, 'pdcaas')
 					: Promise.reject(new Error('No PDCAAS digestibility data for this food.')),
 				api.getNutrients(foodId),
-				api.getFoodProvenance(foodId)
+				api.getFoodProvenance(foodId),
+				api.getPhytate(foodId)
 			]);
 			if (diaas.status === 'fulfilled') diaasScore = diaas.value;
 			else diaasUnavailableReason = diaas.reason instanceof Error ? diaas.reason.message : String(diaas.reason);
@@ -39,6 +41,7 @@
 			else pdcaasUnavailableReason = pdcaas.reason instanceof Error ? pdcaas.reason.message : String(pdcaas.reason);
 			if (nutrientResult.status === 'fulfilled') nutrients = nutrientResult.value;
 			if (provenanceResult.status === 'fulfilled') provenance = provenanceResult.value;
+			if (phytateResult.status === 'fulfilled') phytate = phytateResult.value;
 
 			const [diaasComp, pdcaasComp] = await Promise.allSettled([
 				diaasScore ? api.complementFood(foodId, 'diaas') : Promise.reject(),
@@ -133,6 +136,54 @@
 	{/if}
 
 	<NutrientBars {nutrients} per="per 100g" />
+
+	{#if phytate && phytate.status === 'selected' && phytate.observations.length > 0}
+		<section class="card phytate">
+			<h3>Phytate</h3>
+			<p class="muted">
+				Phytate (phytic acid) can reduce how much iron, zinc, and calcium the body absorbs from a
+				meal — but it also occurs naturally in many nutritious whole grains, legumes, nuts, and
+				seeds, and isn't simply a toxin to avoid. Molar ratios (phytate:zinc, phytate:iron) are
+				contextual indicators of a meal's likely bioavailability, not predictions of any one
+				person's actual absorption.
+			</p>
+			{#if phytate.truncated}
+				<p class="muted">Showing a subset of the observations available for this food.</p>
+			{/if}
+			<ul class="entries">
+				{#each phytate.observations as o (o.compound_fraction)}
+					<li>
+						<strong>{o.compound_fraction}</strong> ({o.family.replace('_', ' ')}):
+						{o.value.toLocaleString()} {o.unit} / {o.basis.replace(/_/g, ' ')}
+						{#if o.is_estimate}
+							<span class="estimate-badge" title="Matched by category/analogue, not a source-verified identity match">
+								estimate
+							</span>
+						{/if}
+						{#if o.preparation_compatible === false}
+							<span class="estimate-badge" title="This observation's stated preparation doesn't match what you asked about">
+								preparation mismatch
+							</span>
+						{/if}
+						<p class="why">
+							{o.explanation}
+							{#if o.analytical_method}— method: {o.analytical_method}{/if}
+						</p>
+					</li>
+				{/each}
+			</ul>
+			<p class="muted">
+				Source: {phytate.observations[0].source_dataset_citation}. See the
+				<a href="/methodology#phytate">full methodology</a> for coverage limitations and how these
+				values are selected.
+			</p>
+		</section>
+	{:else if phytate && phytate.status === 'insufficient_data'}
+		<section class="card phytate">
+			<h3>Phytate</h3>
+			<p class="muted">{phytate.explanation}</p>
+		</section>
+	{/if}
 
 	{#if provenance}
 		<details class="provenance">
@@ -247,5 +298,20 @@
 		color: var(--color-danger);
 		font-style: italic;
 		padding-top: 0;
+	}
+	.phytate {
+		margin: var(--space-3) 0 var(--space-5);
+	}
+	.phytate h3 {
+		margin-top: 0;
+	}
+	.estimate-badge {
+		display: inline-block;
+		margin-left: var(--space-2);
+		padding: 0.05rem 0.4rem;
+		font-size: var(--font-size-sm);
+		border-radius: var(--radius-sm);
+		background: var(--color-bg-subtle, rgba(120, 120, 120, 0.15));
+		color: var(--color-text-muted);
 	}
 </style>

@@ -42,6 +42,7 @@ import type {
 	NutrientSources,
 	OptimizationSuggestion,
 	PaginatedRecipes,
+	Phytate,
 	PlanOptimization,
 	Profile,
 	ProfileCreate,
@@ -184,6 +185,7 @@ export const api = {
 		request<Food[]>(`/api/foods/search-by-name?q=${encodeURIComponent(q)}&limit=${limit}`),
 	getNutrients: (id: number) => request<NutrientAmount[]>(`/api/foods/${id}/nutrients`),
 	getFoodProvenance: (id: number) => request<FoodProvenance>(`/api/foods/${id}/provenance`),
+	getPhytate: (id: number) => request<Phytate>(`/api/foods/${id}/phytate`),
 
 	register: (email: string, password: string) =>
 		request<TokenResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) }),
