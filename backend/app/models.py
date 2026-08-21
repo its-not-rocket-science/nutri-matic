@@ -1010,6 +1010,36 @@ class CompoundObservation(Base):
             "AND normalisation_method IS NOT NULL)",
             name="ck_compound_observation_normalised_all_or_none",
         ),
+        # Prompt 5's seven-value vocabulary — a silently-invented eighth
+        # value would defeat the point of an honest, closed qualifier set,
+        # same reasoning as ck_compound_observation_match_relationship.
+        CheckConstraint(
+            "value_qualifier IN ('measured', 'reported_zero', 'below_detection_limit', "
+            "'below_quantification_limit', 'trace', 'not_reported', 'unparseable')",
+            name="ck_compound_observation_value_qualifier",
+        ),
+        # measured/reported_zero are the only qualifiers backed by a real
+        # number; the other five (no value at all, by construction — see
+        # value_qualifier's column comment) must never carry one, and
+        # original_value_provenance only makes sense paired with an
+        # actual original_value.
+        CheckConstraint(
+            "(value_qualifier IN ('measured', 'reported_zero') "
+            "AND original_value IS NOT NULL AND original_value_provenance IS NOT NULL) "
+            "OR (value_qualifier NOT IN ('measured', 'reported_zero') "
+            "AND original_value IS NULL AND original_value_provenance IS NULL)",
+            name="ck_compound_observation_value_qualifier_pairing",
+        ),
+        CheckConstraint(
+            "original_value_provenance IS NULL "
+            "OR original_value_provenance IN ('source_reported', 'converted', 'imputed')",
+            name="ck_compound_observation_original_value_provenance",
+        ),
+        CheckConstraint(
+            "(detection_limit_value IS NULL AND detection_limit_unit IS NULL) "
+            "OR (detection_limit_value IS NOT NULL AND detection_limit_unit IS NOT NULL)",
+            name="ck_compound_observation_detection_limit_pairing",
+        ),
         # lets re-running an ingestion script find "this exact source row
         # already has an observation" instead of duplicating it. Silent
         # for sources with no row identifier (source_row_identifier NULL
@@ -1036,13 +1066,50 @@ class CompoundObservation(Base):
     # value and unit exactly as the source dataset published them — never
     # altered, so this is always independently recoverable even if
     # normalisation logic below changes or turns out to be wrong.
-    original_value: Mapped[float] = mapped_column(Float, nullable=False)
+    # Nullable since Prompt 5 (prompts.txt): a censored/non-numeric source
+    # cell ("< LOD", "trace", blank) has no number to store here at all —
+    # see value_qualifier/original_value_text below for what's preserved
+    # instead. Never populated with a fabricated 0 or any other stand-in.
+    original_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     original_unit: Mapped[str] = mapped_column(String, nullable=False)
     # "per_100g_edible_portion" | "per_100g_dry_matter" | other source-
     # stated basis — explicit per row rather than assumed at the dataset
     # level, since a single source can mix bases across entries (see
     # docs/phytate-evidence-review.md on wet/dry-basis reporting).
     original_basis: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Prompt 5 (prompts.txt): preserves the exact original reported cell
+    # text regardless of whether it parsed as a number — "547.507", "<
+    # LOD", "trace", or "" for a genuinely blank cell — so provenance
+    # survives even when original_value is null.
+    original_value_text: Mapped[str] = mapped_column(String, nullable=False)
+
+    # What kind of value this row actually represents. "measured" and
+    # "reported_zero" are the only qualifiers that pair with a non-null
+    # original_value (see ck_compound_observation_value_qualifier_pairing)
+    # — reported_zero is kept distinct from measured so a literal
+    # source-reported 0 is never conflated with "no value reported at
+    # all" (below_detection_limit/below_quantification_limit/trace/
+    # not_reported/unparseable), and none of those five is ever silently
+    # coerced to 0.
+    value_qualifier: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Only populated when the source explicitly states a detection/
+    # quantification limit alongside a censored value — never invented
+    # when the source (e.g. PhyFoodComp's "< LOD" cells) gives no number
+    # at all. All-or-none together (see
+    # ck_compound_observation_detection_limit_pairing).
+    detection_limit_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    detection_limit_unit: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Whether original_value (when not null) came straight from the
+    # source, was converted by this app, or was imputed — distinct from
+    # normalisation_method below, which documents how normalised_value
+    # (a further-derived figure) was produced, not original_value's own
+    # provenance. Every ingestion path in this app today only ever
+    # source-reports original_value; "converted"/"imputed" exist for a
+    # future source that might do either.
+    original_value_provenance: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # this app's normalised value/unit/basis, when normalisation (e.g. a
     # dry-matter -> edible-portion conversion) was needed and possible —

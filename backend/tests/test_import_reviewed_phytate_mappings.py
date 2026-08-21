@@ -158,7 +158,7 @@ def test_approve_resolves_fdc_id_from_stable_mapping_not_food_name(session):
     )]
     decisions = {"1:IP6": _decision("1:IP6", "approve")}
     stable_ids = {"1:IP6": StableTarget(food_id=food.id, fdc_id=999, catalogue_checksum="chk")}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, stable_ids,
@@ -183,7 +183,7 @@ def test_replace_uses_category_proxy_relationship(session):
     )]
     decisions = {"1:IP6": _decision("1:IP6", "replace")}
     stable_ids = {"1:IP6": StableTarget(food_id=food.id, fdc_id=555, catalogue_checksum="chk")}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, stable_ids,
@@ -203,7 +203,7 @@ def test_reject_and_unresolved_clear_matched_food_id(session, verdict):
         compound_fraction="IP6", row_identifier="1:IP6",
     )]
     decisions = {"1:IP6": _decision("1:IP6", verdict)}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
@@ -222,7 +222,7 @@ def test_unknown_row_identifier_is_blocked(session):
         food_description="Test food", value=100.0, unit="mg", basis="per_100g_edible_portion",
         compound_fraction="IP6", row_identifier="UNKNOWN:IP6",
     )]
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, {}, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
@@ -242,7 +242,7 @@ def test_duplicate_row_identifier_within_workbook_is_blocked(session):
                         basis="per_100g_edible_portion", compound_fraction="IP6", row_identifier="1:IP6"),
     ]
     decisions = {"1:IP6": _decision("1:IP6", "reject")}
-    adapter_stats = {"rows_considered": 2, "observations_built": 2, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 2, "observations_built": 2, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
@@ -259,7 +259,7 @@ def test_value_mismatch_beyond_tolerance_is_blocked(session):
         compound_fraction="IP6", row_identifier="1:IP6",
     )]
     decisions = {"1:IP6": _decision("1:IP6", "reject", value=100.0)}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
@@ -276,7 +276,7 @@ def test_value_within_float_tolerance_is_not_blocked(session):
         compound_fraction="IP6", row_identifier="1:IP6",
     )]
     decisions = {"1:IP6": _decision("1:IP6", "reject", value=100.0)}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
@@ -293,7 +293,7 @@ def test_food_description_mismatch_is_blocked(session):
         basis="per_100g_edible_portion", compound_fraction="IP6", row_identifier="1:IP6",
     )]
     decisions = {"1:IP6": _decision("1:IP6", "reject", food_description="Test food")}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
@@ -310,7 +310,7 @@ def test_approve_missing_from_stable_mapping_is_blocked(session):
         compound_fraction="IP6", row_identifier="1:IP6",
     )]
     decisions = {"1:IP6": _decision("1:IP6", "approve")}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
@@ -335,7 +335,7 @@ def test_stable_mapping_fdc_id_mismatch_with_live_food_row_is_blocked(session):
     )]
     decisions = {"1:IP6": _decision("1:IP6", "approve")}
     stable_ids = {"1:IP6": StableTarget(food_id=food.id, fdc_id=222, catalogue_checksum="chk")}  # stale fdc_id
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report, problems, plans = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, stable_ids,
@@ -412,7 +412,7 @@ def test_reconcile_rows_never_writes_to_the_database(session):
     )]
     decisions = {"1:IP6": _decision("1:IP6", "approve")}
     stable_ids = {"1:IP6": StableTarget(food_id=food.id, fdc_id=111, catalogue_checksum="chk")}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     reconcile_rows(
         session, raw_rows, adapter_stats, decisions, stable_ids,
@@ -435,7 +435,7 @@ def test_apply_plans_then_reconcile_again_reports_unchanged(session):
     )]
     decisions = {"1:IP6": _decision("1:IP6", "approve")}
     stable_ids = {"1:IP6": StableTarget(food_id=food.id, fdc_id=111, catalogue_checksum="chk")}
-    adapter_stats = {"rows_considered": 1, "observations_built": 1, "values_skipped_non_numeric": 0}
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
 
     report1, problems1, plans1 = reconcile_rows(
         session, raw_rows, adapter_stats, decisions, stable_ids,
@@ -459,36 +459,21 @@ def test_apply_plans_then_reconcile_again_reports_unchanged(session):
 
 def test_error_during_apply_rolls_back_everything(session):
     """Simulates the caller's rollback contract: apply_plans followed by
-    a failing commit must leave zero rows, not a partial insert."""
-    from app.ingest_phytate import RawObservation
+    a failing commit must leave zero rows, not a partial insert. Plans
+    are built by hand (bypassing reconcile_rows, which would have caught
+    row 2's problem as 'blocked' instead) to exercise apply_plans' own
+    rollback contract directly."""
     good_food = _food(name="Good food", fdc_id=111)
     session.add(good_food)
     session.flush()
 
-    raw_rows = [
-        RawObservation(food_description="Test food", value=100.0, unit="mg",
-                        basis="per_100g_edible_portion", compound_fraction="IP6", row_identifier="1:IP6"),
-        RawObservation(food_description="Test food 2", value=50.0, unit="mg",
-                        basis="per_100g_edible_portion", compound_fraction="IP5", row_identifier="2:IP5"),
-    ]
-    decisions = {
-        "1:IP6": _decision("1:IP6", "approve", food_description="Test food"),
-        "2:IP5": _decision("2:IP5", "approve", food_description="Test food 2", compound_fraction="IP5", value=50.0),
-    }
-    stable_ids = {
-        "1:IP6": StableTarget(food_id=good_food.id, fdc_id=111, catalogue_checksum="chk"),
-        # points at a Food.id that doesn't exist -- simulates a broken plan reaching apply_plans
-        "2:IP5": StableTarget(food_id=99999, fdc_id=222, catalogue_checksum="chk"),
-    }
-    adapter_stats = {"rows_considered": 2, "observations_built": 2, "values_skipped_non_numeric": 0}
-
-    # Row 2 would normally be caught as "blocked" by reconcile_rows (Food.get returns None),
-    # so this constructs plans by hand to exercise apply_plans' own rollback contract directly.
     from app.import_reviewed_phytate_mappings import RowPlan
     plans = [
         RowPlan(row_identifier="1:IP6", action="insert", fields=dict(
             compound="phytate", compound_fraction="IP6", original_value=100.0, original_unit="mg",
-            original_basis="per_100g_edible_portion", source_food_description="Test food",
+            original_basis="per_100g_edible_portion", original_value_text="100.0", value_qualifier="measured",
+            detection_limit_value=None, detection_limit_unit=None, original_value_provenance="source_reported",
+            source_food_description="Test food",
             source_preparation_state=None, source_dataset_name=DATASET_NAME,
             source_dataset_citation=DATASET_CITATION, source_dataset_version=DATASET_VERSION,
             source_access_date=ACCESS_DATE, analytical_method=None, source_row_identifier="1:IP6",
@@ -498,7 +483,9 @@ def test_error_during_apply_rolls_back_everything(session):
         RowPlan(row_identifier="2:IP5", action="insert", fields=dict(
             compound=None,  # NOT NULL violation -- forces the commit below to fail
             compound_fraction="IP5", original_value=50.0, original_unit="mg",
-            original_basis="per_100g_edible_portion", source_food_description="Test food 2",
+            original_basis="per_100g_edible_portion", original_value_text="50.0", value_qualifier="measured",
+            detection_limit_value=None, detection_limit_unit=None, original_value_provenance="source_reported",
+            source_food_description="Test food 2",
             source_preparation_state=None, source_dataset_name=DATASET_NAME,
             source_dataset_citation=DATASET_CITATION, source_dataset_version=DATASET_VERSION,
             source_access_date=ACCESS_DATE, analytical_method=None, source_row_identifier="2:IP5",
