@@ -152,6 +152,10 @@ decisions covering row_identifiers: 3,941
   either side is wrong. Either way, Prompt 3's cross-validation would correctly
   refuse these 14 rows as a description mismatch rather than silently accept a
   different string than what was reviewed.
+  **Correction (2026-08-22): this suspicion was wrong — see "Investigation of the 14
+  description mismatches" at the end of this document for the actual root cause and
+  fix. The `�` above was this terminal's own rendering of a real, correctly-decoded
+  character, not a decode bug in openpyxl or the workbook.**
 - Verdict breakdown across the 3,941 reviewed rows: 1,031 approve + 108 replace
   (**= 1,139**, matching `final_approved_mapping.csv` exactly — a clean cross-check),
   2,664 reject, 138 unresolved.
@@ -319,4 +323,48 @@ prepared.
 
 The disposable schema was dropped again afterward; the real dev database was
 confirmed unchanged (7,857 Food rows) throughout.
+
+## Investigation of the 14 description mismatches (2026-08-22)
+
+Manual action 6 asked to confirm whether the real workbook's `�` was a corrupted
+source file or an environment-specific read issue, before assuming either side was
+wrong. Neither guess was right — checked directly, not assumed:
+
+- Read `xl/sharedStrings.xml` straight out of the real `.xlsx` (it's a zip of XML) and
+  found the raw bytes for this cell: `...20\xc2\xbaC)...` — `\xc2\xba` is the exact,
+  correctly-formed UTF-8 encoding of `º` (U+00BA MASCULINE ORDINAL INDICATOR). **The
+  source workbook has always been correct.**
+- Read the same cell through `openpyxl` (this app's actual adapter) and confirmed via
+  `ord()` (not eyeballing terminal output) that it returns codepoint `U+00BA` — the
+  correct character, not `U+FFFD`. **`openpyxl` has always been correct too.** The `�`
+  seen in this document and in earlier terminal output was this environment's own
+  console failing to *render* U+00BA with a glyph, not a wrong codepoint in the data —
+  a display artifact, not a data bug.
+- Diffed the two strings character-by-character with codepoints instead of relying on
+  display: the review file's version has **`U+00C2` (`Â`) followed by `U+00BA` (`º`)**
+  — two characters where the workbook has one. That's the textbook signature of UTF-8
+  bytes decoded as Latin-1/cp1252: `º`'s own UTF-8 encoding (`0xC2 0xBA`) reinterpreted
+  one byte at a time produces exactly `Â` + `º`. **The bug is in
+  `docs/phytate-review/review_4_special_cases.csv`**, not the workbook, not this app's
+  reading of it.
+- Scope-checked before touching anything: grepped all seven `review_*.csv` files for
+  the `Â` mojibake byte pattern. Found in **exactly 14 lines, all in
+  `review_4_special_cases.csv`**, all the same 14 `row_identifier`s already
+  identified (`03020177:PHYTCPP` through `03020190:PHYTCPP`) — isolated to this one
+  file, not a wider encoding problem across the review corpus.
+- Confirmed before fixing: all 14 rows carry `review_verdict=reject` (each with the
+  same reviewer rationale — "controlled storage-degradation research sample... no
+  commercial FDC product can represent this"), so **`final_approved_mapping.csv` was
+  never affected** — only `import_reviewed_phytate_mappings.py`'s
+  workbook-vs-review-record cross-validation would have hit this, and would have
+  correctly (if for the wrong underlying reason) refused these 14 rows as a
+  description mismatch rather than proceed on a corrupted comparison.
+- **Fixed**: replaced the literal `Âº` → `º` in `review_4_special_cases.csv` (14
+  occurrences, confirmed via `str.count`/`str.replace`, not a regex that could
+  overreach). Re-ran the full cross-validation against the real workbook and real
+  review files afterward: **0 description mismatches** (down from 14), **0
+  compound_fraction mismatches**, **0 value mismatches** — all 3,941 reviewed rows now
+  agree with the real workbook exactly. `check_consistency.py` still reports zero
+  problems; `final_approved_mapping.csv` has zero diff (as expected, since none of
+  these 14 rows are approve/replace).
 
