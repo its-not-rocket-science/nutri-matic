@@ -1105,3 +1105,66 @@ class CompoundObservation(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+
+
+class ImportManifest(Base):
+    """A recorded snapshot of one externally-sourced dataset/catalogue as
+    it existed at some point this app depended on it — general-purpose
+    across sources (the USDA FDC Food catalogue, PhyFoodComp, any later
+    compound source), per prompts.txt PROMPT 2's requirement not to
+    scatter a release string through 1,139 individual mapping rows.
+
+    Exists because neither `Food` nor `ingest_fdc.py` records which FDC
+    "Download Datasets" release actually populated the live catalogue —
+    confirmed by inspection (no release/version field anywhere, and
+    `ingest_fdc.py`'s own data-loading logic hasn't changed since the
+    single historical ingestion run that built the current Food table,
+    per git history). Rather than guess a release date, `checksum` is a
+    deterministic fingerprint of the catalogue rows actually relied on
+    (see app.catalogue_manifest), so future drift is still detectable
+    even though the original release identity is unrecoverable.
+    """
+
+    __tablename__ = "import_manifests"
+    __table_args__ = (
+        UniqueConstraint("source_name", "checksum", name="uq_import_manifest_source_checksum"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # e.g. "usda_fdc_food_catalogue", "phyfoodcomp_1_0" — one row per
+    # distinct snapshot of one source, not one row per source overall.
+    source_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
+
+    # The source's own release/version label, when positively known.
+    # Explicit "unrecorded_at_ingestion" (not blank/NULL) when the true
+    # upstream release could not be verified from any repository
+    # configuration, ingest metadata, or embedded source citation — a
+    # missing value here must never be read as "assume the latest
+    # release", per prompts.txt's fail-closed default.
+    release_version: Mapped[str] = mapped_column(String, nullable=False)
+
+    # When this snapshot was captured (not necessarily when the source
+    # was originally published — see release_version's caveat above).
+    import_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Deterministic fingerprint over the exact rows this snapshot
+    # represents (see app.catalogue_manifest for the FDC computation) —
+    # the actual drift-detection mechanism, independent of whether
+    # release_version is known.
+    checksum: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Row count backing the checksum, for a cheap human-readable drift
+    # sanity check without recomputing the full fingerprint.
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Version of the methodology/code that computed this snapshot's
+    # checksum — so a later change to what's included in the fingerprint
+    # doesn't silently get compared against an incompatible old value.
+    importer_version: Mapped[str] = mapped_column(String, nullable=False)
+
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
