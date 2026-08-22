@@ -60,10 +60,10 @@ from .ingest_phytate import RawObservation
 # specific first) against the lowercased, stripped cell text. "loq"/
 # "quantification" must be checked before the generic "<"/"lod" check,
 # since a real source cell could plausibly read "< LOQ" (which also
-# contains "<"). Never invents a detection_limit_value/unit here (see
-# CompoundObservation.detection_limit_value's column comment) — PhyFoodComp's
-# own cells carry no numeric limit alongside these markers, only the
-# marker text itself.
+# contains "<"). Never invents a detection_limit_value/unit here (see the
+# model's detection_limit_value column comment) — PhyFoodComp's own
+# cells carry no numeric limit alongside these markers, only the marker
+# text itself.
 _CENSORED_MARKERS: tuple[tuple[str, str], ...] = (
     ("loq", "below_quantification_limit"),
     ("quantification", "below_quantification_limit"),
