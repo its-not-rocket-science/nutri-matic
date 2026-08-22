@@ -301,8 +301,12 @@ def check_catalogue_drift(stable_ids: dict[str, StableTarget], actual_checksum: 
     return None
 
 
-def _values_disagree(workbook_value: float, reviewed_value: float | None) -> bool:
-    if reviewed_value is None:
+def _values_disagree(workbook_value: float | None, reviewed_value: float | None) -> bool:
+    """A censored workbook observation (value=None, Prompt 5) has
+    nothing numeric to compare -- never flagged as a disagreement purely
+    for being censored; only a genuine numeric mismatch when both sides
+    have a number is a problem here."""
+    if reviewed_value is None or workbook_value is None:
         return False
     tolerance = max(abs(reviewed_value) * VALUE_TOLERANCE_RELATIVE, VALUE_TOLERANCE_FLOOR)
     return abs(workbook_value - reviewed_value) > tolerance
@@ -320,7 +324,7 @@ def reconcile_rows(
     report = {
         "source_observations": adapter_stats["rows_considered"],
         "numeric_observations": adapter_stats["observations_built"],
-        "censored_observations": adapter_stats["values_skipped_non_numeric"],
+        "censored_observations": adapter_stats["censored_observations_built"],
         "approved": 0, "replaced": 0, "rejected": 0, "unresolved": 0,
         "inserted": 0, "updated": 0, "unchanged": 0, "blocked": 0, "unexpected": 0,
     }
@@ -410,7 +414,11 @@ def reconcile_rows(
         rationale = f"Human-reviewed ({decision.verdict}): {decision.rationale}"
         fields = dict(
             compound=COMPOUND, compound_fraction=row.compound_fraction, original_value=row.value,
-            original_unit=row.unit, original_basis=row.basis, source_food_description=row.food_description,
+            original_unit=row.unit, original_basis=row.basis,
+            original_value_text=row.value_text, value_qualifier=row.value_qualifier,
+            detection_limit_value=row.detection_limit_value, detection_limit_unit=row.detection_limit_unit,
+            original_value_provenance=None if row.value is None else "source_reported",
+            source_food_description=row.food_description,
             source_preparation_state=row.preparation_state, source_dataset_name=dataset_name,
             source_dataset_citation=dataset_citation, source_dataset_version=dataset_version,
             source_access_date=access_date, analytical_method=row.analytical_method,
@@ -518,7 +526,7 @@ def main() -> None:
     print(
         f"parsed workbook: sheets={adapter_stats['sheets']} rows_considered={adapter_stats['rows_considered']} "
         f"rows_skipped_no_description={adapter_stats['rows_skipped_no_description']} "
-        f"values_skipped_non_numeric={adapter_stats['values_skipped_non_numeric']} "
+        f"censored_observations_built={adapter_stats['censored_observations_built']} "
         f"observations_built={adapter_stats['observations_built']}"
     )
 

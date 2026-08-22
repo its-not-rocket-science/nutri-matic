@@ -39,9 +39,15 @@ own RawObservation, sharing that row's food description/matching fields
 but carrying its own compound_fraction/analytical_method/value.
 
 A cell holding a non-numeric marker (e.g. "< LOD", below the analytical
-method's limit of detection) is skipped, not coerced into a fabricated
-number — counted separately in load_phyfoodcomp_workbook's stats so it's
-visible rather than silently dropped.
+method's limit of detection) is preserved as its own RawObservation with
+value=None and an honest value_qualifier (Prompt 5, prompts.txt) — never
+coerced into a fabricated number, and never silently dropped either, so
+the same food/compound_fraction/row_identifier provenance a real
+measured value gets is also available for a censored one. A genuinely
+blank cell (openpyxl gives None, meaning the source simply has no entry
+in that column at all — not even a marker) is still skipped: there is no
+signal to preserve there, unlike a cell that positively states "< LOD"
+or similar.
 """
 
 from pathlib import Path
@@ -49,6 +55,48 @@ from pathlib import Path
 import openpyxl
 
 from .ingest_phytate import RawObservation
+
+# Substring markers -> value_qualifier, checked in this order (most
+# specific first) against the lowercased, stripped cell text. "loq"/
+# "quantification" must be checked before the generic "<"/"lod" check,
+# since a real source cell could plausibly read "< LOQ" (which also
+# contains "<"). Never invents a detection_limit_value/unit here (see the
+# model's detection_limit_value column comment) — PhyFoodComp's own
+# cells carry no numeric limit alongside these markers, only the marker
+# text itself.
+_CENSORED_MARKERS: tuple[tuple[str, str], ...] = (
+    ("loq", "below_quantification_limit"),
+    ("quantification", "below_quantification_limit"),
+    ("lod", "below_detection_limit"),
+    ("detection", "below_detection_limit"),
+    ("trace", "trace"),
+)
+# Exact (not substring) aliases -- "tr" is INFOODS' own short form for
+# trace, but is too short to safely match as a substring of arbitrary
+# other text.
+_CENSORED_EXACT_ALIASES: dict[str, str] = {"tr": "trace"}
+
+
+def _classify_censored_cell(cell_text: str) -> str:
+    """cell_text is already known non-empty and non-numeric by the time
+    this is called (see load_phyfoodcomp_workbook) -- classifies which of
+    Prompt 5's seven value_qualifier values it represents."""
+    lowered = cell_text.strip().lower()
+    if lowered in _CENSORED_EXACT_ALIASES:
+        return _CENSORED_EXACT_ALIASES[lowered]
+    for marker, qualifier in _CENSORED_MARKERS:
+        if marker in lowered:
+            return qualifier
+    if lowered.startswith("<"):
+        # An unrecognised "< ..." marker -- still clearly a
+        # below-some-limit claim, and detection limits are the far more
+        # common convention in food-composition tables than
+        # quantification limits, so this is the more conservative
+        # (narrower-claim) of the two "below" qualifiers when the source
+        # text doesn't say which.
+        return "below_detection_limit"
+    return "unparseable"
+
 
 # food-group data sheets only — the reference/index sheets (Introduction,
 # Codes, Components, Food groups, Bibliography) have a different layout
@@ -137,12 +185,15 @@ def _find_tagname_column(header: tuple, tagname: str) -> int | None:
 def load_phyfoodcomp_workbook(xlsx_path: Path) -> tuple[list[RawObservation], dict]:
     """Parses every food-group sheet in a real PhyFoodComp_1.0.xlsx into
     RawObservation rows (compound_fraction=INFOODS tagname, one per
-    populated phytate-content cell) plus stats on what was skipped and
-    why — rows_considered, rows_skipped_no_description,
-    values_skipped_non_numeric (e.g. "< LOD" cells), observations_built."""
+    populated phytate-content cell, numeric or censored) plus stats on
+    what was skipped/built and why — rows_considered,
+    rows_skipped_no_description, censored_observations_built (e.g.
+    "< LOD" cells — now preserved as their own RawObservation with
+    value=None, not skipped; see module docstring), observations_built
+    (numeric and censored together)."""
     wb = openpyxl.load_workbook(xlsx_path, data_only=True, read_only=True)
     stats = {"sheets": 0, "rows_considered": 0, "rows_skipped_no_description": 0,
-              "values_skipped_non_numeric": 0, "observations_built": 0}
+              "censored_observations_built": 0, "observations_built": 0}
     observations: list[RawObservation] = []
 
     for sheet_name in wb.sheetnames:
@@ -186,16 +237,24 @@ def load_phyfoodcomp_workbook(xlsx_path: Path) -> tuple[list[RawObservation], di
                     continue
                 cell = row[idx]
                 if cell is None:
-                    continue
+                    continue  # no entry in this column at all -- no signal to preserve
+                cell_text = str(cell).strip()
+                if not cell_text:
+                    continue  # a blank string cell -- same as no entry
+
                 try:
                     value = float(cell)
+                    value_qualifier = "reported_zero" if value == 0.0 else "measured"
                 except (TypeError, ValueError):
-                    stats["values_skipped_non_numeric"] += 1
-                    continue
+                    value = None
+                    value_qualifier = _classify_censored_cell(cell_text)
+                    stats["censored_observations_built"] += 1
 
                 observations.append(RawObservation(
                     food_description=description,
                     value=value,
+                    value_text=cell_text,
+                    value_qualifier=value_qualifier,
                     unit=unit,
                     basis="per_100g_edible_portion",
                     preparation_state=preparation_state,

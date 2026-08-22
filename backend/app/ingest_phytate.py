@@ -98,13 +98,38 @@ class RawObservation:
     this later is a straight field-for-field job."""
 
     food_description: str
-    value: float
+    # None for a censored/non-numeric source cell (see value_qualifier) —
+    # Prompt 5 (prompts.txt). Never a fabricated 0.
+    value: float | None
     unit: str
     basis: str
+    # The exact original reported cell text, numeric or not — "547.507",
+    # "< LOD", "trace", or "" for a genuinely blank cell. Defaults to
+    # str(value) in __post_init__ below for every existing caller that
+    # only ever dealt in real numbers (the CSV path here, and every
+    # pre-Prompt-5 test), so nothing upstream of this dataclass needs to
+    # change just to keep working.
+    value_text: str | None = None
+    # measured | reported_zero | below_detection_limit |
+    # below_quantification_limit | trace | not_reported | unparseable —
+    # see CompoundObservation.value_qualifier's column comment for the
+    # full vocabulary and pairing rules. Defaults to the measured/
+    # reported_zero split for a numeric value.
+    value_qualifier: str | None = None
+    detection_limit_value: float | None = None
+    detection_limit_unit: str | None = None
     preparation_state: str | None = None
     compound_fraction: str | None = None
     analytical_method: str | None = None
     row_identifier: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.value_text is None:
+            self.value_text = "" if self.value is None else str(self.value)
+        if self.value_qualifier is None:
+            if self.value is None:
+                raise ValueError("RawObservation with value=None must specify value_qualifier explicitly")
+            self.value_qualifier = "reported_zero" if self.value == 0.0 else "measured"
 
 
 def load_rows(csv_path: Path) -> list[RawObservation]:
@@ -392,6 +417,14 @@ def ingest_rows(
             original_value=row.value,
             original_unit=row.unit,
             original_basis=row.basis,
+            original_value_text=row.value_text,
+            value_qualifier=row.value_qualifier,
+            detection_limit_value=row.detection_limit_value,
+            detection_limit_unit=row.detection_limit_unit,
+            # Every ingestion path in this app source-reports the value
+            # as-is; only unset (paired with original_value=None) for a
+            # censored row, per ck_compound_observation_value_qualifier_pairing.
+            original_value_provenance=None if row.value is None else "source_reported",
             source_food_description=row.food_description,
             source_preparation_state=row.preparation_state,
             source_dataset_name=dataset_name,
@@ -457,7 +490,7 @@ def main() -> None:
         print(
             f"parsed workbook: sheets={adapter_stats['sheets']} rows_considered={adapter_stats['rows_considered']} "
             f"rows_skipped_no_description={adapter_stats['rows_skipped_no_description']} "
-            f"values_skipped_non_numeric={adapter_stats['values_skipped_non_numeric']} "
+            f"censored_observations_built={adapter_stats['censored_observations_built']} "
             f"observations_built={adapter_stats['observations_built']}"
         )
 
