@@ -441,3 +441,53 @@ against the real catalogue is a five-minute check once the disposable schema (or
 production) is reloaded, and would show `resolved=1080, duplicate=59, missing=0`
 if this arithmetic is right.
 
+## Third pass: majority-agreement exclusion, and deduplicating the presentation (2026-08-22)
+
+Re-checked the 16 remaining groups (59 rows) at finer grain, re-clustering each
+group's raw candidates by (GTIN, full nutrient signature) instead of just GTIN
+alone. Two outcomes:
+
+**"Bob's Red Mill Natural Foods, Inc. TEXTURED VEGETABLE PROTEIN" (4 rows) —
+auto-resolved with Paul's explicit sign-off.** Finer clustering showed only
+`fdc_id=733492` is a true outlier — the other 5 candidates (`1124109`, `1698648`,
+`1972519`, `2392801`, `2671857`) share the identical GTIN (`039978035424`) and
+identical core nutrition (protein 52.17g, carbohydrate 39.13g, fibre 17.4g, iron
+8.7mg) vs. `733492`'s 52.0g/36.0g/20.0g/8.0mg. This is a **weaker bar than the other
+two tiers** — majority-agreement-with-a-named-exclusion, not unanimous agreement
+across every candidate — so it was checked with Paul before applying, not decided
+unilaterally. Resolved to the lowest `fdc_id` among the 5 agreeing candidates
+(`1124109`), with `733492` explicitly named and excluded (not silently folded in)
+in the override note. `stable_id_exceptions_resolved.csv` now has **147** entries
+(105 original + 38 GTIN-tier + 4 this pass); `stable_id_exceptions.csv` down to
+**55** rows.
+
+**The other 16 groups don't collapse further, but the raw candidate lists were
+pure noise.** USDA re-lists the same real product many times under the same GTIN
+(e.g. "Supervalu, Inc. WHEAT BREAD" has 25 raw candidate `fdc_id`s but only **8
+real distinct products** once clustered by GTIN + full nutrient signature — the
+other 17 are just repeat catalog entries for those same 8). Rewrote
+`stable_id_duplicates_still_needing_review.csv` to show, per group, the
+deduplicated set of genuinely distinct products (GTIN, a representative `fdc_id`,
+how many duplicate listings it represents, and its key macros) instead of a flat,
+noisy candidate list — the same 16 groups and 55 row_identifiers, materially easier
+to actually decide from. This is presentation-only: no ambiguity was resolved,
+because a real choice between genuinely different GTINs (different pack
+sizes/regional variants/reformulations) is exactly the judgement this whole
+exercise couldn't automate — it's Paul's call, now with the real options in front
+of him instead of noise.
+
+One caveat carried over from the GTIN-clustering method: a handful of entries in
+the deduplicated view (e.g. "Meijer, Inc. BLANCHED PEANUTS"'s two `713733444873`
+rows) show the *same* GTIN split across two "distinct" clusters purely because of a
+minor secondary-nutrient completeness difference, the same annotation-noise pattern
+found and excluded for the GTIN tier — not re-verified row-by-row here for every
+group the way it was for Bob's Red Mill specifically, so `distinct_products_found`
+is a conservative upper bound, not a guarantee that every listed cluster is a
+genuinely different product from its GTIN-mate.
+
+Final state after three passes: **147 auto-resolved** (105 + 38 + 4), **55 rows /
+16 groups genuinely need Paul's decision** (down from the original 202 → 97 → 59).
+143 + 4 = 147; 147 + 55 = 202 — every original duplicate still accounted for,
+verified via file-level set equality (not re-run against a live resolver, same
+caveat as the previous pass).
+
