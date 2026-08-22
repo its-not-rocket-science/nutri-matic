@@ -48,7 +48,8 @@ def session():
 def _observation(**overrides):
     defaults = dict(
         compound="phytate", original_value=100.0, original_unit="mg",
-        original_basis="per_100g_edible_portion", source_food_description="Test food",
+        original_basis="per_100g_edible_portion", original_value_text="100.0", value_qualifier="measured",
+        original_value_provenance="source_reported", source_food_description="Test food",
         source_dataset_name="PhyFoodComp1.0", source_dataset_citation="citation",
         source_dataset_version="1.0", source_access_date=date(2026, 8, 21),
         match_relationship="needs_review",
