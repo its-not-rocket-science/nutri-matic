@@ -52,7 +52,12 @@ counted separately in the reconciliation report
 auto-handled versus actually reviewed by a human. An unreviewed
 row_identifier whose observation DOES have a real number is still a
 full blocking problem -- this policy never widens past exactly the
-censored case it was written for.
+censored case it was written for. A row_identifier a human explicitly
+looked at and deferred (a blank verdict with a DEFERRED/MOVED note,
+tracked by validate_and_consolidate's `deferred` return value) gets a
+distinct rationale ("reviewed but explicitly deferred") from one truly
+absent from every review file ("no review coverage at all") -- "no
+review coverage" would be a false claim about a row someone did see.
 """
 
 import argparse
@@ -73,10 +78,12 @@ from .phyfoodcomp_adapter import load_phyfoodcomp_workbook
 
 COMPOUND = "phytate"
 
-# Decision.source_file sentinel for a CENSORED_ROW_AUTO_POLICY synthetic
-# decision -- distinguishes it from every real review_*.csv filename so
-# the persisted match_rationale never claims human review provenance
-# for a row no reviewer ever saw.
+# Human-readable Decision.source_file label for a CENSORED_ROW_AUTO_
+# POLICY synthetic decision -- display only. The actual "is this an
+# auto-classified decision" check is Decision.is_auto_censored (a real
+# typed field), never a comparison against this string -- a magic
+# sentinel compared with `==` is exactly the kind of thing a future
+# typo/reused value could get wrong silently.
 AUTO_CENSORED_SOURCE_FILE = "<auto: censored, unreviewed>"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -135,6 +142,13 @@ class Decision:
     food_description: str
     compound_fraction: str
     value: float | None
+    # True only for a CENSORED_ROW_AUTO_POLICY synthetic decision -- a
+    # real typed field, not a magic sentinel compared against source_file
+    # (a past version of this code did exactly that, and it's the kind of
+    # thing a typo'd/reused sentinel could silently get wrong with no
+    # test catching it -- see the rationale-mislabelling bot-review
+    # finding this field replaces the fragile version of).
+    is_auto_censored: bool = False
 
 
 @dataclass(frozen=True)
@@ -170,9 +184,19 @@ def _parse_value(raw: str) -> float | None:
         return None
 
 
-def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[str, Decision], list[str]]:
-    """Returns (row_identifier -> Decision, blocking errors). If errors is
-    non-empty, the caller must not proceed."""
+def validate_and_consolidate(
+    rows_by_file: dict[str, list[dict]],
+) -> tuple[dict[str, Decision], list[str], set[str]]:
+    """Returns (row_identifier -> Decision, blocking errors, deferred
+    row_identifiers). If errors is non-empty, the caller must not
+    proceed. `deferred` is every row_identifier a human explicitly looked
+    at and punted (a blank verdict with a DEFERRED/MOVED note) that never
+    got a real decision anywhere else -- distinct from a row_identifier
+    entirely absent from every review file. reconcile_rows uses this to
+    give CENSORED_ROW_AUTO_POLICY an accurate rationale: "reviewed but
+    deferred" is not the same claim as "no review coverage at all", and
+    conflating them was a real provenance bug (a bot-review finding on
+    PR #52's code review)."""
     errors = []
 
     all_verdicts: dict[str, list[tuple[str, str, str]]] = {}
@@ -185,6 +209,7 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
             all_verdicts.setdefault(rid, []).append((fname, verdict, row["candidate"]))
 
     decisions: dict[str, Decision] = {}
+    deferred_candidates: set[str] = set()
     for fname, rows in rows_by_file.items():
         for row in rows:
             rid = row["row_identifier"]
@@ -197,6 +222,8 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
                     continue
                 if "DEFERRED" not in notes and "MOVED" not in notes:
                     errors.append(f"{fname} {rid}: blank review_verdict with no DEFERRED/MOVED explanation")
+                    continue
+                deferred_candidates.add(rid)
                 continue
 
             if verdict in ("approve", "replace"):
@@ -255,7 +282,8 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
                         value=_parse_value(row.get("value", "")),
                     )
 
-    return decisions, errors
+    deferred = deferred_candidates - decisions.keys()
+    return decisions, errors, deferred
 
 
 def load_stable_id_mapping(path: Path) -> dict[str, StableTarget]:
@@ -342,7 +370,7 @@ def _values_disagree(workbook_value: float | None, reviewed_value: float | None)
 def reconcile_rows(
     db: Session, rows: list, adapter_stats: dict, decisions: dict[str, Decision],
     stable_ids: dict[str, StableTarget], dataset_name: str, dataset_citation: str,
-    dataset_version: str, access_date: date,
+    dataset_version: str, access_date: date, deferred: set[str] = frozenset(),
 ) -> tuple[dict, list[str], list[RowPlan]]:
     """Computes the full deterministic reconciliation report plus every
     blocking problem across the whole workbook, without stopping at the
@@ -373,26 +401,42 @@ def reconcile_rows(
         seen_row_ids.add(rid)
 
         decision = decisions.get(rid)
+        if decision is None and row.value is not None:
+            problems.append(f"{rid}: no review verdict covers this row_identifier")
+            report["blocked"] += 1
+            continue
         if decision is None:
-            if row.value is None:
-                # CENSORED_ROW_AUTO_POLICY (see module docstring) -- a
-                # censored observation review has never seen is
-                # auto-classified unresolved, not a blocking problem.
-                decision = Decision(
-                    row_identifier=rid, verdict="unresolved", approved_fdc_food="", candidate_data_type="",
-                    rationale=(
-                        "censored value, no review coverage -- auto-classified unresolved per "
-                        "CENSORED_ROW_AUTO_POLICY (see module docstring): excluded from selection "
-                        "regardless of food match, so food-matching review provides no scientific benefit"
-                    ),
-                    source_file=AUTO_CENSORED_SOURCE_FILE,
-                    food_description=row.food_description, compound_fraction=row.compound_fraction, value=None,
-                )
-                report["auto_unresolved_censored"] += 1
-            else:
-                problems.append(f"{rid}: no review verdict covers this row_identifier")
-                report["blocked"] += 1
-                continue
+            # CENSORED_ROW_AUTO_POLICY (see module docstring) -- a
+            # censored observation review has never seen is auto-
+            # classified unresolved, not a blocking problem. Description/
+            # fraction left blank (not copied from `row`) so the
+            # disagreement checks below skip this decision via their own
+            # existing falsy-guard, the same way they already do for any
+            # human-reviewed decision that left those fields blank --
+            # never a tautological check against the very row it came from.
+            #
+            # `deferred` distinguishes a row a human explicitly looked at
+            # and punted (a blank verdict with a DEFERRED/MOVED note) from
+            # one truly absent from every review file -- conflating them
+            # was a real provenance bug (bot-review finding on PR #52):
+            # "no review coverage" is a false claim about a row someone
+            # did see.
+            coverage_note = (
+                "reviewed but explicitly deferred (see review_notes)" if rid in deferred
+                else "no review coverage at all"
+            )
+            decision = Decision(
+                row_identifier=rid, verdict="unresolved", approved_fdc_food="", candidate_data_type="",
+                rationale=(
+                    f"censored value, {coverage_note} -- auto-classified unresolved per "
+                    "CENSORED_ROW_AUTO_POLICY (see module docstring): excluded from selection "
+                    "regardless of food match, so food-matching review provides no scientific benefit"
+                ),
+                source_file=AUTO_CENSORED_SOURCE_FILE,
+                food_description="", compound_fraction="", value=None,
+                is_auto_censored=True,
+            )
+            report["auto_unresolved_censored"] += 1
 
         if decision.food_description and row.food_description != decision.food_description:
             problems.append(
@@ -448,14 +492,17 @@ def reconcile_rows(
             match_relationship, confidence = "needs_review", None
             if decision.verdict == "reject":
                 report["rejected"] += 1
-            else:
+            elif not decision.is_auto_censored:
                 report["unresolved"] += 1
+            # else: already counted via auto_unresolved_censored above --
+            # every other bucket here is mutually exclusive, so this one
+            # must not double-count the same row into both.
         else:
             problems.append(f"{rid}: decision verdict {decision.verdict!r} is not a recognised verdict")
             report["unexpected"] += 1
             continue
 
-        if decision.source_file == AUTO_CENSORED_SOURCE_FILE:
+        if decision.is_auto_censored:
             # Never label a CENSORED_ROW_AUTO_POLICY decision "Human-reviewed" --
             # that would falsely claim human review provenance for a row no
             # reviewer ever saw (bot review finding on PR #52).
@@ -581,7 +628,7 @@ def main() -> None:
     )
 
     rows_by_file = load_review_rows(review_dir)
-    decisions, errors = validate_and_consolidate(rows_by_file)
+    decisions, errors, deferred = validate_and_consolidate(rows_by_file)
     if errors:
         print(f"ERROR: {len(errors)} blocking problem(s) in the review files -- refusing to import:", file=sys.stderr)
         for e in errors[:30]:
@@ -611,6 +658,7 @@ def main() -> None:
         report, problems, plans = reconcile_rows(
             db, rows, adapter_stats, decisions, stable_ids,
             args.dataset_name, args.dataset_citation, args.dataset_version, access_date,
+            deferred=deferred,
         )
         print_report(report)
 

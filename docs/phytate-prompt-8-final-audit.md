@@ -491,3 +491,85 @@ Final state after three passes: **147 auto-resolved** (105 + 38 + 4), **55 rows 
 verified via file-level set equality (not re-run against a live resolver, same
 caveat as the previous pass).
 
+## Simplification review fixes on #52 (2026-08-22)
+
+A simplification-angle review of `reconcile_rows` in
+`import_reviewed_phytate_mappings.py` (part of the code-review pass requested before
+merging) found four real issues, all fixed:
+
+- **Nested if/else broke the function's flat-guard-clause idiom.** The
+  `CENSORED_ROW_AUTO_POLICY` branch nested a `row.value is None` check inside the
+  `decision is None` check, with the block/continue two lines separated from its
+  governing `if`. Every other check in the function is a flat early-`continue`
+  guard. Restructured into two flat guards matching the rest of the function.
+- **The synthetic `Decision` copied `row.food_description`/`compound_fraction`,
+  making the disagreement checks two lines below trivially, tautologically true —
+  dead validation for that path, not real validation.** Changed to leave those
+  fields blank (`""`) instead, so the checks skip via the same falsy-guard they
+  already use for any human-reviewed decision that left a field blank — no special
+  case needed, no vacuous comparison against the row it came from.
+- **`report["unresolved"]` and `report["auto_unresolved_censored"]` overlapped** —
+  every auto-censored row was counted in *both*, breaking the mutual-exclusivity
+  invariant every other report bucket follows (a downstream consumer summing
+  buckets to reconcile against total rows processed would silently double-count).
+  Fixed: an auto-classified row now increments only `auto_unresolved_censored`;
+  `unresolved` stays exclusively the human-reviewed count. New assertion on the
+  existing human-reviewed-unresolved test proves the normal path is unaffected.
+- **Two new tests had identical setup, differing only in which assertions ran
+  afterward.** Merged into one test asserting report counts, plan fields, and
+  rationale content together — same scenario, one place to update if the policy's
+  behaviour changes again.
+
+Full backend suite passes after these fixes.
+
+## Second code-review pass on #52 (2026-08-22)
+
+A follow-up review (the same `/code-review 52` command re-run after the first pass
+above) surfaced three more findings against `reconcile_rows`, two acted on and one
+declined with reasoning:
+
+- **Fixed — DEFERRED rows were indistinguishable from truly-unseen rows.**
+  `validate_and_consolidate` silently skips a blank-verdict row noting DEFERRED/MOVED
+  (a human looked, explicitly punted) the same way it skips a row that was never
+  sampled at all — neither ever entered `decisions`. `CENSORED_ROW_AUTO_POLICY` then
+  persisted the same `"no review coverage at all"` rationale for both, which is a
+  false claim for the deferred case. Fixed: `validate_and_consolidate` now also
+  returns a `deferred: set[str]` (row_identifiers with a DEFERRED/MOVED note that
+  never got a real decision anywhere else), and `reconcile_rows` takes a `deferred`
+  parameter to pick the accurate rationale — `"reviewed but explicitly deferred"`
+  vs. `"no review coverage at all"`. Four new tests cover both directions plus the
+  case where a deferred row_identifier gets a real decision in another file (the
+  real decision wins, it's not "still deferred").
+- **Fixed — magic sentinel string doing a typed field's job.** `Decision.source_file
+  == AUTO_CENSORED_SOURCE_FILE` was the actual mechanism distinguishing an
+  auto-classified decision from a human-reviewed one — the same class of fragility
+  that caused the rationale-mislabelling bug fixed earlier on this PR (a
+  typo'd/reused sentinel would silently misclassify with nothing to catch it).
+  Replaced with a real `Decision.is_auto_censored: bool` field; the sentinel string
+  now only sets a human-readable `source_file` label, never compared against.
+- **Declined — reusing `phytate_selection.MEASURED_QUALIFIERS` instead of
+  `row.value is None`.** `RawObservation.__post_init__` already enforces that
+  `value is None` if and only if `value_qualifier` isn't a measured qualifier, so
+  the two checks test the same invariant on two different types (a `RawObservation`
+  mid-import vs. a persisted `CompoundObservation`) via two different, independently
+  correct routes — not the same code duplicated, and importing `phytate_selection`
+  into the reviewed-importer module for one boolean check adds a cross-module
+  dependency for marginal benefit. Left as-is.
+- **Noted, not actioned — ~245 additional per-row DB lookups now that censored
+  rows reach `reconcile_rows`'s query.** This is the intended effect of
+  `CENSORED_ROW_AUTO_POLICY`, not a regression: before it existed, the entire import
+  refused outright on the first unreviewed censored row, so *zero* rows of any kind
+  got this far. Every additional lookup is doing real, correct new work the policy
+  exists to enable. A batched pre-fetch would be a reasonable future optimisation
+  if import volume ever makes per-row queries here a real bottleneck, but isn't
+  a correctness issue and isn't a new inconsistency (every other branch in this
+  function already queries per-row).
+- **Noted, not actioned — the GTIN/nutrient-signature duplicate-resolution logic
+  (the 105+38+4 auto-resolved overrides) exists only as prose in this document and
+  ad hoc, deleted scratch scripts, not a committed, re-runnable tool.** Accurate,
+  and already implicitly flagged above ("not re-verified against a live resolver
+  run"). Building a proper committed script would be real, separate work — offered
+  to Paul as a follow-up, not built unprompted here.
+
+Full backend suite passes after both fixes.
+
