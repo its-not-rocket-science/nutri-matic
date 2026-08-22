@@ -151,7 +151,7 @@
 				<p class="muted">Showing a subset of the observations available for this food.</p>
 			{/if}
 			<ul class="entries">
-				{#each phytate.observations as o (o.compound_fraction)}
+				{#each phytate.observations as o, i (i)}
 					<li>
 						<strong>{o.compound_fraction}</strong> ({o.family.replace('_', ' ')}):
 						{o.value.toLocaleString()} {o.unit} / {o.basis.replace(/_/g, ' ')}
@@ -172,6 +172,7 @@
 					</li>
 				{/each}
 			</ul>
+			<p class="muted">{phytate.explanation}</p>
 			<p class="muted">
 				Source: {phytate.observations[0].source_dataset_citation}. See the
 				<a href="/methodology#phytate">full methodology</a> for coverage limitations and how these
@@ -182,6 +183,11 @@
 		<section class="card phytate">
 			<h3>Phytate</h3>
 			<p class="muted">{phytate.explanation}</p>
+		</section>
+	{:else if phytate && phytate.status === 'no_data'}
+		<section class="card phytate">
+			<h3>Phytate</h3>
+			<p class="muted">No phytate data available for this food yet.</p>
 		</section>
 	{/if}
 

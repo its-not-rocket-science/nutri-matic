@@ -89,7 +89,7 @@ def _write_stable_id_mapping(tmp_path, rows):
     import csv as csv_module
 
     path = tmp_path / "stable_id_mapping.csv"
-    columns = ["row_identifier", "food_id", "fdc_id", "catalogue_checksum"]
+    columns = ["row_identifier", "food_id", "fdc_id", "catalogue_checksum", "approved_fdc_food"]
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv_module.DictWriter(f, fieldnames=columns)
         writer.writeheader()
@@ -632,10 +632,15 @@ def test_module_never_imports_fuzzy_food_matching():
 
 def test_load_stable_id_mapping_reads_expected_columns(tmp_path):
     path = _write_stable_id_mapping(tmp_path, [
-        {"row_identifier": "1:IP6", "food_id": "5", "fdc_id": "12345", "catalogue_checksum": "abc"},
+        {
+            "row_identifier": "1:IP6", "food_id": "5", "fdc_id": "12345", "catalogue_checksum": "abc",
+            "approved_fdc_food": "Wheat flour, white",
+        },
     ])
     mapping = load_stable_id_mapping(path)
-    assert mapping["1:IP6"] == StableTarget(food_id=5, fdc_id=12345, catalogue_checksum="abc")
+    assert mapping["1:IP6"] == StableTarget(
+        food_id=5, fdc_id=12345, catalogue_checksum="abc", approved_fdc_food="Wheat flour, white",
+    )
 
 
 def test_compute_file_checksum_is_deterministic(tmp_path):

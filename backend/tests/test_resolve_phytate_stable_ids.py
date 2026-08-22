@@ -223,6 +223,23 @@ def test_compute_manifest_is_deterministic(session):
     assert snap1.checksum == snap2.checksum
 
 
+def test_compute_manifest_changes_when_a_manual_food_is_added(session):
+    """A manually-entered Food (no fdc_id) is outside what the resolver
+    ever targets directly, but it still participates in the resolver's
+    name-only fallback duplicate-detection query -- adding one can turn
+    a target from unique to duplicate, so it must move the checksum."""
+    session.add(_food(name="A", fdc_id=1))
+    session.commit()
+    before = compute_fdc_catalogue_manifest(session, as_of=date(2026, 8, 21))
+
+    session.add(_food(name="Manual food", fdc_id=None))
+    session.commit()
+    after = compute_fdc_catalogue_manifest(session, as_of=date(2026, 8, 21))
+
+    assert before.checksum != after.checksum
+    assert before.row_count == after.row_count == 1  # row_count still counts FDC-identified rows only
+
+
 def test_compute_manifest_changes_when_food_table_changes(session):
     session.add(_food(name="A", fdc_id=1))
     session.commit()

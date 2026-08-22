@@ -213,11 +213,14 @@ explicitly queries for it.
 - **Code complete**: yes, Prompts 1–8 (this PR) — resolver, transactional importer,
   licence policy, censored-value schema, selection service, free UI/API, CI
   additions, and this audit.
-- **Staging validated**: yes, against a disposable schema with the real catalogue and
-  real workbook (above) — with two concrete open items (6 likely `candidate_data_type`
-  slips, 202 duplicates needing overrides) blocking `stable_id_mapping.csv`
-  generation, and a 245-row review-coverage gap (censored observations) blocking a
-  full reviewed import even once those resolve.
+- **Staging validated**: **partially** — the rehearsal *mechanism* (disposable schema,
+  real catalogue, real workbook) is validated, but the rehearsal itself never
+  completed end to end: it blocked at the stable-ID resolver stage on two concrete
+  open items (6 likely `candidate_data_type` slips, 202 duplicates needing overrides),
+  and a 245-row review-coverage gap (censored observations) would still block a full
+  reviewed import even once those resolve. "Yes" here would overstate this — no
+  successful full dry run (resolve → reviewed import → selection) has ever completed
+  against the real catalogue.
 - **Free personal surface enabled**: code-enabled (Prompt 7, PR #50), but **no real
   phytate data has been imported into any database that surface reads from** — the
   personal UI/API exist and are gated correctly, but there is nothing to show yet.
@@ -572,4 +575,113 @@ declined with reasoning:
   to Paul as a follow-up, not built unprompted here.
 
 Full backend suite passes after both fixes.
+
+## P1/P2 bot-review remediation across the #44–#52 stack (2026-08-22)
+
+24 unresolved bot-review conversation threads accumulated across PRs #44–#52 (branch
+protection's `required_conversation_resolution` blocks merge on any of them). Fixed
+every P1 and resolved every P2, either with a real fix or a documented decline.
+
+**P1s fixed:**
+- `resolve_phytate_stable_ids.py` (#44): a "replace" verdict's `candidate_data_type`
+  describes the pipeline's rejected candidate, not the human-approved replacement —
+  6 real rows hit this during the manual-actions remediation above. `resolve_mapping_rows`
+  now falls back to a name-only match when the type-filtered query finds nothing,
+  which can only become more cautious (a wrong filter that silently produced "missing"
+  now either finds the one real row or correctly demotes to "duplicate" for a human).
+- `resolve_phytate_stable_ids.py` (#45): `main()` no longer silently trusts the
+  current DB state as the baseline on a first-ever run — a new
+  `--acknowledge-new-catalogue-baseline` flag is now required, or it refuses with
+  instructions.
+- `import_reviewed_phytate_mappings.py` (#46): `StableTarget` now carries
+  `approved_fdc_food` (already in the resolver's output CSV, just not loaded before);
+  `reconcile_rows` blocks an approve/replace row if the stable-ID mapping's recorded
+  `approved_fdc_food` no longer matches the signed decision's — catches a stable-ID
+  mapping gone stale relative to a re-reviewed row.
+- `import_reviewed_phytate_mappings.py` (#46): `reconcile_rows` now also computes
+  `decisions.keys() - seen_row_ids` and blocks on every signed decision absent from
+  the workbook actually being imported (previously only checked workbook → decisions,
+  never the reverse).
+- `import_reviewed_phytate_mappings.py` (#48): `_values_disagree` previously returned
+  `False` (no disagreement) whenever *either* side was `None` — a reviewed numeric
+  value and a now-censored workbook cell (or vice versa) passed reconciliation
+  silently. Now only both-`None` bypasses the check; a null/non-null mismatch blocks.
+- `source_licence_policy.py` (#47): `load_compound_observations` now also filters on
+  `source_dataset_name == policy.source_name`, not just `compound` — a future second
+  dataset sharing a compound name would otherwise inherit PhyFoodComp's policy purely
+  by name collision.
+- `phytate_selection.py` (#49): inositol-phosphate subsumption was computed
+  Food-wide; a summed tag from one source measurement could suppress an independent
+  fraction from a *different* source measurement mapped to the same food. Now grouped
+  by the source-row-identifier prefix before its `:TAGNAME` suffix (see
+  `phyfoodcomp_adapter`'s `f"{row_identifier}:{tagname}"` convention) so subsumption
+  only applies within one originating measurement. Updated the three existing
+  subsumption tests to use a shared prefix (same source entry) and added
+  `test_subsumption_is_scoped_to_the_same_source_entry` covering the cross-source
+  case the bug allowed.
+- `+page.svelte` (#50): phytate observations were keyed by `compound_fraction`, which
+  real data repeats dozens of times per food (62 duplicate `IP5_A_IP6` rows seen).
+  Now keyed by index.
+
+**P2s fixed:**
+- `import_reviewed_phytate_mappings.py`: `_parse_value` silently returned `None` for
+  an unparsable (non-blank) signed value, disabling the cross-check for that row.
+  Now raises `UnparsableValueError`, caught in `validate_and_consolidate` and turned
+  into a blocking error.
+- `import_reviewed_phytate_mappings.py`: `numeric_observations` was assigned directly
+  from `adapter_stats["observations_built"]`, which counts numeric *and* censored
+  observations together — now subtracts `censored_observations_built`.
+- `phytate_selection.py`: the censored-only early-return path didn't sort `declined`
+  (determinism-contract violation) — now sorted same as the main path.
+- `catalogue_manifest.py` (#45): the checksum excluded every null-`fdc_id` row, but
+  those rows do participate in the resolver's name-only fallback duplicate-detection
+  query (the #44 fix above) — one appearing/disappearing/renaming can turn a target
+  from unique to duplicate without moving the checksum. Now fingerprinted in a second
+  pass with a distinct line prefix so they can never collide with an FDC row's line;
+  `row_count` is unchanged (still FDC-identified rows only).
+- `routers/phytate.py` (#51): `MAX_OBSERVATIONS_RETURNED = 20` was based on the wrong
+  premise (16 *distinct fraction types* exist) — real foods have up to 62 *repeated*
+  observations from independent source entries. Raised to 200; still a real ceiling
+  against bulk-export-shaped responses.
+- `076155f11b60_preserve_censored_compound_observations.py` migration (#48): the
+  pre-migration backfill labelled every existing row `measured`, including any stored
+  as literal `0` — now conditionally backfills `reported_zero` for those, matching
+  how new ingestion classifies the same value.
+- `+page.svelte` (#50): the `selected` branch never surfaced `phytate.explanation`
+  (so a food with some fractions declined gave no visible indication of partial
+  coverage), and `no_data` rendered nothing at all — inconsistent with this same
+  page's DIAAS/PDCAAS sections, which do surface an unavailable-reason message
+  rather than staying silent. Added the explanation line to the `selected` branch and
+  a `no_data` branch with a plain "not available yet" message.
+
+**P2s declined, with reasoning (behaviour unchanged):**
+- `source_licence_policy.py`: wiring `validate_source_licence_policy_coverage` into a
+  live check — still no real consumer reads unregistered compounds (Prompt 6/7's
+  `phytate_selection`/`routers/phytate.py` both go through the one registered
+  `phytate` compound). Adding a boot-time DB dependency for a check with nothing yet
+  to verify remains the wrong trade, per the original PR #47 reasoning.
+- `phytate_selection.py`: applying `preparation_compatible`/match-quality to
+  selection instead of just returning them as metadata. The module is deliberately
+  scope-limited (see its own docstring: not an absorption model, not a molar-ratio
+  calculator) to "what does the literature say, is it safe to report" — demoting
+  based on quality thresholds is a scoring decision, a different and larger piece of
+  design work, and `preparation_context` isn't wired from any caller yet (next
+  finding), so there's no live input to demote against regardless.
+- `+page.svelte` (#50): wiring an actual preparation-context UI control. No such
+  control was ever in scope for Prompts 6/7/8 — the query param and
+  `preparation_compatible` field exist for a future consumer. Left as dead-but-ready
+  plumbing rather than building an undocumented UI feature here.
+- `.github/workflows/ci.yml` (#51): adding stable-ID/catalogue validation to CI. There
+  is still no real `stable_id_mapping.csv` to validate (55 duplicate rows still block
+  generation — see "Third pass" above), and CI cannot run the real 1.4M-row FDC
+  catalogue regardless (sandbox limitation documented earlier in this file). Nothing
+  to wire up yet.
+
+Also reworded the "Staging validated" line in "Final report" above from an
+unqualified "yes" to explicitly state the rehearsal *mechanism* was validated but
+the rehearsal itself never completed end to end (bot-review finding on #51).
+
+Full backend suite (`python -m pytest`, all files) passes after every fix, including
+new/updated tests for the #49 subsumption scoping, the #45 manifest fingerprinting,
+and the #46 stable-ID mapping fixture shape. Frontend `svelte-check` passes clean.
 

@@ -156,6 +156,12 @@ class StableTarget:
     food_id: int
     fdc_id: int
     catalogue_checksum: str
+    # The signed decision's approved_fdc_food at the time the stable-ID
+    # mapping was generated -- cross-checked against the *current*
+    # decision in reconcile_rows so a re-reviewed row (approved_fdc_food
+    # changed after the mapping was resolved) is caught as stale instead
+    # of silently importing against the old target.
+    approved_fdc_food: str = ""
 
 
 @dataclass
@@ -174,14 +180,25 @@ def load_review_rows(review_dir: Path) -> dict[str, list[dict]]:
     return rows_by_file
 
 
+class UnparsableValueError(ValueError):
+    pass
+
+
 def _parse_value(raw: str) -> float | None:
+    """None means "blank -- this reviewed row has no number to
+    cross-check", a legitimate and common case (reject/unresolved rows,
+    or a censored cell). A non-blank string that still doesn't parse as
+    a float is a different thing entirely -- a malformed signed value --
+    and must not be silently downgraded to the same None, since that
+    would silently disable _values_disagree's cross-check for this row
+    instead of surfacing the bad data."""
     raw = (raw or "").strip()
     if not raw:
         return None
     try:
         return float(raw)
     except ValueError:
-        return None
+        raise UnparsableValueError(f"value {raw!r} is not a blank field or a valid number") from None
 
 
 def validate_and_consolidate(
@@ -258,6 +275,12 @@ def validate_and_consolidate(
                         )
                     continue
 
+                try:
+                    parsed_value = _parse_value(row.get("value", ""))
+                except UnparsableValueError as e:
+                    errors.append(f"{fname} {rid}: {e}")
+                    continue
+
                 decisions[rid] = Decision(
                     row_identifier=rid, verdict=verdict, approved_fdc_food=row["approved_fdc_food"],
                     candidate_data_type=row.get("candidate_data_type", ""),
@@ -265,13 +288,18 @@ def validate_and_consolidate(
                     source_file=fname,
                     food_description=row.get("food_description", ""),
                     compound_fraction=row.get("compound_fraction", ""),
-                    value=_parse_value(row.get("value", "")),
+                    value=parsed_value,
                 )
 
             elif verdict in ("reject", "unresolved"):
                 if superseded:
                     continue
                 if rid not in decisions:
+                    try:
+                        parsed_value = _parse_value(row.get("value", ""))
+                    except UnparsableValueError as e:
+                        errors.append(f"{fname} {rid}: {e}")
+                        continue
                     decisions[rid] = Decision(
                         row_identifier=rid, verdict=verdict, approved_fdc_food="",
                         candidate_data_type="",
@@ -279,7 +307,7 @@ def validate_and_consolidate(
                         source_file=fname,
                         food_description=row.get("food_description", ""),
                         compound_fraction=row.get("compound_fraction", ""),
-                        value=_parse_value(row.get("value", "")),
+                        value=parsed_value,
                     )
 
     deferred = deferred_candidates - decisions.keys()
@@ -292,6 +320,7 @@ def load_stable_id_mapping(path: Path) -> dict[str, StableTarget]:
             row["row_identifier"]: StableTarget(
                 food_id=int(row["food_id"]), fdc_id=int(row["fdc_id"]),
                 catalogue_checksum=row["catalogue_checksum"],
+                approved_fdc_food=row["approved_fdc_food"],
             )
             for row in csv.DictReader(f)
         }
@@ -357,12 +386,16 @@ def check_catalogue_drift(stable_ids: dict[str, StableTarget], actual_checksum: 
 
 
 def _values_disagree(workbook_value: float | None, reviewed_value: float | None) -> bool:
-    """A censored workbook observation (value=None, Prompt 5) has
-    nothing numeric to compare -- never flagged as a disagreement purely
-    for being censored; only a genuine numeric mismatch when both sides
-    have a number is a problem here."""
-    if reviewed_value is None or workbook_value is None:
+    """Both censored (value=None) is not a disagreement -- nothing
+    numeric to compare on either side. But numeric on one side and
+    censored on the other IS a disagreement: the signed review record
+    and the workbook cell disagree about whether this cell was even
+    censored, which is exactly the kind of mismatch this check exists
+    to catch, not a case to silently wave through."""
+    if reviewed_value is None and workbook_value is None:
         return False
+    if reviewed_value is None or workbook_value is None:
+        return True
     tolerance = max(abs(reviewed_value) * VALUE_TOLERANCE_RELATIVE, VALUE_TOLERANCE_FLOOR)
     return abs(workbook_value - reviewed_value) > tolerance
 
@@ -378,7 +411,11 @@ def reconcile_rows(
     db.add/db.commit."""
     report = {
         "source_observations": adapter_stats["rows_considered"],
-        "numeric_observations": adapter_stats["observations_built"],
+        # observations_built counts numeric AND censored observations
+        # together (see phyfoodcomp_adapter) -- subtract the censored
+        # count so this key means what its name says, not a duplicate of
+        # source_observations-minus-skips.
+        "numeric_observations": adapter_stats["observations_built"] - adapter_stats["censored_observations_built"],
         "censored_observations": adapter_stats["censored_observations_built"],
         "approved": 0, "replaced": 0, "rejected": 0, "unresolved": 0,
         "inserted": 0, "updated": 0, "unchanged": 0, "blocked": 0, "unexpected": 0,
@@ -470,6 +507,16 @@ def reconcile_rows(
                 report["blocked"] += 1
                 continue
 
+            if target.approved_fdc_food != decision.approved_fdc_food:
+                problems.append(
+                    f"{rid}: stable-ID mapping was resolved against approved_fdc_food="
+                    f"{target.approved_fdc_food!r}, but the signed decision now says "
+                    f"{decision.approved_fdc_food!r} -- mapping is stale relative to a re-reviewed "
+                    "decision, re-run app.resolve_phytate_stable_ids"
+                )
+                report["blocked"] += 1
+                continue
+
             food = db.get(Food, target.food_id)
             if food is None or food.fdc_id != target.fdc_id:
                 problems.append(
@@ -545,6 +592,14 @@ def reconcile_rows(
             else:
                 plans.append(RowPlan(row_identifier=rid, action="unchanged", fields=fields, existing_id=existing.id))
                 report["unchanged"] += 1
+
+    missing_from_workbook = decisions.keys() - seen_row_ids
+    for rid in sorted(missing_from_workbook):
+        problems.append(
+            f"{rid}: has a signed review decision but no matching row_identifier in the workbook "
+            "-- the review file is stale relative to the workbook actually being imported"
+        )
+        report["blocked"] += 1
 
     return report, problems, plans
 
