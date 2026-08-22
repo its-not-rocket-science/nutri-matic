@@ -392,3 +392,52 @@ Two real findings from automated PR review, both fixed:
 
 Full backend suite passes after both fixes.
 
+## Second pass on the 97 duplicates (2026-08-22)
+
+The 97 row instances collapse to only **34 unique duplicate decisions** — most
+row_identifiers sharing a candidate set are the same food across several phytate
+fractions (e.g. "FAMILIA SWISS MUESLI" is one decision applied to 16 IP4/IP5/IP6
+row instances). Built a per-group comparison report directly from the raw FDC CSVs
+(`nutrient.csv`, `branded_food.csv`, `food.csv`, `food_nutrient.csv` — no database
+needed for this pass) showing exactly which nutrients differ between candidates,
+each candidate's GTIN/barcode, serving size, and modification date.
+
+That surfaced a second, stronger equivalence signal beyond raw nutrient equality:
+**18 of the 34 groups (42 row instances) have every candidate sharing the identical
+GTIN/barcode** (or, for the one `foundation_food` group, near-identical down to a
+single trace nutrient present-vs-absent) — the same real-world product, catalogued
+multiple times by USDA with inconsistent field completeness (a `null` vs. explicit
+`0.0` for a minor vitamin, or a unit-representation swap like Vitamin A recorded as
+IU in one entry and RAE in another). Matching GTIN is about as close to "definitely
+the same physical product" as this dataset can confirm.
+
+**One exception found and excluded**: "Bob's Red Mill Natural Foods, Inc. TEXTURED
+VEGETABLE PROTEIN" shares one GTIN across all 6 candidates, but `fdc_id=733492`
+genuinely differs in core macros from the other 5 (carbohydrate 36.0 vs. 39.13g,
+fibre 20.0 vs. 17.4g, iron 8.0 vs. 8.7mg, protein 52.0 vs. 52.17g) — likely a real
+reformulation or data-entry correction under an unchanged barcode, not annotation
+noise. Moved to the genuinely-needs-review pile rather than folded into the GTIN
+tier.
+
+Auto-resolved the other **17 GTIN-matching groups (38 row instances)** the same
+way as the original 105 — lowest `fdc_id`, justified this time by matching GTIN
+rather than raw nutrient equality, recorded with that distinct justification in
+`stable_id_exceptions_resolved.csv` (now 143 total overrides). The remaining **16
+groups (59 row instances)** — genuinely different GTINs with materially different
+core nutrition (different pack sizes, regional variants, or real reformulations) —
+stay in `stable_id_duplicates_still_needing_review.csv` for an actual decision;
+`stable_id_exceptions.csv` updated to match (97 → 59 rows). Verified: zero overlap
+between the three files, 143 + 59 = 202, every original duplicate still accounted
+for.
+
+Not re-verified against a live resolver run this time (the disposable schema had
+already been dropped, and reloading the full 1.4M-row catalogue again purely to
+re-confirm arithmetic already checked directly against the same raw FDC CSVs the
+database was built from seemed like real time spent for no new signal) — file-level
+consistency was checked instead (no overlap between any pair of the three files,
+exact row-count reconciliation). If in doubt, re-running
+`app.resolve_phytate_stable_ids --overrides-csv stable_id_exceptions_resolved.csv`
+against the real catalogue is a five-minute check once the disposable schema (or
+production) is reloaded, and would show `resolved=1080, duplicate=59, missing=0`
+if this arithmetic is right.
+
