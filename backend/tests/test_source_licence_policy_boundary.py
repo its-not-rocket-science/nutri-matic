@@ -24,6 +24,11 @@ ALLOWED_FILES = {
     "source_licence_policy.py",  # the boundary module itself
     "ingest_phytate.py",  # write path — automated ingestion, never serves a response
     "import_reviewed_phytate_mappings.py",  # write path — reviewed ingestion, never serves a response
+    # Prompt 6's selection service — reads, but always starts from
+    # load_compound_observations (which enforces the surface check)
+    # before adding its own matched_food_id filter; never queries
+    # CompoundObservation independently of that boundary.
+    "phytate_selection.py",
 }
 
 
