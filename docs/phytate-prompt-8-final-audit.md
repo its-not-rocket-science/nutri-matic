@@ -685,7 +685,7 @@ Full backend suite (`python -m pytest`, all files) passes after every fix, inclu
 new/updated tests for the #49 subsumption scoping, the #45 manifest fingerprinting,
 and the #46 stable-ID mapping fixture shape. Frontend `svelte-check` passes clean.
 
-## Excluding the 16 genuinely-ambiguous branded-product duplicates (2026-08-23)
+## Excluding the genuinely-ambiguous branded-product duplicates (2026-08-23)
 
 Re-examined the 55 remaining rows in `stable_id_exceptions.csv` (16 distinct
 `approved_fdc_food` names, after grouping by row_identifier) using the GTIN/
@@ -696,40 +696,56 @@ passes — no live database access to the real FDC catalogue was available this 
 since deleted), so this re-used the prior analysis rather than re-deriving it.
 
 Re-grouped each of the 16 by GTIN (not just nutrient signature) to find the true
-count of physically-distinct branded products behind each name. Unlike the earlier
-Bob's Red Mill TVP case, **none of the 16 have a decisive majority** — most split
-evenly (1/1, 2/2, 3/3) between genuinely different products (different Energy/
-Protein/Fiber/Sugar profiles, not near-duplicate data-entry artifacts), and the few
-with any gap at all (Kellogg's Frosted Flakes 3/2, Supervalu Wheat Bread
-5/4/4/4/4/2/2, Harmons Kidney Beans 4/3) are too thin to treat as a real signal.
-Applying a majority-count heuristic here would be picking essentially at random —
-declined to extend that tier further.
+count of physically-distinct branded products behind each name. 15 of the 16 have no
+decisive majority — most split evenly (1/1, 2/2, 3/3) between genuinely different
+products (different Energy/Protein/Fiber/Sugar profiles, not near-duplicate
+data-entry artifacts), and the few with any gap at all (Kellogg's Frosted Flakes 3/2,
+Supervalu Wheat Bread 5/4/4/4/4/2/2, Harmons Kidney Beans 4/3) are too thin to treat
+as a real signal. Applying a majority-count heuristic to those 15 would be picking
+essentially at random — declined to extend that tier further.
+
+**Correction (2026-08-23, bot review on PR #54):** the 16th group, Thomas Brothers
+Ham Company WHEAT FLOUR, actually does have a decisive gap — 4 of its 5 candidates
+share GTIN 074854355555 with identical core nutrition (a same-barcode duplicate
+listing, not really 4 independent votes), against 1 candidate under a genuinely
+different GTIN. The first pass here wrongly folded this group into the "no majority"
+blanket statement and rejected it along with the other 15. Paul's correction: resolve
+`01030187:IP6`/`01030192:IP6` via that 4:1 majority (fdc_id=1807783, added to
+`stable_id_exceptions_resolved.csv` with a note explicitly flagging it as a weaker
+justification than the Bob's Red Mill TVP precedent — a true plurality between two
+distinct real products, not unanimous-minus-one agreement under one barcode) rather
+than exclude them. `final_approved_mapping.csv` is now 1,086 rows (1,084 + these 2
+restored), and **53** rows across **15** groups remain excluded.
 
 Paul's decision (offered three options: exclude, manually resolve each, or arbitrary
-lowest-fdc_id pick): **exclude all 55 rows from the reviewed mapping.** These are all
-low-confidence `branded_food`/`category_estimate` matches to begin with, and guessing
-which specific packaged product (e.g. which Frosted Flakes SKU) was intended isn't
-scientifically defensible.
+lowest-fdc_id pick): **exclude the 53 rows across the 15 groups with no real majority
+from the reviewed mapping.** These are all low-confidence `branded_food`/
+`category_estimate` matches to begin with, and guessing which specific packaged
+product (e.g. which Frosted Flakes SKU) was intended isn't scientifically defensible.
 
 Implementation reuses the existing, fully-tested "reject" verdict machinery rather
-than inventing new plumbing: the 55 `review_verdict` entries (18 in
-`review_1_ambiguous.csv`, 37 in `review_3_branded_low_confidence.csv`) were changed
-from `approve`/`replace` to `reject`, with `approved_fdc_food`/`match_scope` cleared
-and `rejection_reason` documenting the exact GTIN-count ambiguity and pointing back
-at `stable_id_duplicates_still_needing_review.csv`; `review_date` updated to
-2026-08-23. No new code path — `validate_and_consolidate`/`reconcile_rows` already
-handle `reject` exactly as required (matched_food_id cleared to NULL, never inherits
-a prior match).
+than inventing new plumbing: 53 `review_verdict` entries (18 in
+`review_1_ambiguous.csv`, 35 in `review_3_branded_low_confidence.csv` — the latter
+was 37 originally, minus the 2 Thomas Brothers rows restored by the correction above)
+were changed from `approve`/`replace` to `reject`, with `approved_fdc_food`/`match_scope`
+cleared and `rejection_reason` documenting the exact GTIN-count ambiguity and
+pointing back at `stable_id_duplicates_still_needing_review.csv`; `review_date`
+updated to 2026-08-23. No new code path — `validate_and_consolidate`/`reconcile_rows`
+already handle `reject` exactly as required (matched_food_id cleared to NULL, never
+inherits a prior match). The 2 Thomas Brothers rows instead got a
+`stable_id_exceptions_resolved.csv` override entry (see correction above), the same
+mechanism every other duplicate-resolution override in this file already uses.
 
 Verified: `check_consistency.py` still reports 0 problems (7 files, 4112 rows);
-`export_final_mapping.py` regenerated `final_approved_mapping.csv` at 1,084 rows
-(down from 1,139 — exactly the 55 excluded, confirmed no overlap between the excluded
-row_identifiers and the regenerated file's row_identifiers). `stable_id_exceptions.csv`
-itself is now stale relative to this change (it can only be regenerated by actually
-re-running `app.resolve_phytate_stable_ids` against the real FDC catalogue, which
-remains unavailable this session) — left as-is rather than hand-edited, since
-hand-editing a tool's own output file would violate the same "generated, not
-hand-massaged" rule `export_final_mapping.py`'s CI step exists to enforce. Whoever
-next runs the resolver for real will see these 55 simply absent, with zero new
-`duplicate` exceptions in their place.
+`export_final_mapping.py` regenerated `final_approved_mapping.csv` at 1,086 rows
+(down from 1,139 — the 53 excluded rows, with the 2 Thomas Brothers rows restored via
+override; confirmed no overlap between the 53 excluded row_identifiers and the
+regenerated file's row_identifiers). `stable_id_exceptions.csv` itself is now stale
+relative to this change (it can only be regenerated by actually re-running
+`app.resolve_phytate_stable_ids` against the real FDC catalogue, which remains
+unavailable this session) — left as-is rather than hand-edited, since hand-editing a
+tool's own output file would violate the same "generated, not hand-massaged" rule
+`export_final_mapping.py`'s CI step exists to enforce. Whoever next runs the resolver
+for real will see the 53 excluded rows simply absent (zero new `duplicate` exceptions
+in their place) and the 2 Thomas Brothers rows resolved via the override.
 
