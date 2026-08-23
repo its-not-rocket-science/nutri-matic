@@ -161,6 +161,44 @@ class FoodProvenanceOut(BaseModel):
     nutrients: list[NutrientProvenanceOut]
 
 
+class PhytateObservationOut(BaseModel):
+    """One usable phytate observation for a food — see
+    app.phytate_selection.SelectedObservation. `is_estimate` is true
+    whenever match_relationship isn't a source-verified identity match
+    (in practice, always true today — see ingest_phytate.classify_match's
+    own docstring on why "exact" is never assigned automatically), so the
+    frontend can label every value as a category/analogue estimate
+    rather than imply source-confirmed precision it doesn't have."""
+
+    compound_fraction: str
+    family: str
+    value: float
+    unit: str
+    basis: str
+    value_qualifier: str
+    source_dataset_name: str
+    source_dataset_citation: str
+    analytical_method: str | None
+    match_relationship: str
+    match_confidence: float | None
+    is_estimate: bool
+    preparation_compatible: bool | None
+    explanation: str
+
+
+class PhytateOut(BaseModel):
+    food_id: int
+    status: str  # no_data | insufficient_data | selected
+    coverage: str
+    explanation: str
+    methodology_version: str
+    observations: list[PhytateObservationOut]
+    # true when the real observation count exceeded
+    # routers.phytate.MAX_OBSERVATIONS_RETURNED and was truncated — see
+    # that constant's comment for why a hard cap exists at all.
+    truncated: bool
+
+
 class ComplementSuggestionOut(BaseModel):
     food_id: int
     food_name: str

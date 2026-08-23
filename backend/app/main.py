@@ -21,6 +21,7 @@ from .routers import (
     health,
     meal_plan,
     meal_plan_templates,
+    phytate,
     presets,
     profiles,
     public_api,
@@ -170,6 +171,7 @@ app.include_router(meal_plan.router)
 app.include_router(food_prices.router)
 app.include_router(meal_plan_templates.router)
 app.include_router(diary_meal_templates.router)
+app.include_router(phytate.router)
 app.include_router(weight.router)
 app.include_router(entitlements.router)
 app.include_router(api_keys.router)
