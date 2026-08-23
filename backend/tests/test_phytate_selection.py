@@ -172,9 +172,13 @@ def test_ip6_alone_is_selected(session, food):
 
 
 def test_ip6_is_declined_when_ip5_a_ip6_also_present(session, food):
-    session.add(_observation(food_id=food.id, compound_fraction="IP6", original_value=40.0, source_row_identifier="1"))
+    # Same source entry ("1"), two tags from that one measurement --
+    # row_identifier is f"{source_row}:{tagname}" (see phyfoodcomp_adapter).
     session.add(_observation(
-        food_id=food.id, compound_fraction="IP5_A_IP6", original_value=90.0, source_row_identifier="2",
+        food_id=food.id, compound_fraction="IP6", original_value=40.0, source_row_identifier="1:IP6",
+    ))
+    session.add(_observation(
+        food_id=food.id, compound_fraction="IP5_A_IP6", original_value=90.0, source_row_identifier="1:IP5_A_IP6",
     ))
     session.commit()
 
@@ -189,9 +193,11 @@ def test_ip6_is_declined_when_ip5_a_ip6_also_present(session, food):
 def test_ip3_is_not_subsumed_by_ip5_a_ip6(session, food):
     """IP5_A_IP6 covers IP5+IP6 only -- IP3 remains independently
     informative and must stay selected."""
-    session.add(_observation(food_id=food.id, compound_fraction="IP3", original_value=10.0, source_row_identifier="1"))
     session.add(_observation(
-        food_id=food.id, compound_fraction="IP5_A_IP6", original_value=90.0, source_row_identifier="2",
+        food_id=food.id, compound_fraction="IP3", original_value=10.0, source_row_identifier="1:IP3",
+    ))
+    session.add(_observation(
+        food_id=food.id, compound_fraction="IP5_A_IP6", original_value=90.0, source_row_identifier="1:IP5_A_IP6",
     ))
     session.commit()
 
@@ -202,11 +208,15 @@ def test_ip3_is_not_subsumed_by_ip5_a_ip6(session, food):
 
 
 def test_ipsum_subsumes_everything_else_present(session, food):
-    session.add(_observation(food_id=food.id, compound_fraction="IP6", original_value=40.0, source_row_identifier="1"))
     session.add(_observation(
-        food_id=food.id, compound_fraction="IP5_A_IP6", original_value=90.0, source_row_identifier="2",
+        food_id=food.id, compound_fraction="IP6", original_value=40.0, source_row_identifier="1:IP6",
     ))
-    session.add(_observation(food_id=food.id, compound_fraction="IPSUM", original_value=200.0, source_row_identifier="3"))
+    session.add(_observation(
+        food_id=food.id, compound_fraction="IP5_A_IP6", original_value=90.0, source_row_identifier="1:IP5_A_IP6",
+    ))
+    session.add(_observation(
+        food_id=food.id, compound_fraction="IPSUM", original_value=200.0, source_row_identifier="1:IPSUM",
+    ))
     session.commit()
 
     result = select_phytate_observations(session, food.id, ALLOWED_SURFACE)
@@ -214,6 +224,25 @@ def test_ipsum_subsumes_everything_else_present(session, food):
     assert selected_fractions == {"IPSUM"}
     declined_fractions = {d.compound_fraction for d in result.declined}
     assert declined_fractions == {"IP6", "IP5_A_IP6"}
+
+
+def test_subsumption_is_scoped_to_the_same_source_entry(session, food):
+    """A summed tag from one source measurement must never suppress an
+    independent fraction reported by a *different* source measurement
+    mapped to the same food -- fixes a bot-review P1 finding where
+    subsumption was computed Food-wide instead of per source entry."""
+    session.add(_observation(
+        food_id=food.id, compound_fraction="IP6", original_value=40.0, source_row_identifier="1:IP6",
+    ))
+    session.add(_observation(
+        food_id=food.id, compound_fraction="IP5_A_IP6", original_value=90.0, source_row_identifier="2:IP5_A_IP6",
+    ))
+    session.commit()
+
+    result = select_phytate_observations(session, food.id, ALLOWED_SURFACE)
+    selected_fractions = {o.compound_fraction for o in result.selected}
+    assert selected_fractions == {"IP6", "IP5_A_IP6"}
+    assert result.declined == []
 
 
 # ---- preparation compatibility -------------------------------------------

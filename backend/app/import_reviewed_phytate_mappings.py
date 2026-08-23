@@ -32,6 +32,32 @@ Food.id no longer has the fdc_id the mapping recorded — refuses the
 write transaction while `problems` is non-empty, and `apply_plans` is
 never called in that case. That is this module's rollback guarantee —
 there is no partial-apply path to roll back from in the first place.
+
+CENSORED_ROW_AUTO_POLICY (documented manual action from prompts.txt
+PROMPT 8's audit): the real PhyFoodComp workbook has 245 censored
+observations (Prompt 5) whose row_identifier the seven signed
+review_*.csv files have never seen -- the pre-Prompt-5 adapter never
+gave a censored cell a RawObservation at all, so none of them ever went
+through human food-matching review. Rather than block the entire import
+on all 245 forever, an unreviewed row_identifier whose workbook
+observation is itself censored (value is None) is auto-classified
+verdict="unresolved" instead of raising a blocking problem -- justified
+because a censored observation carries no number to match against a
+mineral database in the first place (Prompt 6's selection service
+excludes it from `selected` regardless of which Food it's matched to,
+which is why it's never matched to one: matched_food_id stays NULL,
+identical to a genuinely human-reviewed "unresolved" row). This is
+counted separately in the reconciliation report
+(auto_unresolved_censored) so it's always visible how many rows were
+auto-handled versus actually reviewed by a human. An unreviewed
+row_identifier whose observation DOES have a real number is still a
+full blocking problem -- this policy never widens past exactly the
+censored case it was written for. A row_identifier a human explicitly
+looked at and deferred (a blank verdict with a DEFERRED/MOVED note,
+tracked by validate_and_consolidate's `deferred` return value) gets a
+distinct rationale ("reviewed but explicitly deferred") from one truly
+absent from every review file ("no review coverage at all") -- "no
+review coverage" would be a false claim about a row someone did see.
 """
 
 import argparse
@@ -51,6 +77,14 @@ from .models import CompoundObservation, Food
 from .phyfoodcomp_adapter import load_phyfoodcomp_workbook
 
 COMPOUND = "phytate"
+
+# Human-readable Decision.source_file label for a CENSORED_ROW_AUTO_
+# POLICY synthetic decision -- display only. The actual "is this an
+# auto-classified decision" check is Decision.is_auto_censored (a real
+# typed field), never a comparison against this string -- a magic
+# sentinel compared with `==` is exactly the kind of thing a future
+# typo/reused value could get wrong silently.
+AUTO_CENSORED_SOURCE_FILE = "<auto: censored, unreviewed>"
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REVIEW_DIR = REPO_ROOT / "docs" / "phytate-review"
@@ -108,6 +142,13 @@ class Decision:
     food_description: str
     compound_fraction: str
     value: float | None
+    # True only for a CENSORED_ROW_AUTO_POLICY synthetic decision -- a
+    # real typed field, not a magic sentinel compared against source_file
+    # (a past version of this code did exactly that, and it's the kind of
+    # thing a typo'd/reused sentinel could silently get wrong with no
+    # test catching it -- see the rationale-mislabelling bot-review
+    # finding this field replaces the fragile version of).
+    is_auto_censored: bool = False
 
 
 @dataclass(frozen=True)
@@ -115,6 +156,12 @@ class StableTarget:
     food_id: int
     fdc_id: int
     catalogue_checksum: str
+    # The signed decision's approved_fdc_food at the time the stable-ID
+    # mapping was generated -- cross-checked against the *current*
+    # decision in reconcile_rows so a re-reviewed row (approved_fdc_food
+    # changed after the mapping was resolved) is caught as stale instead
+    # of silently importing against the old target.
+    approved_fdc_food: str = ""
 
 
 @dataclass
@@ -133,19 +180,40 @@ def load_review_rows(review_dir: Path) -> dict[str, list[dict]]:
     return rows_by_file
 
 
+class UnparsableValueError(ValueError):
+    pass
+
+
 def _parse_value(raw: str) -> float | None:
+    """None means "blank -- this reviewed row has no number to
+    cross-check", a legitimate and common case (reject/unresolved rows,
+    or a censored cell). A non-blank string that still doesn't parse as
+    a float is a different thing entirely -- a malformed signed value --
+    and must not be silently downgraded to the same None, since that
+    would silently disable _values_disagree's cross-check for this row
+    instead of surfacing the bad data."""
     raw = (raw or "").strip()
     if not raw:
         return None
     try:
         return float(raw)
     except ValueError:
-        return None
+        raise UnparsableValueError(f"value {raw!r} is not a blank field or a valid number") from None
 
 
-def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[str, Decision], list[str]]:
-    """Returns (row_identifier -> Decision, blocking errors). If errors is
-    non-empty, the caller must not proceed."""
+def validate_and_consolidate(
+    rows_by_file: dict[str, list[dict]],
+) -> tuple[dict[str, Decision], list[str], set[str]]:
+    """Returns (row_identifier -> Decision, blocking errors, deferred
+    row_identifiers). If errors is non-empty, the caller must not
+    proceed. `deferred` is every row_identifier a human explicitly looked
+    at and punted (a blank verdict with a DEFERRED/MOVED note) that never
+    got a real decision anywhere else -- distinct from a row_identifier
+    entirely absent from every review file. reconcile_rows uses this to
+    give CENSORED_ROW_AUTO_POLICY an accurate rationale: "reviewed but
+    deferred" is not the same claim as "no review coverage at all", and
+    conflating them was a real provenance bug (a bot-review finding on
+    PR #52's code review)."""
     errors = []
 
     all_verdicts: dict[str, list[tuple[str, str, str]]] = {}
@@ -158,6 +226,7 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
             all_verdicts.setdefault(rid, []).append((fname, verdict, row["candidate"]))
 
     decisions: dict[str, Decision] = {}
+    deferred_candidates: set[str] = set()
     for fname, rows in rows_by_file.items():
         for row in rows:
             rid = row["row_identifier"]
@@ -170,6 +239,8 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
                     continue
                 if "DEFERRED" not in notes and "MOVED" not in notes:
                     errors.append(f"{fname} {rid}: blank review_verdict with no DEFERRED/MOVED explanation")
+                    continue
+                deferred_candidates.add(rid)
                 continue
 
             if verdict in ("approve", "replace"):
@@ -204,6 +275,12 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
                         )
                     continue
 
+                try:
+                    parsed_value = _parse_value(row.get("value", ""))
+                except UnparsableValueError as e:
+                    errors.append(f"{fname} {rid}: {e}")
+                    continue
+
                 decisions[rid] = Decision(
                     row_identifier=rid, verdict=verdict, approved_fdc_food=row["approved_fdc_food"],
                     candidate_data_type=row.get("candidate_data_type", ""),
@@ -211,13 +288,18 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
                     source_file=fname,
                     food_description=row.get("food_description", ""),
                     compound_fraction=row.get("compound_fraction", ""),
-                    value=_parse_value(row.get("value", "")),
+                    value=parsed_value,
                 )
 
             elif verdict in ("reject", "unresolved"):
                 if superseded:
                     continue
                 if rid not in decisions:
+                    try:
+                        parsed_value = _parse_value(row.get("value", ""))
+                    except UnparsableValueError as e:
+                        errors.append(f"{fname} {rid}: {e}")
+                        continue
                     decisions[rid] = Decision(
                         row_identifier=rid, verdict=verdict, approved_fdc_food="",
                         candidate_data_type="",
@@ -225,10 +307,11 @@ def validate_and_consolidate(rows_by_file: dict[str, list[dict]]) -> tuple[dict[
                         source_file=fname,
                         food_description=row.get("food_description", ""),
                         compound_fraction=row.get("compound_fraction", ""),
-                        value=_parse_value(row.get("value", "")),
+                        value=parsed_value,
                     )
 
-    return decisions, errors
+    deferred = deferred_candidates - decisions.keys()
+    return decisions, errors, deferred
 
 
 def load_stable_id_mapping(path: Path) -> dict[str, StableTarget]:
@@ -237,6 +320,7 @@ def load_stable_id_mapping(path: Path) -> dict[str, StableTarget]:
             row["row_identifier"]: StableTarget(
                 food_id=int(row["food_id"]), fdc_id=int(row["fdc_id"]),
                 catalogue_checksum=row["catalogue_checksum"],
+                approved_fdc_food=row["approved_fdc_food"],
             )
             for row in csv.DictReader(f)
         }
@@ -302,12 +386,16 @@ def check_catalogue_drift(stable_ids: dict[str, StableTarget], actual_checksum: 
 
 
 def _values_disagree(workbook_value: float | None, reviewed_value: float | None) -> bool:
-    """A censored workbook observation (value=None, Prompt 5) has
-    nothing numeric to compare -- never flagged as a disagreement purely
-    for being censored; only a genuine numeric mismatch when both sides
-    have a number is a problem here."""
-    if reviewed_value is None or workbook_value is None:
+    """Both censored (value=None) is not a disagreement -- nothing
+    numeric to compare on either side. But numeric on one side and
+    censored on the other IS a disagreement: the signed review record
+    and the workbook cell disagree about whether this cell was even
+    censored, which is exactly the kind of mismatch this check exists
+    to catch, not a case to silently wave through."""
+    if reviewed_value is None and workbook_value is None:
         return False
+    if reviewed_value is None or workbook_value is None:
+        return True
     tolerance = max(abs(reviewed_value) * VALUE_TOLERANCE_RELATIVE, VALUE_TOLERANCE_FLOOR)
     return abs(workbook_value - reviewed_value) > tolerance
 
@@ -315,7 +403,7 @@ def _values_disagree(workbook_value: float | None, reviewed_value: float | None)
 def reconcile_rows(
     db: Session, rows: list, adapter_stats: dict, decisions: dict[str, Decision],
     stable_ids: dict[str, StableTarget], dataset_name: str, dataset_citation: str,
-    dataset_version: str, access_date: date,
+    dataset_version: str, access_date: date, deferred: set[str] = frozenset(),
 ) -> tuple[dict, list[str], list[RowPlan]]:
     """Computes the full deterministic reconciliation report plus every
     blocking problem across the whole workbook, without stopping at the
@@ -323,10 +411,15 @@ def reconcile_rows(
     db.add/db.commit."""
     report = {
         "source_observations": adapter_stats["rows_considered"],
-        "numeric_observations": adapter_stats["observations_built"],
+        # observations_built counts numeric AND censored observations
+        # together (see phyfoodcomp_adapter) -- subtract the censored
+        # count so this key means what its name says, not a duplicate of
+        # source_observations-minus-skips.
+        "numeric_observations": adapter_stats["observations_built"] - adapter_stats["censored_observations_built"],
         "censored_observations": adapter_stats["censored_observations_built"],
         "approved": 0, "replaced": 0, "rejected": 0, "unresolved": 0,
         "inserted": 0, "updated": 0, "unchanged": 0, "blocked": 0, "unexpected": 0,
+        "auto_unresolved_censored": 0,
     }
     problems: list[str] = []
     plans: list[RowPlan] = []
@@ -345,10 +438,42 @@ def reconcile_rows(
         seen_row_ids.add(rid)
 
         decision = decisions.get(rid)
-        if decision is None:
+        if decision is None and row.value is not None:
             problems.append(f"{rid}: no review verdict covers this row_identifier")
             report["blocked"] += 1
             continue
+        if decision is None:
+            # CENSORED_ROW_AUTO_POLICY (see module docstring) -- a
+            # censored observation review has never seen is auto-
+            # classified unresolved, not a blocking problem. Description/
+            # fraction left blank (not copied from `row`) so the
+            # disagreement checks below skip this decision via their own
+            # existing falsy-guard, the same way they already do for any
+            # human-reviewed decision that left those fields blank --
+            # never a tautological check against the very row it came from.
+            #
+            # `deferred` distinguishes a row a human explicitly looked at
+            # and punted (a blank verdict with a DEFERRED/MOVED note) from
+            # one truly absent from every review file -- conflating them
+            # was a real provenance bug (bot-review finding on PR #52):
+            # "no review coverage" is a false claim about a row someone
+            # did see.
+            coverage_note = (
+                "reviewed but explicitly deferred (see review_notes)" if rid in deferred
+                else "no review coverage at all"
+            )
+            decision = Decision(
+                row_identifier=rid, verdict="unresolved", approved_fdc_food="", candidate_data_type="",
+                rationale=(
+                    f"censored value, {coverage_note} -- auto-classified unresolved per "
+                    "CENSORED_ROW_AUTO_POLICY (see module docstring): excluded from selection "
+                    "regardless of food match, so food-matching review provides no scientific benefit"
+                ),
+                source_file=AUTO_CENSORED_SOURCE_FILE,
+                food_description="", compound_fraction="", value=None,
+                is_auto_censored=True,
+            )
+            report["auto_unresolved_censored"] += 1
 
         if decision.food_description and row.food_description != decision.food_description:
             problems.append(
@@ -382,6 +507,16 @@ def reconcile_rows(
                 report["blocked"] += 1
                 continue
 
+            if target.approved_fdc_food != decision.approved_fdc_food:
+                problems.append(
+                    f"{rid}: stable-ID mapping was resolved against approved_fdc_food="
+                    f"{target.approved_fdc_food!r}, but the signed decision now says "
+                    f"{decision.approved_fdc_food!r} -- mapping is stale relative to a re-reviewed "
+                    "decision, re-run app.resolve_phytate_stable_ids"
+                )
+                report["blocked"] += 1
+                continue
+
             food = db.get(Food, target.food_id)
             if food is None or food.fdc_id != target.fdc_id:
                 problems.append(
@@ -404,14 +539,23 @@ def reconcile_rows(
             match_relationship, confidence = "needs_review", None
             if decision.verdict == "reject":
                 report["rejected"] += 1
-            else:
+            elif not decision.is_auto_censored:
                 report["unresolved"] += 1
+            # else: already counted via auto_unresolved_censored above --
+            # every other bucket here is mutually exclusive, so this one
+            # must not double-count the same row into both.
         else:
             problems.append(f"{rid}: decision verdict {decision.verdict!r} is not a recognised verdict")
             report["unexpected"] += 1
             continue
 
-        rationale = f"Human-reviewed ({decision.verdict}): {decision.rationale}"
+        if decision.is_auto_censored:
+            # Never label a CENSORED_ROW_AUTO_POLICY decision "Human-reviewed" --
+            # that would falsely claim human review provenance for a row no
+            # reviewer ever saw (bot review finding on PR #52).
+            rationale = f"Auto-classified (not human-reviewed, {decision.verdict}): {decision.rationale}"
+        else:
+            rationale = f"Human-reviewed ({decision.verdict}): {decision.rationale}"
         fields = dict(
             compound=COMPOUND, compound_fraction=row.compound_fraction, original_value=row.value,
             original_unit=row.unit, original_basis=row.basis,
@@ -449,6 +593,14 @@ def reconcile_rows(
                 plans.append(RowPlan(row_identifier=rid, action="unchanged", fields=fields, existing_id=existing.id))
                 report["unchanged"] += 1
 
+    missing_from_workbook = decisions.keys() - seen_row_ids
+    for rid in sorted(missing_from_workbook):
+        problems.append(
+            f"{rid}: has a signed review decision but no matching row_identifier in the workbook "
+            "-- the review file is stale relative to the workbook actually being imported"
+        )
+        report["blocked"] += 1
+
     return report, problems, plans
 
 
@@ -469,7 +621,7 @@ def apply_plans(db: Session, plans: list[RowPlan]) -> None:
 def print_report(report: dict) -> None:
     for key in (
         "source_observations", "numeric_observations", "censored_observations",
-        "approved", "replaced", "rejected", "unresolved",
+        "approved", "replaced", "rejected", "unresolved", "auto_unresolved_censored",
         "inserted", "updated", "unchanged", "blocked", "unexpected",
     ):
         print(f"{key}: {report[key]}")
@@ -531,7 +683,7 @@ def main() -> None:
     )
 
     rows_by_file = load_review_rows(review_dir)
-    decisions, errors = validate_and_consolidate(rows_by_file)
+    decisions, errors, deferred = validate_and_consolidate(rows_by_file)
     if errors:
         print(f"ERROR: {len(errors)} blocking problem(s) in the review files -- refusing to import:", file=sys.stderr)
         for e in errors[:30]:
@@ -561,6 +713,7 @@ def main() -> None:
         report, problems, plans = reconcile_rows(
             db, rows, adapter_stats, decisions, stable_ids,
             args.dataset_name, args.dataset_citation, args.dataset_version, access_date,
+            deferred=deferred,
         )
         print_report(report)
 

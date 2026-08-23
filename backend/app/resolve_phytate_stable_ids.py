@@ -188,10 +188,30 @@ def resolve_mapping_rows(
             query = query.where(Food.data_type == data_type)
         matches = sorted(db.execute(query).scalars().all(), key=lambda f: f.id)
 
+        # For a "replace" verdict, candidate_data_type describes the
+        # pipeline's original (rejected) candidate, not necessarily the
+        # human-approved replacement -- confirmed for real for 6 rows
+        # during the Prompt 8 audit (data_type recorded as branded_food
+        # when the actual replacement was sr_legacy_food). Falling back
+        # to a name-only match when the type-filtered query finds
+        # nothing can only ever become MORE cautious than trusting the
+        # filter, never less: a wrong filter that previously produced a
+        # silent false "missing" now either finds the one real row (safe
+        # resolution) or finds several (correctly demoted to "duplicate"
+        # for a human to disambiguate) -- it can never manufacture an
+        # incorrect match the type-filtered query wouldn't already have
+        # let through.
+        if not matches and data_type:
+            matches = sorted(
+                db.execute(select(Food).where(Food.name == name)).scalars().all(), key=lambda f: f.id,
+            )
+            if matches:
+                data_type = matches[0].data_type if len(matches) == 1 else data_type
+
         if len(matches) == 0:
             exceptions.append(ExceptionRow(
                 row_identifier=rid, reason="missing", approved_fdc_food=name, data_type=data_type,
-                detail=f"no Food row matches name={name!r} data_type={data_type!r}",
+                detail=f"no Food row matches name={name!r} data_type={data_type!r} (also tried without the data_type filter)",
             ))
             continue
 
@@ -272,6 +292,15 @@ def main() -> None:
     parser.add_argument("--overrides-csv", default=str(DEFAULT_OVERRIDES_CSV))
     parser.add_argument("--out-mapping", default=str(DEFAULT_OUT_MAPPING))
     parser.add_argument("--out-exceptions", default=str(DEFAULT_OUT_EXCEPTIONS))
+    parser.add_argument(
+        "--acknowledge-new-catalogue-baseline",
+        action="store_true",
+        help=(
+            "Required on the first run against a given manifest file (or after deleting it). "
+            "Confirms the current DB catalogue state has been reviewed and should be recorded "
+            "as the trusted baseline for future drift checks."
+        ),
+    )
     args = parser.parse_args()
 
     mapping_csv = Path(args.mapping_csv)
@@ -280,9 +309,14 @@ def main() -> None:
     out_mapping = Path(args.out_mapping)
     out_exceptions = Path(args.out_exceptions)
 
+    def fail(code: int = 1) -> None:
+        if out_mapping.exists():
+            out_mapping.unlink()
+        sys.exit(code)
+
     if not mapping_csv.is_file():
         print(f"error: not a file: {mapping_csv}", file=sys.stderr)
-        sys.exit(1)
+        fail()
 
     db = SessionLocal()
     try:
@@ -292,8 +326,20 @@ def main() -> None:
             check_catalogue_manifest(expected_manifest, actual_manifest)
         except CatalogueDriftError as e:
             print(f"ERROR: {e}", file=sys.stderr)
-            sys.exit(1)
+            fail()
         if expected_manifest is None:
+            if not args.acknowledge_new_catalogue_baseline:
+                print(f"ERROR: no recorded catalogue manifest found at {manifest_file}.", file=sys.stderr)
+                print(
+                    "Refusing to silently trust the current DB state as the baseline for a resolution run.",
+                    file=sys.stderr,
+                )
+                print(
+                    "Review the current catalogue state, then re-run with "
+                    "--acknowledge-new-catalogue-baseline to record it.",
+                    file=sys.stderr,
+                )
+                fail()
             write_manifest(manifest_file, actual_manifest)
             print(f"No recorded catalogue manifest found -- recorded a new baseline at {manifest_file}")
             print(f"  source={actual_manifest.source_name} rows={actual_manifest.row_count} "
@@ -328,7 +374,7 @@ def main() -> None:
             "for duplicates, or correct the review file for missing/stale targets).",
             file=sys.stderr,
         )
-        sys.exit(1)
+        fail()
 
     write_mapping_csv(out_mapping, resolved)
     print(f"\nWrote {len(resolved)} resolved stable-ID mappings to {out_mapping}")

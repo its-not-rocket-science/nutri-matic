@@ -57,18 +57,33 @@ def compute_fdc_catalogue_manifest(db: Session, *, as_of: date | None = None) ->
     """Reads (never writes) the current Food table and returns a
     deterministic fingerprint of every row that carries external FDC
     identity (fdc_id IS NOT NULL) — rows with no fdc_id (manually-entered
-    foods) are outside what the phytate resolver can ever target, so
-    excluding them keeps the checksum stable across unrelated
-    manual-food edits."""
+    foods) are outside what the phytate resolver ever *targets* directly.
+
+    Manually-entered rows are still fingerprinted (in a second pass,
+    keyed distinctly so they can never collide with an FDC row's line)
+    because they DO participate in the resolver's name-only duplicate-
+    detection query (app.resolve_phytate_stable_ids.resolve_mapping_rows)
+    -- one appearing, disappearing, or being renamed can turn a target
+    from unique to duplicate or vice versa, and that must move the
+    checksum so drift detection actually catches it, not just changes to
+    the FDC-identified rows themselves."""
     rows = db.execute(
         select(Food.id, Food.fdc_id, Food.name, Food.data_type)
         .where(Food.fdc_id.isnot(None))
         .order_by(Food.fdc_id, Food.id)
     ).all()
+    manual_rows = db.execute(
+        select(Food.id, Food.name, Food.data_type)
+        .where(Food.fdc_id.is_(None))
+        .order_by(Food.id)
+    ).all()
 
     hasher = hashlib.sha256()
     for food_id, fdc_id, name, data_type in rows:
         line = f"{food_id}|{fdc_id}|{name}|{data_type or ''}\n"
+        hasher.update(line.encode("utf-8"))
+    for food_id, name, data_type in manual_rows:
+        line = f"manual|{food_id}|{name}|{data_type or ''}\n"
         hasher.update(line.encode("utf-8"))
 
     return ManifestSnapshot(

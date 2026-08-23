@@ -56,11 +56,17 @@ def upgrade() -> None:
 
     # Backfill: every existing row is a real, source-reported number —
     # reproduce that exactly, never reinterpret any existing row as
-    # censored.
+    # censored. A stored 0 is a literal reported zero (see
+    # value_qualifier's reported_zero vs measured distinction, Prompt 5)
+    # -- backfilling it as 'measured' would misrepresent it relative to
+    # how new ingestion classifies the exact same value.
     op.execute(
         compound_observations.update().values(
             original_value_text=sa.func.cast(compound_observations.c.original_value, sa.String()),
-            value_qualifier='measured',
+            value_qualifier=sa.case(
+                (compound_observations.c.original_value == 0, 'reported_zero'),
+                else_='measured',
+            ),
             original_value_provenance='source_reported',
         )
     )

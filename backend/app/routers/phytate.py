@@ -28,12 +28,15 @@ from ..source_licence_policy import PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_INTER
 
 router = APIRouter(prefix="/api/foods", tags=["phytate"])
 
-# A real food's phytate observations top out in the low teens (16 tagged
-# fractions exist at all — see phyfoodcomp_adapter._PHYTATE_TAGNAMES) —
-# this is a defensive ceiling against ever exposing something shaped
-# like a bulk export from a single food's response, not a limit expected
-# to bind in ordinary use.
-MAX_OBSERVATIONS_RETURNED = 20
+# NOT a low ceiling based on the 16 tagged fractions
+# (phyfoodcomp_adapter._PHYTATE_TAGNAMES) -- a real food can have many
+# independent source entries each reporting the same fraction (bot-review
+# finding on PR #52's stack: real foods with 62/48/24 selected observations
+# exist, from repeated measurements, not from 16+ distinct fraction types).
+# 200 is comfortably above every real food observed while still refusing
+# to serve something shaped like a bulk export of the whole licensed
+# dataset from one food's response.
+MAX_OBSERVATIONS_RETURNED = 200
 
 # Only these match_relationship values reflect anything short of a
 # source-verified identity match — see ingest_phytate.classify_match's

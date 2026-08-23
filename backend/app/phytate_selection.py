@@ -191,6 +191,7 @@ def select_phytate_observations(
             ))
 
     if not numeric_rows:
+        declined.sort(key=lambda d: d.compound_fraction)
         return SelectionResult(
             status="insufficient_data", food_id=food_id, compound=COMPOUND, selected=[], declined=declined,
             coverage="censored_only",
@@ -201,23 +202,40 @@ def select_phytate_observations(
     inositol_rows = [r for r in numeric_rows if FRACTION_FAMILY.get(r.compound_fraction) == "inositol_phosphate"]
     other_rows = [r for r in numeric_rows if FRACTION_FAMILY.get(r.compound_fraction) != "inositol_phosphate"]
 
-    present_tags = {r.compound_fraction for r in inositol_rows}
-    subsumed_by: dict[str, str] = {}
-    for broad_tag in _SUMMED_INOSITOL_TAGS_PRIORITY:
-        if broad_tag not in present_tags:
-            continue
-        for narrower in SUBSUMES[broad_tag] & present_tags:
-            subsumed_by.setdefault(narrower, broad_tag)
-
-    kept_inositol = [r for r in inositol_rows if r.compound_fraction not in subsumed_by]
+    # Subsumption only makes sense *within* one source measurement --
+    # a broad summed tag from one source entry says nothing about
+    # whether a narrower tag from a *different* source entry (a
+    # different analysis, possibly a different lab/sample) is already
+    # included in it. Grouping by the source_row_identifier prefix
+    # before its ":TAGNAME" suffix (see app.phyfoodcomp_adapter, which
+    # builds row_identifier as f"{row_identifier}:{tagname}") keeps two
+    # independent source entries mapped to the same Food from
+    # suppressing each other's fractions.
+    inositol_by_source_entry: dict[str | None, list[CompoundObservation]] = {}
     for r in inositol_rows:
-        if r.compound_fraction in subsumed_by:
-            broad = subsumed_by[r.compound_fraction]
-            declined.append(DeclinedObservation(
-                compound_fraction=r.compound_fraction,
-                reason=f"subsumed by {broad}, already present for this food and inclusive of this fraction — "
-                       "summing them would double-count",
-            ))
+        key = r.source_row_identifier.split(":", 1)[0] if r.source_row_identifier else None
+        inositol_by_source_entry.setdefault(key, []).append(r)
+
+    kept_inositol: list[CompoundObservation] = []
+    for group_rows in inositol_by_source_entry.values():
+        present_tags = {r.compound_fraction for r in group_rows}
+        subsumed_by: dict[str, str] = {}
+        for broad_tag in _SUMMED_INOSITOL_TAGS_PRIORITY:
+            if broad_tag not in present_tags:
+                continue
+            for narrower in SUBSUMES[broad_tag] & present_tags:
+                subsumed_by.setdefault(narrower, broad_tag)
+
+        for r in group_rows:
+            if r.compound_fraction in subsumed_by:
+                broad = subsumed_by[r.compound_fraction]
+                declined.append(DeclinedObservation(
+                    compound_fraction=r.compound_fraction,
+                    reason=f"subsumed by {broad}, already present for this same source measurement and "
+                           "inclusive of this fraction — summing them would double-count",
+                ))
+            else:
+                kept_inositol.append(r)
 
     selected_rows = sorted(other_rows + kept_inositol, key=lambda r: (r.compound_fraction or "", r.id))
     declined.sort(key=lambda d: d.compound_fraction)

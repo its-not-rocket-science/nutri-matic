@@ -89,7 +89,7 @@ def _write_stable_id_mapping(tmp_path, rows):
     import csv as csv_module
 
     path = tmp_path / "stable_id_mapping.csv"
-    columns = ["row_identifier", "food_id", "fdc_id", "catalogue_checksum"]
+    columns = ["row_identifier", "food_id", "fdc_id", "catalogue_checksum", "approved_fdc_food"]
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv_module.DictWriter(f, fieldnames=columns)
         writer.writeheader()
@@ -133,7 +133,7 @@ def test_decision_carries_food_description_and_value_for_cross_validation(tmp_pa
             reviewer="Paul S", review_date="16/08/2026", match_scope="category_estimate",
         )],
     })
-    decisions, errors = validate_and_consolidate(load_review_rows(review_dir))
+    decisions, errors, _deferred = validate_and_consolidate(load_review_rows(review_dir))
     assert errors == []
     assert decisions["X:1"].food_description == "Rice, white"
     assert decisions["X:1"].value == 123.4
@@ -212,6 +212,10 @@ def test_reject_and_unresolved_clear_matched_food_id(session, verdict):
     assert problems == []
     assert plans[0].fields["matched_food_id"] is None
     assert plans[0].fields["match_relationship"] == "needs_review"
+    assert plans[0].fields["match_rationale"].startswith("Human-reviewed")
+    if verdict == "unresolved":
+        assert report["unresolved"] == 1
+        assert report["auto_unresolved_censored"] == 0
 
 
 # ---- blocking problems: fatal, never auto-skipped ------------------------
@@ -231,6 +235,120 @@ def test_unknown_row_identifier_is_blocked(session):
     assert plans == []
     assert report["blocked"] == 1
     assert any("no review verdict" in p for p in problems)
+
+
+def test_unreviewed_censored_row_is_auto_unresolved_not_blocked(session):
+    """CENSORED_ROW_AUTO_POLICY: an unreviewed row_identifier whose
+    workbook observation is censored (value=None) must not block the
+    entire import -- see module docstring for why this is safe. Also
+    covers the bot review finding on PR #52 that a CENSORED_ROW_AUTO_
+    POLICY decision must never be persisted with the same 'Human-
+    reviewed' rationale prefix a real reviewer's decision gets, and that
+    it must not double-count into the mutually-exclusive `unresolved`
+    bucket alongside `auto_unresolved_censored`."""
+    from app.ingest_phytate import RawObservation
+    raw_rows = [RawObservation(
+        food_description="Test food", value=None, value_qualifier="below_detection_limit",
+        unit="mg", basis="per_100g_edible_portion", compound_fraction="IP6", row_identifier="UNKNOWN:IP6",
+    )]
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 1}
+
+    report, problems, plans = reconcile_rows(
+        session, raw_rows, adapter_stats, {}, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
+    )
+
+    assert problems == []
+    assert report["blocked"] == 0
+    assert report["auto_unresolved_censored"] == 1
+    assert report["unresolved"] == 0  # mutually exclusive with auto_unresolved_censored, never both
+    assert len(plans) == 1
+    assert plans[0].fields["matched_food_id"] is None
+    assert plans[0].fields["match_relationship"] == "needs_review"
+
+    rationale = plans[0].fields["match_rationale"]
+    assert "Human-reviewed" not in rationale
+    assert "Auto-classified" in rationale
+    assert "not human-reviewed" in rationale
+    assert "no review coverage at all" in rationale  # no `deferred` set passed -- genuinely unseen
+
+
+def test_deferred_censored_row_gets_distinct_rationale_from_truly_unseen(session):
+    """Bot review finding: a row a human explicitly looked at and
+    deferred (blank verdict + DEFERRED/MOVED note) must not be persisted
+    with the same 'no review coverage at all' rationale a row nobody
+    ever saw gets -- that would be a false claim about a row someone did
+    see. validate_and_consolidate's `deferred` return value is how
+    reconcile_rows tells the two apart."""
+    from app.ingest_phytate import RawObservation
+    raw_rows = [RawObservation(
+        food_description="Test food", value=None, value_qualifier="below_detection_limit",
+        unit="mg", basis="per_100g_edible_portion", compound_fraction="IP6", row_identifier="X:1",
+    )]
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 1}
+
+    report, problems, plans = reconcile_rows(
+        session, raw_rows, adapter_stats, {}, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
+        deferred={"X:1"},
+    )
+
+    assert problems == []
+    assert report["auto_unresolved_censored"] == 1
+    rationale = plans[0].fields["match_rationale"]
+    assert "reviewed but explicitly deferred" in rationale
+    assert "no review coverage at all" not in rationale
+
+
+def test_validate_and_consolidate_tracks_deferred_row_identifiers(tmp_path):
+    """A blank-verdict row with a DEFERRED note, never given a real
+    verdict anywhere else, must show up in the returned `deferred` set --
+    the actual data path reconcile_rows relies on for the distinction
+    above."""
+    review_dir = _write_review_dir(tmp_path, **{
+        "review_1_ambiguous.csv": [_csv_row(
+            row_identifier="X:1", review_verdict="", review_notes="DEFERRED -- needs a second opinion",
+        )],
+    })
+    decisions, errors, deferred = validate_and_consolidate(load_review_rows(review_dir))
+    assert errors == []
+    assert "X:1" not in decisions
+    assert deferred == {"X:1"}
+
+
+def test_deferred_row_identifier_is_not_tracked_once_a_real_decision_exists(tmp_path):
+    """A row_identifier deferred in one file but given a real verdict in
+    another is covered, not deferred -- the real decision wins."""
+    review_dir = _write_review_dir(tmp_path, **{
+        "review_1_ambiguous.csv": [_csv_row(
+            row_identifier="X:1", review_verdict="", review_notes="DEFERRED -- see review_4",
+        )],
+        "review_4_special_cases.csv": [_csv_row(
+            row_identifier="X:1", review_verdict="reject", candidate="Food A",
+            rejection_reason="wrong product form", reviewer="Paul S", review_date="06/08/2026",
+        )],
+    })
+    decisions, errors, deferred = validate_and_consolidate(load_review_rows(review_dir))
+    assert errors == []
+    assert "X:1" in decisions
+    assert deferred == set()
+
+
+def test_unreviewed_numeric_row_is_still_blocked_not_auto_resolved(session):
+    """The auto-policy must never widen past the censored case -- an
+    unreviewed row with a real number stays a full blocking problem."""
+    from app.ingest_phytate import RawObservation
+    raw_rows = [RawObservation(
+        food_description="Test food", value=100.0, unit="mg", basis="per_100g_edible_portion",
+        compound_fraction="IP6", row_identifier="UNKNOWN:IP6",
+    )]
+    adapter_stats = {"rows_considered": 1, "observations_built": 1, "censored_observations_built": 0}
+
+    report, problems, plans = reconcile_rows(
+        session, raw_rows, adapter_stats, {}, {}, DATASET_NAME, DATASET_CITATION, DATASET_VERSION, ACCESS_DATE,
+    )
+
+    assert report["blocked"] == 1
+    assert report["auto_unresolved_censored"] == 0
+    assert plans == []
 
 
 def test_duplicate_row_identifier_within_workbook_is_blocked(session):
@@ -514,10 +632,15 @@ def test_module_never_imports_fuzzy_food_matching():
 
 def test_load_stable_id_mapping_reads_expected_columns(tmp_path):
     path = _write_stable_id_mapping(tmp_path, [
-        {"row_identifier": "1:IP6", "food_id": "5", "fdc_id": "12345", "catalogue_checksum": "abc"},
+        {
+            "row_identifier": "1:IP6", "food_id": "5", "fdc_id": "12345", "catalogue_checksum": "abc",
+            "approved_fdc_food": "Wheat flour, white",
+        },
     ])
     mapping = load_stable_id_mapping(path)
-    assert mapping["1:IP6"] == StableTarget(food_id=5, fdc_id=12345, catalogue_checksum="abc")
+    assert mapping["1:IP6"] == StableTarget(
+        food_id=5, fdc_id=12345, catalogue_checksum="abc", approved_fdc_food="Wheat flour, white",
+    )
 
 
 def test_compute_file_checksum_is_deterministic(tmp_path):
@@ -555,10 +678,12 @@ def test_real_synthetic_workbook_reconciles_end_to_end(session, tmp_path):
             match_scope="category_estimate",
         )],
     })
-    decisions, errors = validate_and_consolidate(load_review_rows(review_dir))
+    decisions, errors, _deferred = validate_and_consolidate(load_review_rows(review_dir))
     assert errors == []
 
-    stable_ids = {"42:IP6": StableTarget(food_id=food.id, fdc_id=777, catalogue_checksum="chk")}
+    stable_ids = {
+        "42:IP6": StableTarget(food_id=food.id, fdc_id=777, catalogue_checksum="chk", approved_fdc_food="Rice, white"),
+    }
 
     report, problems, plans = reconcile_rows(
         session, rows, adapter_stats, decisions, stable_ids,
