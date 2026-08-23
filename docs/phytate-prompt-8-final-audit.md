@@ -1,5 +1,10 @@
 # Phytate extension — Prompt 8 final audit
 
+> **Update (2026-08-22): manual actions 1–4 below have been worked, not just
+> planned** — see "Remediation of manual actions 1–4" at the end of this document
+> for what changed and the real numbers after re-running against the same real
+> catalogue. The rest of this document is the original audit, unchanged.
+
 Prompt 8 of the phytate/mineral-bioavailability extension (see `prompts.txt`). This is
 a reporting/audit pass, not a new feature — no production write happened, and no
 commercial-use flag was touched. Where this audit found a real, unresolved problem it
@@ -147,6 +152,10 @@ decisions covering row_identifiers: 3,941
   either side is wrong. Either way, Prompt 3's cross-validation would correctly
   refuse these 14 rows as a description mismatch rather than silently accept a
   different string than what was reviewed.
+  **Correction (2026-08-22): this suspicion was wrong — see "Investigation of the 14
+  description mismatches" at the end of this document for the actual root cause and
+  fix. The `�` above was this terminal's own rendering of a real, correctly-decoded
+  character, not a decode bug in openpyxl or the workbook.**
 - Verdict breakdown across the 3,941 reviewed rows: 1,031 approve + 108 replace
   (**= 1,139**, matching `final_approved_mapping.csv` exactly — a clean cross-check),
   2,664 reject, 138 unresolved.
@@ -204,11 +213,14 @@ explicitly queries for it.
 - **Code complete**: yes, Prompts 1–8 (this PR) — resolver, transactional importer,
   licence policy, censored-value schema, selection service, free UI/API, CI
   additions, and this audit.
-- **Staging validated**: yes, against a disposable schema with the real catalogue and
-  real workbook (above) — with two concrete open items (6 likely `candidate_data_type`
-  slips, 202 duplicates needing overrides) blocking `stable_id_mapping.csv`
-  generation, and a 245-row review-coverage gap (censored observations) blocking a
-  full reviewed import even once those resolve.
+- **Staging validated**: **partially** — the rehearsal *mechanism* (disposable schema,
+  real catalogue, real workbook) is validated, but the rehearsal itself never
+  completed end to end: it blocked at the stable-ID resolver stage on two concrete
+  open items (6 likely `candidate_data_type` slips, 202 duplicates needing overrides),
+  and a 245-row review-coverage gap (censored observations) would still block a full
+  reviewed import even once those resolve. "Yes" here would overstate this — no
+  successful full dry run (resolve → reviewed import → selection) has ever completed
+  against the real catalogue.
 - **Free personal surface enabled**: code-enabled (Prompt 7, PR #50), but **no real
   phytate data has been imported into any database that surface reads from** — the
   personal UI/API exist and are gated correctly, but there is nothing to show yet.
@@ -255,3 +267,421 @@ explicitly queries for it.
 Until all of the above: commercial permission stays `false`, phytate stays off every
 monetised surface, no unattended production import runs, and phytate is not marketed
 as part of any paid tier.
+
+## Remediation of manual actions 1–4 (2026-08-22)
+
+Re-established the same disposable-schema environment (real catalogue re-ingested,
+1,434,131 Food rows — identical to before) to actually work these rather than leave
+them purely as instructions.
+
+**1. Fixed the 6 `candidate_data_type` slips.** All 12 row instances (each of the 6
+`row_identifier`s appears in two review files) changed from `branded_food` to
+`sr_legacy_food` in `review_1_ambiguous.csv`, `review_3_branded_low_confidence.csv`,
+and `review_4_special_cases.csv`. `check_consistency.py` still reports zero problems.
+`final_approved_mapping.csv` regenerated — 6 lines changed, only the `candidate_data_type`
+column, nothing else. Re-running the resolver confirmed the fix: `missing` dropped
+from 6 to **0**, `resolved` rose from 931 to **937** (exactly +6).
+
+**2. The 202 real duplicates — 105 auto-resolved, 97 genuinely need Paul's judgement.**
+Rather than guess, wrote a one-off analysis (not committed — a throwaway script, not
+an app feature) that pulled every candidate Food row's `protein_g_per_100g` and full
+`FoodNutrient` amounts directly from the real ingested data and compared them per
+duplicate group:
+
+- **105 rows**: every candidate Food row is *nutritionally identical* — same protein,
+  same every nutrient FDC recorded for it (these are the real Branded Foods dataset's
+  own re-listings of one product under multiple `fdc_id`s, e.g. regional catalog
+  entries). Since the choice between them cannot change any figure this app computes,
+  the lowest `fdc_id` was picked deterministically and recorded, with that exact
+  justification, in `docs/phytate-review/stable_id_exceptions_resolved.csv`.
+- **97 rows**: candidates genuinely differ in at least one nutrient value (protein or
+  otherwise) despite sharing the reviewed name — these are real, different catalog
+  entries (different pack sizes/reformulations/regional listings with materially
+  different nutrition), and picking one requires actual judgement about which product
+  the original PhyFoodComp entry corresponds to, which this audit cannot supply.
+  Listed with every candidate's protein value for comparison in
+  `docs/phytate-review/stable_id_duplicates_still_needing_review.csv` — **not**
+  resolved, **not** guessed.
+
+**3. Censored-row auto-policy implemented in code**, not just documented as an idea:
+`app.import_reviewed_phytate_mappings` now auto-classifies an unreviewed
+`row_identifier` as `verdict="unresolved"` when — and only when — its workbook
+observation is censored (`value is None`); an unreviewed row with a real number is
+still a full blocking problem, unchanged. Counted separately in the reconciliation
+report as `auto_unresolved_censored`, so it's always visible how many rows were
+auto-handled versus genuinely reviewed by a human. Two new tests
+(`test_unreviewed_censored_row_is_auto_unresolved_not_blocked`,
+`test_unreviewed_numeric_row_is_still_blocked_not_auto_resolved`) prove the policy
+fires exactly for the censored case and never widens past it. Full backend suite
+passes with this change.
+
+**4. Re-ran the resolver with the 105 overrides applied**: `resolved: 1042` (937 direct
++ 105 override), `duplicate: 97`, `missing: 0`, `stale: 0` — 1042 + 97 = 1,139, every
+row still accounted for. `stable_id_mapping.csv` **still correctly does not exist** —
+97 exceptions remain open, and Prompt 2's own rule 8 forbids generating the canonical
+mapping while any do. This is progress (208 → 97 open items), not completion; the
+remaining 97 are the one piece of manual action 1–4 that has no defensible automated
+answer and is now Paul's decision to make, with the actual comparison data already
+prepared.
+
+The disposable schema was dropped again afterward; the real dev database was
+confirmed unchanged (7,857 Food rows) throughout.
+
+## Investigation of the 14 description mismatches (2026-08-22)
+
+Manual action 6 asked to confirm whether the real workbook's `�` was a corrupted
+source file or an environment-specific read issue, before assuming either side was
+wrong. Neither guess was right — checked directly, not assumed:
+
+- Read `xl/sharedStrings.xml` straight out of the real `.xlsx` (it's a zip of XML) and
+  found the raw bytes for this cell: `...20\xc2\xbaC)...` — `\xc2\xba` is the exact,
+  correctly-formed UTF-8 encoding of `º` (U+00BA MASCULINE ORDINAL INDICATOR). **The
+  source workbook has always been correct.**
+- Read the same cell through `openpyxl` (this app's actual adapter) and confirmed via
+  `ord()` (not eyeballing terminal output) that it returns codepoint `U+00BA` — the
+  correct character, not `U+FFFD`. **`openpyxl` has always been correct too.** The `�`
+  seen in this document and in earlier terminal output was this environment's own
+  console failing to *render* U+00BA with a glyph, not a wrong codepoint in the data —
+  a display artifact, not a data bug.
+- Diffed the two strings character-by-character with codepoints instead of relying on
+  display: the review file's version has **`U+00C2` (`Â`) followed by `U+00BA` (`º`)**
+  — two characters where the workbook has one. That's the textbook signature of UTF-8
+  bytes decoded as Latin-1/cp1252: `º`'s own UTF-8 encoding (`0xC2 0xBA`) reinterpreted
+  one byte at a time produces exactly `Â` + `º`. **The bug is in
+  `docs/phytate-review/review_4_special_cases.csv`**, not the workbook, not this app's
+  reading of it.
+- Scope-checked before touching anything: grepped all seven `review_*.csv` files for
+  the `Â` mojibake byte pattern. Found in **exactly 14 lines, all in
+  `review_4_special_cases.csv`**, all the same 14 `row_identifier`s already
+  identified (`03020177:PHYTCPP` through `03020190:PHYTCPP`) — isolated to this one
+  file, not a wider encoding problem across the review corpus.
+- Confirmed before fixing: all 14 rows carry `review_verdict=reject` (each with the
+  same reviewer rationale — "controlled storage-degradation research sample... no
+  commercial FDC product can represent this"), so **`final_approved_mapping.csv` was
+  never affected** — only `import_reviewed_phytate_mappings.py`'s
+  workbook-vs-review-record cross-validation would have hit this, and would have
+  correctly (if for the wrong underlying reason) refused these 14 rows as a
+  description mismatch rather than proceed on a corrupted comparison.
+- **Fixed**: replaced the literal `Âº` → `º` in `review_4_special_cases.csv` (14
+  occurrences, confirmed via `str.count`/`str.replace`, not a regex that could
+  overreach). Re-ran the full cross-validation against the real workbook and real
+  review files afterward: **0 description mismatches** (down from 14), **0
+  compound_fraction mismatches**, **0 value mismatches** — all 3,941 reviewed rows now
+  agree with the real workbook exactly. `check_consistency.py` still reports zero
+  problems; `final_approved_mapping.csv` has zero diff (as expected, since none of
+  these 14 rows are approve/replace).
+
+## Bot review fixes on #52 (2026-08-22)
+
+Two real findings from automated PR review, both fixed:
+
+- **Rationale mislabelling**: a `CENSORED_ROW_AUTO_POLICY` synthetic decision was
+  passing through the same `f"Human-reviewed ({verdict}): ..."` formatter every real
+  reviewer decision does, so the persisted `match_rationale` for all 245
+  auto-classified censored rows would have falsely claimed human review provenance.
+  Fixed: `AUTO_CENSORED_SOURCE_FILE` sentinel added to `Decision.source_file`,
+  checked before formatting the rationale, so an auto-classified row is now
+  persisted as `"Auto-classified (not human-reviewed, unresolved): ..."` — never
+  `"Human-reviewed"`. New test proves it, alongside a new regression test proving a
+  genuinely human-reviewed decision still gets the `"Human-reviewed"` label
+  unchanged.
+- **Stale committed exceptions file**: `docs/phytate-review/stable_id_exceptions.csv`
+  had been updated after fixing the 6 `candidate_data_type` slips (208 → 202 rows) but
+  never updated again after applying the 105 overrides — the committed file still
+  listed all 202 duplicates, including the 105 already resolved, contradicting this
+  document's own reported 97-row remaining count. Fixed: replaced with the real
+  97-row exceptions file the override-aware resolver run actually produced, verified
+  zero overlap with `stable_id_exceptions_resolved.csv`'s 105 `row_identifier`s.
+
+Full backend suite passes after both fixes.
+
+## Second pass on the 97 duplicates (2026-08-22)
+
+The 97 row instances collapse to only **34 unique duplicate decisions** — most
+row_identifiers sharing a candidate set are the same food across several phytate
+fractions (e.g. "FAMILIA SWISS MUESLI" is one decision applied to 16 IP4/IP5/IP6
+row instances). Built a per-group comparison report directly from the raw FDC CSVs
+(`nutrient.csv`, `branded_food.csv`, `food.csv`, `food_nutrient.csv` — no database
+needed for this pass) showing exactly which nutrients differ between candidates,
+each candidate's GTIN/barcode, serving size, and modification date.
+
+That surfaced a second, stronger equivalence signal beyond raw nutrient equality:
+**18 of the 34 groups (42 row instances) have every candidate sharing the identical
+GTIN/barcode** (or, for the one `foundation_food` group, near-identical down to a
+single trace nutrient present-vs-absent) — the same real-world product, catalogued
+multiple times by USDA with inconsistent field completeness (a `null` vs. explicit
+`0.0` for a minor vitamin, or a unit-representation swap like Vitamin A recorded as
+IU in one entry and RAE in another). Matching GTIN is about as close to "definitely
+the same physical product" as this dataset can confirm.
+
+**One exception found and excluded**: "Bob's Red Mill Natural Foods, Inc. TEXTURED
+VEGETABLE PROTEIN" shares one GTIN across all 6 candidates, but `fdc_id=733492`
+genuinely differs in core macros from the other 5 (carbohydrate 36.0 vs. 39.13g,
+fibre 20.0 vs. 17.4g, iron 8.0 vs. 8.7mg, protein 52.0 vs. 52.17g) — likely a real
+reformulation or data-entry correction under an unchanged barcode, not annotation
+noise. Moved to the genuinely-needs-review pile rather than folded into the GTIN
+tier.
+
+Auto-resolved the other **17 GTIN-matching groups (38 row instances)** the same
+way as the original 105 — lowest `fdc_id`, justified this time by matching GTIN
+rather than raw nutrient equality, recorded with that distinct justification in
+`stable_id_exceptions_resolved.csv` (now 143 total overrides). The remaining **16
+groups (59 row instances)** — genuinely different GTINs with materially different
+core nutrition (different pack sizes, regional variants, or real reformulations) —
+stay in `stable_id_duplicates_still_needing_review.csv` for an actual decision;
+`stable_id_exceptions.csv` updated to match (97 → 59 rows). Verified: zero overlap
+between the three files, 143 + 59 = 202, every original duplicate still accounted
+for.
+
+Not re-verified against a live resolver run this time (the disposable schema had
+already been dropped, and reloading the full 1.4M-row catalogue again purely to
+re-confirm arithmetic already checked directly against the same raw FDC CSVs the
+database was built from seemed like real time spent for no new signal) — file-level
+consistency was checked instead (no overlap between any pair of the three files,
+exact row-count reconciliation). If in doubt, re-running
+`app.resolve_phytate_stable_ids --overrides-csv stable_id_exceptions_resolved.csv`
+against the real catalogue is a five-minute check once the disposable schema (or
+production) is reloaded, and would show `resolved=1080, duplicate=59, missing=0`
+if this arithmetic is right.
+
+## Third pass: majority-agreement exclusion, and deduplicating the presentation (2026-08-22)
+
+Re-checked the 16 remaining groups (59 rows) at finer grain, re-clustering each
+group's raw candidates by (GTIN, full nutrient signature) instead of just GTIN
+alone. Two outcomes:
+
+**"Bob's Red Mill Natural Foods, Inc. TEXTURED VEGETABLE PROTEIN" (4 rows) —
+auto-resolved with Paul's explicit sign-off.** Finer clustering showed only
+`fdc_id=733492` is a true outlier — the other 5 candidates (`1124109`, `1698648`,
+`1972519`, `2392801`, `2671857`) share the identical GTIN (`039978035424`) and
+identical core nutrition (protein 52.17g, carbohydrate 39.13g, fibre 17.4g, iron
+8.7mg) vs. `733492`'s 52.0g/36.0g/20.0g/8.0mg. This is a **weaker bar than the other
+two tiers** — majority-agreement-with-a-named-exclusion, not unanimous agreement
+across every candidate — so it was checked with Paul before applying, not decided
+unilaterally. Resolved to the lowest `fdc_id` among the 5 agreeing candidates
+(`1124109`), with `733492` explicitly named and excluded (not silently folded in)
+in the override note. `stable_id_exceptions_resolved.csv` now has **147** entries
+(105 original + 38 GTIN-tier + 4 this pass); `stable_id_exceptions.csv` down to
+**55** rows.
+
+**The other 16 groups don't collapse further, but the raw candidate lists were
+pure noise.** USDA re-lists the same real product many times under the same GTIN
+(e.g. "Supervalu, Inc. WHEAT BREAD" has 25 raw candidate `fdc_id`s but only **8
+real distinct products** once clustered by GTIN + full nutrient signature — the
+other 17 are just repeat catalog entries for those same 8). Rewrote
+`stable_id_duplicates_still_needing_review.csv` to show, per group, the
+deduplicated set of genuinely distinct products (GTIN, a representative `fdc_id`,
+how many duplicate listings it represents, and its key macros) instead of a flat,
+noisy candidate list — the same 16 groups and 55 row_identifiers, materially easier
+to actually decide from. This is presentation-only: no ambiguity was resolved,
+because a real choice between genuinely different GTINs (different pack
+sizes/regional variants/reformulations) is exactly the judgement this whole
+exercise couldn't automate — it's Paul's call, now with the real options in front
+of him instead of noise.
+
+One caveat carried over from the GTIN-clustering method: a handful of entries in
+the deduplicated view (e.g. "Meijer, Inc. BLANCHED PEANUTS"'s two `713733444873`
+rows) show the *same* GTIN split across two "distinct" clusters purely because of a
+minor secondary-nutrient completeness difference, the same annotation-noise pattern
+found and excluded for the GTIN tier — not re-verified row-by-row here for every
+group the way it was for Bob's Red Mill specifically, so `distinct_products_found`
+is a conservative upper bound, not a guarantee that every listed cluster is a
+genuinely different product from its GTIN-mate.
+
+Final state after three passes: **147 auto-resolved** (105 + 38 + 4), **55 rows /
+16 groups genuinely need Paul's decision** (down from the original 202 → 97 → 59).
+143 + 4 = 147; 147 + 55 = 202 — every original duplicate still accounted for,
+verified via file-level set equality (not re-run against a live resolver, same
+caveat as the previous pass).
+
+## Simplification review fixes on #52 (2026-08-22)
+
+A simplification-angle review of `reconcile_rows` in
+`import_reviewed_phytate_mappings.py` (part of the code-review pass requested before
+merging) found four real issues, all fixed:
+
+- **Nested if/else broke the function's flat-guard-clause idiom.** The
+  `CENSORED_ROW_AUTO_POLICY` branch nested a `row.value is None` check inside the
+  `decision is None` check, with the block/continue two lines separated from its
+  governing `if`. Every other check in the function is a flat early-`continue`
+  guard. Restructured into two flat guards matching the rest of the function.
+- **The synthetic `Decision` copied `row.food_description`/`compound_fraction`,
+  making the disagreement checks two lines below trivially, tautologically true —
+  dead validation for that path, not real validation.** Changed to leave those
+  fields blank (`""`) instead, so the checks skip via the same falsy-guard they
+  already use for any human-reviewed decision that left a field blank — no special
+  case needed, no vacuous comparison against the row it came from.
+- **`report["unresolved"]` and `report["auto_unresolved_censored"]` overlapped** —
+  every auto-censored row was counted in *both*, breaking the mutual-exclusivity
+  invariant every other report bucket follows (a downstream consumer summing
+  buckets to reconcile against total rows processed would silently double-count).
+  Fixed: an auto-classified row now increments only `auto_unresolved_censored`;
+  `unresolved` stays exclusively the human-reviewed count. New assertion on the
+  existing human-reviewed-unresolved test proves the normal path is unaffected.
+- **Two new tests had identical setup, differing only in which assertions ran
+  afterward.** Merged into one test asserting report counts, plan fields, and
+  rationale content together — same scenario, one place to update if the policy's
+  behaviour changes again.
+
+Full backend suite passes after these fixes.
+
+## Second code-review pass on #52 (2026-08-22)
+
+A follow-up review (the same `/code-review 52` command re-run after the first pass
+above) surfaced three more findings against `reconcile_rows`, two acted on and one
+declined with reasoning:
+
+- **Fixed — DEFERRED rows were indistinguishable from truly-unseen rows.**
+  `validate_and_consolidate` silently skips a blank-verdict row noting DEFERRED/MOVED
+  (a human looked, explicitly punted) the same way it skips a row that was never
+  sampled at all — neither ever entered `decisions`. `CENSORED_ROW_AUTO_POLICY` then
+  persisted the same `"no review coverage at all"` rationale for both, which is a
+  false claim for the deferred case. Fixed: `validate_and_consolidate` now also
+  returns a `deferred: set[str]` (row_identifiers with a DEFERRED/MOVED note that
+  never got a real decision anywhere else), and `reconcile_rows` takes a `deferred`
+  parameter to pick the accurate rationale — `"reviewed but explicitly deferred"`
+  vs. `"no review coverage at all"`. Four new tests cover both directions plus the
+  case where a deferred row_identifier gets a real decision in another file (the
+  real decision wins, it's not "still deferred").
+- **Fixed — magic sentinel string doing a typed field's job.** `Decision.source_file
+  == AUTO_CENSORED_SOURCE_FILE` was the actual mechanism distinguishing an
+  auto-classified decision from a human-reviewed one — the same class of fragility
+  that caused the rationale-mislabelling bug fixed earlier on this PR (a
+  typo'd/reused sentinel would silently misclassify with nothing to catch it).
+  Replaced with a real `Decision.is_auto_censored: bool` field; the sentinel string
+  now only sets a human-readable `source_file` label, never compared against.
+- **Declined — reusing `phytate_selection.MEASURED_QUALIFIERS` instead of
+  `row.value is None`.** `RawObservation.__post_init__` already enforces that
+  `value is None` if and only if `value_qualifier` isn't a measured qualifier, so
+  the two checks test the same invariant on two different types (a `RawObservation`
+  mid-import vs. a persisted `CompoundObservation`) via two different, independently
+  correct routes — not the same code duplicated, and importing `phytate_selection`
+  into the reviewed-importer module for one boolean check adds a cross-module
+  dependency for marginal benefit. Left as-is.
+- **Noted, not actioned — ~245 additional per-row DB lookups now that censored
+  rows reach `reconcile_rows`'s query.** This is the intended effect of
+  `CENSORED_ROW_AUTO_POLICY`, not a regression: before it existed, the entire import
+  refused outright on the first unreviewed censored row, so *zero* rows of any kind
+  got this far. Every additional lookup is doing real, correct new work the policy
+  exists to enable. A batched pre-fetch would be a reasonable future optimisation
+  if import volume ever makes per-row queries here a real bottleneck, but isn't
+  a correctness issue and isn't a new inconsistency (every other branch in this
+  function already queries per-row).
+- **Noted, not actioned — the GTIN/nutrient-signature duplicate-resolution logic
+  (the 105+38+4 auto-resolved overrides) exists only as prose in this document and
+  ad hoc, deleted scratch scripts, not a committed, re-runnable tool.** Accurate,
+  and already implicitly flagged above ("not re-verified against a live resolver
+  run"). Building a proper committed script would be real, separate work — offered
+  to Paul as a follow-up, not built unprompted here.
+
+Full backend suite passes after both fixes.
+
+## P1/P2 bot-review remediation across the #44–#52 stack (2026-08-22)
+
+24 unresolved bot-review conversation threads accumulated across PRs #44–#52 (branch
+protection's `required_conversation_resolution` blocks merge on any of them). Fixed
+every P1 and resolved every P2, either with a real fix or a documented decline.
+
+**P1s fixed:**
+- `resolve_phytate_stable_ids.py` (#44): a "replace" verdict's `candidate_data_type`
+  describes the pipeline's rejected candidate, not the human-approved replacement —
+  6 real rows hit this during the manual-actions remediation above. `resolve_mapping_rows`
+  now falls back to a name-only match when the type-filtered query finds nothing,
+  which can only become more cautious (a wrong filter that silently produced "missing"
+  now either finds the one real row or correctly demotes to "duplicate" for a human).
+- `resolve_phytate_stable_ids.py` (#45): `main()` no longer silently trusts the
+  current DB state as the baseline on a first-ever run — a new
+  `--acknowledge-new-catalogue-baseline` flag is now required, or it refuses with
+  instructions.
+- `import_reviewed_phytate_mappings.py` (#46): `StableTarget` now carries
+  `approved_fdc_food` (already in the resolver's output CSV, just not loaded before);
+  `reconcile_rows` blocks an approve/replace row if the stable-ID mapping's recorded
+  `approved_fdc_food` no longer matches the signed decision's — catches a stable-ID
+  mapping gone stale relative to a re-reviewed row.
+- `import_reviewed_phytate_mappings.py` (#46): `reconcile_rows` now also computes
+  `decisions.keys() - seen_row_ids` and blocks on every signed decision absent from
+  the workbook actually being imported (previously only checked workbook → decisions,
+  never the reverse).
+- `import_reviewed_phytate_mappings.py` (#48): `_values_disagree` previously returned
+  `False` (no disagreement) whenever *either* side was `None` — a reviewed numeric
+  value and a now-censored workbook cell (or vice versa) passed reconciliation
+  silently. Now only both-`None` bypasses the check; a null/non-null mismatch blocks.
+- `source_licence_policy.py` (#47): `load_compound_observations` now also filters on
+  `source_dataset_name == policy.source_name`, not just `compound` — a future second
+  dataset sharing a compound name would otherwise inherit PhyFoodComp's policy purely
+  by name collision.
+- `phytate_selection.py` (#49): inositol-phosphate subsumption was computed
+  Food-wide; a summed tag from one source measurement could suppress an independent
+  fraction from a *different* source measurement mapped to the same food. Now grouped
+  by the source-row-identifier prefix before its `:TAGNAME` suffix (see
+  `phyfoodcomp_adapter`'s `f"{row_identifier}:{tagname}"` convention) so subsumption
+  only applies within one originating measurement. Updated the three existing
+  subsumption tests to use a shared prefix (same source entry) and added
+  `test_subsumption_is_scoped_to_the_same_source_entry` covering the cross-source
+  case the bug allowed.
+- `+page.svelte` (#50): phytate observations were keyed by `compound_fraction`, which
+  real data repeats dozens of times per food (62 duplicate `IP5_A_IP6` rows seen).
+  Now keyed by index.
+
+**P2s fixed:**
+- `import_reviewed_phytate_mappings.py`: `_parse_value` silently returned `None` for
+  an unparsable (non-blank) signed value, disabling the cross-check for that row.
+  Now raises `UnparsableValueError`, caught in `validate_and_consolidate` and turned
+  into a blocking error.
+- `import_reviewed_phytate_mappings.py`: `numeric_observations` was assigned directly
+  from `adapter_stats["observations_built"]`, which counts numeric *and* censored
+  observations together — now subtracts `censored_observations_built`.
+- `phytate_selection.py`: the censored-only early-return path didn't sort `declined`
+  (determinism-contract violation) — now sorted same as the main path.
+- `catalogue_manifest.py` (#45): the checksum excluded every null-`fdc_id` row, but
+  those rows do participate in the resolver's name-only fallback duplicate-detection
+  query (the #44 fix above) — one appearing/disappearing/renaming can turn a target
+  from unique to duplicate without moving the checksum. Now fingerprinted in a second
+  pass with a distinct line prefix so they can never collide with an FDC row's line;
+  `row_count` is unchanged (still FDC-identified rows only).
+- `routers/phytate.py` (#51): `MAX_OBSERVATIONS_RETURNED = 20` was based on the wrong
+  premise (16 *distinct fraction types* exist) — real foods have up to 62 *repeated*
+  observations from independent source entries. Raised to 200; still a real ceiling
+  against bulk-export-shaped responses.
+- `076155f11b60_preserve_censored_compound_observations.py` migration (#48): the
+  pre-migration backfill labelled every existing row `measured`, including any stored
+  as literal `0` — now conditionally backfills `reported_zero` for those, matching
+  how new ingestion classifies the same value.
+- `+page.svelte` (#50): the `selected` branch never surfaced `phytate.explanation`
+  (so a food with some fractions declined gave no visible indication of partial
+  coverage), and `no_data` rendered nothing at all — inconsistent with this same
+  page's DIAAS/PDCAAS sections, which do surface an unavailable-reason message
+  rather than staying silent. Added the explanation line to the `selected` branch and
+  a `no_data` branch with a plain "not available yet" message.
+
+**P2s declined, with reasoning (behaviour unchanged):**
+- `source_licence_policy.py`: wiring `validate_source_licence_policy_coverage` into a
+  live check — still no real consumer reads unregistered compounds (Prompt 6/7's
+  `phytate_selection`/`routers/phytate.py` both go through the one registered
+  `phytate` compound). Adding a boot-time DB dependency for a check with nothing yet
+  to verify remains the wrong trade, per the original PR #47 reasoning.
+- `phytate_selection.py`: applying `preparation_compatible`/match-quality to
+  selection instead of just returning them as metadata. The module is deliberately
+  scope-limited (see its own docstring: not an absorption model, not a molar-ratio
+  calculator) to "what does the literature say, is it safe to report" — demoting
+  based on quality thresholds is a scoring decision, a different and larger piece of
+  design work, and `preparation_context` isn't wired from any caller yet (next
+  finding), so there's no live input to demote against regardless.
+- `+page.svelte` (#50): wiring an actual preparation-context UI control. No such
+  control was ever in scope for Prompts 6/7/8 — the query param and
+  `preparation_compatible` field exist for a future consumer. Left as dead-but-ready
+  plumbing rather than building an undocumented UI feature here.
+- `.github/workflows/ci.yml` (#51): adding stable-ID/catalogue validation to CI. There
+  is still no real `stable_id_mapping.csv` to validate (55 duplicate rows still block
+  generation — see "Third pass" above), and CI cannot run the real 1.4M-row FDC
+  catalogue regardless (sandbox limitation documented earlier in this file). Nothing
+  to wire up yet.
+
+Also reworded the "Staging validated" line in "Final report" above from an
+unqualified "yes" to explicitly state the rehearsal *mechanism* was validated but
+the rehearsal itself never completed end to end (bot-review finding on #51).
+
+Full backend suite (`python -m pytest`, all files) passes after every fix, including
+new/updated tests for the #49 subsumption scoping, the #45 manifest fingerprinting,
+and the #46 stable-ID mapping fixture shape. Frontend `svelte-check` passes clean.
+

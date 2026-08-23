@@ -207,10 +207,22 @@ def load_compound_observations(db: Session, compound: str, surface: str) -> Quer
     test_source_licence_policy_boundary.py's repository-level test, which
     fails if a new bare query appears outside this module's own
     allowlist. Raises SourceLicenceError before the query is even built
-    if `surface` isn't permitted for whichever source backs `compound`."""
+    if `surface` isn't permitted for whichever source backs `compound`.
+
+    Also filters on source_dataset_name == policy.source_name, not just
+    `compound` -- `compound` alone only tells you what was measured, not
+    which dataset measured it. A future second source for the same
+    compound name (a different phytate dataset with looser terms, say)
+    would otherwise have its rows authorized under PhyFoodComp's policy
+    just because COMPOUND_SOURCE_KEYS keys on compound, not on the
+    combination actually stored on each row."""
     source_key = source_key_for_compound(compound)
     check_surface_allowed(source_key, surface)
-    return db.query(CompoundObservation).filter(CompoundObservation.compound == compound)
+    policy = get_policy(source_key)
+    return db.query(CompoundObservation).filter(
+        CompoundObservation.compound == compound,
+        CompoundObservation.source_dataset_name == policy.source_name,
+    )
 
 
 def validate_source_licence_policy_coverage(db: Session) -> list[str]:
