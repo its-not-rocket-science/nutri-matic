@@ -107,6 +107,38 @@ export interface FoodProvenance {
 	nutrients: NutrientProvenance[];
 }
 
+/** One usable phytate observation for a food — see backend
+ * app.phytate_selection.SelectedObservation. `is_estimate` is true
+ * whenever match_relationship isn't a source-verified identity match
+ * (in practice always true today), so the UI can label every value as a
+ * category/analogue estimate rather than imply precision it doesn't have. */
+export interface PhytateObservation {
+	compound_fraction: string;
+	family: string;
+	value: number;
+	unit: string;
+	basis: string;
+	value_qualifier: string;
+	source_dataset_name: string;
+	source_dataset_citation: string;
+	analytical_method: string | null;
+	match_relationship: string;
+	match_confidence: number | null;
+	is_estimate: boolean;
+	preparation_compatible: boolean | null;
+	explanation: string;
+}
+
+export interface Phytate {
+	food_id: number;
+	status: 'no_data' | 'insufficient_data' | 'selected';
+	coverage: string;
+	explanation: string;
+	methodology_version: string;
+	observations: PhytateObservation[];
+	truncated: boolean;
+}
+
 export interface NutrientAmount {
 	key: string;
 	name: string;
