@@ -213,14 +213,26 @@ explicitly queries for it.
 - **Code complete**: yes, Prompts 1–8 (this PR) — resolver, transactional importer,
   licence policy, censored-value schema, selection service, free UI/API, CI
   additions, and this audit.
-- **Staging validated**: **partially** — as of 2026-08-23, `app.resolve_phytate_stable_ids`
-  has completed successfully against the real catalogue with zero exceptions (see
-  "First successful full stable-ID resolution against the real catalogue" below),
-  producing a real `stable_id_mapping.csv`. The reviewed-import step
-  (`app.import_reviewed_phytate_mappings`, remaining manual action 5) has not been
-  run against it yet, so "yes" would still overstate this — no full dry run
-  (resolve → reviewed import → selection) has completed end to end against the real
-  catalogue.
+- **Staging validated**: **yes**, as of 2026-08-24 — `app.resolve_phytate_stable_ids`
+  resolved the real catalogue with zero exceptions, and
+  `app.import_reviewed_phytate_mappings` (dry run) then reconciled the real workbook
+  against that mapping with zero blocked/unexpected rows (see the two dated sections
+  below). The full pipeline (resolve → reviewed import dry-run) has now completed end
+  to end against the real catalogue and real workbook. Not yet exercised: the
+  selection service (Prompt 6) against actually-imported data, since no `--apply` has
+  ever been run — that remains a real gap, just a different one than "the dry run has
+  never completed." **Correction (2026-08-24, bot review on PR #56):** `--apply` is
+  *not* technically gated on commercial permission at all — `validate_scope()` only
+  checks the `--scope` string against `ALLOWED_SCOPES`, never `source_licence_policy`'s
+  `licence_status`. An operator who ran `--apply` with `--scope
+  noncommercial_free_surface` and the two confirmation flags today would succeed
+  regardless of FAO's answer. The only thing preventing a real import right now is
+  documented manual procedure (this file, prompts.txt's non-negotiable constraint),
+  not a code-level fail-closed gate on the write path — see the module docstring's
+  own note that the writing side is deliberately out of `source_licence_policy`'s
+  scope, since it "never serve[s] a response to an end user." Manual action 9 should
+  be read accordingly: it is a discipline requirement on whoever runs the command, not
+  something the code currently enforces.
 - **Free personal surface enabled**: code-enabled (Prompt 7, PR #50), but **no real
   phytate data has been imported into any database that surface reads from** — the
   personal UI/API exist and are gated correctly, but there is nothing to show yet.
@@ -799,4 +811,50 @@ This closes remaining manual action 4 from the original Prompt 8 punch list. Nex
 (not done here): re-run `app.import_reviewed_phytate_mappings` in dry-run mode
 against this mapping and review the reconciliation report — see remaining manual
 action 5.
+
+## First successful dry-run reviewed import against the real workbook and catalogue (2026-08-24)
+
+Re-created the disposable-schema catalogue (same technique, same deterministic
+result — `considered=2,008,212 inserted=1,434,131`, identical to the resolver run
+above) specifically for this dry run, since the earlier schema had already been
+dropped. Ran `app.import_reviewed_phytate_mappings` (no `--apply`) against Paul's
+real `PhyFoodComp_1.0.xlsx` workbook, `docs/phytate-review/stable_id_mapping.csv`
+from the run above, and the seven signed review files:
+
+```
+parsed workbook: sheets=18 rows_considered=3377 rows_skipped_no_description=0
+                  censored_observations_built=245 observations_built=4186
+source_observations: 3377
+numeric_observations: 3941
+censored_observations: 245
+approved: 978
+replaced: 108
+rejected: 2717
+unresolved: 138
+auto_unresolved_censored: 245
+inserted: 4186
+updated: 0
+unchanged: 0
+blocked: 0
+unexpected: 0
+```
+
+**Zero blocked, zero unexpected — the first time the full pipeline (resolve →
+reviewed import) has ever completed end to end against the real catalogue and real
+workbook with no open problems.** Sanity-checked the arithmetic:
+`approved + replaced + rejected + unresolved` (978+108+2717+138) = `numeric_observations`
+(3941); `inserted` (4186) = `numeric_observations + censored_observations`
+(3941+245); `auto_unresolved_censored` (245) exactly equals `censored_observations`
+(245), confirming every censored row took the auto-policy path and none were
+double-counted into `unresolved`.
+
+Disposable schema dropped immediately after
+(`DROP SCHEMA phytate_import_dryrun_20260823 CASCADE`) — this was a dry run, no
+database write of any kind was attempted (no `--apply`), and no file on disk
+changed as a result (the reviewed importer only prints a report in dry-run mode).
+
+This closes remaining manual action 5. Remaining before a real production import
+(manual action 9): commercial permission from FAO (manual action 8, still
+`pending_commercial_permission`) — everything else on the punch list up through
+action 7 is now done.
 
