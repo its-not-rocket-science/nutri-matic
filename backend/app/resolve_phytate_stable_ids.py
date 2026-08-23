@@ -1,5 +1,7 @@
 """PROMPT 2 of the phytate/mineral-bioavailability extension (see
-prompts.txt) — resolves the 1,139 human-approved rows in
+prompts.txt) — resolves the human-approved rows (1,084 as of the
+2026-08-23 exclusion of 55 ambiguous branded-product duplicates; see
+docs/phytate-review/stable_id_duplicates_still_needing_review.csv) in
 docs/phytate-review/final_approved_mapping.csv (each an
 approved_fdc_food NAME string + candidate_data_type, not a stable
 identity) against the exact FDC catalogue that backed the review, and
