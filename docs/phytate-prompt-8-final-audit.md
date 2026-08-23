@@ -220,9 +220,19 @@ explicitly queries for it.
   below). The full pipeline (resolve → reviewed import dry-run) has now completed end
   to end against the real catalogue and real workbook. Not yet exercised: the
   selection service (Prompt 6) against actually-imported data, since no `--apply` has
-  ever been run (still correctly blocked on commercial permission, manual action 8) —
-  that remains a real gap, just a different one than "the dry run has never
-  completed."
+  ever been run — that remains a real gap, just a different one than "the dry run has
+  never completed." **Correction (2026-08-24, bot review on PR #56):** `--apply` is
+  *not* technically gated on commercial permission at all — `validate_scope()` only
+  checks the `--scope` string against `ALLOWED_SCOPES`, never `source_licence_policy`'s
+  `licence_status`. An operator who ran `--apply` with `--scope
+  noncommercial_free_surface` and the two confirmation flags today would succeed
+  regardless of FAO's answer. The only thing preventing a real import right now is
+  documented manual procedure (this file, prompts.txt's non-negotiable constraint),
+  not a code-level fail-closed gate on the write path — see the module docstring's
+  own note that the writing side is deliberately out of `source_licence_policy`'s
+  scope, since it "never serve[s] a response to an end user." Manual action 9 should
+  be read accordingly: it is a discipline requirement on whoever runs the command, not
+  something the code currently enforces.
 - **Free personal surface enabled**: code-enabled (Prompt 7, PR #50), but **no real
   phytate data has been imported into any database that surface reads from** — the
   personal UI/API exist and are gated correctly, but there is nothing to show yet.
