@@ -213,14 +213,14 @@ explicitly queries for it.
 - **Code complete**: yes, Prompts 1–8 (this PR) — resolver, transactional importer,
   licence policy, censored-value schema, selection service, free UI/API, CI
   additions, and this audit.
-- **Staging validated**: **partially** — the rehearsal *mechanism* (disposable schema,
-  real catalogue, real workbook) is validated, but the rehearsal itself never
-  completed end to end: it blocked at the stable-ID resolver stage on two concrete
-  open items (6 likely `candidate_data_type` slips, 202 duplicates needing overrides),
-  and a 245-row review-coverage gap (censored observations) would still block a full
-  reviewed import even once those resolve. "Yes" here would overstate this — no
-  successful full dry run (resolve → reviewed import → selection) has ever completed
-  against the real catalogue.
+- **Staging validated**: **partially** — as of 2026-08-23, `app.resolve_phytate_stable_ids`
+  has completed successfully against the real catalogue with zero exceptions (see
+  "First successful full stable-ID resolution against the real catalogue" below),
+  producing a real `stable_id_mapping.csv`. The reviewed-import step
+  (`app.import_reviewed_phytate_mappings`, remaining manual action 5) has not been
+  run against it yet, so "yes" would still overstate this — no full dry run
+  (resolve → reviewed import → selection) has completed end to end against the real
+  catalogue.
 - **Free personal surface enabled**: code-enabled (Prompt 7, PR #50), but **no real
   phytate data has been imported into any database that surface reads from** — the
   personal UI/API exist and are gated correctly, but there is nothing to show yet.
@@ -748,4 +748,55 @@ tool's own output file would violate the same "generated, not hand-massaged" rul
 `export_final_mapping.py`'s CI step exists to enforce. Whoever next runs the resolver
 for real will see the 53 excluded rows simply absent (zero new `duplicate` exceptions
 in their place) and the 2 Thomas Brothers rows resolved via the override.
+
+## First successful full stable-ID resolution against the real catalogue (2026-08-23)
+
+Paul supplied the real USDA FDC "Download Datasets" CSV exports locally
+(`data/foundation/`, `data/sr_legacy/`, `data/branded/`). Re-created the disposable
+Postgres schema technique from the Prompt 8 staging rehearsal (`CREATE SCHEMA
+phytate_resolver_20260823`, `alembic upgrade head` against it via
+`DATABASE_URL=...?options=-csearch_path%3Dphytate_resolver_20260823,public` — the
+shared local dev database's own `foods` table, 7,857 rows, was never touched), then
+ran `app.ingest_fdc` against all three directories:
+
+```
+considered=2,008,212 skipped_no_protein=574,081 inserted=1,434,131
+duplicate_barcode_skipped=1,078,970 nutrient_rows=14,097,639
+```
+
+Ran `app.resolve_phytate_stable_ids --acknowledge-new-catalogue-baseline` against
+that schema:
+
+```
+total rows: 1086
+resolved: 1086
+missing: 0
+duplicate (unresolved, needs override): 0
+stale (matched Food row has no fdc_id): 0
+override supplied but not among candidates: 0
+resolved via manual override: 149
+```
+
+**Zero exceptions — the first time this has ever resolved cleanly.** Wrote
+`docs/phytate-review/stable_id_mapping.csv` (1,086 rows) for real. Verified the two
+Thomas Brothers override rows resolved to `fdc_id=1807783` as intended.
+`stable_id_exceptions.csv` is now header-only (the 55 stale rows from the exclusion
+pass above are gone, correctly accounted for as 53 rejected + 2 resolved).
+
+Notably, `fdc_catalogue_manifest.json` needed **no changes at all** — the freshly
+computed checksum matched the one already committed exactly. The manifest's
+fingerprint is `(Food.id, Food.fdc_id, Food.name, Food.data_type)` per row; since
+`Food.id` is a fresh-schema auto-increment counter, re-ingesting the identical CSVs
+in the identical order into a fresh schema reproduces byte-identical IDs and
+therefore a byte-identical checksum. This is a real, independent confirmation that
+the catalogue identity backing the review has not drifted since it was first
+recorded — exactly the guarantee `check_catalogue_manifest` exists to provide.
+
+The disposable schema was dropped immediately after (`DROP SCHEMA ... CASCADE`) —
+nothing about this run touched the shared local dev database.
+
+This closes remaining manual action 4 from the original Prompt 8 punch list. Next
+(not done here): re-run `app.import_reviewed_phytate_mappings` in dry-run mode
+against this mapping and review the reconciliation report — see remaining manual
+action 5.
 
