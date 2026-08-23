@@ -681,7 +681,9 @@ def test_real_synthetic_workbook_reconciles_end_to_end(session, tmp_path):
     decisions, errors, _deferred = validate_and_consolidate(load_review_rows(review_dir))
     assert errors == []
 
-    stable_ids = {"42:IP6": StableTarget(food_id=food.id, fdc_id=777, catalogue_checksum="chk")}
+    stable_ids = {
+        "42:IP6": StableTarget(food_id=food.id, fdc_id=777, catalogue_checksum="chk", approved_fdc_food="Rice, white"),
+    }
 
     report, problems, plans = reconcile_rows(
         session, rows, adapter_stats, decisions, stable_ids,
