@@ -109,41 +109,20 @@ jobs:
         # workbook (see ingest_phytate.py's module docstring) nor any
         # tracked file shaped like PhyFoodComp source-row data may ever
         # enter this repository while source_licence_policy.py records
-        # redistribution_permitted=False/export_permitted=False. Checked
-        # directly against git's own tracked-file list (git ls-files),
-        # never the working tree, so a locally-present private artifact or
-        # build scratch file can't produce a false failure or a false pass.
+        # redistribution_permitted=False/export_permitted=False.
         #
-        # The PhyFoodComp-shaped check is a content/schema fingerprint, not
-        # a filename or extension check ("do not rely only on file
-        # extensions", PROMPT 9) — every one of the 14 files this PR
-        # untracks has both a food_description and a compound_fraction
-        # column in its header row; none of the CSVs deliberately kept
-        # public under docs/phytate-review/ (stable_id_exceptions.csv,
-        # stable_id_exceptions_resolved.csv,
-        # stable_id_duplicates_still_needing_review.csv) have either column,
-        # since those only ever carry FDC-side data and reviewer/resolver
-        # decision metadata, never the original source text or values —
-        # confirmed directly against all 17 tracked CSVs under
-        # docs/phytate-review/ before relying on this fingerprint.
-        run: |
-          if git ls-files | grep -iE '\.xlsx$'; then
-            echo "A tracked .xlsx file was found — the licensed PhyFoodComp workbook must never be committed."
-            exit 1
-          fi
-          offenders=""
-          for f in $(git ls-files -- '*.csv'); do
-            header=$(git show "HEAD:$f" | head -1)
-            if echo "$header" | grep -qi "food_description" && echo "$header" | grep -qi "compound_fraction"; then
-              offenders="$offenders $f"
-            fi
-          done
-          if [ -n "$offenders" ]; then
-            echo "Tracked CSV(s) contain the PhyFoodComp source-row column fingerprint (food_description + compound_fraction):$offenders"
-            echo "These must never be committed while redistribution_permitted=False in source_licence_policy.py -- see docs/phytate-review/PRIVATE_ARTIFACTS.md."
-            exit 1
-          fi
-          echo "No .xlsx files tracked, and no tracked CSV matches the PhyFoodComp source-row fingerprint."
+        # Inspects every tracked file's actual bytes (via git show, never
+        # the working tree) rather than filename/extension — a bot review
+        # finding on PR #57 correctly caught that an earlier version of
+        # this check only matched a case-sensitive "*.csv" pathspec and a
+        # literal ".xlsx" suffix, so the same prohibited data committed as
+        # "review.CSV", a .tsv, an extensionless file, or a workbook saved
+        # under any other extension would have passed silently. See
+        # .github/scripts/check_licensed_artifacts.py's own docstring for
+        # exactly what each of the two content-based checks does and why
+        # neither can false-positive on the CSVs deliberately kept public
+        # under docs/phytate-review/.
+        run: python3 .github/scripts/check_licensed_artifacts.py
       - name: Run backend tests (unit, API, security-regression, migrations)
         working-directory: backend
         # A single suite: tests/test_hardening_regression_suite.py and

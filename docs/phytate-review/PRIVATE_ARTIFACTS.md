@@ -64,12 +64,36 @@ python -m app.resolve_phytate_stable_ids --mapping-csv /path/to/final_approved_m
 python -m app.import_reviewed_phytate_mappings --review-dir /path/to/review/dir --stable-id-mapping /path/to/stable_id_mapping.csv ...
 ```
 
-If you already have these 14 files checked out locally from before this
-change, they remain exactly where they were — `git rm --cached` does not
-touch the working tree, only the index — and `.gitignore` now prevents
-`git add` from re-tracking them by accident. If you are setting up a fresh
-clone and need to run the resolver or reviewed importer against the real
-data, Paul supplies these files directly, out of band from git.
+**⚠ Back up these 14 files before you pull/merge this change into an
+existing clone, if that clone currently has them checked out clean (no
+local edits).** `git rm --cached` only protects the working tree *in the
+clone where that command was run* — the commit itself still records "this
+path no longer exists in the tree", and a clean working copy has nothing
+stopping git from applying that removal to disk during a normal
+fast-forward pull or merge. If your local copies are already git-dirty
+(modified, or already untracked from an earlier run of this same change),
+git will leave them alone; if they are clean/unmodified, they will be
+deleted from disk, not just from the index, the moment you update. Copy
+them somewhere outside the repository first if you're not certain:
+
+```
+cp docs/phytate-review/{final_approved_mapping,stable_id_mapping,review_*,prompt3b_bug_evidence_and_fixtures}.csv /somewhere/safe/
+cp -r docs/phytate-review/pre-3b-baseline /somewhere/safe/
+```
+
+After updating, `.gitignore` prevents `git add` from re-tracking these
+paths by accident, and every tool that reads them already accepts an
+explicit path, defaulting to the same `docs/phytate-review/` location
+they used to live in when tracked:
+
+```
+python -m app.resolve_phytate_stable_ids --mapping-csv /path/to/final_approved_mapping.csv ...
+python -m app.import_reviewed_phytate_mappings --review-dir /path/to/review/dir --stable-id-mapping /path/to/stable_id_mapping.csv ...
+```
+
+If you are setting up a fresh clone and need to run the resolver or
+reviewed importer against the real data, Paul supplies these files
+directly, out of band from git.
 
 ## What this PR does *not* do
 
