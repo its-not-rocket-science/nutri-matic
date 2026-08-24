@@ -192,7 +192,7 @@ allowlist plus a `grep -ri phytate` sweep of `backend/app`:
 | `GET /api/foods/{id}/phytate` (`routers/phytate.py`) | `personal_free_internal_api` | **Allowed** — the only serving endpoint that exists |
 | `app.phytate_selection.select_phytate_observations` | caller-supplied, enforced via `load_compound_observations` | Allowed only for `personal_free_ui` / `personal_free_internal_api` / `internal_research_or_admin`; raises `SourceLicenceError` for anything else |
 | `app.ingest_phytate` (automated write path) | n/a — never serves a response | Out of scope for the surface gate; writes only |
-| `app.import_reviewed_phytate_mappings` (reviewed write path) | `--scope` CLI flag, independently fail-closed | Out of scope for the surface gate; writes only, and separately refuses any scope but `noncommercial_free_surface` |
+| `app.import_reviewed_phytate_mappings` (reviewed write path) | `--destination-surface` CLI flag, checked via `check_surface_allowed` (same function the read boundary uses) | Writes only, never serves a response; `--apply` additionally requires `check_deployment_permits_write` (this deployment's `DEPLOYMENT_PERMITTED_SURFACES`) — see "Make the import write path actually consult the licence policy" below (2026-08-24, PROMPT 10) |
 | `app.resolve_phytate_stable_ids` | n/a — read-only, no serving | Never touches `CompoundObservation`, only `Food`/`ImportManifest` |
 | Personal diary/meal UI | — | **Not wired to phytate at all** — no reference found |
 | Recommendation engines (`recommend_*.py`, `recommendations.py`) | — | **Not wired** — no reference found |
@@ -221,18 +221,18 @@ explicitly queries for it.
   to end against the real catalogue and real workbook. Not yet exercised: the
   selection service (Prompt 6) against actually-imported data, since no `--apply` has
   ever been run — that remains a real gap, just a different one than "the dry run has
-  never completed." **Correction (2026-08-24, bot review on PR #56):** `--apply` is
-  *not* technically gated on commercial permission at all — `validate_scope()` only
-  checks the `--scope` string against `ALLOWED_SCOPES`, never `source_licence_policy`'s
-  `licence_status`. An operator who ran `--apply` with `--scope
-  noncommercial_free_surface` and the two confirmation flags today would succeed
-  regardless of FAO's answer. The only thing preventing a real import right now is
-  documented manual procedure (this file, prompts.txt's non-negotiable constraint),
-  not a code-level fail-closed gate on the write path — see the module docstring's
-  own note that the writing side is deliberately out of `source_licence_policy`'s
-  scope, since it "never serve[s] a response to an end user." Manual action 9 should
-  be read accordingly: it is a discipline requirement on whoever runs the command, not
-  something the code currently enforces.
+  never completed." **Correction (2026-08-24, bot review on PR #56):** at the time
+  this was written, `--apply` was *not* technically gated on commercial permission at
+  all — `validate_scope()` only checked the `--scope` string against `ALLOWED_SCOPES`,
+  never `source_licence_policy`'s `licence_status`. **Since fixed (2026-08-24, PROMPT
+  10, see the dated section below):** the importer no longer has its own scope
+  allowlist. `--scope` is gone; `--destination-surface` is now checked via
+  `source_licence_policy.check_surface_allowed` (the same function the read boundary
+  uses), and `--apply` additionally requires the destination surface to be declared
+  in this deployment's own `DEPLOYMENT_PERMITTED_SURFACES` configuration. Manual
+  action 9 remains a discipline requirement in the sense that the operator still must
+  run the command correctly and supply the confirmation flags, but the write path now
+  genuinely consults the licence policy rather than only claiming to.
 - **Free personal surface enabled**: code-enabled (Prompt 7, PR #50), but **no real
   phytate data has been imported into any database that surface reads from** — the
   personal UI/API exist and are gated correctly, but there is nothing to show yet.
@@ -857,4 +857,53 @@ This closes remaining manual action 5. Remaining before a real production import
 (manual action 9): commercial permission from FAO (manual action 8, still
 `pending_commercial_permission`) — everything else on the punch list up through
 action 7 is now done.
+
+## Make the import write path actually consult the licence policy (2026-08-24, PROMPT 10)
+
+Fixed the gap noted in "Final report" above: `import_reviewed_phytate_mappings.py`'s
+`--scope` flag never consulted `app.source_licence_policy` at all, despite that
+module's own docstring claiming the write side "already fail[s] closed on their own
+licensing gate". Removed `ALLOWED_SCOPES`/`DENIED_SCOPES`/`validate_scope` entirely.
+`--destination-surface` (replacing `--scope`) is now checked via
+`source_licence_policy.check_surface_allowed` — the exact function the read boundary
+(`require_surface`/`load_compound_observations`) already uses, so serving rules and
+import rules can no longer drift apart from each other. Checked in both dry-run and
+`--apply`; dry-run stays available for any currently-permitted surface (including
+`internal_research_or_admin`) since it never writes regardless.
+
+Added a second, independent write-time safeguard: `--apply` also requires
+`check_deployment_permits_write`, which checks this deployment's own
+`DEPLOYMENT_PERMITTED_SURFACES` environment configuration declares the destination
+surface. A CLI operator's own `--destination-surface` claim can never be sufficient
+on its own to authorise a write, since the CLI has no way to verify what the database
+it's writing into will actually be used to serve later. Read-time enforcement remains
+the ultimate enforcement point regardless of import metadata — this is defense in
+depth on the write path, not a replacement for it.
+
+Added `CompoundImportAuditRecord` (migration `473bba7cef14`): an immutable row per
+successful `--apply`, written inside the same transaction as the observations it
+accounts for. **Bot review on PR #58 caught two real gaps in the first version of
+this work, both fixed before merge:**
+
+1. **`DEPLOYMENT_PERMITTED_SURFACES` was never actually wired into the real
+   deployment** (`docker-compose.yml`'s `backend` service never set it), meaning
+   `--apply` would have failed closed for every surface in the actual deployed
+   environment, including the free surfaces this deployment genuinely does serve.
+   Fixed by declaring `personal_free_ui,personal_free_internal_api` directly in
+   `docker-compose.yml` — a fixed value, not shell-interpolated with an empty
+   default like `CORS_ORIGINS`/`TRUSTED_PROXY_HOP_COUNT`, since this isn't a
+   deployment-specific secret but a stable architectural fact: nutri-matic only ever
+   runs as the ordinary personal free product.
+2. **"Immutable" was previously only a documentation/docstring claim** — the table
+   was an ordinary table with no technical enforcement, so any application bug or
+   maintenance script could alter or delete a recorded licence status after the
+   fact. Fixed with real database-level enforcement: a Postgres `BEFORE UPDATE`/
+   `BEFORE DELETE` trigger on `compound_import_audit_records` that raises on any
+   attempt to modify or remove a row, regardless of whether the write comes through
+   the ORM or raw SQL. Verified directly (real `INSERT` followed by a real `UPDATE`
+   and a real `DELETE` against a disposable schema, both correctly rejected by the
+   trigger, not just by application-level code).
+
+A third P2 (stale `--scope` references in this document's own tables above) is fixed
+by this section and the edits directly above it.
 
