@@ -26,7 +26,9 @@ from app.source_licence_policy import (
     SURFACE_PROFESSIONAL_DASHBOARD,
     SURFACE_PUBLIC_API,
     SourceLicenceError,
+    check_deployment_permits_write,
     check_surface_allowed,
+    deployment_permitted_surfaces,
     get_policy,
     load_compound_observations,
     require_surface,
@@ -229,3 +231,44 @@ def test_coverage_check_flags_an_unregistered_compound(session):
     warnings = validate_source_licence_policy_coverage(session)
     assert len(warnings) == 1
     assert "some_new_compound_nobody_registered" in warnings[0]
+
+
+# ---- deployment-level write safeguard (prompts.txt PROMPT 10) -------------
+
+def test_deployment_permitted_surfaces_is_empty_when_env_var_unset(monkeypatch):
+    monkeypatch.delenv("DEPLOYMENT_PERMITTED_SURFACES", raising=False)
+    assert deployment_permitted_surfaces() == frozenset()
+
+
+def test_deployment_permitted_surfaces_parses_comma_separated_list(monkeypatch):
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", f" {SURFACE_PERSONAL_FREE_UI} ,{SURFACE_PERSONAL_FREE_INTERNAL_API},")
+    assert deployment_permitted_surfaces() == {SURFACE_PERSONAL_FREE_UI, SURFACE_PERSONAL_FREE_INTERNAL_API}
+
+
+def test_deployment_write_check_fails_closed_when_env_var_unset(monkeypatch):
+    """Unset must mean "no surfaces declared", never "assume the policy's
+    permitted set" or "assume everything" -- a deployment must explicitly
+    opt in."""
+    monkeypatch.delenv("DEPLOYMENT_PERMITTED_SURFACES", raising=False)
+    with pytest.raises(SourceLicenceError):
+        check_deployment_permits_write(PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_UI)
+
+
+def test_deployment_write_check_fails_when_deployment_declares_a_different_surface(monkeypatch):
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", SURFACE_PERSONAL_FREE_INTERNAL_API)
+    with pytest.raises(SourceLicenceError):
+        check_deployment_permits_write(PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_UI)
+
+
+def test_deployment_write_check_fails_when_policy_prohibits_the_surface_even_if_deployment_declares_it(monkeypatch):
+    """The deployment-level check is additive, not a replacement -- a
+    surface SOURCE_LICENCE_POLICIES prohibits stays refused even if this
+    deployment's own configuration (incorrectly) declares it."""
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", SURFACE_ENTERPRISE_BATCH)
+    with pytest.raises(SourceLicenceError):
+        check_deployment_permits_write(PHYFOODCOMP_1_0, SURFACE_ENTERPRISE_BATCH)
+
+
+def test_deployment_write_check_passes_when_both_policy_and_deployment_agree(monkeypatch):
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", SURFACE_PERSONAL_FREE_UI)
+    check_deployment_permits_write(PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_UI)  # does not raise

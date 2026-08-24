@@ -15,6 +15,23 @@ Consumes, together, never separately:
   5. explicit dataset citation/version/access-date metadata, passed on
      the command line, never defaulted.
 
+Licensing (prompts.txt PROMPT 10): --destination-surface is checked
+against app.source_licence_policy.SOURCE_LICENCE_POLICIES via
+check_surface_allowed in both dry-run and --apply modes -- the same
+function the read boundary (require_surface/load_compound_observations)
+uses, not a second parallel copy of the rule an earlier version of this
+module kept (a plain --scope string checked only against a small
+hard-coded set in this file, never actually consulting the policy
+module at all). --apply additionally requires
+check_deployment_permits_write, which also checks this deployment's own
+DEPLOYMENT_PERMITTED_SURFACES environment configuration -- a CLI
+operator's --destination-surface claim alone can never be sufficient to
+authorise a write, since the CLI has no way to verify what the database
+it's writing into will actually be used to serve. A successful --apply
+records an immutable CompoundImportAuditRecord row in the same
+transaction as the observations it accounts for; dry-run never writes
+one, matching its own "never writes anything, ever" guarantee.
+
 This module never imports app.stock_recipes.food_matching and never
 calls match_ingredient — a reviewed observation's target comes only
 from the stable-ID mapping (approve/replace) or is nulled (reject/
@@ -73,10 +90,24 @@ from sqlalchemy.orm import Session
 
 from .catalogue_manifest import compute_fdc_catalogue_manifest
 from .database import SessionLocal
-from .models import CompoundObservation, Food
+from .models import CompoundImportAuditRecord, CompoundObservation, Food
 from .phyfoodcomp_adapter import load_phyfoodcomp_workbook
+from .source_licence_policy import (
+    PHYFOODCOMP_1_0,
+    KNOWN_SURFACES,
+    SourceLicenceError,
+    check_deployment_permits_write,
+    check_surface_allowed,
+    get_policy,
+)
 
 COMPOUND = "phytate"
+
+# Bump if the fields this importer records to CompoundImportAuditRecord
+# ever change meaning -- same incompatible-fingerprint-versioning
+# convention as catalogue_manifest.IMPORTER_VERSION and
+# phytate_selection.POLICY_VERSION.
+IMPORTER_VERSION = "phytate-reviewed-import-v1"
 
 # Human-readable Decision.source_file label for a CENSORED_ROW_AUTO_
 # POLICY synthetic decision -- display only. The actual "is this an
@@ -116,17 +147,6 @@ CATEGORY_PROXY_CONFIDENCE = 0.65
 # transcription error.
 VALUE_TOLERANCE_RELATIVE = 1e-6
 VALUE_TOLERANCE_FLOOR = 1e-9
-
-# The only import scope this command currently permits, per prompts.txt's
-# fail-closed licensing rule: FAO has not granted commercial-use
-# permission, so every commercial/paid/professional/enterprise surface
-# is refused explicitly rather than defaulted into. Not a set the caller
-# can extend from the command line -- widening this requires reviewing
-# FAO's actual written terms and editing this constant deliberately, not
-# passing a new flag value.
-ALLOWED_SCOPES = {"noncommercial_free_surface"}
-DENIED_SCOPES = {"paid", "professional", "enterprise", "commercial_api"}
-
 
 @dataclass
 class Decision:
@@ -332,20 +352,6 @@ def compute_file_checksum(path: Path) -> str:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             hasher.update(chunk)
     return hasher.hexdigest()
-
-
-def validate_scope(scope: str) -> str | None:
-    """Returns an error message if `scope` is not currently permitted,
-    None if it is. Never returns None for anything outside
-    ALLOWED_SCOPES -- an unrecognised scope fails closed exactly like an
-    explicitly denied one, per prompts.txt's fail-closed default."""
-    if scope in ALLOWED_SCOPES:
-        return None
-    reason = "explicitly denied" if scope in DENIED_SCOPES else "not a recognised scope"
-    return (
-        f"import scope {scope!r} is {reason}. Only {sorted(ALLOWED_SCOPES)} is currently permitted "
-        "while FAO commercial-use permission remains unresolved."
-    )
 
 
 def check_apply_confirmation(
@@ -637,9 +643,10 @@ def main() -> None:
     parser.add_argument("--dataset-version", required=True)
     parser.add_argument("--access-date", required=True, help="YYYY-MM-DD")
     parser.add_argument(
-        "--scope", required=True,
-        help="Import scope. Only 'noncommercial_free_surface' is currently permitted -- see prompts.txt's "
-             "fail-closed licensing rule; FAO has not granted commercial-use permission.",
+        "--destination-surface", required=True, choices=sorted(KNOWN_SURFACES),
+        help="Which app.source_licence_policy surface this run's data is destined for -- checked against "
+             "SOURCE_LICENCE_POLICIES (same rule the read boundary enforces, not a separate copy of it) and, "
+             "with --apply, against this deployment's own DEPLOYMENT_PERMITTED_SURFACES configuration too.",
     )
     parser.add_argument("--apply", action="store_true", help="Without this, always a dry run (the default).")
     parser.add_argument(
@@ -653,9 +660,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    scope_error = validate_scope(args.scope)
-    if scope_error:
-        print(f"ERROR: {scope_error}", file=sys.stderr)
+    # Checked in both dry-run and --apply modes -- dry-run stays available
+    # for any currently-permitted surface (including
+    # internal_research_or_admin, prompts.txt PROMPT 10 requirement 1),
+    # since it never writes regardless of which surface was declared.
+    try:
+        check_surface_allowed(PHYFOODCOMP_1_0, args.destination_surface)
+    except SourceLicenceError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
     xlsx_path = Path(args.xlsx)
@@ -734,8 +746,37 @@ def main() -> None:
             print(f"ERROR: {confirmation_error}", file=sys.stderr)
             sys.exit(1)
 
+        # The write-path-specific check (prompts.txt PROMPT 10): unlike
+        # check_surface_allowed above, this also requires the deployment's
+        # own DEPLOYMENT_PERMITTED_SURFACES configuration to declare
+        # destination_surface -- an operator's flag alone is never
+        # sufficient to authorise an actual write. Checked only here, not
+        # for dry-run, since dry-run never writes regardless.
+        try:
+            check_deployment_permits_write(PHYFOODCOMP_1_0, args.destination_surface)
+        except SourceLicenceError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(1)
+
         try:
             apply_plans(db, plans)
+            # The immutable audit row lives in the same transaction as the
+            # observations it accounts for -- a rollback below undoes both
+            # together, and a successful commit never lacks one. See
+            # CompoundImportAuditRecord's own docstring for why this is
+            # never written on a dry run.
+            db.add(CompoundImportAuditRecord(
+                compound=COMPOUND,
+                source_key=PHYFOODCOMP_1_0,
+                dataset_version=args.dataset_version,
+                licence_status_at_import=get_policy(PHYFOODCOMP_1_0).licence_status,
+                destination_surface=args.destination_surface,
+                workbook_checksum=workbook_checksum,
+                catalogue_checksum=actual_manifest.checksum,
+                importer_version=IMPORTER_VERSION,
+                operator_confirmed_dataset_version=args.confirm_dataset_version,
+                operator_confirmed_workbook_checksum=args.confirm_workbook_checksum,
+            ))
             db.commit()
         except Exception:
             db.rollback()

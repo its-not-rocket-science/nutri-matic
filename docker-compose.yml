@@ -73,6 +73,26 @@ services:
       # proxy hops actually in front of the app; see DEPLOYMENT.md and
       # docs/rate-limiting.md.
       TRUSTED_PROXY_HOP_COUNT: ${TRUSTED_PROXY_HOP_COUNT:-0}
+      # prompts.txt PROMPT 10: which app.source_licence_policy surfaces
+      # THIS deployment is actually provisioned to serve -- consulted by
+      # app.import_reviewed_phytate_mappings' --apply (via
+      # check_deployment_permits_write) as a second, deployment-bound
+      # safeguard independent of whatever an operator types on the
+      # command line. Fixed, not shell-interpolated with a `${VAR:-}`
+      # empty default like CORS_ORIGINS/TRUSTED_PROXY_HOP_COUNT above --
+      # this isn't a deployment-specific secret or topology fact, it's a
+      # stable architectural fact about this app: nutri-matic only ever
+      # runs as the ordinary personal free product (see Prompt 4/7's
+      # plan-parity requirement, and prompts.txt's own point that a
+      # Professional dashboard, Enterprise/batch tool, and paid-export
+      # service don't exist as separate deployments of this codebase at
+      # all). A bot-review finding on PR #58 caught that this was never
+      # wired in here, meaning `--apply` would always fail closed for
+      # every surface, including the ones this deployment genuinely does
+      # serve -- an unset env var here isn't a safe residual default,
+      # it's a broken one, so the fix is to declare the truth once, not
+      # to relax the check.
+      DEPLOYMENT_PERMITTED_SURFACES: "personal_free_ui,personal_free_internal_api"
     ports:
       - "8000:8000"
     depends_on:
