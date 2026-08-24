@@ -233,6 +233,64 @@ def test_coverage_check_flags_an_unregistered_compound(session):
     assert "some_new_compound_nobody_registered" in warnings[0]
 
 
+def test_coverage_check_flags_a_known_compound_with_unregistered_source_dataset_name(session):
+    """PROMPT 13 requirement 3: coverage is keyed on (compound,
+    source_dataset_name), not compound alone -- a registered compound
+    stored under a dataset name nobody registered a policy for must still
+    fail closed, not silently pass because "phytate" alone is known."""
+    session.add(_observation(source_row_identifier="1", source_dataset_name="SomeOtherPhytateDataset"))
+    session.commit()
+    warnings = validate_source_licence_policy_coverage(session)
+    assert len(warnings) == 1
+    assert "SomeOtherPhytateDataset" in warnings[0]
+
+
+def test_coverage_check_evaluates_a_second_source_for_the_same_compound_separately(session):
+    """A second, unregistered source for "phytate" must not inherit
+    PhyFoodComp's coverage just because the first source for that
+    compound is registered -- each (compound, source_dataset_name) pair
+    stands on its own."""
+    session.add(_observation(source_row_identifier="1"))  # registered: phytate / PhyFoodComp1.0
+    session.add(_observation(source_row_identifier="2", source_dataset_name="SecondPhytateSource"))
+    session.commit()
+    warnings = validate_source_licence_policy_coverage(session)
+    assert len(warnings) == 1
+    assert "SecondPhytateSource" in warnings[0]
+
+
+def test_coverage_check_flags_prohibited_surface_exposed_by_deployment_config(session, monkeypatch):
+    """Requirement 2's second clause: healthy compound/source coverage
+    isn't enough if this deployment's own DEPLOYMENT_PERMITTED_SURFACES
+    declares a surface PhyFoodComp's policy prohibits."""
+    session.add(_observation(source_row_identifier="1"))
+    session.commit()
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", SURFACE_ENTERPRISE_BATCH)
+    warnings = validate_source_licence_policy_coverage(session)
+    assert len(warnings) == 1
+    assert SURFACE_ENTERPRISE_BATCH in warnings[0]
+
+
+def test_coverage_check_passes_on_a_permitted_deployment_profile(session, monkeypatch):
+    session.add(_observation(source_row_identifier="1"))
+    session.commit()
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", SURFACE_PERSONAL_FREE_UI)
+    assert validate_source_licence_policy_coverage(session) == []
+
+
+# ---- source_key_for_compound: fails closed on ambiguity too ---------------
+
+def test_source_key_for_compound_fails_closed_when_two_sources_registered(monkeypatch):
+    """PROMPT 13: if a future second phytate source is ever added to
+    COMPOUND_SOURCE_KEYS without updating every compound-only call site,
+    this must become an explicit failure, never a silent pick of
+    whichever entry happens to be registered first."""
+    import app.source_licence_policy as policy_module
+
+    monkeypatch.setitem(policy_module.COMPOUND_SOURCE_KEYS, ("phytate", "SecondPhytateSource"), "second_phytate_source_1_0")
+    with pytest.raises(SourceLicenceError):
+        source_key_for_compound("phytate")
+
+
 # ---- deployment-level write safeguard (prompts.txt PROMPT 10) -------------
 
 def test_deployment_permitted_surfaces_is_empty_when_env_var_unset(monkeypatch):
