@@ -36,6 +36,20 @@ from io import BytesIO
 
 FINGERPRINT_MARKERS = ("food_description", "compound_fraction")
 
+# Explicit, individually-reviewed synthetic fixtures that legitimately
+# share the same column shape as real PhyFoodComp source-row data by
+# design (prompts.txt PROMPT 12: they exist specifically so public CI can
+# test the stable-ID mapping validator's structural checks without the
+# real private artifact). This is exactly the exception prompts.txt
+# PROMPT 9 itself names ("while allowing explicitly named synthetic
+# fixtures") — an exact, individually-reviewed path list, not a pattern
+# or a directory-wide exemption, and each entry's content was read and
+# confirmed fabricated (not derived from the real workbook in any way)
+# before being added here.
+ALLOWED_SYNTHETIC_FIXTURES = frozenset({
+    "backend/tests/fixtures/synthetic_stable_id_mapping.csv",
+})
+
 
 def tracked_files() -> list[str]:
     result = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
@@ -76,7 +90,7 @@ def main() -> None:
             continue  # e.g. a submodule gitlink entry, not a blob
         if is_ooxml_spreadsheet(data):
             workbook_offenders.append(path)
-        if has_source_row_fingerprint(data):
+        if has_source_row_fingerprint(data) and path not in ALLOWED_SYNTHETIC_FIXTURES:
             source_row_offenders.append(path)
 
     if workbook_offenders:

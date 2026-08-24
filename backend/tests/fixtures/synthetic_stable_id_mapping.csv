@@ -1,0 +1,3 @@
+row_identifier,food_description,compound_fraction,value,food_id,fdc_id,approved_fdc_food,data_type,review_verdict,match_scope,reviewer,review_date,review_notes,catalogue_checksum
+00000001:IP6,"Synthetic test food, whole grain",IP6,12.3,1,100001,"Synthetic Foundation Grain, raw",sr_legacy_food,approve,category_estimate,Test Reviewer,01/01/2026,Clean genus+prep match.,synthetic0000000000000000000000000000000000000000000000000000000000000000
+00000002:PHYTCPPI,"Synthetic test food, legume",PHYTCPPI,45.6,2,100002,"Synthetic Legume, cooked",sr_legacy_food,replace,category_estimate,Test Reviewer,01/01/2026,Original candidate rejected; better match substituted.,synthetic0000000000000000000000000000000000000000000000000000000000000000

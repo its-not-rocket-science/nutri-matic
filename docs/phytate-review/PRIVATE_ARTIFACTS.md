@@ -50,6 +50,7 @@ does not attempt to fix — see "What this PR does *not* do" below.
 | `stable_id_exceptions_resolved.csv` | **No** — `row_identifier, chosen_fdc_id, resolver_note`; notes reference only FDC-side nutrient/GTIN data | Yes — resolver override input | Yes (FDC data only) |
 | `stable_id_duplicates_still_needing_review.csv` | **No** — FDC candidate names, GTINs, and FDC nutrient values only | No — audit trail from manual duplicate resolution | Yes (FDC data only) |
 | `fdc_catalogue_manifest.json` | **No** — a checksum, row count, and dates | Yes — catalogue drift detection | N/A — a fingerprint, not source data |
+| `stable_id_mapping_digest.json` (PROMPT 12) | **No** — a SHA-256 digest, row count, and schema version | No — audit/drift-detection only | N/A — a fingerprint of the real mapping's bytes, not the mapping itself; see `app.validate_stable_id_mapping` |
 | `check_consistency.py`, `export_*.py`, `review_helper.py` | **No** — code | Yes (tooling) | N/A |
 | `phytate-review-protocol.txt` | **No** — procedural instructions | No | N/A |
 
