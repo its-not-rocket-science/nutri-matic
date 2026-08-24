@@ -21,18 +21,26 @@ Two deliberately separate things:
     catch "the real mapping changed" without ever containing the mapping
     itself.
 
-Full catalogue verification — recomputing the catalogue checksum and
-checking every Food.id/fdc_id pair against the live FDC catalogue with
-zero fuzzy/name fallback, read-only — is deliberately NOT duplicated
-here: that is exactly what app.resolve_phytate_stable_ids already does
-(see its resolved/missing/duplicate/stale/override-mismatch report), and
-it already satisfies PROMPT 12's requirement 4 as-is. This module is
-downstream of that: it validates the *shape* of what the resolver
-already produced, never re-resolves anything itself.
+  - `verify_against_live_catalogue`: full catalogue verification
+    (requirement 4) — for every row already present in a *given*
+    stable-ID mapping file, looks up `Food.id` directly and checks
+    `Food.fdc_id` matches exactly. Zero name lookup, zero fuzzy matching.
+    A bot-review finding on PR #60 correctly caught that
+    app.resolve_phytate_stable_ids does NOT do this: it reads
+    `final_approved_mapping.csv` (approved-name/data_type pairs) and
+    resolves fresh `food_id`/`fdc_id` targets by name from scratch — it
+    never loads an *existing* `stable_id_mapping.csv` and confirms its
+    specific recorded pairs are still valid. An operator who hand-altered
+    a `food_id`/`fdc_id` pair in the committed digest's covered file (and
+    updated the digest to match) would have that tampering caught here,
+    not by re-running the resolver, which would just silently regenerate
+    a fresh, correct file over it without ever having examined the
+    altered pair.
 
 Usage (an authorised operator, with the real private mapping file
 present locally):
     python -m app.validate_stable_id_mapping --mapping-csv docs/phytate-review/stable_id_mapping.csv
+    python -m app.validate_stable_id_mapping --mapping-csv docs/phytate-review/stable_id_mapping.csv --verify-live-catalogue
 """
 
 import argparse
@@ -44,6 +52,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
+from .database import SessionLocal
+from .models import Food
 from .resolve_phytate_stable_ids import MAPPING_OUT_COLUMNS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -116,6 +128,34 @@ def validate_structure(rows: list[dict]) -> list[str]:
     return problems
 
 
+def verify_against_live_catalogue(db: Session, rows: list[dict]) -> list[str]:
+    """Requirement 4, done for real: for every row already in a *given*
+    stable-ID mapping file, look up Food.id directly and confirm
+    Food.fdc_id matches exactly. Zero name lookup, zero fuzzy fallback --
+    the opposite of resolve_phytate_stable_ids, which never sees this
+    file at all and instead resolves fresh targets by name from
+    final_approved_mapping.csv. Reports every mismatch, never stops at
+    the first (same convention as validate_structure)."""
+    problems: list[str] = []
+    for row in rows:
+        rid = row["row_identifier"]
+        food_id_raw, fdc_id_raw = row["food_id"].strip(), row["fdc_id"].strip()
+        if not food_id_raw.isdigit() or not fdc_id_raw.isdigit():
+            problems.append(f"{rid}: food_id/fdc_id not numeric, skipping live check ({food_id_raw!r}/{fdc_id_raw!r})")
+            continue
+        food_id, fdc_id = int(food_id_raw), int(fdc_id_raw)
+
+        food = db.get(Food, food_id)
+        if food is None:
+            problems.append(f"{rid}: food_id={food_id} does not exist in the live catalogue")
+        elif food.fdc_id != fdc_id:
+            problems.append(
+                f"{rid}: food_id={food_id} has fdc_id={food.fdc_id} in the live catalogue, "
+                f"mapping records fdc_id={fdc_id} -- mismatch"
+            )
+    return problems
+
+
 @dataclass(frozen=True)
 class MappingIntegrityDigest:
     row_count: int
@@ -156,6 +196,11 @@ def main() -> None:
         help="Write the freshly-computed digest to --digest-file. Without this, only compares against "
              "whatever digest is already recorded there (if any) and reports drift.",
     )
+    parser.add_argument(
+        "--verify-live-catalogue", action="store_true",
+        help="Also check every row's food_id/fdc_id pair directly against the live database (requires "
+             "DB access). Zero fuzzy/name fallback -- exact Food.id lookup, exact fdc_id equality.",
+    )
     args = parser.parse_args()
 
     mapping_csv = Path(args.mapping_csv)
@@ -176,6 +221,19 @@ def main() -> None:
         sys.exit(1)
     print(f"Structure OK: {len(rows)} rows, all required columns present, no duplicates, sorted, consistent checksum.")
 
+    if args.verify_live_catalogue:
+        db = SessionLocal()
+        try:
+            live_problems = verify_against_live_catalogue(db, rows)
+        finally:
+            db.close()
+        if live_problems:
+            print(f"\n{len(live_problems)} live-catalogue problem(s) found:", file=sys.stderr)
+            for p in live_problems[:30]:
+                print(f"  {p}", file=sys.stderr)
+            sys.exit(1)
+        print(f"Live catalogue OK: all {len(rows)} food_id/fdc_id pairs verified exactly against the live Food table.")
+
     actual_digest = compute_mapping_integrity_digest(mapping_csv)
     print(f"Digest: {actual_digest.digest} (row_count={actual_digest.row_count})")
 
@@ -194,11 +252,11 @@ def main() -> None:
         write_digest(digest_file, actual_digest)
         print(f"Wrote digest to {digest_file}")
 
-    print(
-        "\nThis only validates the mapping file's own shape. It does NOT verify fdc_id/Food.id pairs against "
-        "the live FDC catalogue -- run app.resolve_phytate_stable_ids against the real catalogue for that "
-        "(see its resolved/missing/duplicate/stale/override-mismatch report)."
-    )
+    if not args.verify_live_catalogue:
+        print(
+            "\nThis run only validated the mapping file's own shape. It did NOT verify fdc_id/Food.id pairs "
+            "against the live FDC catalogue -- pass --verify-live-catalogue for that."
+        )
 
 
 if __name__ == "__main__":

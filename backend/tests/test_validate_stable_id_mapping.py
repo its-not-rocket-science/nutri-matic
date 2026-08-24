@@ -6,16 +6,23 @@ requirement that ordinary public CI needs neither the real FDC catalogue
 nor real PhyFoodComp artifacts."""
 
 import csv
+import json
+import re
 from pathlib import Path
 
 from app.resolve_phytate_stable_ids import MAPPING_OUT_COLUMNS
 from app.validate_stable_id_mapping import (
+    DEFAULT_DIGEST_FILE,
+    SCHEMA_VERSION,
     compute_mapping_integrity_digest,
     validate_structure,
+    verify_against_live_catalogue,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 SYNTHETIC_MAPPING = FIXTURES_DIR / "synthetic_stable_id_mapping.csv"
+
+SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _row(**overrides):
@@ -137,3 +144,72 @@ def test_digest_changes_when_file_content_changes(tmp_path):
     digest2 = compute_mapping_integrity_digest(p)
 
     assert digest1.digest != digest2.digest
+
+
+# ---- verify_against_live_catalogue -----------------------------------------
+
+class _FakeFood:
+    def __init__(self, id, fdc_id):
+        self.id = id
+        self.fdc_id = fdc_id
+
+
+class _FakeDb:
+    """Minimal stand-in for a Session -- only .get(Food, id) is used."""
+
+    def __init__(self, foods_by_id):
+        self._foods_by_id = foods_by_id
+
+    def get(self, _model, food_id):
+        return self._foods_by_id.get(food_id)
+
+
+def test_verify_against_live_catalogue_matching_pair_is_clean():
+    db = _FakeDb({1: _FakeFood(id=1, fdc_id=100001)})
+    rows = [_row(row_identifier="1:IP6", food_id="1", fdc_id="100001")]
+    assert verify_against_live_catalogue(db, rows) == []
+
+
+def test_verify_against_live_catalogue_catches_altered_fdc_id():
+    """The exact gap a bot-review finding on PR #60 caught: an operator
+    hand-altering fdc_id in the mapping (and updating the digest to
+    match) must still be caught here, since the digest alone can't."""
+    db = _FakeDb({1: _FakeFood(id=1, fdc_id=100001)})
+    rows = [_row(row_identifier="1:IP6", food_id="1", fdc_id="999999")]
+    problems = verify_against_live_catalogue(db, rows)
+    assert len(problems) == 1
+    assert "mismatch" in problems[0]
+
+
+def test_verify_against_live_catalogue_catches_missing_food_id():
+    db = _FakeDb({})
+    rows = [_row(row_identifier="1:IP6", food_id="404", fdc_id="100001")]
+    problems = verify_against_live_catalogue(db, rows)
+    assert len(problems) == 1
+    assert "does not exist" in problems[0]
+
+
+def test_verify_against_live_catalogue_reports_every_mismatch_not_just_first():
+    db = _FakeDb({1: _FakeFood(id=1, fdc_id=1), 2: _FakeFood(id=2, fdc_id=2)})
+    rows = [
+        _row(row_identifier="1:IP6", food_id="1", fdc_id="999"),
+        _row(row_identifier="2:IP6", food_id="2", fdc_id="888"),
+    ]
+    assert len(verify_against_live_catalogue(db, rows)) == 2
+
+
+# ---- the committed public digest metadata file ------------------------------
+
+def test_committed_digest_file_has_valid_shape():
+    """Requirement: public CI must notice if docs/phytate-review/
+    stable_id_mapping_digest.json -- the public aggregate metadata meant
+    to detect private-artifact drift -- is ever hand-edited to something
+    arbitrary (wrong schema version, negative row count, malformed hash).
+    A bot-review finding on PR #60 caught that nothing previously read
+    this file at all in public CI."""
+    assert DEFAULT_DIGEST_FILE.is_file(), f"{DEFAULT_DIGEST_FILE} must be committed"
+    data = json.loads(DEFAULT_DIGEST_FILE.read_text(encoding="utf-8"))
+
+    assert data["schema_version"] == SCHEMA_VERSION
+    assert isinstance(data["row_count"], int) and data["row_count"] > 0
+    assert SHA256_HEX_RE.match(data["digest"]), f"digest {data['digest']!r} is not a 64-char hex SHA-256"

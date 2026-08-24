@@ -29,6 +29,7 @@ an authorised operator's private artifacts, kept on disk but git-ignored)
 can never produce a false failure.
 """
 
+import hashlib
 import subprocess
 import sys
 import zipfile
@@ -42,13 +43,23 @@ FINGERPRINT_MARKERS = ("food_description", "compound_fraction")
 # test the stable-ID mapping validator's structural checks without the
 # real private artifact). This is exactly the exception prompts.txt
 # PROMPT 9 itself names ("while allowing explicitly named synthetic
-# fixtures") — an exact, individually-reviewed path list, not a pattern
-# or a directory-wide exemption, and each entry's content was read and
-# confirmed fabricated (not derived from the real workbook in any way)
-# before being added here.
-ALLOWED_SYNTHETIC_FIXTURES = frozenset({
-    "backend/tests/fixtures/synthetic_stable_id_mapping.csv",
-})
+# fixtures") — but a bot-review finding on PR #60 correctly caught that
+# exempting by PATH alone means replacing this file's two fabricated
+# rows with real PhyFoodComp source rows would still silently pass,
+# defeating the entire fail-closed check for exactly this one path.
+#
+# Bound to the exact reviewed content instead: the SHA-256 of the file
+# as it existed when reviewed and pinned here. Any change to the file's
+# bytes — including swapping in real source data — changes the hash, so
+# the exemption stops applying and the fail-closed check catches it
+# again automatically. Updating this hash (the only way to make an
+# intentional fixture edit pass again) requires touching this exact
+# security-critical file in the same diff, which is the point: a fixture
+# edit can no longer sail through review invisibly.
+ALLOWED_SYNTHETIC_FIXTURES = {
+    "backend/tests/fixtures/synthetic_stable_id_mapping.csv":
+        "1dfce6f31499c38d131becf09c644902d5814c4f3ba8c617ce518a696c945397",
+}
 
 
 def tracked_files() -> list[str]:
@@ -79,6 +90,17 @@ def has_source_row_fingerprint(data: bytes) -> bool:
     return all(marker in first_line for marker in FINGERPRINT_MARKERS)
 
 
+def is_reviewed_synthetic_fixture(path: str, data: bytes) -> bool:
+    """True only if `path` is an allowlisted fixture AND its current
+    content hash exactly matches the reviewed hash pinned for it -- see
+    ALLOWED_SYNTHETIC_FIXTURES' own comment for why this must be
+    content-bound, not path-only."""
+    expected_hash = ALLOWED_SYNTHETIC_FIXTURES.get(path)
+    if expected_hash is None:
+        return False
+    return hashlib.sha256(data).hexdigest() == expected_hash
+
+
 def main() -> None:
     workbook_offenders = []
     source_row_offenders = []
@@ -90,7 +112,7 @@ def main() -> None:
             continue  # e.g. a submodule gitlink entry, not a blob
         if is_ooxml_spreadsheet(data):
             workbook_offenders.append(path)
-        if has_source_row_fingerprint(data) and path not in ALLOWED_SYNTHETIC_FIXTURES:
+        if has_source_row_fingerprint(data) and not is_reviewed_synthetic_fixture(path, data):
             source_row_offenders.append(path)
 
     if workbook_offenders:
