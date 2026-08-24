@@ -14,3 +14,30 @@ dist/
 # PhyFoodComp workbook — large and/or not redistributable, see
 # backend/app/ingest_phytate.py's module docstring.
 /data/
+
+# PhyFoodComp source-derived review/mapping artifacts — contain verbatim
+# source food descriptions and reported phytate values, not just reviewer
+# decisions or code. source_licence_policy.py currently records
+# redistribution_permitted=False/export_permitted=False for PhyFoodComp;
+# these must not be publicly tracked while that holds (see PROMPT 9 in
+# prompts.txt and docs/phytate-review/PRIVATE_ARTIFACTS.md). An authorised
+# operator supplies these files locally at the same paths — every CLI tool
+# that reads them already accepts an explicit override flag
+# (--mapping-csv/--review-dir/--stable-id-mapping), so no code change is
+# needed to use them from outside the repository.
+#
+# Explicit paths, not a glob — docs/phytate-review/ also holds files that
+# are safe to keep public (stable_id_exceptions*.csv,
+# stable_id_duplicates_still_needing_review.csv, the *.py tooling): a
+# broad */*.csv pattern would silently swallow those too.
+/docs/phytate-review/final_approved_mapping.csv
+/docs/phytate-review/stable_id_mapping.csv
+/docs/phytate-review/review_1_ambiguous.csv
+/docs/phytate-review/review_2_no_candidate.csv
+/docs/phytate-review/review_3_branded_low_confidence.csv
+/docs/phytate-review/review_4_special_cases.csv
+/docs/phytate-review/review_5_infant_flour_cluster.csv
+/docs/phytate-review/review_6_accepted_sample.csv
+/docs/phytate-review/review_6b_accepted_remainder.csv
+/docs/phytate-review/prompt3b_bug_evidence_and_fixtures.csv
+/docs/phytate-review/pre-3b-baseline/

@@ -87,33 +87,42 @@ jobs:
           assert ok, 'CI Postgres role lacks CREATEDB — migration tests would silently skip instead of running'
           print('CREATEDB privilege confirmed for migration tests')
           "
-      - name: Phytate review consistency + canonical mapping regeneration (fail on drift)
-        # prompts.txt PROMPT 8: docs/phytate-review/final_approved_mapping.csv
-        # is a generated artifact (export_final_mapping.py, from the seven
-        # signed review_*.csv files), not hand-edited — if regenerating it
-        # here produces anything different from what's committed, either a
-        # review file was edited without regenerating the mapping, or the
-        # generation script itself changed behaviour. Either way that must
-        # fail the build, not silently drift. check_consistency.py runs
-        # first since export_final_mapping.py's own validation only covers
-        # a subset of what it checks (see that script's module docstring).
-        working-directory: docs/phytate-review
-        run: |
-          python check_consistency.py --dir .
-          python export_final_mapping.py
-          git diff --exit-code -- final_approved_mapping.csv
-      - name: Confirm no licensed source workbook is tracked in git
-        # prompts.txt PROMPT 8: the real PhyFoodComp_1.0.xlsx must never
-        # enter this repository (see ingest_phytate.py's module docstring)
-        # — checked directly against git's own tracked-file list, not the
-        # working tree, so a build artifact or local scratch file can't
-        # produce a false failure.
-        run: |
-          if git ls-files | grep -iE '\.xlsx$'; then
-            echo "A tracked .xlsx file was found — the licensed PhyFoodComp workbook must never be committed."
-            exit 1
-          fi
-          echo "No .xlsx files tracked in git."
+      # prompts.txt PROMPT 9: the "Phytate review consistency + canonical
+      # mapping regeneration" step that used to run here (check_consistency.py
+      # + export_final_mapping.py + git diff against the committed
+      # final_approved_mapping.csv) was removed, not adapted, because its
+      # own inputs — the seven signed review_*.csv files and
+      # final_approved_mapping.csv itself — are exactly the PhyFoodComp
+      # source-derived artifacts this PR untracks from the public repo (see
+      # docs/phytate-review/PRIVATE_ARTIFACTS.md). A public CI runner
+      # checking out this repo fresh no longer has them at all, so the step
+      # would fail on every PR, not just on real drift. Re-adding an
+      # equivalent check that runs against a synthetic fixture (so ordinary
+      # public CI needs neither the real files nor a secret) plus a separate
+      # authenticated command for an operator to validate the real private
+      # artifacts is PROMPT 12's explicit job, not this one's — see
+      # prompts.txt. Do not restore this step without that redesign; it
+      # would either always fail or need the real licensed data checked out
+      # in public CI, which is the exact exposure PROMPT 9 exists to close.
+      - name: Confirm no licensed PhyFoodComp source-row data or workbook is tracked in git
+        # prompts.txt PROMPT 8/9: neither the real PhyFoodComp_1.0.xlsx
+        # workbook (see ingest_phytate.py's module docstring) nor any
+        # tracked file shaped like PhyFoodComp source-row data may ever
+        # enter this repository while source_licence_policy.py records
+        # redistribution_permitted=False/export_permitted=False.
+        #
+        # Inspects every tracked file's actual bytes (via git show, never
+        # the working tree) rather than filename/extension — a bot review
+        # finding on PR #57 correctly caught that an earlier version of
+        # this check only matched a case-sensitive "*.csv" pathspec and a
+        # literal ".xlsx" suffix, so the same prohibited data committed as
+        # "review.CSV", a .tsv, an extensionless file, or a workbook saved
+        # under any other extension would have passed silently. See
+        # .github/scripts/check_licensed_artifacts.py's own docstring for
+        # exactly what each of the two content-based checks does and why
+        # neither can false-positive on the CSVs deliberately kept public
+        # under docs/phytate-review/.
+        run: python3 .github/scripts/check_licensed_artifacts.py
       - name: Run backend tests (unit, API, security-regression, migrations)
         working-directory: backend
         # A single suite: tests/test_hardening_regression_suite.py and
