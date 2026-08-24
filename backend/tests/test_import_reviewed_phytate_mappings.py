@@ -16,8 +16,6 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base
 from app.import_reviewed_phytate_mappings import (
-    ALLOWED_SCOPES,
-    DENIED_SCOPES,
     Decision,
     REVIEW_FILES,
     StableTarget,
@@ -29,11 +27,22 @@ from app.import_reviewed_phytate_mappings import (
     load_stable_id_mapping,
     reconcile_rows,
     validate_and_consolidate,
-    validate_scope,
 )
-from app.models import CompoundObservation, Food
+from app.models import CompoundImportAuditRecord, CompoundObservation, Food
 from app.phyfoodcomp_adapter import load_phyfoodcomp_workbook
 from app.reference_patterns import AMINO_ACIDS
+from app.source_licence_policy import (
+    KNOWN_SURFACES,
+    PHYFOODCOMP_1_0,
+    SURFACE_ENTERPRISE_BATCH,
+    SURFACE_INTERNAL_RESEARCH_OR_ADMIN,
+    SURFACE_PERSONAL_FREE_INTERNAL_API,
+    SURFACE_PERSONAL_FREE_UI,
+    SURFACE_PROFESSIONAL_DASHBOARD,
+    SourceLicenceError,
+    check_deployment_permits_write,
+    check_surface_allowed,
+)
 
 DATASET_NAME = "PhyFoodComp1.0"
 DATASET_CITATION = "FAO/INFOODS/IZiNCG. Global food composition database for phytate, version 1.0."
@@ -501,19 +510,122 @@ def test_check_catalogue_drift_ignores_empty_mapping():
     assert check_catalogue_drift({}, "anything") is None
 
 
-# ---- import scope gate ----------------------------------------------------
+# ---- destination-surface licensing gate (prompts.txt PROMPT 10) -----------
+# This module no longer keeps its own duplicated scope allowlist -- it calls
+# app.source_licence_policy directly. These tests exercise that integration
+# from this module's own imports (check_surface_allowed/
+# check_deployment_permits_write have their own full unit-test coverage in
+# test_source_licence_policy.py; these confirm the importer is actually
+# wired to them).
 
-def test_allowed_scope_passes():
-    assert validate_scope("noncommercial_free_surface") is None
+def test_permitted_free_surface_passes_the_policy_check():
+    check_surface_allowed(PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_UI)  # does not raise
 
 
-@pytest.mark.parametrize("scope", sorted(DENIED_SCOPES) + ["totally_unknown_scope", ""])
-def test_denied_and_unknown_scopes_are_rejected(scope):
-    assert validate_scope(scope) is not None
+def test_internal_research_surface_passes_for_dry_run_use():
+    check_surface_allowed(PHYFOODCOMP_1_0, SURFACE_INTERNAL_RESEARCH_OR_ADMIN)  # does not raise
 
 
-def test_allowed_scopes_is_exactly_one_value():
-    assert ALLOWED_SCOPES == {"noncommercial_free_surface"}
+@pytest.mark.parametrize("surface", [SURFACE_ENTERPRISE_BATCH, SURFACE_PROFESSIONAL_DASHBOARD])
+def test_prohibited_surfaces_are_rejected_by_the_policy_check(surface):
+    with pytest.raises(SourceLicenceError):
+        check_surface_allowed(PHYFOODCOMP_1_0, surface)
+
+
+def test_apply_requires_deployment_to_declare_the_surface_too(monkeypatch):
+    """A permitted-by-policy surface is still refused for --apply if this
+    deployment's own environment configuration doesn't declare it --
+    an operator's --destination-surface claim alone is never sufficient."""
+    monkeypatch.delenv("DEPLOYMENT_PERMITTED_SURFACES", raising=False)
+    with pytest.raises(SourceLicenceError):
+        check_deployment_permits_write(PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_UI)
+
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", SURFACE_PERSONAL_FREE_INTERNAL_API)
+    with pytest.raises(SourceLicenceError):
+        check_deployment_permits_write(PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_UI)
+
+    monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", f"{SURFACE_PERSONAL_FREE_INTERNAL_API},{SURFACE_PERSONAL_FREE_UI}")
+    check_deployment_permits_write(PHYFOODCOMP_1_0, SURFACE_PERSONAL_FREE_UI)  # does not raise
+
+
+def test_destination_surface_choices_match_known_surfaces():
+    """The --destination-surface CLI flag's argparse `choices` is built
+    from KNOWN_SURFACES at import time -- if that set ever changes without
+    updating anything here, argparse's own choices list silently follows
+    along. This just confirms the two names actually refer to the same
+    set, guarding against a future accidental second copy."""
+    import app.import_reviewed_phytate_mappings as m
+    assert set(m.KNOWN_SURFACES) == set(KNOWN_SURFACES)
+
+
+# ---- compound import audit record (prompts.txt PROMPT 10) -----------------
+
+def _audit_record(**overrides):
+    defaults = dict(
+        compound="phytate", source_key=PHYFOODCOMP_1_0, dataset_version=DATASET_VERSION,
+        licence_status_at_import="pending_commercial_permission", destination_surface=SURFACE_PERSONAL_FREE_UI,
+        workbook_checksum="abc123", catalogue_checksum="def456", importer_version="phytate-reviewed-import-v1",
+        operator_confirmed_dataset_version=DATASET_VERSION, operator_confirmed_workbook_checksum="abc123",
+    )
+    defaults.update(overrides)
+    return CompoundImportAuditRecord(**defaults)
+
+
+def test_successful_apply_writes_an_audit_record(session):
+    good_food = _food(name="Good food", fdc_id=111)
+    session.add(good_food)
+    session.flush()
+
+    from app.import_reviewed_phytate_mappings import RowPlan
+    plans = [RowPlan(row_identifier="1:IP6", action="insert", fields=dict(
+        compound="phytate", compound_fraction="IP6", original_value=100.0, original_unit="mg",
+        original_basis="per_100g_edible_portion", original_value_text="100.0", value_qualifier="measured",
+        detection_limit_value=None, detection_limit_unit=None, original_value_provenance="source_reported",
+        source_food_description="Test food",
+        source_preparation_state=None, source_dataset_name=DATASET_NAME,
+        source_dataset_citation=DATASET_CITATION, source_dataset_version=DATASET_VERSION,
+        source_access_date=ACCESS_DATE, analytical_method=None, source_row_identifier="1:IP6",
+        match_relationship="close_analogue", match_confidence=0.8, match_rationale="test",
+        matched_food_id=good_food.id,
+    ))]
+
+    apply_plans(session, plans)
+    session.add(_audit_record())
+    session.commit()
+
+    assert session.query(CompoundObservation).count() == 1
+    records = session.query(CompoundImportAuditRecord).all()
+    assert len(records) == 1
+    assert records[0].destination_surface == SURFACE_PERSONAL_FREE_UI
+    assert records[0].licence_status_at_import == "pending_commercial_permission"
+
+
+def test_failed_apply_rolls_back_the_audit_record_too(session):
+    """Extends the existing apply-rollback contract: a forced mid-import
+    failure must undo the audit row along with the observations, not
+    leave a record behind with no matching data."""
+    from app.import_reviewed_phytate_mappings import RowPlan
+    plans = [RowPlan(row_identifier="1:IP5", action="insert", fields=dict(
+        compound=None,  # NOT NULL violation -- forces the commit below to fail
+        compound_fraction="IP5", original_value=50.0, original_unit="mg",
+        original_basis="per_100g_edible_portion", original_value_text="50.0", value_qualifier="measured",
+        detection_limit_value=None, detection_limit_unit=None, original_value_provenance="source_reported",
+        source_food_description="Test food",
+        source_preparation_state=None, source_dataset_name=DATASET_NAME,
+        source_dataset_citation=DATASET_CITATION, source_dataset_version=DATASET_VERSION,
+        source_access_date=ACCESS_DATE, analytical_method=None, source_row_identifier="1:IP5",
+        match_relationship="close_analogue", match_confidence=0.8, match_rationale="test",
+        matched_food_id=None,
+    ))]
+
+    apply_plans(session, plans)
+    session.add(_audit_record())
+    with pytest.raises(Exception):
+        session.commit()
+    session.rollback()
+
+    assert session.query(CompoundObservation).count() == 0
+    assert session.query(CompoundImportAuditRecord).count() == 0
 
 
 # ---- idempotence, apply, rollback -----------------------------------------
