@@ -1033,3 +1033,29 @@ appear in the endpoint's response or its structured log line
 Updated the one stale comment claiming no real phytate consumer exists yet
 (`source_licence_policy.py`'s own docstring and `validate_source_licence_policy_coverage`'s).
 
+Bot review on PR #61 found two real gaps, both fixed before merge:
+
+1. **[P1] The diagnostic endpoint was unauthenticated** — unlike the plain
+   liveness/readiness checks, this route exposes stored compound/source-dataset
+   names and runs a query that only gets more expensive as the table grows;
+   leaving it open the same way as `/api/health`/`/api/ready` let any anonymous
+   caller enumerate those names and repeatedly trigger that work. Fixed with
+   `require_ops_diagnostic_token`: an operations-only shared-secret header
+   (`X-Ops-Diagnostic-Token`, checked via `hmac.compare_digest` against
+   `OPS_DIAGNOSTIC_TOKEN`), deliberately separate from the per-user JWT session
+   and the per-integration `ApiKey` system — neither fits an on-call operator
+   probing one diagnostic route. Unset token fails every request closed (401),
+   never "unprotected"; the auth dependency runs before the DB query, so a failed
+   auth attempt never touches the database. Wired into `docker-compose.yml` as
+   `${OPS_DIAGNOSTIC_TOKEN:-}` (empty-default shell interpolation, same pattern as
+   `CORS_ORIGINS`/`RELEASE_VERSION` — an unset value here is a *safe* default,
+   unlike `DEPLOYMENT_PERMITTED_SURFACES`' "unset is broken" case, so there was no
+   equivalent wiring bug to fix).
+2. **[P2] A registry defect (a `COMPOUND_SOURCE_KEYS` entry pointing at an
+   unregistered `source_key`) was misreported as "database unavailable"** — the
+   endpoint's blanket exception handler caught the `SourceLicenceError`
+   `get_policy` raises in that case and reported it as a DB outage, even though
+   detecting exactly this kind of registry defect is the point of the coverage
+   check. Fixed by catching it inside `validate_source_licence_policy_coverage`
+   itself and reporting it as a normal coverage problem string.
+

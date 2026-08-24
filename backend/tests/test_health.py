@@ -190,6 +190,14 @@ def test_readiness_does_not_log_when_db_check_is_fast(client, monkeypatch, caplo
 
 # ---- /api/ready/licence-policy-coverage (PROMPT 13) ------------------------
 
+_OPS_TOKEN = "test-ops-diagnostic-token"
+
+
+def _authed_get(client, monkeypatch, path):
+    monkeypatch.setenv(health_router.OPS_DIAGNOSTIC_TOKEN_ENV_VAR, _OPS_TOKEN)
+    return client.get(path, headers={"X-Ops-Diagnostic-Token": _OPS_TOKEN})
+
+
 def test_licence_coverage_healthy_for_registered_phyfoodcomp_data_on_permitted_profile(client, monkeypatch):
     monkeypatch.setenv("DEPLOYMENT_PERMITTED_SURFACES", SURFACE_PERSONAL_FREE_UI)
     db = client.session_factory()
@@ -197,41 +205,41 @@ def test_licence_coverage_healthy_for_registered_phyfoodcomp_data_on_permitted_p
     db.commit()
     db.close()
 
-    res = client.get("/api/ready/licence-policy-coverage")
+    res = _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage")
     assert res.status_code == 200
     assert res.json() == {"status": "ready"}
 
 
-def test_licence_coverage_unhealthy_for_unknown_compound(client):
+def test_licence_coverage_unhealthy_for_unknown_compound(client, monkeypatch):
     db = client.session_factory()
     db.add(_observation(compound="totally_unregistered_compound"))
     db.commit()
     db.close()
 
-    res = client.get("/api/ready/licence-policy-coverage")
+    res = _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage")
     assert res.status_code == 503
     assert "totally_unregistered_compound" in res.json()["detail"]
 
 
-def test_licence_coverage_unhealthy_for_known_compound_unknown_source_dataset_name(client):
+def test_licence_coverage_unhealthy_for_known_compound_unknown_source_dataset_name(client, monkeypatch):
     db = client.session_factory()
     db.add(_observation(source_dataset_name="SomeOtherPhytateDataset"))
     db.commit()
     db.close()
 
-    res = client.get("/api/ready/licence-policy-coverage")
+    res = _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage")
     assert res.status_code == 503
     assert "SomeOtherPhytateDataset" in res.json()["detail"]
 
 
-def test_licence_coverage_evaluates_second_source_for_same_compound_separately(client):
+def test_licence_coverage_evaluates_second_source_for_same_compound_separately(client, monkeypatch):
     db = client.session_factory()
     db.add(_observation(source_row_identifier="1"))  # registered
     db.add(_observation(source_row_identifier="2", source_dataset_name="SecondPhytateSource"))
     db.commit()
     db.close()
 
-    res = client.get("/api/ready/licence-policy-coverage")
+    res = _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage")
     assert res.status_code == 503
     assert "SecondPhytateSource" in res.json()["detail"]
     assert "PhyFoodComp1.0" not in res.json()["detail"]  # the registered pair is not itself a problem
@@ -244,9 +252,28 @@ def test_licence_coverage_unhealthy_when_deployment_profile_exposes_prohibited_s
     db.commit()
     db.close()
 
-    res = client.get("/api/ready/licence-policy-coverage")
+    res = _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage")
     assert res.status_code == 503
     assert SURFACE_ENTERPRISE_BATCH in res.json()["detail"]
+
+
+def test_licence_coverage_unhealthy_when_a_registered_source_key_has_no_policy(client, monkeypatch):
+    """Bot-review P2 on PR #61: a COMPOUND_SOURCE_KEYS entry pointing at
+    an unregistered source_key must be reported as a coverage problem,
+    not misreported as "database unavailable" by the endpoint's blanket
+    exception handler."""
+    import app.source_licence_policy as policy_module
+
+    monkeypatch.setitem(policy_module.COMPOUND_SOURCE_KEYS, ("phytate", "PhyFoodComp1.0"), "orphaned_source_key")
+    db = client.session_factory()
+    db.add(_observation())
+    db.commit()
+    db.close()
+
+    res = _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage")
+    assert res.status_code == 503
+    assert "orphaned_source_key" in res.json()["detail"]
+    assert "database unavailable" not in res.json()["detail"]
 
 
 def test_licence_coverage_fails_readiness_not_import_when_db_unavailable(monkeypatch):
@@ -258,15 +285,61 @@ def test_licence_coverage_fails_readiness_not_import_when_db_unavailable(monkeyp
         yield _BrokenSession()
 
     app.dependency_overrides[get_db] = _broken_get_db
+    monkeypatch.setenv(health_router.OPS_DIAGNOSTIC_TOKEN_ENV_VAR, _OPS_TOKEN)
     try:
-        res = TestClient(app).get("/api/ready/licence-policy-coverage")
+        res = TestClient(app).get(
+            "/api/ready/licence-policy-coverage", headers={"X-Ops-Diagnostic-Token": _OPS_TOKEN},
+        )
         assert res.status_code == 503
         assert "database unavailable" in res.json()["detail"]
     finally:
         app.dependency_overrides.clear()
 
 
-def test_licence_coverage_logs_a_structured_warning_on_unhealthy(client, caplog):
+# ---- require_ops_diagnostic_token: the P1 fix on PR #61 --------------------
+
+def test_licence_coverage_requires_auth_when_token_unset(client, monkeypatch):
+    monkeypatch.delenv(health_router.OPS_DIAGNOSTIC_TOKEN_ENV_VAR, raising=False)
+    res = client.get("/api/ready/licence-policy-coverage", headers={"X-Ops-Diagnostic-Token": "anything"})
+    assert res.status_code == 401
+
+
+def test_licence_coverage_requires_auth_when_no_header_supplied(client, monkeypatch):
+    monkeypatch.setenv(health_router.OPS_DIAGNOSTIC_TOKEN_ENV_VAR, _OPS_TOKEN)
+    res = client.get("/api/ready/licence-policy-coverage")
+    assert res.status_code == 401
+
+
+def test_licence_coverage_requires_auth_when_wrong_token_supplied(client, monkeypatch):
+    monkeypatch.setenv(health_router.OPS_DIAGNOSTIC_TOKEN_ENV_VAR, _OPS_TOKEN)
+    res = client.get("/api/ready/licence-policy-coverage", headers={"X-Ops-Diagnostic-Token": "wrong-token"})
+    assert res.status_code == 401
+
+
+def test_licence_coverage_wrong_token_never_touches_the_database(client, monkeypatch):
+    """The auth dependency must reject before the (potentially expensive,
+    growing) DISTINCT query ever runs -- not just before the response is
+    returned."""
+    monkeypatch.setenv(health_router.OPS_DIAGNOSTIC_TOKEN_ENV_VAR, _OPS_TOKEN)
+
+    def _query_that_must_not_be_called(*a, **kw):
+        raise AssertionError("DB was queried despite failed auth")
+
+    db = client.session_factory()
+    monkeypatch.setattr(db, "query", _query_that_must_not_be_called)
+
+    def _override_get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = _override_get_db
+    try:
+        res = client.get("/api/ready/licence-policy-coverage", headers={"X-Ops-Diagnostic-Token": "wrong-token"})
+        assert res.status_code == 401
+    finally:
+        db.close()
+
+
+def test_licence_coverage_logs_a_structured_warning_on_unhealthy(client, monkeypatch, caplog):
     import logging
 
     db = client.session_factory()
@@ -275,7 +348,7 @@ def test_licence_coverage_logs_a_structured_warning_on_unhealthy(client, caplog)
     db.close()
 
     with caplog.at_level(logging.WARNING, logger="app.health"):
-        client.get("/api/ready/licence-policy-coverage")
+        _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage")
 
     records = [r for r in caplog.records if r.message == "licence_policy_coverage_unhealthy"]
     assert len(records) == 1
@@ -290,6 +363,6 @@ def test_licence_coverage_does_not_leak_secrets(client, monkeypatch):
     db.commit()
     db.close()
 
-    body = client.get("/api/ready/licence-policy-coverage").text
+    body = _authed_get(client, monkeypatch, "/api/ready/licence-policy-coverage").text
     assert "supersecretpassword" not in body
     assert "internal-host" not in body

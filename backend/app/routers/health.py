@@ -1,26 +1,40 @@
 """Liveness/readiness endpoints — operational-hardening prompt 5, plus
 the source-licence coverage readiness probe (PROMPT 13).
 
-Unauthenticated (a load balancer/orchestrator's health check has no
-credentials to send) and deliberately minimal — no endpoint here ever
-returns anything beyond a status word and, on failure, a short
-human-readable reason. No stack trace, no database URL, no internal
-identifiers, and (for licence_policy_coverage_readiness specifically) no
-source data value, ever — only compound/source-dataset/surface *names*,
-which aren't secret. See `test_health.py::test_health_endpoints_do_not_
-leak_secrets` for what this is checked against directly.
+`/api/health` and `/api/ready` are unauthenticated (a load balancer/
+orchestrator's health check has no credentials to send) and deliberately
+minimal — neither ever returns anything beyond a status word and, on
+failure, a short human-readable reason. No stack trace, no database URL,
+no internal identifiers. See `test_health.py::test_health_endpoints_do_
+not_leak_secrets` for what this is checked against directly.
 
-Both dependencies below (`get_db`, `get_database_url`) are the same
+`/api/ready/licence-policy-coverage` is different: unlike the other two,
+it exposes stored compound/source-dataset *names* (never a source data
+value, but still real internal detail an anonymous caller has no
+business enumerating) and runs a DISTINCT query over
+compound_observations that only grows as more data is ingested — a bot-
+review finding on PR #61 correctly flagged that leaving it open the same
+way as the other two lets anyone repeatedly trigger that query and
+enumerate those names for free. Gated behind `require_ops_diagnostic_token`
+below: an operations-only shared-secret header, not the per-user JWT
+session (app.auth) or the per-integration ApiKey system (app.api_keys)
+— those both authenticate an end user or a paying integration, neither
+of which fits "the deploy tooling/on-call operator probing this one
+diagnostic route."
+
+Both DB dependencies below (`get_db`, `get_database_url`) are the same
 kind of override point every other router in this app already uses
 (`app.dependency_overrides[...]` in tests) — deliberately, so this
 endpoint's failure modes (DB unreachable, schema behind head) are
 testable the normal way rather than needing to patch module-level
 globals."""
 
+import hmac
 import logging
+import os
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -38,6 +52,26 @@ _logger = logging.getLogger("app.health")
 # database) — an orchestrator polling /api/ready every few seconds gives
 # this a natural, cheap sampling cadence with no extra machinery needed.
 SLOW_READINESS_CHECK_THRESHOLD_MS = 500
+
+# PROMPT 13, bot-review P1 on PR #61: the ops-only credential gating
+# /api/ready/licence-policy-coverage. Read fresh on every call (not
+# cached at import time) so tests can set/unset it via monkeypatch.setenv
+# the same way every other env-var-driven check in this codebase already
+# works (deployment_permitted_surfaces, REDIS_URL). Unset means no token
+# is configured, which fails every request closed -- same "unknown means
+# refused, not granted" convention source_licence_policy.py's own
+# docstring establishes, not "unset means unprotected."
+OPS_DIAGNOSTIC_TOKEN_ENV_VAR = "OPS_DIAGNOSTIC_TOKEN"
+
+
+def require_ops_diagnostic_token(x_ops_diagnostic_token: str | None = Header(default=None)) -> None:
+    expected = os.environ.get(OPS_DIAGNOSTIC_TOKEN_ENV_VAR)
+    if not expected or not x_ops_diagnostic_token or not hmac.compare_digest(x_ops_diagnostic_token, expected):
+        # Generic 401 regardless of *why* it failed (token unset vs. wrong
+        # value supplied) -- distinguishing those in the response would
+        # tell an anonymous caller whether this deployment has the
+        # diagnostic enabled at all.
+        raise HTTPException(status_code=401, detail="authentication required")
 
 
 def get_database_url() -> str:
@@ -113,13 +147,22 @@ def readiness(db: Session = Depends(get_db), database_url: str = Depends(get_dat
 
 
 @router.get("/ready/licence-policy-coverage")
-def licence_policy_coverage_readiness(db: Session = Depends(get_db)):
+def licence_policy_coverage_readiness(
+    db: Session = Depends(get_db), _auth: None = Depends(require_ops_diagnostic_token),
+):
     """PROMPT 13: a separate, additional readiness probe from `/api/ready`
     — this one is a business/licensing check, not an infra check, and
     deliberately isn't folded into the main readiness path so a slower or
     growing compound_observations table can never delay the ordinary
     "is this container fit to receive traffic" signal every deploy
     already depends on.
+
+    Protected by `require_ops_diagnostic_token` (bot-review P1 on PR #61)
+    — unlike `/api/health`/`/api/ready`, this route exposes stored
+    compound/source-dataset names and runs a query that only gets more
+    expensive as the table grows, so it must not be left open to
+    anonymous, repeated calls the way a plain liveness/readiness check
+    can be. The auth dependency runs before `db` is ever queried.
 
     Reports unhealthy (503) if any distinct (compound,
     source_dataset_name) pair actually stored has no registered

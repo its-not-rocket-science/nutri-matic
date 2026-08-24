@@ -335,7 +335,18 @@ def validate_source_licence_policy_coverage(db: Session) -> list[str]:
         regardless (see module docstring: read-time enforcement is the
         ultimate authority), so this can only ever flag a
         misconfiguration before it's exercised by a real request, never
-        substitute for that enforcement.
+        substitute for that enforcement; or
+
+      - has a COMPOUND_SOURCE_KEYS entry pointing at a source_key with no
+        matching SOURCE_LICENCE_POLICIES entry — a registry defect (a
+        typo, or a policy removed without also removing the
+        COMPOUND_SOURCE_KEYS line that names it) that is itself exactly
+        the kind of coverage gap this function exists to catch. Caught
+        here explicitly rather than left to propagate as a raw
+        SourceLicenceError, which a caller could otherwise mistake for
+        an unrelated failure (a bot-review finding on PR #61 caught this
+        exact case being misreported as "database unavailable" by the
+        readiness endpoint's blanket exception handler).
 
     Wired into GET /api/ready/licence-policy-coverage (app.routers.health)
     now that app.routers.phytate/app.phytate_selection are real
@@ -355,7 +366,15 @@ def validate_source_licence_policy_coverage(db: Session) -> list[str]:
                 "source_key in COMPOUND_SOURCE_KEYS — failing closed"
             )
             continue
-        policy = get_policy(source_key)
+        try:
+            policy = get_policy(source_key)
+        except SourceLicenceError:
+            problems.append(
+                f"compound={compound!r} source_dataset_name={source_dataset_name!r} is registered to "
+                f"source_key={source_key!r}, which has no matching SOURCE_LICENCE_POLICIES entry — "
+                "registry defect, failing closed"
+            )
+            continue
         exposed = permitted & policy.prohibited_surfaces
         if exposed:
             problems.append(

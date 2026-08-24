@@ -93,6 +93,17 @@ services:
       # it's a broken one, so the fix is to declare the truth once, not
       # to relax the check.
       DEPLOYMENT_PERMITTED_SURFACES: "personal_free_ui,personal_free_internal_api"
+      # PROMPT 13: the shared secret gating GET /api/ready/licence-policy-
+      # coverage (app/routers/health.py's require_ops_diagnostic_token).
+      # Empty-default shell interpolation, same as CORS_ORIGINS/
+      # RELEASE_VERSION/TRUSTED_PROXY_HOP_COUNT above -- unlike those,
+      # though, an unset value here is the SAFE default (the endpoint
+      # fails every request closed with no token configured, never
+      # "unprotected"), so there's no equivalent of DEPLOYMENT_PERMITTED_
+      # SURFACES' "unset is a broken default" problem. Set via the
+      # server's own .env file / host secret manager when an operator
+      # actually wants this diagnostic reachable.
+      OPS_DIAGNOSTIC_TOKEN: ${OPS_DIAGNOSTIC_TOKEN:-}
     ports:
       - "8000:8000"
     depends_on:
