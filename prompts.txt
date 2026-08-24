@@ -1,5 +1,158 @@
-NUTRI-MATIC — CLAUDE PROMPTS FOR THE NEXT PHYTATE STEPS
+NUTRI-MATIC — CLAUDE PROMPTS FOR THE PHYTATE EXTENSION
 Generated after repository inspection on 21 August 2026
+UPDATED after repository re-inspection on 24 August 2026 — see the STATUS
+block immediately below. Everything from "Current authoritative remote
+state" down to "Run the following prompts sequentially" is the ORIGINAL
+21-August plan, preserved for its licensing constraints and audit trail,
+NOT a description of what's still outstanding. Prompts 1-8 further down
+are COMPLETE — read the STATUS block first, not the plan, to know what
+to actually do next.
+
+STATUS AS OF 24 AUGUST 2026 — READ THIS FIRST
+================================================================
+Repository: its-not-rocket-science/nutri-matic
+Current main commit: f8b9056 (PR #56)
+
+ALL EIGHT PROMPTS BELOW ARE DONE AND MERGED TO MAIN.
+  PR #44 (Prompt 1) — untracked reviewed-verdict importer audited and preserved
+  PR #45 (Prompt 2) — stable fdc_id resolver + FDC catalogue manifest/checksum
+  PR #46 (Prompt 3) — transactional, stable-ID-only reviewed importer
+  PR #47 (Prompt 4) — fail-closed source-licence policy + free-surface boundary
+  PR #48 (Prompt 5) — censored/non-numerical observations preserved
+  PR #49 (Prompt 6) — conservative phytate observation-selection service
+  PR #50 (Prompt 7) — free personal phytate UI/API, honest copy
+  PR #51 (Prompt 8) — CI additions, real staging rehearsal, licensing audit
+  PR #52             — remediated manual actions 1-4 and 6 from the Prompt 8 audit
+  PR #54             — excluded 55 genuinely-ambiguous branded-product duplicates
+  PR #55             — resolved phytate stable-ID mapping against the real FDC
+                        catalogue: 1,086 rows, ZERO exceptions, first clean run
+  PR #56             — documented the first successful DRY-RUN reviewed import
+                        against the real PhyFoodComp_1.0.xlsx workbook and the
+                        real ~1.4M-row FDC catalogue (2026-08-24):
+                          approved=978 replaced=108 rejected=2717 unresolved=138
+                          censored=245 inserted=4186 blocked=0 unexpected=0
+                        Zero blocked, zero unexpected — the full pipeline
+                        (resolve -> reviewed import) has now completed
+                        end to end with no open problems. See
+                        docs/phytate-prompt-8-final-audit.md for the exact
+                        reconciliation counts and how they were derived.
+
+URGENT — VERIFIED FINDING, ADDED AFTER RE-INSPECTION: LICENSED SOURCE DATA
+IS CURRENTLY PUBLIC IN THIS REPOSITORY, AGAINST THE PROJECT'S OWN POLICY
+================================================================
+This was independently checked against the live repo, not taken on faith
+from an external review. Confirmed directly:
+
+  backend/app/source_licence_policy.py currently records, for real, right
+  now on main:
+      redistribution_permitted=False
+      export_permitted=False
+
+  Yet the following files are tracked in the PUBLIC repository and contain
+  verbatim PhyFoodComp source food descriptions plus the exact reported
+  phytate values (not just reviewer decisions or code):
+      docs/phytate-review/final_approved_mapping.csv
+      docs/phytate-review/stable_id_mapping.csv
+      docs/phytate-review/review_1_ambiguous.csv
+      docs/phytate-review/review_2_no_candidate.csv
+      docs/phytate-review/review_3_branded_low_confidence.csv
+      docs/phytate-review/review_4_special_cases.csv
+      docs/phytate-review/review_5_infant_flour_cluster.csv
+      docs/phytate-review/review_6_accepted_sample.csv
+      docs/phytate-review/review_6b_accepted_remainder.csv
+      docs/phytate-review/pre-3b-baseline/*.csv
+
+  Sample row from stable_id_mapping.csv, confirming the exposure directly:
+    row_identifier,food_description,compound_fraction,value,food_id,fdc_id,...
+    01010004:PHYTCPPI,"Bread, brown rice-based, INIAP 15, fermented",
+    PHYTCPPI,547.507,144756,497921,...
+
+  CI's existing licensed-artifact check only greps for tracked .xlsx files
+  (confirmed in PR #51's own description) — it does not catch this, because
+  none of the above are .xlsx files. The original workbook itself has never
+  been tracked in git; that part of the policy has held. The derived review
+  and mapping artifacts are a separate exposure the existing check was never
+  designed to catch.
+
+  This is NOT the same situation as "commercial permission pending" — this
+  is present-tense public redistribution of source-derived data against a
+  policy flag the codebase itself has already set to False. Treat this as
+  the actual priority, ahead of waiting for FAO's answer. PROMPT 9 below
+  addresses it directly and first.
+
+The full "exact remaining manual actions" list from
+docs/phytate-prompt-8-final-audit.md's Prompt 8 section has been worked down
+to ONE genuine blocker:
+
+  Manual action 8 — FAO's written commercial-use answer. STILL PENDING.
+  The first request (email to copyright@fao.org) went unanswered. A second
+  request was submitted through FAO's formal licence-request web form
+  (see docs/phytate-evidence-review.md and commit "Record second FAO
+  licence-request submission"). Non-commercial/free-tier use is unaffected
+  and fully clear to ship regardless of this answer — only paid-tier
+  exposure is gated on it.
+
+  Manual action 9 — a real (non-dry-run) production import. Blocked on
+  action 8 by definition (source_licence_policy.py's commercial-permission
+  flag must stay false until a written FAO answer is recorded), and
+  requires Paul's explicit operator confirmation of dataset version and
+  workbook checksum per app.import_reviewed_phytate_mappings --apply's
+  existing safety design. Do not run this unattended, ever.
+
+NOT YET INDEPENDENTLY VERIFIED IN THIS STATUS UPDATE (worth confirming,
+not assumed done or not-done):
+  - Manual action 7 (GitHub branch protection requiring backend/frontend CI
+    jobs before merge) is reported complete in the audit doc's punch-list
+    framing ("everything else on the punch list up through action 7 is now
+    done") but this was not independently re-checked against the live repo
+    settings during this update — GitHub API access was rate-limited at the
+    time. Check Settings -> Branches on the actual repo before relying on it.
+
+TWO UNRELATED LOOSE ENDS, NEITHER BLOCKING THE PHYTATE WORK:
+  - Branch record-fao-second-licence-request is STALE and safe to delete.
+    It forked before the Prompt 4-8 push and was never rebased. Diffed
+    directly against main: its one substantive code fix (the infant-cereal
+    alphabetical-fallback bug in _prefer_infant_cereal_candidate) is already
+    independently present in main's current ingest_phytate.py, and its FAO
+    second-request note is already recorded in docs/phytate-evidence-review.md.
+    Nothing on this branch is missing from main. Delete it to avoid a future
+    reader assuming it's still live work.
+  - PR #42 ("Fix fuzzy food search to actually use its trigram index") is
+    still open, unmerged, and completely unrelated to the phytate extension.
+    It's a real live-production performance bug: the fuzzy-search fallback
+    query uses a predicate pg_trgm's GIN index cannot serve, so every fuzzy
+    search silently falls back to a full sequential scan of the ~1.4M-row
+    foods table (confirmed via EXPLAIN ANALYZE at 8-12s per call). Worth
+    reviewing and merging on its own merits, on its own timeline — do not
+    bundle it into any phytate PR.
+
+WHEN FAO'S WRITTEN ANSWER ARRIVES — DO NOT SKIP THIS SEQUENCE:
+  1. Record the exact reply, verbatim, in docs/phytate-evidence-review.md
+     FIRST, before touching any code.
+  2. Only then edit PHYFOODCOMP_1_0's licence_status / permitted_surfaces /
+     redistribution_permitted / export_permitted in source_licence_policy.py
+     to match those exact terms — never from a generic environment flag,
+     never in anticipation of what the answer "probably" says.
+  3. Only after 1-2: consider manual action 9, a real production import,
+     with Paul's explicit operator confirmation of dataset version and
+     workbook checksum, exactly as app.import_reviewed_phytate_mappings
+     --apply already requires. See PROMPT 9 below for the full sequence.
+
+The remainder of this file below "NON-NEGOTIABLE LICENSING CONSTRAINT" is
+the ORIGINAL 21-August plan. Its licensing constraints (1-8) remain fully
+in force and accurately describe the current policy. Its "Current
+authoritative remote state" snapshot and Prompts 1-8 are historical —
+useful for exactly what was required and why, not a to-do list. Skip to
+PROMPT 9, appended at the very end of this file, for what's actually next.
+PROMPTS 9-15 were reviewed by a second AI (ChatGPT) against this exact
+repository state and independently verified before inclusion here — see
+each prompt's own text for what was checked. PROMPT 16 covers the small
+remaining housekeeping items from the prior update that PROMPTS 9-15
+don't otherwise cover.
+
+
+ORIGINAL 21-AUGUST PLAN (HISTORICAL — SEE STATUS BLOCK ABOVE)
+================================================================
 
 Current authoritative remote state
 ==================================
@@ -27,6 +180,10 @@ The remote repository does NOT yet contain:
 - preservation of non-numerical values such as < LOD;
 - an enforceable licensing boundary preventing PhyFoodComp-derived data from
   entering paid API, Professional or Enterprise features.
+
+[NOTE, added 24 August: every item in both lists above is now resolved —
+see the STATUS block at the top of this file. This snapshot is preserved
+only to show what Prompts 1-8 below were written to close.]
 
 Claude's local working tree reportedly also contains these untracked items:
 
@@ -533,3 +690,479 @@ Until Paul supplies a written FAO response and its terms are reviewed:
 End with exact remaining manual actions, exact test results, exact import counts,
 and links to the relevant PRs/workflows. If any acceptance criterion fails,
 leave the feature disabled and report the blocker plainly.
+
+
+
+PROMPT 9 — AUDIT AND QUARANTINE POSSIBLY REDISTRIBUTED PHYFOODCOMP DATA
+========================================================================
+Update from main. This addresses the "URGENT — VERIFIED FINDING" in the
+STATUS block above — confirmed directly against the live repo before this
+prompt was written, not a hypothetical.
+
+The current source policy records redistribution_permitted=False and
+export_permitted=False, but the public repository contains review_*.csv,
+final_approved_mapping.csv, stable_id_mapping.csv and possibly other
+derived artifacts containing source food descriptions, fraction tags and
+values. CI currently checks only for tracked .xlsx files. Do not assume
+that excluding the workbook makes the repository safe — it does not, and
+the exposure this prompt addresses is real, not speculative.
+
+Tasks:
+
+1. Inventory every tracked file containing or reconstructing source-derived
+   rows. For each file record:
+   - path;
+   - whether it contains source values, descriptions, identifiers or only
+     reviewer decisions/code;
+   - whether it is required at runtime, during import, only for audit, or
+     only for historical convenience;
+   - approximate row count and fields exposed;
+   - whether the contents are independently obtainable from USDA FDC,
+     derived from PhyFoodComp, or a mixture;
+   - whether removing it would break tests, CI, the resolver or importer.
+
+2. Reconcile this inventory against the repository's own recorded licence
+   facts. Do not make a new legal determination. Explicitly distinguish:
+   - facts recorded in the repository;
+   - technical exposure;
+   - uncertain legal interpretation requiring Paul/FAO input.
+
+3. Implement the safest reversible repository design while permission
+   remains pending:
+   - the original workbook must remain outside git;
+   - do not leave source-derived numeric rows in the public repository if
+     the repository's own policy says redistribution is not permitted;
+   - retain non-sensitive schemas, scripts, tests, fixtures made from
+     synthetic data, aggregate counts, checksums and reviewer/audit
+     metadata where they do not reconstruct source records;
+   - if the real review/mapping artifacts must be removed from current
+     HEAD, replace them with documented external input paths and safe
+     synthetic fixtures;
+   - do not rewrite git history in this PR. Clearly flag historical
+     exposure as a separate owner decision if applicable;
+   - ensure the real import workflow can consume externally supplied
+     private artifacts without copying them into the repository.
+
+4. Extend CI with a fail-closed licensed-artifact scan. It must inspect
+   tracked files and catch prohibited real datasets or known
+   source-derived row artifacts, while allowing explicitly named synthetic
+   fixtures. Do not rely only on file extensions.
+
+5. Update documentation with:
+   - the exact current policy state;
+   - which artifacts must remain private;
+   - how an authorised operator supplies them for a dry-run;
+   - what must change if FAO later permits redistribution;
+   - a prominent statement that this is technical risk containment, not
+     legal advice.
+
+Acceptance criteria:
+
+- No tracked real workbook or prohibited real source-row artifact remains
+  in current HEAD under the repository's current policy.
+- Tests use synthetic data and do not need the real workbook or mappings.
+- CI fails if a known prohibited artifact or source-row-shaped real file
+  is tracked.
+- The real dry-run/import remains reproducible when the authorised private
+  inputs are supplied explicitly.
+- The PR reports all previously tracked affected paths and separately
+  identifies any possible need for history cleanup, without performing
+  that cleanup.
+
+Stop and request Paul's decision if repository evidence cannot establish
+whether a particular derived file may remain public. Do not silently
+delete an auditable artifact when a private/quarantined replacement path
+can preserve it.
+
+
+PROMPT 10 — MAKE THE IMPORT WRITE PATH CONSULT THE LICENCE POLICY
+================================================================
+Update from main after Prompt 9 is merged.
+
+The canonical importer currently permits --apply when the operator
+supplies --scope noncommercial_free_surface plus the workbook confirmation
+values. This is only an operator assertion. It does not consult
+source_licence_policy, licence_status, or a recorded destination/
+deployment purpose. Fix the misleading claim that this is already a
+complete licensing gate.
+
+Design and implement one authoritative ingestion authorisation boundary
+shared with the source-licence policy rather than duplicating a second
+list of licensing rules in the importer.
+
+Requirements:
+
+1. Dry-run must remain possible for explicitly permitted internal
+   research/admin use while permission is pending. Dry-run must never
+   write.
+
+2. --apply must require an explicit, machine-validated destination
+   surface/purpose. It may proceed only for a surface currently permitted
+   by SOURCE_LICENCE_POLICIES. Prohibited, unknown or misspelled surfaces
+   must fail before opening a write transaction.
+
+3. Do not block a legitimate ordinary free personal deployment merely
+   because the licence status says pending_commercial_permission. The
+   policy deliberately permits the free personal UI/internal API while
+   awaiting FAO. Instead, ensure that the destination is explicitly one of
+   those permitted free surfaces and cannot feed prohibited surfaces.
+
+4. Because a CLI cannot infer the eventual consumers of a database, add a
+   deployment-level safeguard. Choose the smallest robust design after
+   inspecting configuration and deployment architecture. Suitable designs
+   may include a required deployment data-use profile plus a startup/
+   read-boundary assertion, or a database/source activation record listing
+   permitted consumer surfaces. A bare CLI string alone is insufficient.
+
+5. A database containing PhyFoodComp observations must not serve them
+   through paid/professional/public/export surfaces. Existing read-
+   boundary protections must remain the ultimate enforcement point even if
+   import metadata is incorrect.
+
+6. Record an immutable import audit row or equivalent durable metadata
+   containing:
+   - source key and version;
+   - licence status at import time;
+   - authorised destination surface/profile;
+   - workbook checksum;
+   - catalogue checksum;
+   - importer version;
+   - timestamp;
+   - dry-run/apply mode;
+   - operator-supplied acknowledgement, without storing secrets or
+     personal credentials.
+
+7. Remove ALLOWED_SCOPES/DENIED_SCOPES duplication if the central policy
+   can represent the rule. Ensure future policy changes cannot
+   accidentally update serving rules without updating import rules, or
+   vice versa.
+
+8. Correct module docstrings and operational documentation so they
+   describe the actual technical guarantees precisely.
+
+Required tests:
+
+- pending licence + personal free destination: allowed according to the
+  currently recorded policy;
+- pending licence + internal research/admin dry-run: allowed;
+- pending licence + public API/professional/clinician/enterprise/paid
+  export: denied;
+- unknown source, surface or deployment profile: denied;
+- paid-plan account using the ordinary free personal UI: same result as a
+  free-plan account;
+- confirmation mismatch: denied;
+- prohibited apply fails before transaction/write activity;
+- forced mid-import failure rolls back both observations and import audit
+  metadata;
+- successful fixture apply writes consistent audit metadata;
+- read boundaries still deny prohibited surfaces regardless of import
+  profile.
+
+Do not run --apply against a real persistent database. Demonstrate apply
+only against an isolated test database with synthetic inputs.
+
+
+PROMPT 11 — MAKE THE FDC MANIFEST SEMANTICS EXACT AND HONEST
+============================================================
+Update from main after Prompt 10 is merged.
+
+The stable-ID work is successful, but the current manifest records
+release_version=unrecorded_at_ingestion. The checksum identifies the exact
+1,434,131-row catalogue used for resolution, but it is not an upstream
+USDA FDC release version. Preserve that distinction everywhere.
+
+Tasks:
+
+1. Audit all code, documentation, UI text, reports and tests for claims
+   that the exact FDC release/version has been recorded. Replace
+   overclaims with precise terminology:
+   - upstream_release_version: unknown/unrecorded unless independently
+     evidenced;
+   - catalogue_snapshot_checksum: authoritative identity of the actual
+     local rows;
+   - catalogue_row_count;
+   - ingestion/importer version;
+   - source file checksums and filenames, if those can be obtained from
+     authorised local inputs.
+
+2. Evolve ImportManifest safely if its current release_version field
+   conflates upstream release identity with local snapshot identity. Use
+   an Alembic migration and maintain compatibility with existing manifest
+   data. Never replace unknown with a guessed FDC date.
+
+3. Add an optional read-only command that inspects locally supplied FDC
+   download files and extracts/verifies any release metadata actually
+   present. It must:
+   - never download a moving latest dataset implicitly;
+   - never infer a release solely from file timestamps;
+   - record provenance for any extracted version claim;
+   - leave the upstream version unknown when evidence is insufficient;
+   - verify that the files reproduce the existing catalogue checksum
+     before associating them with the manifest.
+
+4. Ensure the resolver and reviewed importer continue to bind to the
+   catalogue checksum, row count and stable fdc_id/Food.id pairs. A
+   human-readable release label must never replace checksum validation.
+
+5. Add a concise operator report answering separately:
+   - Have approved names been replaced with stable IDs? Yes/no, with
+     totals.
+   - Is the exact local catalogue snapshot recorded? Yes/no, with checksum
+     and row count.
+   - Is the upstream USDA release version known? Yes/no, with evidence.
+
+Acceptance criteria:
+
+- No code or documentation equates unrecorded_at_ingestion with a real FDC
+  release.
+- Existing stable mappings continue to validate against the authoritative
+  checksum.
+- A catalogue change fails closed even if a release label is unchanged.
+- An upstream version can be added only with recorded evidence.
+- Migration upgrade/downgrade and full manifest tests pass.
+
+
+PROMPT 12 — ADD CI VALIDATION FOR THE STABLE-ID ARTIFACT WITHOUT SHIPPING THE FULL CATALOGUE
+===========================================================================================
+Update from main after Prompt 11 is merged.
+
+CI currently regenerates final_approved_mapping.csv but does not
+meaningfully validate the canonical stable-ID mapping against the
+1.4-million-row FDC catalogue. Build the strongest useful CI validation
+that does not require committing or downloading the full catalogue and
+does not expose private PhyFoodComp rows.
+
+Tasks:
+
+1. Identify which properties can be validated offline, such as:
+   - schema and required fields;
+   - unique row_identifier;
+   - numeric/valid fdc_id and food_id;
+   - allowed verdicts and match scopes;
+   - one approved reviewed row corresponding to one stable target;
+   - no rejected/unresolved row appearing as an approved stable target;
+   - embedded catalogue checksum consistency;
+   - deterministic ordering;
+   - counts matching a committed aggregate manifest;
+   - no blank reviewer/provenance fields where required.
+
+2. If Prompt 9 moved the real mapping out of the public repository, run
+   these checks against a synthetic fixture in ordinary CI and provide a
+   separate authenticated/private-artifact validation command for
+   operators. Do not reintroduce source rows merely to make CI convenient.
+
+3. Add a deterministic mapping-integrity digest covering the canonical
+   private artifact's meaningful columns. Store only the digest and
+   non-sensitive aggregate metadata publicly if allowed by the current
+   policy.
+
+4. Add a separate full-catalogue verification mode suitable for staging or
+   an authorised operator. It must recompute the catalogue checksum and
+   verify every Food.id/fdc_id pair, with zero fuzzy/name fallback. It
+   must be read-only.
+
+5. Make CI fail on changes to resolver/importer/mapping schema that are
+   not accompanied by the required fixture/digest/manifest updates.
+
+Acceptance criteria:
+
+- Ordinary public CI is deterministic and needs neither the real FDC
+  catalogue nor real PhyFoodComp artifacts.
+- Structural drift and inconsistent aggregate/digest metadata fail CI.
+- The authorised full verification command checks all stable targets
+  against the exact catalogue and gives resolved/missing/duplicate/stale/
+  override-mismatch totals.
+- No fuzzy resolution is introduced.
+
+
+PROMPT 13 — WIRE LICENCE COVERAGE INTO OPERATIONS WITHOUT MAKING IMPORT-TIME STARTUP BRITTLE
+============================================================================================
+Update from main after Prompt 12 is merged.
+
+validate_source_licence_policy_coverage() exists and is tested but is not
+connected to a live operational path. Add an explicit runtime/operations
+check now that a real phytate consumer exists.
+
+Requirements:
+
+1. Do not add an uncontrolled database query at Python module import time.
+
+2. Add a protected health/readiness or admin diagnostic appropriate to the
+   existing architecture. It must report unhealthy/fail closed when stored
+   CompoundObservation source/compound combinations lack an explicit
+   source policy or when the configured deployment profile would expose
+   them on a prohibited surface.
+
+3. Improve the model if necessary so coverage is checked by the stored
+   source identity plus compound, not compound alone. The present
+   COMPOUND_SOURCE_KEYS mapping assumes one source per compound; do not
+   let a future second phytate source inherit PhyFoodComp's policy
+   accidentally.
+
+4. Preserve request-time enforcement through
+   load_compound_observations/require_surface. The operational check
+   supplements that enforcement; it does not replace it.
+
+5. Add metrics or structured logs consistent with the repository's
+   existing monitoring conventions. Do not log source data values or
+   sensitive credentials.
+
+6. Add tests for:
+   - registered PhyFoodComp phytate data: healthy on permitted deployment
+     profile;
+   - unknown compound: unhealthy;
+   - known compound with unknown source_dataset_name: unhealthy;
+   - second source for the same compound: separately evaluated;
+   - prohibited configured consumer surface: unhealthy;
+   - database unavailable: explicit readiness failure rather than an
+     import crash;
+   - request-time unknown/prohibited cases remain 403/fail closed.
+
+Update outdated comments saying no real consumer exists.
+
+
+PROMPT 14 — FINAL END-TO-END SAFETY AND READINESS AUDIT
+======================================================
+Update from main after Prompts 9-13 are merged. This prompt is an audit
+and corrective pass. Do not add speculative product functionality.
+
+Trace the complete path:
+
+private source inputs -> review decisions -> stable-ID resolution ->
+catalogue manifest -> dry-run reconciliation -> authorised transactional
+import -> stored CompoundObservation -> selection service -> free
+personal internal API -> free personal UI
+
+Also trace every prohibited path:
+
+public API, Professional dashboard, clinician report, Enterprise/batch
+processing and paid export.
+
+Tasks:
+
+1. Verify with code references and tests that every read of
+   CompoundObservation goes through the source-licence boundary or is an
+   explicitly allowlisted write/migration/admin path.
+
+2. Verify that plan/entitlement logic cannot make PhyFoodComp available on
+   a prohibited surface and cannot remove it from the ordinary free
+   personal surface. Include free, trial, paid, professional and
+   enterprise account parity tests for the same surface.
+
+3. Verify that the free UI calls only the permitted internal endpoint and
+   that no generic/public API serializer, export, report, batch or
+   recommendation endpoint includes these observations indirectly.
+
+4. Verify censored/non-numeric observations remain preserved but are
+   never converted to zero or selected as numeric evidence.
+
+5. Verify overlapping fractions are not summed or averaged and that
+   preparation compatibility/match limitations are displayed honestly. If
+   preparation compatibility is only metadata and not a selection
+   criterion, state that explicitly rather than claiming otherwise.
+
+6. Verify the importer is dry-run by default, stable-ID-only,
+   deterministic, transactional, idempotent, catalogue-bound and unable to
+   write under a prohibited/unknown destination profile.
+
+7. Verify current HEAD does not expose prohibited licensed artifacts and
+   that public CI uses synthetic data only.
+
+8. Run the full backend suite with PostgreSQL and Redis where the
+   existing CI expects them, frontend type-check/tests/build, migration
+   upgrade/downgrade tests, licensed-artifact checks and all new policy
+   tests. Record exact totals and skipped tests.
+
+9. Review branch protection and current required-check configuration. If
+   repository settings are not accessible or changing them was not
+   authorised, report the exact manual setting required; do not claim CI
+   is required merely because a workflow exists. (Note: this overlaps
+   with PROMPT 16 item 2 below, added independently before this prompt
+   set was received — do just once, report in whichever PR gets there
+   first.)
+
+10. Produce docs/phytate-production-readiness.md with a clear table of:
+    - control;
+    - code-enforced/documented/manual;
+    - evidence/test;
+    - current status;
+    - remaining owner action.
+
+Final acceptance criteria:
+
+- All real PhyFoodComp functionality is available on the ordinary free
+  personal surface regardless of account plan.
+- All paid/professional/public/export/batch surfaces are denied while
+  permission is pending.
+- Unknowns fail closed.
+- No prohibited real source artifacts are present in current public HEAD.
+- Stable mappings remain bound to exact fdc_id values and the catalogue
+  checksum.
+- The documentation says the upstream FDC release is unknown unless
+  evidence has actually been found.
+- No real database apply or deployment occurs during this audit.
+- The final report contains no overclaims and lists every remaining
+  manual/legal decision.
+
+
+OPTIONAL PROMPT 15 — DEAL WITH HISTORICAL PUBLIC ARTIFACT EXPOSURE, ONLY AFTER PAUL DECIDES
+=========================================================================================
+Do not run this prompt without an explicit decision from Paul after
+Prompt 9's inventory.
+
+If Paul decides that previously committed PhyFoodComp-derived artifacts
+must be removed from repository history, prepare a separate remediation
+plan before changing anything.
+
+Requirements:
+
+- Identify exact paths, commits, tags, branches, releases, pull-request
+  refs and forks/caches that may retain the data.
+- Explain consequences of history rewriting: changed commit hashes,
+  force-push, invalidated clones/branches and coordination needed.
+- Create and verify backups in a private authorised location before
+  destructive work.
+- Provide the exact proposed git-filter-repo rules and a dry-run/report
+  first.
+- Do not execute the rewrite, force-push, delete releases, or contact
+  GitHub without Paul's explicit approval of the exact plan.
+- Note that rewriting git history cannot guarantee deletion from
+  third-party clones or caches.
+
+If Paul instead decides the derived artifacts may lawfully remain public,
+record the evidence and amend redistribution_permitted only after the
+actual terms support that conclusion. Do not change the policy merely to
+match the repository's current contents.
+
+
+PROMPT 16 — REMAINING SMALL HOUSEKEEPING (from the prior status update, not covered above)
+============================================================================================
+These are independent of Prompts 9-15 and of each other. Do any, all, or
+none in any order without blocking on the rest of this file.
+
+1. Delete the stale branch record-fao-second-licence-request. Confirmed
+   by direct diff against main as of the prior update: its one
+   substantive code change (the infant-cereal alphabetical-fallback fix
+   in backend/app/ingest_phytate.py's _prefer_infant_cereal_candidate) is
+   already present in main, and its FAO second-request note is already
+   recorded in docs/phytate-evidence-review.md. Re-verify before deleting
+   if significant time has passed since this was written.
+
+2. Verify GitHub branch protection on main actually requires the backend
+   and frontend CI jobs to pass before merge (Settings -> Branches on the
+   live repo). This is also PROMPT 14 item 9 above — do it once, not
+   twice.
+
+3. PR #42 (the pg_trgm fuzzy-search trigram-index fix) is unrelated to
+   the phytate extension and was still open as of the prior update.
+   Review and merge it on its own merits, on its own schedule. Do not
+   bundle it into any phytate-related PR, and do not let it block or be
+   blocked by anything in this file.
+
+4. When FAO's written answer eventually arrives: record it verbatim in
+   docs/phytate-evidence-review.md first, before touching any code — this
+   is already documented as the required first step in
+   source_licence_policy.py's own "Activation procedure" docstring and in
+   PROMPT 15 above's closing paragraph. Do not duplicate a second version
+   of this instruction elsewhere; both existing copies are authoritative
+   and consistent with each other.
