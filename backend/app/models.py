@@ -1235,3 +1235,74 @@ class ImportManifest(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+
+
+class CompoundImportAuditRecord(Base):
+    """An immutable audit row for one real (--apply) run of a compound
+    reviewed-import command — prompts.txt PROMPT 10. Never written for a
+    dry run: dry-run's whole safety design rests on "writes nothing to
+    the database, ever" (see import_reviewed_phytate_mappings.py's module
+    docstring), and an audit-log write is still a database write, so
+    extending that guarantee to cover this table too was judged safer
+    than recording dry-run attempts here.
+
+    Exists because the write path previously only carried an operator's
+    self-declared --scope string, never actually checked against
+    app.source_licence_policy — a real gap prompts.txt PROMPT 10 closes.
+    This table is the durable record that a given import run was in fact
+    checked, and against what: the exact licence status, destination
+    surface, and source/workbook/catalogue identity at the moment of
+    that specific apply, not a claim reconstructible only from whichever
+    CompoundObservation rows happen to still exist afterward (which,
+    across repeated re-imports, "unchanged" rows and "updated" rows,
+    would not on their own reproduce this history).
+
+    Written inside the same transaction as the observations it accounts
+    for (see apply_plans' caller) so a rolled-back import never leaves an
+    audit row behind with no matching data, and a successfully committed
+    import never lacks one."""
+
+    __tablename__ = "compound_import_audit_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # e.g. "phytate" — CompoundObservation.compound this run wrote.
+    compound: Mapped[str] = mapped_column(String, nullable=False, index=True)
+
+    # e.g. "phyfoodcomp_1_0" — app.source_licence_policy's source_key for
+    # the data this run consumed.
+    source_key: Mapped[str] = mapped_column(String, nullable=False, index=True)
+
+    dataset_version: Mapped[str] = mapped_column(String, nullable=False)
+
+    # SourceLicencePolicy.licence_status *at the moment of this run* —
+    # never re-derived from the current live policy afterward, since the
+    # policy can legitimately change (e.g. once FAO responds) without
+    # rewriting history about what was true when this import actually ran.
+    licence_status_at_import: Mapped[str] = mapped_column(String, nullable=False)
+
+    # The app.source_licence_policy surface this run was authorised
+    # against — checked both against SOURCE_LICENCE_POLICIES and against
+    # this deployment's own DEPLOYMENT_PERMITTED_SURFACES configuration
+    # before the transaction that produced this row was ever opened.
+    destination_surface: Mapped[str] = mapped_column(String, nullable=False)
+
+    workbook_checksum: Mapped[str] = mapped_column(String, nullable=False)
+    catalogue_checksum: Mapped[str] = mapped_column(String, nullable=False)
+
+    # Version of the importer code that ran this import — same
+    # incompatible-fingerprint-versioning convention as
+    # ImportManifest.importer_version above.
+    importer_version: Mapped[str] = mapped_column(String, nullable=False)
+
+    # The operator's own typed second acknowledgement (see
+    # check_apply_confirmation) — not a secret or credential, just a
+    # repeat of already-public values, kept here so this row alone shows
+    # the operator actively confirmed rather than merely that the values
+    # happened to match.
+    operator_confirmed_dataset_version: Mapped[str] = mapped_column(String, nullable=False)
+    operator_confirmed_workbook_checksum: Mapped[str] = mapped_column(String, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )

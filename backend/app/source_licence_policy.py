@@ -28,10 +28,22 @@ boundary every *reading* service must call instead of querying
 CompoundObservation directly (see test_source_licence_policy_boundary.py
 for the repository-level test that any new bare
 `db.query(CompoundObservation)` outside this module's own allowlist is
-a failing test, not a silent gap). The writing side (ingest_phytate.py,
-import_reviewed_phytate_mappings.py, resolve_phytate_stable_ids.py) is
-out of scope here — those already fail closed on their own licensing gate
-(--scope) and never serve a response to an end user.
+a failing test, not a silent gap).
+
+The writing side (import_reviewed_phytate_mappings.py) also consults this
+module now (prompts.txt PROMPT 10) via `check_surface_allowed` — the
+same function the read boundary uses, not a second parallel copy of the
+rules — plus `check_deployment_permits_write`, a second, independent
+check that a CLI operator's own --destination-surface claim cannot
+satisfy alone (see that function's docstring for why). Before PROMPT 10,
+the importer's --scope flag only checked itself against a small
+hard-coded set duplicated in that file; it never actually consulted this
+module at all, despite an earlier version of this docstring claiming
+otherwise. Read-time enforcement (`require_surface`/
+`load_compound_observations`) remains the ultimate enforcement point
+regardless of what any import recorded — a wrong or stale
+destination_surface on an old CompoundImportAuditRecord row can never
+by itself make a prohibited surface start being served.
 
 Activation procedure for a future FAO reply (documented, not
 implemented): when Paul provides FAO's actual written terms, (1) record
@@ -44,6 +56,7 @@ has no such flag and must not gain one that a generic production
 setting can trip.
 """
 
+import os
 from dataclasses import dataclass
 from datetime import date
 
@@ -51,6 +64,17 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Query, Session
 
 from .models import CompoundObservation
+
+# prompts.txt PROMPT 10: which surfaces *this deployment's database* is
+# actually provisioned to serve, comma-separated (e.g.
+# "personal_free_ui,personal_free_internal_api"). Deliberately a second,
+# independent signal from whatever an import operator types on the
+# command line -- a CLI import command has no way to know what the
+# database it's writing into will actually be used to serve later, so an
+# operator's --destination-surface claim alone is not allowed to be the
+# only thing standing between a write and a prohibited surface. See
+# check_deployment_permits_write.
+DEPLOYMENT_SURFACES_ENV_VAR = "DEPLOYMENT_PERMITTED_SURFACES"
 
 SURFACE_PERSONAL_FREE_UI = "personal_free_ui"
 SURFACE_PERSONAL_FREE_INTERNAL_API = "personal_free_internal_api"
@@ -179,6 +203,47 @@ def check_surface_allowed(source_key: str, surface: str) -> None:
     if surface not in policy.permitted_surfaces:
         raise SourceLicenceError(
             f"source {source_key!r} (licence_status={policy.licence_status}) does not permit surface {surface!r}"
+        )
+
+
+def deployment_permitted_surfaces() -> frozenset[str]:
+    """The surfaces this deployment's own environment configuration
+    declares it is provisioned to serve. Unset or empty means no
+    surfaces are declared -- fails closed, never "assume everything" and
+    never "assume the same as whatever SOURCE_LICENCE_POLICIES currently
+    permits" (a deployment must explicitly opt in, not inherit a default
+    that could later widen without this specific deployment's operator
+    ever deciding that)."""
+    raw = os.environ.get(DEPLOYMENT_SURFACES_ENV_VAR, "")
+    return frozenset(s.strip() for s in raw.split(",") if s.strip())
+
+
+def check_deployment_permits_write(source_key: str, surface: str) -> None:
+    """Raises SourceLicenceError unless BOTH: (a) `surface` is currently
+    permitted by SOURCE_LICENCE_POLICIES for `source_key` (delegates to
+    check_surface_allowed -- the exact same check the read boundary uses,
+    not a duplicated copy of the rule), and (b) this deployment's own
+    DEPLOYMENT_PERMITTED_SURFACES environment configuration explicitly
+    lists `surface`.
+
+    (b) is the write-path-specific addition prompts.txt PROMPT 10 asked
+    for: an import CLI has no way to verify what the database it's about
+    to write into will actually be used to serve. Without a second,
+    deployment-level signal, an operator who mistypes
+    --destination-surface, or who runs the same command against a
+    database that's wired up differently than they assume, has nothing
+    stopping the write except their own claim being accidentally
+    correct. This is defense in depth, not the primary safety net --
+    require_surface/load_compound_observations at *read* time remain the
+    enforcement point that actually decides whether a prohibited surface
+    can ever be served, regardless of what any past import recorded."""
+    check_surface_allowed(source_key, surface)
+    permitted = deployment_permitted_surfaces()
+    if surface not in permitted:
+        raise SourceLicenceError(
+            f"this deployment's {DEPLOYMENT_SURFACES_ENV_VAR} does not list surface {surface!r} "
+            f"(currently declares: {sorted(permitted) or 'nothing -- unset or empty'}) -- refusing to "
+            "write data for a surface this deployment hasn't explicitly declared it serves"
         )
 
 
