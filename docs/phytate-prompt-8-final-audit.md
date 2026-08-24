@@ -907,3 +907,53 @@ this work, both fixed before merge:**
 A third P2 (stale `--scope` references in this document's own tables above) is fixed
 by this section and the edits directly above it.
 
+## Make the FDC manifest semantics exact and honest (2026-08-24, PROMPT 11)
+
+The stable-ID work being successful never meant the exact upstream USDA FDC release
+had been recorded — only that the exact *local snapshot* had. `ManifestSnapshot`'s
+fields previously used names (`release_version`, `checksum`, `row_count`) that didn't
+make that distinction obvious at every call site. Renamed to
+`upstream_release_version`, `catalogue_snapshot_checksum`, and
+`catalogue_row_count` throughout `catalogue_manifest.py`,
+`resolve_phytate_stable_ids.py`, `import_reviewed_phytate_mappings.py`, their tests,
+and the committed `docs/phytate-review/fdc_catalogue_manifest.json` (values
+unchanged, only key names — verified the file still round-trips through
+`load_expected_manifest` correctly). No behaviour change: the drift check already
+only ever compared `catalogue_snapshot_checksum`, never the release label, so "a
+catalogue change fails closed even if a release label is unchanged" was already true
+— this is a naming-precision fix, not a logic fix.
+
+**Discovered while doing this: `app.models.ImportManifest` (the DB table Prompt 2
+also asked for) is dead code.** Grepped the whole backend — it's referenced only in
+comments and its own isolated schema test, never actually written to by any real
+code path. The live manifest mechanism has always been the JSON file
+(`fdc_catalogue_manifest.json` via `ManifestSnapshot`/`write_manifest`/
+`load_expected_manifest`), not the database table. Left the DB table's own column
+names alone (renaming an unused table's columns has no real benefit and would just
+be migration churn) and did not delete it either, since "should this table become
+the real persistence mechanism instead of a JSON file, or should it just be dropped"
+is a genuine architectural decision, not a naming-precision fix — flagging it here
+rather than making that call unilaterally.
+
+Added `app.inspect_fdc_release` (requirement 3): a read-only command that inspects
+locally-supplied FDC directories for genuine release evidence, never infers a
+release from file timestamps, and never sets `upstream_release_version` on its own.
+Run against Paul's real three FDC directories: found no README/metadata/changelog
+file in any of them (confirmed directly, not assumed), and reported each directory's
+name against USDA's own documented naming convention as an explicitly-labelled
+**low-confidence hint only** (a directory name is operator-supplied, not
+cryptographically tied to the file contents — the exact same reasoning that rules
+out file timestamps as evidence). A bug in this tool's own first version — matching
+`"version"` as a substring, which false-flagged every real FDC export's
+`*_conversion_factor.csv` files as "metadata" since `"version"` is itself a
+substring of `"conversion"` — was caught by testing it against the real downloaded
+directories before relying on it, not by code review alone; fixed to a `startswith`
+check and covered with a regression test.
+
+Added the three-part operator report (requirement 5) to
+`resolve_phytate_stable_ids.py`'s output: whether approved names have been replaced
+with stable IDs (yes/no + totals), whether the exact local catalogue snapshot is
+recorded (always yes — the checksum mechanism), and whether the upstream USDA
+release version is known (no, honestly, absent the evidence `inspect_fdc_release`
+just confirmed doesn't exist in these files).
+

@@ -717,7 +717,7 @@ def main() -> None:
             sys.exit(1)
 
         actual_manifest = compute_fdc_catalogue_manifest(db)
-        drift_error = check_catalogue_drift(stable_ids, actual_manifest.checksum)
+        drift_error = check_catalogue_drift(stable_ids, actual_manifest.catalogue_snapshot_checksum)
         if drift_error:
             print(f"ERROR: {drift_error}", file=sys.stderr)
             sys.exit(1)
@@ -772,7 +772,7 @@ def main() -> None:
                 licence_status_at_import=get_policy(PHYFOODCOMP_1_0).licence_status,
                 destination_surface=args.destination_surface,
                 workbook_checksum=workbook_checksum,
-                catalogue_checksum=actual_manifest.checksum,
+                catalogue_checksum=actual_manifest.catalogue_snapshot_checksum,
                 importer_version=IMPORTER_VERSION,
                 operator_confirmed_dataset_version=args.confirm_dataset_version,
                 operator_confirmed_workbook_checksum=args.confirm_workbook_checksum,
