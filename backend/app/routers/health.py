@@ -1,11 +1,14 @@
-"""Liveness/readiness endpoints — operational-hardening prompt 5.
+"""Liveness/readiness endpoints — operational-hardening prompt 5, plus
+the source-licence coverage readiness probe (PROMPT 13).
 
 Unauthenticated (a load balancer/orchestrator's health check has no
-credentials to send) and deliberately minimal — neither endpoint ever
+credentials to send) and deliberately minimal — no endpoint here ever
 returns anything beyond a status word and, on failure, a short
 human-readable reason. No stack trace, no database URL, no internal
-identifiers: see `test_health.py::test_health_endpoints_do_not_leak_
-secrets` for what this is checked against directly.
+identifiers, and (for licence_policy_coverage_readiness specifically) no
+source data value, ever — only compound/source-dataset/surface *names*,
+which aren't secret. See `test_health.py::test_health_endpoints_do_not_
+leak_secrets` for what this is checked against directly.
 
 Both dependencies below (`get_db`, `get_database_url`) are the same
 kind of override point every other router in this app already uses
@@ -24,6 +27,7 @@ from sqlalchemy.orm import Session
 from ..database import DATABASE_URL, get_db
 from ..monitoring import alembic_head_and_current
 from ..redis_rate_limit import REDIS_URL, RateLimitStoreError, get_redis_rate_limiter
+from ..source_licence_policy import validate_source_licence_policy_coverage
 
 router = APIRouter(prefix="/api", tags=["health"])
 _logger = logging.getLogger("app.health")
@@ -104,5 +108,47 @@ def readiness(db: Session = Depends(get_db), database_url: str = Depends(get_dat
             # still reaches operators, via this log line.
             _logger.error("readiness_redis_unavailable", extra={"error": str(exc)})
             raise HTTPException(status_code=503, detail=f"rate limit store unavailable: {type(exc).__name__}")
+
+    return {"status": "ready"}
+
+
+@router.get("/ready/licence-policy-coverage")
+def licence_policy_coverage_readiness(db: Session = Depends(get_db)):
+    """PROMPT 13: a separate, additional readiness probe from `/api/ready`
+    — this one is a business/licensing check, not an infra check, and
+    deliberately isn't folded into the main readiness path so a slower or
+    growing compound_observations table can never delay the ordinary
+    "is this container fit to receive traffic" signal every deploy
+    already depends on.
+
+    Reports unhealthy (503) if any distinct (compound,
+    source_dataset_name) pair actually stored has no registered
+    source-licence policy, or if a registered policy's
+    prohibited_surfaces overlaps this deployment's own
+    DEPLOYMENT_PERMITTED_SURFACES declaration — see
+    app.source_licence_policy.validate_source_licence_policy_coverage for
+    what each of those means. This never replaces request-time
+    enforcement (require_surface/load_compound_observations still 403
+    every unknown/prohibited case regardless of what this reports); it
+    only supplements it by catching a misconfiguration before a real
+    request exercises it.
+
+    Only compound/source-dataset *names* ever appear in the response or
+    log line below, never a source data value — same convention as the
+    rest of this file (see its module docstring)."""
+    try:
+        problems = validate_source_licence_policy_coverage(db)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"database unavailable: {type(exc).__name__}")
+
+    if problems:
+        _logger.warning(
+            "licence_policy_coverage_unhealthy",
+            extra={"problem_count": len(problems), "problems": problems},
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=f"{len(problems)} source-licence coverage problem(s): {problems}",
+        )
 
     return {"status": "ready"}

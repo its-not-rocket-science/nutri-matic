@@ -22,13 +22,18 @@ dependent (internal_research_or_admin is allowed; enterprise_batch is
 not) in a way a single flag can't express.
 
 Enforcement boundary: `require_surface` is a FastAPI dependency factory
-(same convention as app.entitlements.require_feature) for any future
-phytate router; `load_compound_observations` is the mandatory query
-boundary every *reading* service must call instead of querying
-CompoundObservation directly (see test_source_licence_policy_boundary.py
-for the repository-level test that any new bare
-`db.query(CompoundObservation)` outside this module's own allowlist is
-a failing test, not a silent gap).
+(same convention as app.entitlements.require_feature), used by
+app.routers.phytate, today's real phytate consumer;
+`load_compound_observations` is the mandatory query boundary every
+*reading* service must call instead of querying CompoundObservation
+directly (see test_source_licence_policy_boundary.py for the
+repository-level test that any new bare `db.query(CompoundObservation)`
+outside this module's own allowlist is a failing test, not a silent
+gap). `validate_source_licence_policy_coverage` (PROMPT 13) is a
+supplementary operational check, wired into
+GET /api/ready/licence-policy-coverage — it can only catch a
+misconfiguration before a real request exercises it; it is never itself
+the enforcement point.
 
 The writing side (import_reviewed_phytate_mappings.py) also consults this
 module now (prompts.txt PROMPT 10) via `check_surface_allowed` — the
@@ -165,12 +170,17 @@ SOURCE_LICENCE_POLICIES: dict[str, SourceLicencePolicy] = {
     ),
 }
 
-# compound (CompoundObservation.compound) -> source_key. Generic across
-# future compounds by construction, same reasoning as CompoundObservation
-# itself: a later compound (oxalate, tannin) adds one line here, not a
-# schema or enforcement change.
-COMPOUND_SOURCE_KEYS: dict[str, str] = {
-    "phytate": PHYFOODCOMP_1_0,
+# (CompoundObservation.compound, CompoundObservation.source_dataset_name)
+# -> source_key. Keyed on the pair, not compound alone: `compound` only
+# says what was measured, not which dataset measured it (PROMPT 13) — a
+# future second phytate source with a different source_dataset_name must
+# never silently inherit PhyFoodComp's policy just because it shares the
+# compound name "phytate". Generic across future compounds by
+# construction, same reasoning as CompoundObservation itself: a later
+# compound (oxalate, tannin) adds one line here, not a schema or
+# enforcement change.
+COMPOUND_SOURCE_KEYS: dict[tuple[str, str], str] = {
+    ("phytate", "PhyFoodComp1.0"): PHYFOODCOMP_1_0,
 }
 
 
@@ -184,12 +194,27 @@ def get_policy(source_key: str) -> SourceLicencePolicy:
 
 
 def source_key_for_compound(compound: str) -> str:
-    source_key = COMPOUND_SOURCE_KEYS.get(compound)
-    if source_key is None:
+    """Looks up the single registered source_key for `compound` across
+    every (compound, source_dataset_name) pair in COMPOUND_SOURCE_KEYS.
+    Fails closed both when no pair matches and when more than one does —
+    the latter means two distinct datasets both report this compound and
+    nothing here can safely guess which one a caller who only supplied a
+    compound name (not a dataset name) actually means. That ambiguity
+    itself is the PROMPT 13 safeguard: a second phytate source registered
+    without updating every compound-only call site turns into an
+    explicit failure here, never a silent fall-through to whichever
+    policy happens to be checked first."""
+    matches = {source_key for (c, _sdn), source_key in COMPOUND_SOURCE_KEYS.items() if c == compound}
+    if not matches:
         raise SourceLicenceError(
             f"no registered source_key for compound={compound!r} — failing closed, refusing access"
         )
-    return source_key
+    if len(matches) > 1:
+        raise SourceLicenceError(
+            f"compound={compound!r} has {len(matches)} distinct registered source_keys "
+            f"({sorted(matches)}) — ambiguous, failing closed, refusing access"
+        )
+    return matches.pop()
 
 
 def check_surface_allowed(source_key: str, surface: str) -> None:
@@ -291,20 +316,51 @@ def load_compound_observations(db: Session, compound: str, surface: str) -> Quer
 
 
 def validate_source_licence_policy_coverage(db: Session) -> list[str]:
-    """Returns a warning string for every distinct `compound` value
-    actually present in compound_observations that has no
-    COMPOUND_SOURCE_KEYS entry — a PhyFoodComp-shaped consumer added
-    without a registered policy. Callable from an ops/health check or a
-    CI job once a real compound-observation-serving consumer exists
-    (none does yet — Prompt 6/7); deliberately not wired into app
-    startup here, since querying the database at process-import time for
-    a check with nothing yet to verify would add a boot-time DB
-    dependency this app doesn't otherwise have (see app.main's existing
-    validate_monitoring_config/validate_rate_limit_config, both
-    DB-free)."""
-    rows = db.query(CompoundObservation.compound).distinct().all()
-    return [
-        f"compound={compound!r} has no registered source_key in COMPOUND_SOURCE_KEYS — failing closed"
-        for (compound,) in rows
-        if compound not in COMPOUND_SOURCE_KEYS
-    ]
+    """Returns a problem string for every distinct (compound,
+    source_dataset_name) pair actually present in compound_observations
+    that either:
+
+      - has no COMPOUND_SOURCE_KEYS entry at all — a consumer added
+        without a registered policy (this now includes a *second*,
+        differently-named source for an already-registered compound:
+        keying on the pair rather than compound alone means it is
+        evaluated on its own, not silently covered by the first
+        source's registration — PROMPT 13 requirement 3); or
+
+      - has a registered policy whose `prohibited_surfaces` overlaps
+        this deployment's own `deployment_permitted_surfaces()` — the
+        environment is configured to serve a surface this compound's
+        source explicitly forbids. `check_surface_allowed`/
+        `require_surface` already refuse this at request time
+        regardless (see module docstring: read-time enforcement is the
+        ultimate authority), so this can only ever flag a
+        misconfiguration before it's exercised by a real request, never
+        substitute for that enforcement.
+
+    Wired into GET /api/ready/licence-policy-coverage (app.routers.health)
+    now that app.routers.phytate/app.phytate_selection are real
+    CompoundObservation-serving consumers — deliberately still not called
+    at process-import time (see app.main's existing
+    validate_monitoring_config/validate_rate_limit_config, both DB-free):
+    a per-request readiness check can report "not ready" cleanly, while a
+    failed query at import time would just crash the process outright."""
+    rows = db.query(CompoundObservation.compound, CompoundObservation.source_dataset_name).distinct().all()
+    permitted = deployment_permitted_surfaces()
+    problems: list[str] = []
+    for compound, source_dataset_name in rows:
+        source_key = COMPOUND_SOURCE_KEYS.get((compound, source_dataset_name))
+        if source_key is None:
+            problems.append(
+                f"compound={compound!r} source_dataset_name={source_dataset_name!r} has no registered "
+                "source_key in COMPOUND_SOURCE_KEYS — failing closed"
+            )
+            continue
+        policy = get_policy(source_key)
+        exposed = permitted & policy.prohibited_surfaces
+        if exposed:
+            problems.append(
+                f"compound={compound!r} source_key={source_key!r} would be exposed on prohibited "
+                f"surface(s) {sorted(exposed)} by this deployment's {DEPLOYMENT_SURFACES_ENV_VAR} — "
+                "failing closed"
+            )
+    return problems

@@ -957,3 +957,79 @@ recorded (always yes — the checksum mechanism), and whether the upstream USDA
 release version is known (no, honestly, absent the evidence `inspect_fdc_release`
 just confirmed doesn't exist in these files).
 
+## CI validation for the stable-ID mapping artifact (2026-08-24, PROMPT 12)
+
+`docs/phytate-review/stable_id_mapping.csv` was quarantined out of git tracking by
+PROMPT 9 (see below), so ordinary public CI had nothing to run its own checks
+against. Added `app.validate_stable_id_mapping` with two offline-testable pieces
+(`validate_structure`, run in public CI against a fabricated fixture,
+`tests/fixtures/synthetic_stable_id_mapping.csv`, that shares the real file's schema
+but never its content) and `compute_mapping_integrity_digest`, a SHA-256 over the
+real file's full bytes — safe to publish, same reasoning `catalogue_snapshot_checksum`
+already relies on — committed as `docs/phytate-review/stable_id_mapping_digest.json`
+so "the real mapping changed" is detectable without ever exposing it.
+
+Bot review on PR #60 found three real gaps, all fixed before merge:
+
+1. **The fixture exemption in `check_licensed_artifacts.py` was path-only** —
+   replacing the fixture's two fabricated rows with genuine PhyFoodComp rows at the
+   same path would still have passed the fail-closed scanner. Fixed by binding the
+   exemption to the fixture's exact reviewed SHA-256 content hash
+   (`is_reviewed_synthetic_fixture`); verified both that the pinned hash still
+   passes and that tampered content (extra bytes appended) correctly loses the
+   exemption.
+2. **No mode actually verified an *existing* `stable_id_mapping.csv`'s
+   `food_id`/`fdc_id` pairs against the live catalogue** — the PR description had
+   overclaimed this was already covered by `app.resolve_phytate_stable_ids`, but
+   that command re-resolves fresh targets by name from `final_approved_mapping.csv`;
+   it never loads or checks an existing stable mapping's already-recorded pairs. An
+   operator could hand-alter a pair, update the digest to match, and have structural
+   validation pass untouched. Fixed by adding `verify_against_live_catalogue`
+   (`--verify-live-catalogue`): exact `db.get(Food, food_id)` + `fdc_id` equality per
+   row, zero name/fuzzy fallback, reporting every mismatch.
+3. **Nothing in public CI read the committed digest file itself** — an arbitrary
+   hash, a negative row count, or a wrong schema version in
+   `stable_id_mapping_digest.json` would have stayed invisible to CI even though
+   that file is the public drift-detection signal for the private artifact. Fixed
+   with a test asserting the committed file's `schema_version`, `row_count`, and
+   `digest` shape are all valid.
+
+## Wire licence coverage into operations (2026-08-24, PROMPT 13)
+
+`validate_source_licence_policy_coverage` existed and was tested since PROMPT 4 but
+was never called from anywhere except its own tests — a `COMPOUND_SOURCE_KEYS` entry
+could go stale or a new compound/source pair could go unregistered with nothing to
+ever notice. Now that `app.routers.phytate`/`app.phytate_selection` are a real
+consumer (PROMPT 6/7), wired it into a new, separate readiness probe: `GET
+/api/ready/licence-policy-coverage` (`app/routers/health.py`), deliberately not
+folded into the main `/api/ready` — this is a business/licensing check, not an infra
+one, and a growing `compound_observations` table should never be able to slow down
+the ordinary deploy-readiness signal.
+
+Also fixed the model gap the prompt named directly: `COMPOUND_SOURCE_KEYS` used to
+key on `compound` alone, so a hypothetical second phytate source with a different
+`source_dataset_name` would have silently inherited PhyFoodComp's policy the moment
+anything looked it up by compound name only. Re-keyed on the
+`(compound, source_dataset_name)` pair; `source_key_for_compound` (the function
+`load_compound_observations`/request-time enforcement actually calls) now fails
+closed on *ambiguity* too, not just on an unregistered compound — if a second pair
+for the same compound is ever registered without updating every compound-only call
+site, that becomes an explicit `SourceLicenceError`, never a silent pick of
+whichever entry happens to come first. `validate_source_licence_policy_coverage`
+itself now flags both an unregistered `(compound, source_dataset_name)` pair and a
+registered one whose policy's `prohibited_surfaces` overlaps this deployment's own
+`DEPLOYMENT_PERMITTED_SURFACES` — the latter is the "configured deployment profile
+would expose them on a prohibited surface" half of the requirement.
+
+Request-time enforcement (`require_surface`/`load_compound_observations`) is
+untouched and remains the actual enforcement point — the new endpoint only
+supplements it, catching a misconfiguration before a real request would ever
+exercise it; a database-unavailable error there is caught and reported as a normal
+503, never a process crash, and nothing added here runs at Python import time (no
+new boot-time DB dependency). Only compound/source-dataset/surface *names* ever
+appear in the endpoint's response or its structured log line
+(`licence_policy_coverage_unhealthy`) — never a source data value.
+
+Updated the one stale comment claiming no real phytate consumer exists yet
+(`source_licence_policy.py`'s own docstring and `validate_source_licence_policy_coverage`'s).
+
