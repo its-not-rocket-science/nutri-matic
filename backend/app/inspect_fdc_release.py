@@ -112,11 +112,23 @@ def main() -> None:
 
     print(
         "None of the above is sufficient evidence to set upstream_release_version on its own (see "
-        "catalogue_manifest.py's module docstring for what counts as evidence). If you have independent "
-        "confirmation of the actual USDA release identity (e.g. from FDC's own download page at the time "
-        "these files were obtained), record it in docs/phytate-evidence-review.md first, then edit the "
-        "manifest file by hand -- never edit it to match a guess, and never let this tool's output alone "
-        "stand in for that evidence."
+        "catalogue_manifest.py's module docstring for what counts as evidence), and it is NOT sufficient "
+        "even paired with genuine independent confirmation of a release's identity -- that confirmation "
+        "tells you what release *these directories* are, not that the *currently-recorded catalogue "
+        "manifest* was actually built from these exact directories. A valid release label for a different "
+        "export could otherwise get attached to the wrong catalogue snapshot.\n"
+        "\n"
+        "Before editing any manifest file, you MUST separately verify that ingesting exactly these "
+        "directories reproduces the recorded catalogue_snapshot_checksum:\n"
+        "  1. python -m app.ingest_fdc --dir ... (repeat --dir for each directory above) against a "
+        "disposable schema (see docs/phytate-review/PRIVATE_ARTIFACTS.md for the technique).\n"
+        "  2. python -m app.resolve_phytate_stable_ids --acknowledge-new-catalogue-baseline against that "
+        "same schema, and compare the checksum it reports to the catalogue_snapshot_checksum already "
+        "recorded in your real manifest file, character for character.\n"
+        "  3. Only if they match exactly: record your independent release evidence in "
+        "docs/phytate-evidence-review.md first, then edit the real manifest file's upstream_release_version "
+        "by hand to match. If they don't match, these directories are not the ones that built the current "
+        "catalogue, and their release identity does not apply to it -- do not record anything."
     )
 
 

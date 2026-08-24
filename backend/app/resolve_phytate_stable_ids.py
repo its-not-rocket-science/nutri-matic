@@ -129,10 +129,43 @@ def load_overrides(overrides_csv: Path) -> dict[str, str]:
         }
 
 
+# PROMPT 11 renamed ManifestSnapshot's fields (release_version/checksum/
+# row_count -> upstream_release_version/catalogue_snapshot_checksum/
+# catalogue_row_count). A bot-review finding on PR #59 correctly caught
+# that a manifest file written by pre-rename code -- entirely plausible
+# for an operator-created baseline outside this repo, since only the one
+# committed docs/phytate-review/fdc_catalogue_manifest.json got migrated
+# here -- would make load_expected_manifest crash with a raw KeyError
+# instead of the clear, actionable error this codebase gives for every
+# other "the world doesn't match what this code expects" case. Detected
+# explicitly (not just left to KeyError) so the message tells the
+# operator exactly what happened and exactly how to recover: regenerating
+# the manifest is always safe (it's a deterministic checksum of the
+# current catalogue, never operator-authored data), so the fix is simply
+# to delete the stale file and re-run with
+# --acknowledge-new-catalogue-baseline, not a compatibility shim that
+# would keep accepting the old field names indefinitely.
+_OLD_MANIFEST_KEYS = {"release_version", "checksum", "row_count"}
+
+
+class ManifestFormatError(Exception):
+    pass
+
+
 def load_expected_manifest(manifest_file: Path) -> ManifestSnapshot | None:
     if not manifest_file.is_file():
         return None
     data = json.loads(manifest_file.read_text(encoding="utf-8"))
+    old_keys_present = _OLD_MANIFEST_KEYS & data.keys()
+    if old_keys_present:
+        raise ManifestFormatError(
+            f"{manifest_file} uses the pre-PROMPT-11 field names ({sorted(old_keys_present)}) -- "
+            "the manifest schema was renamed (release_version/checksum/row_count -> "
+            "upstream_release_version/catalogue_snapshot_checksum/catalogue_row_count). Regenerating a "
+            "manifest is always safe (it's a deterministic fingerprint of the current catalogue, never "
+            "operator-authored data) -- delete this file and re-run with "
+            "--acknowledge-new-catalogue-baseline to record a fresh one."
+        )
     return ManifestSnapshot(
         source_name=data["source_name"],
         upstream_release_version=data["upstream_release_version"],
@@ -173,6 +206,27 @@ def check_catalogue_manifest(
             f"{actual.catalogue_snapshot_checksum} ({actual.catalogue_row_count} rows). Refusing to "
             "resolve against a catalogue the review never saw."
         )
+
+
+def release_status_source(
+    expected: ManifestSnapshot | None, actual: ManifestSnapshot,
+) -> ManifestSnapshot:
+    """Which manifest the operator report's "is the upstream release
+    known?" question should read from -- prompts.txt PROMPT 11 requirement
+    5. Always `expected` (the *recorded* baseline on disk) when one
+    exists, never `actual` (freshly recomputed from the live Food table
+    on every run): compute_fdc_catalogue_manifest has no way to know the
+    upstream release and always sets
+    upstream_release_version=UNRECORDED_RELEASE, by design (see
+    catalogue_manifest's module docstring). An operator who followed
+    app.inspect_fdc_release's own instructions to hand-edit the manifest
+    file with real evidence would otherwise never see this report reflect
+    it -- a bot-review finding on PR #59 caught that the first version of
+    this report read the wrong manifest for this specific question.
+    Falls back to `actual` only when there is no recorded baseline yet
+    (a first run), where UNRECORDED_RELEASE is the correct answer either
+    way."""
+    return expected if expected is not None else actual
 
 
 def resolve_mapping_rows(
@@ -324,7 +378,11 @@ def main() -> None:
     db = SessionLocal()
     try:
         actual_manifest = compute_fdc_catalogue_manifest(db)
-        expected_manifest = load_expected_manifest(manifest_file)
+        try:
+            expected_manifest = load_expected_manifest(manifest_file)
+        except ManifestFormatError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            fail()
         try:
             check_catalogue_manifest(expected_manifest, actual_manifest)
         except CatalogueDriftError as e:
@@ -379,7 +437,8 @@ def main() -> None:
     # upstream_release_version and catalogue_snapshot_checksum are
     # different questions with different answers. Printed before the
     # exceptions/fail() branch below so it's visible even on a blocked run.
-    release_known = actual_manifest.upstream_release_version != UNRECORDED_RELEASE
+    release_source = release_status_source(expected_manifest, actual_manifest)
+    release_known = release_source.upstream_release_version != UNRECORDED_RELEASE
     print("\nOperator report:")
     print(
         f"  Have approved names been replaced with stable IDs? "
@@ -391,7 +450,7 @@ def main() -> None:
     )
     print(
         f"  Is the upstream USDA release version known? "
-        f"{'yes' if release_known else 'no'} ({actual_manifest.upstream_release_version})"
+        f"{'yes' if release_known else 'no'} ({release_source.upstream_release_version})"
     )
 
     if exceptions:

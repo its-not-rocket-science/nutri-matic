@@ -24,8 +24,12 @@ from app.models import Food
 from app.reference_patterns import AMINO_ACIDS
 from app.resolve_phytate_stable_ids import (
     CatalogueDriftError,
+    ManifestFormatError,
     check_catalogue_manifest,
+    load_expected_manifest,
+    release_status_source,
     resolve_mapping_rows,
+    write_manifest,
 )
 
 
@@ -283,3 +287,57 @@ def test_importer_version_mismatch_raises_catalogue_drift_error():
         check_catalogue_manifest(
             expected=_snapshot(importer_version="fdc-catalogue-manifest-v0"), actual=_snapshot(),
         )
+
+
+# ---- manifest file round-trip / PROMPT 11 backward-compat error ----------
+
+def test_load_expected_manifest_round_trips_through_write_manifest(tmp_path):
+    manifest_file = tmp_path / "manifest.json"
+    write_manifest(manifest_file, _snapshot())
+
+    loaded = load_expected_manifest(manifest_file)
+
+    assert loaded == _snapshot()
+
+
+def test_missing_manifest_file_returns_none(tmp_path):
+    assert load_expected_manifest(tmp_path / "does_not_exist.json") is None
+
+
+def test_pre_prompt_11_manifest_raises_a_clear_error_not_a_keyerror(tmp_path):
+    """A manifest file written by pre-PROMPT-11 code uses the old field
+    names (release_version/checksum/row_count) -- entirely plausible for
+    an operator-created baseline outside this repo, since only the one
+    committed docs/phytate-review/fdc_catalogue_manifest.json got
+    migrated. Must fail with a clear, actionable message, not a raw
+    KeyError, and must never silently keep accepting the old names."""
+    import json
+    manifest_file = tmp_path / "manifest.json"
+    manifest_file.write_text(json.dumps({
+        "source_name": "usda_fdc_food_catalogue", "release_version": "unrecorded_at_ingestion",
+        "import_date": "2026-08-21", "checksum": "abc", "row_count": 1,
+        "importer_version": IMPORTER_VERSION,
+    }), encoding="utf-8")
+
+    with pytest.raises(ManifestFormatError, match="pre-PROMPT-11 field names"):
+        load_expected_manifest(manifest_file)
+
+
+# ---- operator report: which manifest answers "is the release known?" ----
+# Regression coverage for a bot-review finding on PR #59: the first
+# version of the operator report read upstream_release_version from
+# `actual` (always UNRECORDED_RELEASE by construction) instead of
+# `expected` (the recorded baseline, which an operator may have
+# hand-edited with real evidence per app.inspect_fdc_release's own
+# instructions).
+
+def test_release_status_reads_the_recorded_manifest_when_one_exists():
+    recorded = _snapshot(upstream_release_version="2026-04-30")  # hand-edited with real evidence
+    fresh = _snapshot()  # always UNRECORDED_RELEASE, per compute_fdc_catalogue_manifest
+
+    assert release_status_source(recorded, fresh).upstream_release_version == "2026-04-30"
+
+
+def test_release_status_falls_back_to_actual_on_a_first_run():
+    fresh = _snapshot()
+    assert release_status_source(None, fresh) is fresh
