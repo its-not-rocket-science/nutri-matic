@@ -1,9 +1,9 @@
 {
-  "checksum": "7e7836ad3e41985c306efc62d0c2456f69b4aad225a1ed83a2591f68dec84c86",
+  "catalogue_row_count": 1434131,
+  "catalogue_snapshot_checksum": "7e7836ad3e41985c306efc62d0c2456f69b4aad225a1ed83a2591f68dec84c86",
   "import_date": "2026-08-21",
   "importer_version": "fdc-catalogue-manifest-v1",
-  "notes": "Upstream FDC release/version could not be verified from repository configuration or ingest metadata (see module docstring) \u2014 checksum is the authoritative drift-detection mechanism, not release_version.",
-  "release_version": "unrecorded_at_ingestion",
-  "row_count": 1434131,
-  "source_name": "usda_fdc_food_catalogue"
+  "notes": "Upstream FDC release/version could not be verified from repository configuration or ingest metadata (see module docstring) — catalogue_snapshot_checksum is the authoritative drift-detection mechanism, not upstream_release_version.",
+  "source_name": "usda_fdc_food_catalogue",
+  "upstream_release_version": "unrecorded_at_ingestion"
 }
