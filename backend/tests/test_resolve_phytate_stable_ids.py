@@ -208,8 +208,8 @@ def test_compute_manifest_excludes_foods_without_fdc_id(session):
 
     snapshot = compute_fdc_catalogue_manifest(session, as_of=date(2026, 8, 21))
 
-    assert snapshot.row_count == 1
-    assert snapshot.release_version == UNRECORDED_RELEASE
+    assert snapshot.catalogue_row_count == 1
+    assert snapshot.upstream_release_version == UNRECORDED_RELEASE
     assert snapshot.importer_version == IMPORTER_VERSION
 
 
@@ -220,7 +220,7 @@ def test_compute_manifest_is_deterministic(session):
     snap1 = compute_fdc_catalogue_manifest(session, as_of=date(2026, 8, 21))
     snap2 = compute_fdc_catalogue_manifest(session, as_of=date(2026, 8, 21))
 
-    assert snap1.checksum == snap2.checksum
+    assert snap1.catalogue_snapshot_checksum == snap2.catalogue_snapshot_checksum
 
 
 def test_compute_manifest_changes_when_a_manual_food_is_added(session):
@@ -236,8 +236,8 @@ def test_compute_manifest_changes_when_a_manual_food_is_added(session):
     session.commit()
     after = compute_fdc_catalogue_manifest(session, as_of=date(2026, 8, 21))
 
-    assert before.checksum != after.checksum
-    assert before.row_count == after.row_count == 1  # row_count still counts FDC-identified rows only
+    assert before.catalogue_snapshot_checksum != after.catalogue_snapshot_checksum
+    assert before.catalogue_row_count == after.catalogue_row_count == 1  # catalogue_row_count still counts FDC-identified rows only
 
 
 def test_compute_manifest_changes_when_food_table_changes(session):
@@ -249,13 +249,14 @@ def test_compute_manifest_changes_when_food_table_changes(session):
     session.commit()
     after = compute_fdc_catalogue_manifest(session)
 
-    assert before.checksum != after.checksum
+    assert before.catalogue_snapshot_checksum != after.catalogue_snapshot_checksum
 
 
 def _snapshot(**overrides):
     defaults = dict(
-        source_name="usda_fdc_food_catalogue", release_version=UNRECORDED_RELEASE,
-        import_date=date(2026, 8, 21), checksum="abc", row_count=1, importer_version=IMPORTER_VERSION,
+        source_name="usda_fdc_food_catalogue", upstream_release_version=UNRECORDED_RELEASE,
+        import_date=date(2026, 8, 21), catalogue_snapshot_checksum="abc", catalogue_row_count=1,
+        importer_version=IMPORTER_VERSION,
     )
     defaults.update(overrides)
     return ManifestSnapshot(**defaults)
@@ -271,7 +272,10 @@ def test_matching_manifest_passes():
 
 def test_checksum_mismatch_raises_catalogue_drift_error():
     with pytest.raises(CatalogueDriftError):
-        check_catalogue_manifest(expected=_snapshot(checksum="old"), actual=_snapshot(checksum="new"))
+        check_catalogue_manifest(
+            expected=_snapshot(catalogue_snapshot_checksum="old"),
+            actual=_snapshot(catalogue_snapshot_checksum="new"),
+        )
 
 
 def test_importer_version_mismatch_raises_catalogue_drift_error():
