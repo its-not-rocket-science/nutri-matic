@@ -23,10 +23,10 @@ write to production data occurred during this audit.
 | 1 | Every read of `CompoundObservation` goes through `load_compound_observations` or an explicit allowlisted file | Code-enforced (repository policy test) | `backend/app/source_licence_policy.py:268-298` (the boundary function); `backend/tests/test_source_licence_policy_boundary.py` — re-run this audit, 2/2 pass; allowlist is exactly `models.py`, `source_licence_policy.py`, `ingest_phytate.py`, `import_reviewed_phytate_mappings.py`, `phytate_selection.py` | ✅ Confirmed | None |
 | 2 | Surface allow/deny matrix: `personal_free_ui`/`personal_free_internal_api`/`internal_research_or_admin` permitted, `public_api`/`professional_dashboard`/`clinician_report`/`enterprise_batch`/`paid_export` prohibited, for PhyFoodComp while `licence_status=pending_commercial_permission` | Code-enforced | `source_licence_policy.py:136-166` (`SOURCE_LICENCE_POLICIES`), `check_surface_allowed`; `backend/tests/test_source_licence_policy.py` — 46/46 pass this audit, including `test_every_known_surface_has_an_explicit_allow_or_deny_for_phyfoodcomp` (no surface left in limbo) | ✅ Confirmed | None while `licence_status` stays pending — re-verify this table any time `licence_status`/`permitted_surfaces` change (see control 21) |
 | 3 | Plan/entitlement logic cannot expand PhyFoodComp onto a prohibited surface or remove it from the free personal surface, for any plan | Code-enforced | `backend/app/entitlements.py` — grepped this audit, zero references to `phytate`/`CompoundObservation`/`PHYFOODCOMP_1_0` anywhere in the file; `check_surface_allowed`'s signature has no `user`/`plan` parameter (`test_allowed_surface_check_takes_no_plan_argument_at_all`); `test_personal_free_ui_response_is_identical_across_every_plan` and `test_prohibited_surface_is_denied_regardless_of_plan`, both parametrized over free/trial/paid/professional/enterprise | ✅ Confirmed | None |
-| 4 | The free UI calls only the permitted internal endpoint; no generic/public API, export, report, batch, or recommendation endpoint includes phytate data indirectly | Code-enforced (structurally, via control 1) + documented | `frontend/src/lib/api.ts:188` — the only frontend call site, `GET /api/foods/{id}/phytate`; grepped `routers/public_api.py`, `routers/recommendations.py`, `schemas.py` this audit for `phytate`/`compound_fraction`/`CompoundObservation` — the only hit is `schemas.py`'s `PhytateObservationOut`, which is exclusive to `routers/phytate.py`; control 1's boundary test makes a future leak structurally impossible without also being caught there | ✅ Confirmed | None |
+| 4 | The free UI calls only the permitted internal endpoint; no generic/public API, export, report, batch, or recommendation endpoint includes phytate data indirectly | Code-enforced (**gap found and fixed this audit** — see note) + documented | `frontend/src/lib/api.ts:188` — the only frontend call site, `GET /api/foods/{id}/phytate`; grepped `routers/public_api.py`, `routers/recommendations.py`, `schemas.py` this audit for `phytate`/`compound_fraction`/`CompoundObservation` — the only hit is `schemas.py`'s `PhytateObservationOut`, exclusive to `routers/phytate.py`; **new** `backend/tests/test_phytate_selection_call_site_boundary.py` — only `routers/phytate.py` may call `select_phytate_observations` at all, 2/2 pass | ✅ Confirmed (was overclaimed pre-fix) | None now — **originally this row claimed control 1's boundary test alone made a leak "structurally impossible," which bot review on PR #62 correctly caught as false**: that test only rejects a new file that references `CompoundObservation` *by name*; a router could import and call `select_phytate_observations` (already allowlisted, since it's `phytate_selection.py` itself) with a permitted surface string while never mentioning `CompoundObservation`, and the old boundary test would stay green. Fixed by adding a second, narrower repository-policy test that checks *which file calls the function*, not just which file mentions the table |
 | 5 | Censored/non-numeric observations are preserved, never coerced to zero, never selected as numeric evidence | Code-enforced (DB constraint + service layer) | `backend/app/models.py:1017-1031` — `ck_compound_observation_value_qualifier_pairing` CHECK constraint (a censored row's `original_value` must be `NULL`, a measured row's must not be); `phytate_selection.py:183-200` — `MEASURED_QUALIFIERS` filter, censored rows always routed to `declined` with an explicit reason; `test_all_censored_is_insufficient_data`, `test_reported_zero_is_selected_as_a_real_value_not_missing` (a genuine measured zero is distinguished from a censored/missing value) | ✅ Confirmed | None |
 | 6 | Overlapping/incompatible phytate fractions are never summed or averaged; different analytical methods and families are kept separate | Code-enforced | `phytate_selection.py:74-92` (`FRACTION_FAMILY`, `SUBSUMES`), `:202-238` (subsumption logic, scoped per source entry so two independent measurements never suppress each other); `test_different_methods_same_family_are_both_selected_not_averaged`, `test_ip3_is_not_subsumed_by_ip5_a_ip6`, `test_ipsum_subsumes_everything_else_present`, `test_subsumption_is_scoped_to_the_same_source_entry` | ✅ Confirmed | None |
-| 7 | Preparation compatibility is metadata only, never a selection filter — and is described that way, not overclaimed | Code-enforced + documented (**gap found and fixed this audit**) | `phytate_selection.py:130-136` (`_preparation_compatible` — computed but never used to exclude a row from `selected`); frontend badge at `frontend/src/routes/foods/[id]/+page.svelte:163` (shown, not hidden) | ✅ Fixed | See "Corrections made during this audit" below — was previously true in code but not explicitly stated anywhere; now documented in both the function's docstring and the methodology page |
+| 7 | Preparation compatibility is metadata only, never a selection filter — and is described that way, not overclaimed | Code-enforced (mechanism) + documented (**gap found and fixed this audit**) | `phytate_selection.py:130-136` (`_preparation_compatible` — computed but never used to exclude a row from `selected`); `routers/phytate.py:53,61` — the endpoint accepts an optional `?preparation=` query param and threads it through | ⚠️ Mechanism confirmed correct, but **dormant in the live UI** (bot review on PR #62 caught this) | `frontend/src/lib/api.ts`'s `getPhytate(id)` never passes a preparation argument, and `routes/foods/[id]/+page.svelte:36` calls it with only `foodId` — so `preparation_compatible` is always `None` in practice today and the "preparation mismatch" badge is currently unreachable, not merely rare. This is a real product gap, not a licensing/safety one: building the actual UI for a user to state what preparation they're asking about is real design work (what input, sourced from what existing data) out of PROMPT 14's "no speculative functionality" scope — flagging for a future prompt, not fixed here |
 | 8 | Importer is dry-run by default | Code-enforced | `backend/app/import_reviewed_phytate_mappings.py:651` — `--apply` is `action="store_true"`, default `False` | ✅ Confirmed | None |
 | 9 | Importer resolves stable IDs only, never by name, at import time | Code-enforced | Grepped `import_reviewed_phytate_mappings.py` this audit — zero `Food.name`/name-filter lookups; targets come exclusively from `StableTarget.food_id`/`fdc_id` loaded from the pre-resolved mapping file (`:337-345`) | ✅ Confirmed | None |
 | 10 | Importer is catalogue-bound (refuses to proceed if the live catalogue has drifted from what the stable-ID mapping was resolved against) | Code-enforced | `import_reviewed_phytate_mappings.py:379-395` (`check_catalogue_drift`); `test_check_catalogue_drift_flags_mismatch`, `test_check_catalogue_drift_passes_when_checksums_match` | ✅ Confirmed | None |
@@ -62,15 +62,23 @@ there is no other stage that reads it.
 `public_api`, `professional_dashboard`, `clinician_report`,
 `enterprise_batch`, `paid_export` — all five are explicitly listed in
 `PHYFOODCOMP_1_0.prohibited_surfaces` (control 2), denied regardless of
-account plan (control 3), and structurally unreachable because nothing on
-any of those code paths calls `load_compound_observations`,
-`select_phytate_observations`, or the phytate router (control 1/4). No
-generic export/report/batch/public-API code references phytate data at all
-— confirmed by direct grep this audit, not inferred.
+account plan (control 3), and — as of this audit's fix to control 4 —
+structurally unreachable in two independent, repository-policy-tested
+ways: no file outside the allowlist may reference `CompoundObservation`
+by name (`test_source_licence_policy_boundary.py`), and no file outside
+`routers/phytate.py` may call `select_phytate_observations`
+(`test_phytate_selection_call_site_boundary.py`, added this audit after
+bot review correctly caught that the first test alone didn't cover this).
+No generic export/report/batch/public-API code references phytate data
+at all — confirmed by direct grep this audit, not inferred.
 
 ## Corrections made during this audit
 
-Two documentation-clarity fixes, no logic/schema/behaviour change:
+Four fixes total. The first two (pre-bot-review) were documentation-clarity
+only, no logic/schema/behaviour change. The second two were made in
+response to bot review on PR #62, which caught two real overclaims in this
+report's first draft — both are now corrected, one with an actual new
+repository-policy test, not just softer wording.
 
 1. `phytate_selection.py`'s `_preparation_compatible` had no docstring
    statement that its result is metadata only, never a selection filter
@@ -80,6 +88,27 @@ Two documentation-clarity fixes, no logic/schema/behaviour change:
 2. The methodology page's preparation-mismatch bullet described the
    behaviour ("flagged, not hidden") without stating explicitly that this
    is informational only, not a filter. Added one clarifying sentence.
+3. **Control 4's original claim — that control 1's boundary test alone
+   made an indirect phytate-data leak "structurally impossible" — was
+   false.** That test only rejects a file that references
+   `CompoundObservation` *by name*; it says nothing about which file
+   calls `select_phytate_observations` with which surface, so a future
+   router could call it directly (importing from the already-allowlisted
+   `phytate_selection.py`) and pass a permitted surface string despite
+   not actually being the free personal internal API, all while the
+   existing test stayed green. Fixed by adding
+   `backend/tests/test_phytate_selection_call_site_boundary.py`, which
+   makes the claim true instead of just narrowing the words around it.
+4. **Control 7 originally reported the preparation-compatibility display
+   as a working, confirmed control.** In the actual live UI, it never
+   fires: `frontend/src/lib/api.ts`'s `getPhytate` never passes a
+   preparation argument, so the backend's `?preparation=` parameter (and
+   therefore `preparation_compatible`) is always unset in practice today.
+   The underlying mechanism (metadata-only, never a filter) is still
+   correct — that part of the original claim stands — but reporting the
+   feature itself as confirmed-working was wrong. Downgraded to reflect
+   that it's dormant, not broken and not (per PROMPT 14's own
+   no-speculative-functionality scope) built out further in this PR.
 
 ## Final acceptance criteria — status against this audit
 
