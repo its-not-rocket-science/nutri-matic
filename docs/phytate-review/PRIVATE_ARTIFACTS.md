@@ -96,14 +96,48 @@ If you are setting up a fresh clone and need to run the resolver or
 reviewed importer against the real data, Paul supplies these files
 directly, out of band from git.
 
+## Historical git-history exposure (PROMPT 15, resolved 2026-08-25)
+
+**Git history has now been rewritten.** After Paul's explicit decision
+following this document's inventory, all 14 files were purged from every
+commit reachable from `main`, `fix-food-search-trigram-index-usage`, and
+the three `phytate-prompt-{1,2,3}-*` branches, using `git filter-repo`
+against an isolated mirror clone, verified two ways before pushing:
+
+- **Path-based**: zero commits anywhere in the filtered history touch
+  any of the 14 files' historical paths.
+- **Content-based**: every blob object reachable from the affected
+  branches (3,580 objects) was scanned for the same fail-closed
+  fingerprint `.github/scripts/check_licensed_artifacts.py` uses (OOXML
+  workbook signature, or `food_description`+`compound_fraction` in a
+  file's first line). The one hit found was confirmed — by exact SHA-256
+  match — to be the deliberately-synthetic, already-reviewed
+  `tests/fixtures/synthetic_stable_id_mapping.csv`, the same fixture
+  `check_licensed_artifacts.py` already allowlists by content hash for
+  PROMPT 12. Nothing else matched.
+- The filtered `main`'s resulting file tree was diffed against the live
+  pre-rewrite `main`'s tree and found byte-identical — the rewrite
+  changed only history, not current content.
+
+**What this did *not* achieve, and still requires separate action:**
+GitHub retains each merged PR's full pre-squash commit history and diff
+view server-side (`refs/pull/N/head`), independent of what `main` points
+to. A force-push to `refs/heads/main` does not touch that. The 14 files
+were originally introduced across six squash-merged PRs — **#41, #43,
+#52, #54, #55, #57** — and those PR pages, plus `git fetch origin
+refs/pull/<N>/head` for any of them, still expose the original content
+until Paul separately files a GitHub Support request asking them to
+purge cached views/backups for those specific PR numbers. A fresh
+`git clone` of the repo (which only ever fetches `refs/heads/*`) is
+clean; the six PRs' own pages are not, yet.
+
+Every local clone that existed before the rewrite (including the one
+this repository was developed in) needed `git fetch && git reset --hard
+origin/<branch>` to pick up the new history — old and new histories are
+unrelated, not a fast-forward.
+
 ## What this PR does *not* do
 
-- **Does not rewrite git history.** The full content of all 14 files is
-  still recoverable from any commit before this one. That is a distinct,
-  larger decision (force-push, coordination with anyone who has cloned or
-  forked the repo, cannot guarantee removal from third-party caches) —
-  see prompts.txt's OPTIONAL PROMPT 15. Not run without Paul's explicit
-  decision.
 - **Does not rebuild the CI regeneration/consistency check.** That check
   needed the real files present in a public CI runner to do its job; making
   it work against a synthetic fixture instead (so ordinary public CI needs
