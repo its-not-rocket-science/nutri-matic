@@ -671,7 +671,12 @@ every P1 and resolved every P2, either with a real fix or a documented decline.
   live check — still no real consumer reads unregistered compounds (Prompt 6/7's
   `phytate_selection`/`routers/phytate.py` both go through the one registered
   `phytate` compound). Adding a boot-time DB dependency for a check with nothing yet
-  to verify remains the wrong trade, per the original PR #47 reasoning.
+  to verify remains the wrong trade, per the original PR #47 reasoning. **Superseded
+  2026-08-24 (PROMPT 13, see that dated section below): now a real consumer exists,
+  and the coverage check is wired into `GET /api/ready/licence-policy-coverage` as a
+  per-request readiness probe, not a boot-time check — the "wrong trade" this
+  declined was specifically the boot-time-DB-dependency framing, which PROMPT 13's
+  design avoids.**
 - `phytate_selection.py`: applying `preparation_compatible`/match-quality to
   selection instead of just returning them as metadata. The module is deliberately
   scope-limited (see its own docstring: not an absorption model, not a molar-ratio
