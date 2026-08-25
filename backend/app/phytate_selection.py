@@ -130,7 +130,16 @@ class SelectionResult:
 def _preparation_compatible(source_preparation_state: str | None, preparation_context: str | None) -> bool | None:
     """None (unknown) whenever either side doesn't state a preparation —
     never guessed. A simple case-insensitive substring check, same
-    convention as ingest_phytate.classify_match's prep_aligned check."""
+    convention as ingest_phytate.classify_match's prep_aligned check.
+
+    Metadata only, never a selection filter (PROMPT 14 audit, item 5): a
+    `False` result here does not remove the observation from `selected`
+    or move it to `declined` — it is attached to the returned
+    SelectedObservation so the caller can flag the mismatch honestly (see
+    routers/phytate.py and the frontend's "preparation mismatch" badge),
+    not to silently drop data whose preparation this app can't confirm
+    matches. Suppressing it here would be a stronger, unearned claim of
+    precision than the underlying match itself supports."""
     if not preparation_context or not source_preparation_state:
         return None
     return preparation_context.strip().lower() in source_preparation_state.lower()

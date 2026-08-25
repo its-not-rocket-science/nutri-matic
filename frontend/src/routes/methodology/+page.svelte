@@ -266,7 +266,9 @@
 		<li>
 			A food's preparation state (raw, boiled, etc.), where the source recorded one, is shown
 			alongside its value — a mismatch between what you're asking about and what was actually
-			measured is flagged, not hidden.
+			measured is flagged, not hidden. This is informational only, not a filter: a flagged
+			observation is still shown, never silently excluded, since suppressing it would claim a
+			precision the underlying match doesn't actually have.
 		</li>
 		<li>
 			Missing or below-detection-limit source data is shown as missing, never silently treated as
