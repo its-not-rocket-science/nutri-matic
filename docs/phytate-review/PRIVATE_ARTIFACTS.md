@@ -123,17 +123,20 @@ against an isolated mirror clone, verified two ways before pushing:
   pre-rewrite `main`'s tree and found byte-identical — the rewrite
   changed only history, not current content.
 
-**What this did *not* achieve, and still requires separate action:**
-GitHub retains each merged PR's full pre-squash commit history and diff
-view server-side (`refs/pull/N/head`), independent of what `main` points
-to. A force-push to `refs/heads/main` does not touch that. The 14 files
-were originally introduced across six squash-merged PRs — **#41, #43,
-#52, #54, #55, #57** — and those PR pages, plus `git fetch origin
-refs/pull/<N>/head` for any of them, still expose the original content
-until Paul separately files a GitHub Support request asking them to
-purge cached views/backups for those specific PR numbers. A fresh
-`git clone` of the repo (which only ever fetches `refs/heads/*`) is
-clean; the six PRs' own pages are not, yet.
+**What this did *not* achieve:** GitHub retains each merged PR's full
+pre-squash commit history and diff view server-side (`refs/pull/N/head`),
+independent of what `main` points to. A force-push to `refs/heads/main`
+does not touch that. The 14 files were originally introduced across six
+squash-merged PRs — **#41, #43, #52, #54, #55, #57** — and those PR
+pages, plus `git fetch origin refs/pull/<N>/head` for any of them, still
+expose the original content. A fresh `git clone` of the repo (which only
+ever fetches `refs/heads/*`) is clean; the six PRs' own pages are not,
+yet.
+
+**Status: a GitHub Support request to purge cached views/backups for
+those six PR numbers was filed 2026-08-25.** Resolution is now on
+GitHub's side, not this repository's — update this paragraph once they
+respond.
 
 Every local clone that existed before the rewrite (including the one
 this repository was developed in) needed `git fetch && git reset --hard
