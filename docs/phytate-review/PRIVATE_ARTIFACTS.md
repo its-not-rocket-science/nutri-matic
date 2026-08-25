@@ -26,10 +26,14 @@ obtainable from `fdc.nal.usda.gov`) or reviewer/resolver decision metadata
 (a row_identifier and a chosen `fdc_id`, with no original source text or
 measured value) stay public — see the inventory below.
 
-**No git history was rewritten.** Every one of these files' full contents
-still exists in this repository's history, in every commit before the one
-that removed them from tracking. That is a real, separate exposure this PR
-does not attempt to fix — see "What this PR does *not* do" below.
+**Git history was NOT rewritten by this original PROMPT 9 change.** At the
+time this section was written, every one of these files' full contents
+still existed in this repository's history, in every commit before the one
+that removed them from tracking — a real, separate exposure this PR did
+not attempt to fix. **That has since changed: see "Historical git-history
+exposure (PROMPT 15, resolved 2026-08-25)" below — history has now been
+rewritten** for `main` and its affected branches, with one residual gap
+(GitHub's own retained PR history) documented there.
 
 ## Inventory
 
@@ -112,7 +116,7 @@ against an isolated mirror clone, verified two ways before pushing:
   workbook signature, or `food_description`+`compound_fraction` in a
   file's first line). The one hit found was confirmed — by exact SHA-256
   match — to be the deliberately-synthetic, already-reviewed
-  `tests/fixtures/synthetic_stable_id_mapping.csv`, the same fixture
+  `backend/tests/fixtures/synthetic_stable_id_mapping.csv`, the same fixture
   `check_licensed_artifacts.py` already allowlists by content hash for
   PROMPT 12. Nothing else matched.
 - The filtered `main`'s resulting file tree was diffed against the live
