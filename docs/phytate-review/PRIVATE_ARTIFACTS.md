@@ -133,10 +133,34 @@ expose the original content. A fresh `git clone` of the repo (which only
 ever fetches `refs/heads/*`) is clean; the six PRs' own pages are not,
 yet.
 
-**Status: a GitHub Support request to purge cached views/backups for
-those six PR numbers was filed 2026-08-25.** Resolution is now on
-GitHub's side, not this repository's — update this paragraph once they
-respond.
+**Status: resolved 2026-09-06.** The scope grew during the ticket: GitHub's
+own reference-scan found the sensitive commits reachable not just from the
+original six PRs but from **21** — every phytate-extension PR from #41
+onward (#41, #43–#62), since each later PR's branch was created from `main`
+*after* one of the earlier ones' squash-merges, carrying that ancestor
+commit in its own history even though its own diff never touched the
+files. Confirmed this directly (checked PR #62's own head ref before
+deciding) rather than taking the count on faith. Chose full deletion of
+all 21 over a partial six-PR deletion GitHub explicitly couldn't guarantee
+would fully unreference the data — the traded-away PR bodies/comment
+threads (mostly this same extension's own later PRs) are already captured
+in this document, `docs/phytate-prompt-8-final-audit.md`, and
+`docs/phytate-production-readiness.md`, so nothing unique was lost.
+
+GitHub confirmed all 21 deleted. Verified independently, not just taken on
+their word: `git ls-remote origin 'refs/pull/*/head'` no longer lists any
+of the 21, the GitHub API returns `404` for all of them, and the four
+branches that had been part of the original filter-repo rewrite (`main`
+and the three `phytate-prompt-{1,2,3}-*` branches) remain clean. One
+honest caveat: the original sensitive commit SHA is still directly
+fetchable from GitHub by exact hash (`git fetch origin <sha>` succeeds) —
+"cleared out unreferenced commits" removed every *reference* to it, not
+(yet) the raw object from GitHub's storage, which is a separate,
+undated background garbage-collection sweep on their side. Nobody can
+discover this content anymore without already knowing the exact
+40-character hash, which is not published anywhere public — this is the
+expected, normal end-state for this kind of request, not a sign it
+didn't work.
 
 Every local clone that existed before the rewrite (including the one
 this repository was developed in) needed `git fetch && git reset --hard
