@@ -21,6 +21,10 @@ on:
     - cron: "*/15 * * * *" # every 15 minutes
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  issues: write
+
 concurrency:
   group: uptime-check
   cancel-in-progress: true
@@ -46,3 +50,29 @@ jobs:
           python -m app.smoke_check \
             --backend-url https://api.nutri-matic.uk \
             --frontend-url https://nutri-matic.uk
+
+      # One open issue per outage instead of an email every 15 minutes.
+      # GitHub emails you when the issue is opened; later failures only add
+      # a comment. Recovery comments and closes it.
+      - name: Open or update an outage issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --label uptime-outage --state open --json number --jq '.[0].number // empty')
+          body="Uptime check failed: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ -z "$existing" ]; then
+            gh label create uptime-outage --color B60205 --description "Production uptime check failing" 2>/dev/null || true
+            gh issue create --title "Production is down: uptime check failing" --label uptime-outage --body "$body"
+          else
+            gh issue comment "$existing" --body "$body"
+          fi
+
+      - name: Close the outage issue on recovery
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --label uptime-outage --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Recovered: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          done

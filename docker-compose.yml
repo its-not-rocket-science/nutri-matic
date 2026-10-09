@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: nutrimatic
       POSTGRES_PASSWORD: nutrimatic
@@ -29,6 +30,7 @@ services:
   # in-process fallback already did.
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:
@@ -39,6 +41,13 @@ services:
 
   backend:
     build: ./backend
+    # A uvicorn process was OOM-killed on 3 Sep 2026 and, with no restart
+    # policy, stayed down ~27 days. unless-stopped brings it back after a
+    # kill or a host reboot. The memory cap keeps a runaway query from
+    # starving Postgres/Redis on the 4GB host (normal use ~850MB); tune
+    # it if legitimate load grows.
+    restart: unless-stopped
+    mem_limit: 1536m
     environment:
       DATABASE_URL: postgresql://nutrimatic:nutrimatic@postgres:5432/nutrimatic
       # Dev-only value so `docker compose up` doesn't silently fall back to
