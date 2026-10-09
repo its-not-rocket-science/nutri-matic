@@ -21,6 +21,10 @@ on:
     - cron: "*/15 * * * *" # every 15 minutes
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  issues: write
+
 concurrency:
   group: uptime-check
   cancel-in-progress: true
@@ -41,8 +45,37 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run read-only smoke check against production
+        id: smoke
         working-directory: backend
         run: |
           python -m app.smoke_check \
             --backend-url https://api.nutri-matic.uk \
             --frontend-url https://nutri-matic.uk
+
+      # One open issue per outage instead of an email every 15 minutes.
+      # GitHub emails you when the issue is opened; later failures edit the
+      # issue body silently (no comment, so no repeat notifications).
+      # Recovery comments and closes it. Gated on the smoke check's own
+      # outcome so a setup/pip failure never claims production is down.
+      - name: Open or update an outage issue on failure
+        if: steps.smoke.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --label uptime-outage --state open --json number --jq '.[0].number // empty')
+          body="Uptime check failed: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ -z "$existing" ]; then
+            gh label create uptime-outage --color B60205 --description "Production uptime check failing" 2>/dev/null || true
+            gh issue create --title "Production is down: uptime check failing" --label uptime-outage --body "$body"
+          else
+            gh issue edit "$existing" --body "$body (latest failing run, $(date -u +%Y-%m-%dT%H:%MZ))"
+          fi
+
+      - name: Close the outage issue on recovery
+        if: steps.smoke.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --label uptime-outage --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Recovered: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          done
