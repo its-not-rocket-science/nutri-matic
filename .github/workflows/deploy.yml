@@ -126,16 +126,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" "
-            set -e
-            cd nutri-matic
-            git fetch origin
-            git checkout $DEPLOY_SHA
-            echo 'Deploying commit: '\$(git rev-parse HEAD)
-            export RELEASE_VERSION=$DEPLOY_SHA
-            docker compose build backend
-            docker compose up -d backend
-          "
+          # The server's forced-command wrapper (deploy/deploy-allowed-
+          # commands.sh) accepts only `deploy <40-hex-sha>` and runs a fixed
+          # fetch / checkout / build / up sequence itself. No shell text
+          # from this workflow is ever evaluated on the server.
+          if ! printf '%s' "$DEPLOY_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::DEPLOY_SHA is not a 40-character lowercase hex SHA"
+            exit 1
+          fi
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$SSH_HOST" "deploy $DEPLOY_SHA"
 
       - name: Verify migration reached head on the live server
         env:
