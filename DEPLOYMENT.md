@@ -316,3 +316,22 @@ are a live design question, not an oversight — see
 `docs/auth-model-review.md` for the reasoning as of this app's current
 scale. Revisit that doc before assuming the current 7-day access-token-only
 model is wrong.
+
+## Deploy key and server-side allowlist
+
+The GitHub Actions deploy key (`PROD_SSH_KEY`) is locked to a forced command in
+`/root/.ssh/authorized_keys`: `command="/root/deploy-allowed-commands.sh",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty`.
+The script's source of truth is `deploy/deploy-allowed-commands.sh` in this
+repo; copy it to the server (mode `0700`, owner root) whenever it changes.
+
+It accepts only fixed actions (the exact `pg_dump`, `alembic current`,
+`migrate_profiles` and `demo_purge` strings the workflows send) and
+`deploy <40-hex-sha>`. A deploy must be a commit already on `origin/main`.
+There is no `eval`, so a compromised workflow cannot run arbitrary commands as
+root. Rejections are logged to syslog under the `deploy-wrapper` tag
+(`journalctl -t deploy-wrapper`).
+
+**Rolling out a wrapper change:** install the new script on the server *before*
+merging a workflow change that depends on it. The new script keeps every
+existing exact-match command, so older workflow versions keep working.
+
