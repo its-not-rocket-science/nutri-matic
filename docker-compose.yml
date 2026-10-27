@@ -10,7 +10,11 @@ services:
       # host port 5433, not 5432 — avoids clashing with a locally-installed Postgres.
       # Only matters for host-side tools (e.g. ingest_fdc.py); the backend container
       # talks to this over the docker network on the default 5432.
-      - "5433:5432"
+      # Bound to 127.0.0.1 so it is never reachable from outside the host:
+      # Docker publishes ports straight through iptables, bypassing ufw, so a
+      # bare "5433:5432" exposes the database to the internet unless a cloud
+      # firewall happens to be in front of it.
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -32,7 +36,8 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # 127.0.0.1 only, for the same reason as postgres above.
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -114,7 +119,10 @@ services:
       # actually wants this diagnostic reachable.
       OPS_DIAGNOSTIC_TOKEN: ${OPS_DIAGNOSTIC_TOKEN:-}
     ports:
-      - "8000:8000"
+      # 127.0.0.1 only: in production Caddy runs on the host and proxies to
+      # this port, so the backend must not also be reachable directly (that
+      # would bypass Caddy and the trusted-proxy assumptions above).
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
