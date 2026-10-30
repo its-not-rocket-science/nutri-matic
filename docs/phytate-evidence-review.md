@@ -499,6 +499,41 @@ run. The checker is safe to re-run at any time
 (`python check_consistency.py --dir .` from `docs/phytate-review/`) and
 should be run again after any further edits to these files.
 
+## 9. review_4 (special cases) — final 33 rows reviewed, earlier verdicts corrected (2026-10-27)
+
+The last 33 pending rows of `review_4_special_cases.csv` were human-reviewed
+by Paul S on 2026-10-27; the file now has a verdict on all 72 rows. The same
+pass corrected these earlier verdicts (row identifiers only — the source
+descriptions stay in the private, untracked review files):
+
+- `10030001:PHYTCPPI` — now `replace`, to an FDC cod record (previously
+  `approve` of a mackerel candidate).
+- `10070002:PHYTCPPI` — now `replace`, to an FDC cod record (previously
+  `reject`).
+- `03010246:IP3`, `03010246:IP4` — now `replace`, to an FDC pinto bean
+  record (previously `reject`).
+- `06010163:PHYTCPPI` — now `reject` (previously `approve`).
+
+`check_consistency.py` was re-run after the edit, then the derived files
+were regenerated with the repo's own scripts (`export_final_mapping.py`,
+`app.resolve_phytate_stable_ids`, `app.validate_stable_id_mapping`). The
+resolver ran against a local FDC catalogue whose fingerprint matched the
+recorded `fdc_catalogue_manifest.json` exactly (checksum `7e7836ad…`,
+1,434,131 rows), so no new catalogue baseline was acknowledged. Result:
+1,090 of 1,090 approved rows resolved, zero exceptions, and every newly
+approved FDC name matched exactly one catalogue record. Compared with the
+previous stable-ID mapping (1,086 rows): 10 rows added
+(`03010209:IP3`, `03010234:IP3`, `03010234:IP4`, `03010246:IP3`,
+`03010246:IP4`, `04010218:IP5`, `10010001:PHYTCPPI`, `10070002:PHYTCPPI`,
+`10070003:PHYTCPPI`, `11010002:PHYTCPPI`), 6 dropped as rejects
+(`01030060:PHYTCPPI`, `01030198:PHYT-`, `02010001:PHYTCPP`,
+`03010045:PHYTCPP`, `06010163:PHYTCPPI`, `10020001:PHYTCPPI`), and 2
+retargeted to a different `fdc_id` (`01020021:PHYTCPP`,
+`10030001:PHYTCPPI`). Both validator modes (structure-only and
+`--verify-live-catalogue`) pass, and `stable_id_mapping_digest.json` was
+updated via `--write-digest`. Nothing was imported: the reviewed importer
+was not run with `--apply`.
+
 ## Summary for the human reviewer
 
 - Dataset content, structure, and reporting-basis questions (Prompt 1
