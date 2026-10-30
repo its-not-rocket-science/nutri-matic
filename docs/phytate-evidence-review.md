@@ -531,7 +531,9 @@ previous stable-ID mapping (1,086 rows): 10 rows added
 retargeted to a different `fdc_id` (`01020021:PHYTCPP`,
 `10030001:PHYTCPPI`). Both validator modes (structure-only and
 `--verify-live-catalogue`) pass, and `stable_id_mapping_digest.json` was
-updated via `--write-digest`. Nothing was imported: the reviewed importer
+updated via `--write-digest`. The now-unused `02010001:PHYTCPP` entry was
+removed from `stable_id_exceptions_resolved.csv`, because that row is now a
+reject; a re-run without it produces a byte-identical mapping. Nothing was imported: the reviewed importer
 was not run with `--apply`.
 
 ## Summary for the human reviewer
