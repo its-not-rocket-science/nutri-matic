@@ -37,7 +37,33 @@ updates:
     schedule:
       interval: weekly
     labels: [dependencies]
+    # Major bumps of the SvelteKit/Vite/Sentry stack need a manual
+    # migration, so Dependabot never proposes them.
+    ignore:
+      - dependency-name: "@sveltejs/kit"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sveltejs/adapter-vercel"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sveltejs/vite-plugin-svelte"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "svelte"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sentry/sveltekit"
+        update-types: ["version-update:semver-major"]
     groups:
+      # Listed before "npm" so these packages land here (first match wins).
+      svelte-stack:
+        applies-to: version-updates
+        patterns:
+          - "@sveltejs/kit"
+          - "@sveltejs/adapter-vercel"
+          - "@sveltejs/vite-plugin-svelte"
+          - "svelte"
+          - "vite"
+          - "@sentry/sveltekit"
+        update-types: [minor, patch]
       npm:
         applies-to: version-updates
         patterns: ["*"]
