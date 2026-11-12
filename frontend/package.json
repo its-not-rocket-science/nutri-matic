@@ -18,14 +18,14 @@
 		"@sveltejs/vite-plugin-svelte": "^5.0.3",
 		"@types/node": "^20.17.0",
 		"svelte": "^5.57.3",
-		"svelte-check": "^4.6.0",
+		"svelte-check": "^4.7.8",
 		"typescript": "^5.7.2",
 		"vite": "^6.4.6",
 		"vitest": "^4.1.12"
 	},
 	"dependencies": {
 		"@sentry/sveltekit": "^10.78.0",
-		"@zxing/browser": "^0.1.5",
-		"@zxing/library": "^0.21.3"
+		"@zxing/browser": "^0.2.1",
+		"@zxing/library": "^0.23.0"
 	}
 }
