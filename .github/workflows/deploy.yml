@@ -74,8 +74,10 @@ jobs:
 
       - name: Restore into the rehearsal database
         run: |
-          export PGPASSWORD=rehearsal
-          pg_restore -h localhost -p 5432 -U postgres -d rehearsal --clean --if-exists --no-owner --no-privileges rehearsal.dump
+          # Run pg_restore from the same Postgres major version as the server and the
+          # rehearsal service (16), so a newer client on the runner image can't break it.
+          docker run --rm --network host -v "$PWD:/work" -e PGPASSWORD=rehearsal postgres:16-alpine \
+            pg_restore -h localhost -p 5432 -U postgres -d rehearsal --clean --if-exists --no-owner --no-privileges /work/rehearsal.dump
 
       - name: Verify schema before migrating
         working-directory: backend
