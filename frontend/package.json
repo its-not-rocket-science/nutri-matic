@@ -13,19 +13,19 @@
 		"test": "vitest run"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-vercel": "^6.3.4",
-		"@sveltejs/kit": "^2.63.0",
-		"@sveltejs/vite-plugin-svelte": "^5.0.3",
-		"@types/node": "^20.17.0",
+		"@sveltejs/adapter-vercel": "^7.0.2",
+		"@sveltejs/kit": "^3.1.1",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"@types/node": "^26.6.6",
 		"svelte": "^5.56.1",
-		"svelte-check": "^4.6.0",
-		"typescript": "^5.7.2",
-		"vite": "^6.0.7",
-		"vitest": "^4.1.12"
+		"svelte-check": "^4.7.8",
+		"typescript": "^7.0.2",
+		"vite": "^8.3.7",
+		"vitest": "^5.1.0"
 	},
 	"dependencies": {
-		"@sentry/sveltekit": "^10.68.0",
-		"@zxing/browser": "^0.1.5",
-		"@zxing/library": "^0.21.3"
+		"@sentry/sveltekit": "^11.11.0",
+		"@zxing/browser": "^0.2.1",
+		"@zxing/library": "^0.23.0"
 	}
 }
