@@ -31,6 +31,15 @@ updates:
     ignore:
       - dependency-name: "sqlalchemy"
         versions: [">=2.1"]
+      # Majors upgraded by hand: bcrypt hashes stored passwords, redis must
+      # match the server's Redis, and pytest majors can change test behaviour
+      # (#88 proposed bcrypt 5, redis 8 and pytest 9 together).
+      - dependency-name: "bcrypt"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "redis"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pytest"
+        update-types: ["version-update:semver-major"]
     groups:
       pip:
         applies-to: version-updates
