@@ -110,7 +110,7 @@ def test_search_by_name_excludes_other_users_private_recipe():
 def test_search_by_name_requires_auth():
     client, _ = _make_client()
     res = client.get("/api/recipes/search-by-name?q=chickpea")
-    assert res.status_code == 403
+    assert res.status_code == 401
 
     app.dependency_overrides.clear()
 

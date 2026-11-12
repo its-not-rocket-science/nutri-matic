@@ -97,7 +97,7 @@ def test_revoke_api_key_scoped_to_owner(client):
 
 def test_create_api_key_requires_auth(client):
     res = client.post("/api/api-keys", json={"name": "no auth"})
-    assert res.status_code == 403
+    assert res.status_code == 401
 
 
 def test_new_key_quota_matches_free_plan_default(client):
