@@ -126,4 +126,4 @@ def test_delete_preset_requires_ownership(client):
 
 def test_presets_require_auth(client):
     res = client.get("/api/presets")
-    assert res.status_code == 403
+    assert res.status_code == 401

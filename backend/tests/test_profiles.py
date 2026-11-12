@@ -59,7 +59,7 @@ def test_registration_creates_an_owner_profile(client):
 
 def test_get_profiles_requires_auth(client):
     res = client.get("/api/profiles")
-    assert res.status_code == 403  # HTTPBearer's response for a missing Authorization header
+    assert res.status_code == 401  # HTTPBearer's response for a missing Authorization header
 
 
 def test_update_owner_profile_round_trips_all_fields(client):

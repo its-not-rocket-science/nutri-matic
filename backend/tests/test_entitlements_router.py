@@ -49,7 +49,7 @@ def test_new_user_defaults_to_free_plan(client):
 
 def test_entitlements_requires_auth(client):
     res = client.get("/api/entitlements")
-    assert res.status_code == 403
+    assert res.status_code == 401
 
 
 def test_profile_response_includes_plan(client):
