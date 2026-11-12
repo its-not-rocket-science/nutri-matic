@@ -59,6 +59,15 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@sentry/sveltekit"
         update-types: ["version-update:semver-major"]
+      # TypeScript majors must wait until @sveltejs/kit accepts them as a
+      # peer (TypeScript 7 broke `npm ci` in #84). vitest and @types/node
+      # majors are upgraded by hand; @types/node follows the Node runtime.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # Listed before "npm" so these packages land here (first match wins).
       svelte-stack:
