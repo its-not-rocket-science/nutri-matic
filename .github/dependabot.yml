@@ -68,6 +68,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # @zxing is upgraded by hand: @zxing/library 0.23.0 requires Node >= 24
+      # (CI runs Node 20, so `npm ci` failed in #90) and changes barcode
+      # detection, which needs manual testing of the scanner.
+      - dependency-name: "@zxing/browser"
+      - dependency-name: "@zxing/library"
     groups:
       # Listed before "npm" so these packages land here (first match wins).
       svelte-stack:
