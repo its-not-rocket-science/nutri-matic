@@ -21,7 +21,7 @@
 		"svelte-check": "^4.6.0",
 		"typescript": "^5.7.2",
 		"vite": "^6.0.7",
-		"vitest": "^4.1.10"
+		"vitest": "^4.1.12"
 	},
 	"dependencies": {
 		"@sentry/sveltekit": "^10.68.0",
