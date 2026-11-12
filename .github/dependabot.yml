@@ -24,6 +24,13 @@ updates:
     schedule:
       interval: weekly
     labels: [dependencies]
+    # SQLAlchemy 2.1 changes the default driver for postgresql:// URLs from
+    # psycopg2 to psycopg 3, which breaks this project: psycopg2-binary is
+    # installed, and PR #78 failed with "No module named 'psycopg'". Moving
+    # to 2.1 needs a deliberate migration of every DATABASE_URL.
+    ignore:
+      - dependency-name: "sqlalchemy"
+        versions: [">=2.1"]
     groups:
       pip:
         applies-to: version-updates
