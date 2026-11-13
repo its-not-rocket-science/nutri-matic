@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import type { Collection } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import type { Collection } from '#lib/types.ts';
 
 	let collections: Collection[] = $state([]);
 	let newName = $state('');

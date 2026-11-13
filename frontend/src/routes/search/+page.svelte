@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import FilterBuilder from '$lib/components/FilterBuilder.svelte';
-	import PresetControls from '$lib/components/PresetControls.svelte';
-	import type { FilterKey, Food, NutrientFilterInput, NutrientSource } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import FilterBuilder from '#lib/components/FilterBuilder.svelte';
+	import PresetControls from '#lib/components/PresetControls.svelte';
+	import type { FilterKey, Food, NutrientFilterInput, NutrientSource } from '#lib/types.ts';
 
 	let keys: FilterKey[] = $state([]);
 	let filters: NutrientFilterInput[] = $state([]);

@@ -1,4 +1,4 @@
-import { CANONICAL_ORIGIN, PUBLIC_ROUTES } from '$lib/site';
+import { CANONICAL_ORIGIN, PUBLIC_ROUTES } from '#lib/site.ts';
 
 // Public-launch hardening prompt 5. Only the same genuinely public
 // routes robots.txt allows — see site.ts's PUBLIC_ROUTES docstring for

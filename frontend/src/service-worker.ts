@@ -8,12 +8,17 @@
 // nutrition/diary/meal-plan data must always be current, and a stale
 // cached response would be actively misleading rather than just slow.
 
-import { build, files, version } from '$service-worker';
+import { version } from '$app/env';
+import { assets, immutable } from '$app/manifest';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
 const CACHE = `cache-${version}`;
-const ASSETS = new Set([...build, ...files]);
+// SvelteKit 3's manifest paths are relative to the base path, which is the
+// service worker's scope; resolve them to absolute pathnames so they match
+// `url.pathname` in the fetch handler.
+const toPathname = (path: string) => new URL(path, sw.registration.scope).pathname;
+const ASSETS = new Set([...immutable, ...assets].map(({ path }) => toPathname(path)));
 
 sw.addEventListener('install', (event) => {
 	event.waitUntil(

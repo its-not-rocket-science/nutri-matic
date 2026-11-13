@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import PrintButton from '$lib/components/PrintButton.svelte';
-	import { downloadCsv } from '$lib/csv';
-	import { trendBarCaveat, trendBarValueLabel } from '$lib/trendsChart';
-	import type { DiaryTrends, TrendGroupBy } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import PrintButton from '#lib/components/PrintButton.svelte';
+	import { downloadCsv } from '#lib/csv.ts';
+	import { trendBarCaveat, trendBarValueLabel } from '#lib/trendsChart.ts';
+	import type { DiaryTrends, TrendGroupBy } from '#lib/types.ts';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);

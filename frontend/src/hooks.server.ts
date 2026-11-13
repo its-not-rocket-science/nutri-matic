@@ -1,9 +1,8 @@
 import * as Sentry from '@sentry/sveltekit';
-import type { Handle } from '@sveltejs/kit';
-import { sequence } from '@sveltejs/kit/hooks';
-import { env } from '$env/dynamic/public';
-import { CANONICAL_ORIGIN, REDIRECT_FROM_HOSTS } from '$lib/site';
-import { scrubSentryEvent } from '$lib/sentryScrub';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import * as env from '$app/env/public';
+import { CANONICAL_ORIGIN, REDIRECT_FROM_HOSTS } from '#lib/site.ts';
+import { scrubSentryEvent } from '#lib/sentryScrub.ts';
 
 // Public-launch hardening prompt 6 — server-side half of the frontend
 // Sentry integration (see hooks.client.ts for the client-side half and

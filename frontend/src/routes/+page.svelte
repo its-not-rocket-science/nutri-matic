@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { activeProfile } from '$lib/activeProfile.svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import { formatCurrency } from '$lib/currency';
-	import { GOAL_MESSAGES, type Goal } from '$lib/goals';
+	import { activeProfile } from '#lib/activeProfile.svelte.ts';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import { formatCurrency } from '#lib/currency.ts';
+	import { GOAL_MESSAGES, type Goal } from '#lib/goals.ts';
 	import type {
 		DiarySummary,
 		Food,
@@ -14,7 +14,7 @@
 		MealOptimization,
 		MealPlanEntry,
 		ShoppingList
-	} from '$lib/types';
+	} from '#lib/types.ts';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);

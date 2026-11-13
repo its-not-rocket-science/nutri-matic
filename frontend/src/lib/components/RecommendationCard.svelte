@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { nutrientLabel } from '$lib/nutrientLabels';
+	import { nutrientLabel } from '#lib/nutrientLabels.ts';
 	import {
 		CARBON_METHODOLOGY_NOTE,
 		GLYCAEMIC_METHODOLOGY_NOTE,
@@ -7,8 +7,8 @@
 		classificationProvenanceNote,
 		glycaemicBasisNote,
 		glycaemicTierLabel
-	} from '$lib/recommendationSafety';
-	import type { ScoreBreakdown } from '$lib/types';
+	} from '#lib/recommendationSafety.ts';
+	import type { ScoreBreakdown } from '#lib/types.ts';
 
 	/** Generic rendering of one nutrient-gap recommendation — an ingredient,
 	 * a recipe, or a substitution proposal — normalised to one shape so the

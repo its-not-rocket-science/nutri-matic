@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
-	import type { Food } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import FoodSearchInput from '#lib/components/FoodSearchInput.svelte';
+	import type { Food } from '#lib/types.ts';
 
 	interface IngredientRow {
 		food: Food;

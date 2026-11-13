@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { api } from '$lib/api';
-	import NutrientBars from '$lib/components/NutrientBars.svelte';
-	import ScoreCard from '$lib/components/ScoreCard.svelte';
-	import type { Complement, Food, FoodProvenance, NutrientAmount, Phytate, Score } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import NutrientBars from '#lib/components/NutrientBars.svelte';
+	import ScoreCard from '#lib/components/ScoreCard.svelte';
+	import type { Complement, Food, FoodProvenance, NutrientAmount, Phytate, Score } from '#lib/types.ts';
 
 	const foodId = Number(page.params.id);
 

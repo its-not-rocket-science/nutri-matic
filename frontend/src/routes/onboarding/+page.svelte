@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { activeProfile } from '$lib/activeProfile.svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
-	import { GOAL_MESSAGES, GOAL_OPTIONS, type Goal } from '$lib/goals';
-	import type { DietaryVocabulary, Food, Meal, MealOptimization, Profile } from '$lib/types';
+	import { activeProfile } from '#lib/activeProfile.svelte.ts';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import FoodSearchInput from '#lib/components/FoodSearchInput.svelte';
+	import { GOAL_MESSAGES, GOAL_OPTIONS, type Goal } from '#lib/goals.ts';
+	import type { DietaryVocabulary, Food, Meal, MealOptimization, Profile } from '#lib/types.ts';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
-	import { currencySymbol, formatCurrency } from '$lib/currency';
-	import type { Food, FoodPrice } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import FoodSearchInput from '#lib/components/FoodSearchInput.svelte';
+	import { currencySymbol, formatCurrency } from '#lib/currency.ts';
+	import type { Food, FoodPrice } from '#lib/types.ts';
 
 	let prices: FoodPrice[] = $state([]);
 	let error: string | null = $state(null);

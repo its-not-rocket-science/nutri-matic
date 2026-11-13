@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { activeProfile } from '$lib/activeProfile.svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
+	import { activeProfile } from '#lib/activeProfile.svelte.ts';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
 
 	let email = $state(page.url.searchParams.get('email') ?? '');
 	let password = $state('');

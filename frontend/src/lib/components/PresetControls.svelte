@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import type { FilterScope, NutrientFilterInput, SavedFilterPreset } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import type { FilterScope, NutrientFilterInput, SavedFilterPreset } from '#lib/types.ts';
 
 	let { scope, filters = $bindable([]) }: { scope: FilterScope; filters: NutrientFilterInput[] } =
 		$props();

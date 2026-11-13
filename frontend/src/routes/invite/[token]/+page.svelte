@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { api } from '$lib/api';
-	import type { ClinicianInvitePreview } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import type { ClinicianInvitePreview } from '#lib/types.ts';
 
 	const token = page.params.token ?? '';
 

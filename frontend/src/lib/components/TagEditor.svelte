@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import type { Recipe } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import type { Recipe } from '#lib/types.ts';
 
 	let { recipe = $bindable(), editable }: { recipe: Recipe; editable: boolean } = $props();
 

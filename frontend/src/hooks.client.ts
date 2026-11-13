@@ -1,10 +1,10 @@
 import * as Sentry from '@sentry/sveltekit';
-import { env } from '$env/dynamic/public';
-import { scrubSentryEvent } from '$lib/sentryScrub';
+import * as env from '$app/env/public';
+import { scrubSentryEvent } from '#lib/sentryScrub.ts';
 
 // Public-launch hardening prompt 6 — the frontend half of "integrate
 // Sentry... backend and frontend errors". No-op unless PUBLIC_SENTRY_DSN
-// is set (`$env/dynamic/public`, not `$env/static/public`, specifically
+// is set (declared optional and non-static in src/env.ts, specifically
 // so an unset value doesn't fail the build — mirrors app/monitoring.py's
 // "missing monitoring credentials must never break local development"
 // on the backend). Every local/dev/CI/preview build with no DSN

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import NutrientBars from '$lib/components/NutrientBars.svelte';
-	import type { ClinicianClientSummary, ClinicianLink, ClinicianNote } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import NutrientBars from '#lib/components/NutrientBars.svelte';
+	import type { ClinicianClientSummary, ClinicianLink, ClinicianNote } from '#lib/types.ts';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);
