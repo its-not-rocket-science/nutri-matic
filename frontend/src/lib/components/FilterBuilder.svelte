@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { FilterKey, NutrientFilterInput } from '$lib/types';
+	import type { FilterKey, NutrientFilterInput } from '#lib/types.ts';
 
 	let { keys, filters = $bindable([]) }: { keys: FilterKey[]; filters: NutrientFilterInput[] } =
 		$props();

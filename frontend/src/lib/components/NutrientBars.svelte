@@ -1,6 +1,6 @@
 <script lang="ts">
-	import InfoLink from '$lib/components/InfoLink.svelte';
-	import type { NutrientAmount } from '$lib/types';
+	import InfoLink from '#lib/components/InfoLink.svelte';
+	import type { NutrientAmount } from '#lib/types.ts';
 
 	let {
 		nutrients,

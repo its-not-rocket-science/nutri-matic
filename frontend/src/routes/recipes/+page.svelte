@@ -2,11 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount, tick } from 'svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import FilterBuilder from '$lib/components/FilterBuilder.svelte';
-	import PresetControls from '$lib/components/PresetControls.svelte';
-	import type { FilterKey, NutrientFilterInput, Recipe, RecipeSummary } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import FilterBuilder from '#lib/components/FilterBuilder.svelte';
+	import PresetControls from '#lib/components/PresetControls.svelte';
+	import type { FilterKey, NutrientFilterInput, Recipe, RecipeSummary } from '#lib/types.ts';
 
 	// Public-launch hardening prompt 7: the stock-recipe catalogue no
 	// longer fetches every public recipe at once — see docs/stock-recipes.md
@@ -107,13 +107,13 @@
 		pageNum: number, focusTarget: 'prev' | 'next' | null = null, replaceState = false,
 	) {
 		pendingFocus = focusTarget;
-		const url = new URL(page.url);
+		const url = new URL(page.url.href);
 		if (pageNum <= 1) {
 			url.searchParams.delete('stockPage');
 		} else {
 			url.searchParams.set('stockPage', String(pageNum));
 		}
-		goto(url, { noScroll: true, keepFocus: true, replaceState });
+		goto(url, { reset: false, replace: replaceState });
 	}
 
 	onMount(async () => {

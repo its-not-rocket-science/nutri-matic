@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { activeProfile } from '$lib/activeProfile.svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import { browserDefaultCurrency, CURRENCY_OPTIONS } from '$lib/currency';
-	import { GOAL_OPTIONS, type Goal } from '$lib/goals';
-	import type { Condition, DietaryConstraint, DietaryVocabulary, Profile, ProfileUpdate } from '$lib/types';
+	import { activeProfile } from '#lib/activeProfile.svelte.ts';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import { browserDefaultCurrency, CURRENCY_OPTIONS } from '#lib/currency.ts';
+	import { GOAL_OPTIONS, type Goal } from '#lib/goals.ts';
+	import type { Condition, DietaryConstraint, DietaryVocabulary, Profile, ProfileUpdate } from '#lib/types.ts';
 
 	let currency: string | null = $state(null);
 	let accountError: string | null = $state(null);

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import InfoLink from '$lib/components/InfoLink.svelte';
-	import { AMINO_ACID_LABELS, type Score } from '$lib/types';
+	import InfoLink from '#lib/components/InfoLink.svelte';
+	import { AMINO_ACID_LABELS, type Score } from '#lib/types.ts';
 
 	let { label, score }: { label: string; score: Score } = $props();
 </script>

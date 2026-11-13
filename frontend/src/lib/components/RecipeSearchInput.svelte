@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { api } from '$lib/api';
-	import type { RecipeSearchResult } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import type { RecipeSearchResult } from '#lib/types.ts';
 
 	let { onSelect, label = 'Search recipes' }: { onSelect: (recipe: RecipeSearchResult) => void; label?: string } =
 		$props();

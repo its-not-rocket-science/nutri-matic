@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PUBLIC_ROUTES } from '$lib/site';
+import { PUBLIC_ROUTES } from '#lib/site.ts';
 import { GET } from './+server';
 
 describe('GET /sitemap.xml', () => {

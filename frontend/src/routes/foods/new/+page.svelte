@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { AMINO_ACID_LABELS, type AminoAcidProfile } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { AMINO_ACID_LABELS, type AminoAcidProfile } from '#lib/types.ts';
 
 	let name = $state('');
 	let proteinPer100g = $state<number | null>(null);

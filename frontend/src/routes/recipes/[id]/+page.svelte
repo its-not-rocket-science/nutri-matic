@@ -2,16 +2,16 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
-	import ImproveThis from '$lib/components/ImproveThis.svelte';
-	import NutrientBars from '$lib/components/NutrientBars.svelte';
-	import PrintButton from '$lib/components/PrintButton.svelte';
-	import ScoreCard from '$lib/components/ScoreCard.svelte';
-	import StarRating from '$lib/components/StarRating.svelte';
-	import TagEditor from '$lib/components/TagEditor.svelte';
-	import { downloadCsv } from '$lib/csv';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import FoodSearchInput from '#lib/components/FoodSearchInput.svelte';
+	import ImproveThis from '#lib/components/ImproveThis.svelte';
+	import NutrientBars from '#lib/components/NutrientBars.svelte';
+	import PrintButton from '#lib/components/PrintButton.svelte';
+	import ScoreCard from '#lib/components/ScoreCard.svelte';
+	import StarRating from '#lib/components/StarRating.svelte';
+	import TagEditor from '#lib/components/TagEditor.svelte';
+	import { downloadCsv } from '#lib/csv.ts';
 	import type {
 		AbsorbedProtein,
 		Complement,
@@ -27,7 +27,7 @@
 		RecipeShare,
 		Robustness,
 		Score
-	} from '$lib/types';
+	} from '#lib/types.ts';
 
 	const recipeId = Number(page.params.id);
 

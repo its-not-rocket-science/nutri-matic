@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
-	import FoodSearchInput from '$lib/components/FoodSearchInput.svelte';
-	import ImproveThis from '$lib/components/ImproveThis.svelte';
-	import PrintButton from '$lib/components/PrintButton.svelte';
-	import RecipeSearchInput from '$lib/components/RecipeSearchInput.svelte';
-	import { downloadCsv } from '$lib/csv';
-	import { formatCurrency } from '$lib/currency';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import BarcodeScanner from '#lib/components/BarcodeScanner.svelte';
+	import FoodSearchInput from '#lib/components/FoodSearchInput.svelte';
+	import ImproveThis from '#lib/components/ImproveThis.svelte';
+	import PrintButton from '#lib/components/PrintButton.svelte';
+	import RecipeSearchInput from '#lib/components/RecipeSearchInput.svelte';
+	import { downloadCsv } from '#lib/csv.ts';
+	import { formatCurrency } from '#lib/currency.ts';
 	import type {
 		Food,
 		IngredientSuggestion,
@@ -22,7 +22,7 @@
 		RecipeSuggestion,
 		ShoppingList,
 		SubstitutionSuggestion
-	} from '$lib/types';
+	} from '#lib/types.ts';
 
 	function toIsoDate(d: Date): string {
 		return d.toISOString().slice(0, 10);

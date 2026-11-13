@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { api } from '$lib/api';
-	import type { Food } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import type { Food } from '#lib/types.ts';
 
 	let {
 		onSelect,

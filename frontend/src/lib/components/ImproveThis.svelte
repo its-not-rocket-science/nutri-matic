@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { activeProfile } from '$lib/activeProfile.svelte';
-	import { api, type RecommendationScope } from '$lib/api';
-	import RecommendationCard from '$lib/components/RecommendationCard.svelte';
-	import { noSuggestionReasonMessage, safetyWarningMessage } from '$lib/recommendationSafety';
-	import type { IngredientSuggestion, RecipeSuggestion, SubstitutionSuggestion } from '$lib/types';
+	import { activeProfile } from '#lib/activeProfile.svelte.ts';
+	import { api, type RecommendationScope } from '#lib/api.ts';
+	import RecommendationCard from '#lib/components/RecommendationCard.svelte';
+	import { noSuggestionReasonMessage, safetyWarningMessage } from '#lib/recommendationSafety.ts';
+	import type { IngredientSuggestion, RecipeSuggestion, SubstitutionSuggestion } from '#lib/types.ts';
 
 	/** Restrained "Improve this…" panel used on the diary day, meal-plan
 	 * day/multi-day-summary, and recipe-detail pages (prompt 10). Fetches

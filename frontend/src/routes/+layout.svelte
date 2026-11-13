@@ -2,12 +2,12 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import favicon from '$lib/assets/favicon.svg';
-	import { activeProfile } from '$lib/activeProfile.svelte';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import { canonicalUrl } from '$lib/site';
-	import { theme, type ThemeChoice } from '$lib/theme.svelte';
+	import favicon from '#lib/assets/favicon.svg';
+	import { activeProfile } from '#lib/activeProfile.svelte.ts';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import { canonicalUrl } from '#lib/site.ts';
+	import { theme, type ThemeChoice } from '#lib/theme.svelte.ts';
 
 	let { children } = $props();
 

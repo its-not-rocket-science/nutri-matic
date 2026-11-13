@@ -2,9 +2,9 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { api } from '$lib/api';
-	import { auth } from '$lib/auth.svelte';
-	import type { CollectionDetail, Recipe } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { auth } from '#lib/auth.svelte.ts';
+	import type { CollectionDetail, Recipe } from '#lib/types.ts';
 
 	const collectionId = Number(page.params.id);
 
