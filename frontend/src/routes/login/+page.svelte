@@ -53,7 +53,7 @@
 	</div>
 	<div class="field">
 		<label for="password">Password</label>
-		<input id="password" type="password" bind:value={password} required />
+		<input id="password" type="password" autocomplete="current-password" bind:value={password} required />
 	</div>
 
 	{#if error}
