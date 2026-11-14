@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
-import { api, NetworkError } from './api';
+import { api, HttpError, isAuthFailure, NetworkError } from './api';
 
 describe('api.listFoods', () => {
 	beforeEach(() => {
@@ -273,5 +273,46 @@ describe('network failures', () => {
 		const err = await api.me().catch((e) => e);
 		expect(err).not.toBeInstanceOf(NetworkError);
 		expect(err.message).toBe('boom');
+	});
+});
+
+describe('isAuthFailure (session check logs out on 401 only)', () => {
+	const fail = (status: number) =>
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: false, status, json: async () => ({}) }))
+		);
+
+	it('is true for a 401', async () => {
+		const { auth } = await import('./auth.svelte');
+		auth.setToken('expired');
+		fail(401);
+		const err = await api.me().catch((e) => e);
+		expect(err).toBeInstanceOf(HttpError);
+		expect(err.status).toBe(401);
+		expect(isAuthFailure(err)).toBe(true);
+	});
+
+	it.each([403, 500, 502, 503])('is false for HTTP %i', async (status) => {
+		fail(status);
+		const err = await api.me().catch((e) => e);
+		expect(err).toBeInstanceOf(HttpError);
+		expect(err.status).toBe(status);
+		expect(isAuthFailure(err)).toBe(false);
+	});
+
+	it('is false for a network error', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => {
+				throw new TypeError('Failed to fetch');
+			})
+		);
+		expect(isAuthFailure(await api.me().catch((e) => e))).toBe(false);
+	});
+
+	it('is false for non-HTTP errors', () => {
+		expect(isAuthFailure(new Error('boom'))).toBe(false);
+		expect(isAuthFailure(new NetworkError('offline'))).toBe(false);
 	});
 });
