@@ -157,6 +157,11 @@ export default defineConfig(({ mode }) => {
 		// advertises a map the plugin is about to delete anyway), and
 		// costs nothing on ordinary builds where the plugin doesn't load.
 		build: {
+			// Never inline imported assets as data: URIs — the CSP's img-src is
+			// 'self' only, so an inlined image (the layout's favicon.svg import
+			// was one) is blocked by the browser. Emitting every asset as a
+			// file keeps it same-origin without loosening the CSP.
+			assetsInlineLimit: 0,
 			sourcemap: env.SENTRY_AUTH_TOKEN && env.SENTRY_ORG && env.SENTRY_PROJECT ? 'hidden' : false
 		},
 		test: {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
-import { api } from './api';
+import { api, NetworkError } from './api';
 
 describe('api.listFoods', () => {
 	beforeEach(() => {
@@ -251,5 +251,27 @@ describe('api medical acknowledgement (hardening prompt 5)', () => {
 		const [url, options] = lastCall();
 		expect(url).toContain('/api/profiles/5/medical-acknowledgement');
 		expect(options.method).toBe('DELETE');
+	});
+});
+
+describe('network failures', () => {
+	it('throws NetworkError (not a plain Error) when fetch rejects', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => {
+				throw new TypeError('Failed to fetch');
+			})
+		);
+		await expect(api.me()).rejects.toBeInstanceOf(NetworkError);
+	});
+
+	it('does not treat an HTTP error as a NetworkError', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => ({ ok: false, status: 500, json: async () => ({ detail: 'boom' }) }))
+		);
+		const err = await api.me().catch((e) => e);
+		expect(err).not.toBeInstanceOf(NetworkError);
+		expect(err.message).toBe('boom');
 	});
 });

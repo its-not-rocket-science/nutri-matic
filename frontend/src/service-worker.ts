@@ -48,26 +48,44 @@ sw.addEventListener('fetch', (event) => {
 	const url = new URL(event.request.url);
 	if (url.pathname.startsWith('/api/')) return; // always live, never cached
 
+	// Every step that can reject (Cache Storage, network) is caught here so
+	// respondWith never receives a rejected promise — that surfaces as
+	// "Uncaught (in promise) TypeError: Failed to fetch" in the worker and a
+	// network-error response in the page, even while online (an aborted
+	// navigation or a transient fetch failure is enough).
 	async function respond(): Promise<Response> {
-		const cache = await caches.open(CACHE);
+		const cache = await caches.open(CACHE).catch(() => undefined);
 
-		if (ASSETS.has(url.pathname)) {
-			const cached = await cache.match(url.pathname);
+		if (cache && ASSETS.has(url.pathname)) {
+			const cached = await cache.match(url.pathname).catch(() => undefined);
 			if (cached) return cached;
 		}
 
 		try {
 			const response = await fetch(event.request);
-			if (response.status === 200) {
-				cache.put(event.request, response.clone());
+			if (cache && response.status === 200) {
+				// Not awaited (don't delay the response), but never left unhandled.
+				cache.put(event.request, response.clone()).catch(() => {});
 			}
 			return response;
-		} catch (err) {
-			const cached = await cache.match(event.request);
+		} catch {
+			const cached = await cache?.match(event.request).catch(() => undefined);
 			if (cached) return cached;
-			throw err;
+			return offlineResponse(event.request);
 		}
 	}
 
 	event.respondWith(respond());
 });
+
+function offlineResponse(request: Request): Response {
+	if (request.mode === 'navigate') {
+		return new Response(
+			'<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+				'<title>Offline — Nutri-Matic</title>' +
+				'<h1>You appear to be offline</h1><p>Check your connection and reload the page.</p>',
+			{ status: 503, statusText: 'Offline', headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+		);
+	}
+	return new Response(null, { status: 503, statusText: 'Offline' });
+}

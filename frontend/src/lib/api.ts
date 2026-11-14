@@ -80,6 +80,17 @@ const API_URL = import.meta.env.VITE_API_URL;
 // GET /api/foods for the case that originally exposed this.
 const REQUEST_TIMEOUT_MS = 20_000;
 
+/** The request never got an HTTP response (offline, DNS/TLS failure, CORS
+ * block, timeout). Distinct from an HTTP error so callers can treat it as
+ * "unknown" rather than as a definitive answer — e.g. a failed session
+ * check must not log the user out just because the network blipped. */
+export class NetworkError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'NetworkError';
+	}
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 	if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`;
@@ -96,9 +107,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 		});
 	} catch (e) {
 		if (e instanceof DOMException && e.name === 'AbortError') {
-			throw new Error('Request timed out. Please check your connection and try again.');
+			throw new NetworkError('Request timed out. Please check your connection and try again.');
 		}
-		throw new Error('Network error. Please check your connection and try again.');
+		throw new NetworkError('Network error. Please check your connection and try again.');
 	} finally {
 		clearTimeout(timeout);
 	}
