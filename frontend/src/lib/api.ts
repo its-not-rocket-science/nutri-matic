@@ -91,6 +91,25 @@ export class NetworkError extends Error {
 	}
 }
 
+/** The server answered with a non-2xx status. `status` lets callers tell a
+ * definitive auth failure (401) apart from everything else. */
+export class HttpError extends Error {
+	constructor(
+		message: string,
+		readonly status: number
+	) {
+		super(message);
+		this.name = 'HttpError';
+	}
+}
+
+/** True only when the server definitively rejected the credentials (401).
+ * Network errors, timeouts, 5xx and other statuses say nothing reliable about
+ * whether the session is still valid, so they must not end it. */
+export function isAuthFailure(e: unknown): boolean {
+	return e instanceof HttpError && e.status === 401;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 	if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`;
@@ -120,11 +139,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 		// in rather than surfacing a raw "Invalid or expired token" error.
 		auth.logout();
 		await goto('/login');
-		throw new Error('Session expired — please log in again.');
+		throw new HttpError('Session expired — please log in again.', 401);
 	}
 	if (!res.ok) {
 		const body = await res.json().catch(() => ({}));
-		throw new Error(body.detail ?? `Request failed: ${res.status}`);
+		throw new HttpError(body.detail ?? `Request failed: ${res.status}`, res.status);
 	}
 	if (res.status === 204) return undefined as T;
 	return res.json();

@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import favicon from '#lib/assets/favicon.svg';
 	import { activeProfile } from '#lib/activeProfile.svelte.ts';
-	import { api, NetworkError } from '#lib/api.ts';
+	import { api, isAuthFailure } from '#lib/api.ts';
 	import { auth } from '#lib/auth.svelte.ts';
 	import { canonicalUrl } from '#lib/site.ts';
 	import { theme, type ThemeChoice } from '#lib/theme.svelte.ts';
@@ -112,12 +112,11 @@
 				auth.setUser(await api.me());
 				activeProfile.setProfiles(await api.listProfiles());
 			} catch (e) {
-				// A network failure says nothing about whether the token is
-				// still valid — keep the logged-in state rather than clearing
-				// it and bouncing to /login. A genuine 401 is already handled
-				// inside api.request (logout + redirect).
-				if (e instanceof NetworkError) return;
-				auth.logout();
+				// Only a 401 proves the token is no longer valid (api.request
+				// also redirects to /login in that case). Network errors,
+				// timeouts and 5xx/other statuses leave the session unknown,
+				// so keep the logged-in state rather than logging out.
+				if (isAuthFailure(e)) auth.logout();
 			}
 		}
 	});
