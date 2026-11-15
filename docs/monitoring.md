@@ -66,9 +66,11 @@ found two live, confirmed gaps — both now closed:
   Vercel's own `$VERCEL_GIT_COMMIT_SHA` system env var, so the frontend
   release tag lines up with the backend's `RELEASE_VERSION` without a
   manual per-deploy step — UNVERIFIED against a real Vercel deploy in
-  this session (no live Vercel project access); relies on
-  `$env/dynamic/public` reading this at request time on the deployed
-  serverless function, matching how `PUBLIC_SENTRY_DSN` already works.
+  this session (no live Vercel project access); relies on the variable
+  being read when the app starts on the deployed serverless function, not
+  inlined at build time, matching how `PUBLIC_SENTRY_DSN` already works
+  (SvelteKit 3: declared optional and public in `frontend/src/env.ts`,
+  read through `$app/env/public`).
 - **Deploy annotations** (requirement 9) — a new, optional, non-blocking
   step in `deploy.yml`'s `deploy` job records a Sentry release + a
   production deploy against it via Sentry's REST API, gated on
@@ -172,9 +174,13 @@ this round:
 
 - **`@sentry/sveltekit`** added — `hooks.client.ts` (new) and
   `hooks.server.ts` (extended) both call `Sentry.init()`, gated on
-  `PUBLIC_SENTRY_DSN` via `$env/dynamic/public` (not `$env/static/
-  public` — the point is exactly that it's allowed to be absent without
-  failing the build, mirroring `app/monitoring.py`'s own guarantee).
+  `PUBLIC_SENTRY_DSN`. Since SvelteKit 3 the four `PUBLIC_SENTRY_*` /
+  `PUBLIC_RELEASE_VERSION` variables are declared in
+  `frontend/src/env.ts` (`defineEnvVars`, `public: true`, optional schema)
+  and imported from `$app/env/public`; they are read when the app starts,
+  not inlined at build time. The point is exactly that they're allowed to
+  be absent without failing the build, mirroring `app/monitoring.py`'s own
+  guarantee.
   `hooks.server.ts`'s existing redirect/security-header logic
   (renamed `canonicalAndSecurityHandle`, tested exactly as before) is
   now composed with `Sentry.sentryHandle()` via `sequence()`.
