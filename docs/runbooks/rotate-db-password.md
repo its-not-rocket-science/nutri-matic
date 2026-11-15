@@ -24,7 +24,7 @@ container, a mistaken port publish, a future service) can log in with it.
 | `.github/workflows/deploy.yml` → `rehearse-migration` | throwaway rehearsal DB, password `rehearsal`, user `postgres` | No |
 | Host-side tools (`app.ingest_fdc` etc. via `127.0.0.1:5433`) | whatever `DATABASE_URL` the operator exports | Yes, when run |
 | GitHub secrets | **none.** No workflow holds a database password. `demo-purge.yml` used to have a `PRODUCTION_DATABASE_URL` secret; it was removed in favour of `docker compose exec` over SSH | — |
-| Server `~/nutri-matic/.env` (untracked, `.gitignore` line 4) | `CORS_ORIGINS`, `TRUSTED_PROXY_HOP_COUNT`, `OPS_DIAGNOSTIC_TOKEN`, … | Yes. This is where the new password goes |
+| Server `~/nutri-matic/.env` (untracked, `.gitignore` line 4) | `JWT_SECRET`, `CORS_ORIGINS`, `TRUSTED_PROXY_HOP_COUNT`, `OPS_DIAGNOSTIC_TOKEN`, … | Yes. This is where the new password goes. Since #109, compose refuses to run at all (including `docker compose exec`) if `JWT_SECRET` is missing from it |
 
 The workflows never send a password. Everything reaches the database with
 `docker compose exec` on the server (see `deploy/deploy-allowed-commands.sh`).
@@ -169,18 +169,13 @@ rollback.
 
 ## Flags (found while writing this; not fixed here)
 
-- **`JWT_SECRET` is a literal in `docker-compose.yml`**
-  (`backend.environment.JWT_SECRET: "1596…"`). The comment next to it says
-  a real deployment must override it via an untracked `.env`. But a literal
-  in `environment:` **can't** be overridden by `.env`; only `${VAR}`
-  interpolation reads `.env`. Unless the server has a
-  `docker-compose.override.yml` or another mechanism (not visible in this
-  repo), production signs auth tokens with a value that is public on
-  GitHub. Check on the server:
-  `docker compose exec -T backend python -c "import os; print(os.environ['JWT_SECRET'].startswith('1596dfe3'))"`.
-  If it prints `True`, rotate it the same way (`${JWT_SECRET:?}` in
-  compose, value in `.env`). Every existing session will be logged out.
-  This is more urgent than the DB password.
+- **`JWT_SECRET` was a literal in `docker-compose.yml`.** A literal in
+  `environment:` can't be overridden by `.env`, so production signed auth
+  tokens with a value public on GitHub. Fixed in #109: compose now reads
+  `${JWT_SECRET:?...}` from the server `.env` (which already holds a
+  private value), and the backend refuses a secret shorter than 32
+  characters or equal to the old literal. Deploying it logs every user out
+  once. Same pattern as Step 0 here; the two changes don't conflict.
 - `ci.yml` hard-codes `nutrimatic`/`nutrimatic` for its own throwaway
   service container (lines 33–39, 57, 83). That's harmless: it never
   touches production. Leave it, but don't copy those URLs anywhere real.
@@ -195,3 +190,5 @@ rollback.
   must restore `.env` from a secure backup *before* `docker compose up`.
   Otherwise a fresh volume is initialised with the dev password and the
   backend connects with it.
+  Since #109 a missing `.env` makes compose fail on `JWT_SECRET` before
+  anything starts, which catches the common case of forgetting it entirely.
