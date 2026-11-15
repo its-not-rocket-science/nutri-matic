@@ -6,6 +6,7 @@ Postgres-only feature, and this module never invokes any part of
 app.stock_recipes.food_matching (the fuzzy/alias matcher), which is the
 point being tested."""
 
+import csv
 import dataclasses
 import os
 import shutil
@@ -353,9 +354,13 @@ def test_release_status_falls_back_to_actual_on_a_first_run():
 # on any failure. That file is untracked, so the deletion destroyed the only
 # copy. A failed run must now leave it byte-for-byte untouched, a successful
 # run must replace it via a same-directory temp file + os.replace, and no
-# temporary file may be left behind either way. Synthetic fixtures only.
+# temporary file may be left behind either way. Synthetic data only: the
+# "existing mapping" is the already-reviewed, allowlisted synthetic fixture
+# (see .github/scripts/check_licensed_artifacts.py), and the approved-mapping
+# input is generated per test from _mapping_row() rather than committed, so
+# no new file with the licensed-data header shape enters the repo.
 
-RESOLVER_FIXTURES = Path(__file__).parent / "fixtures" / "resolver"
+EXISTING_SYNTHETIC_MAPPING = Path(__file__).parent / "fixtures" / "synthetic_stable_id_mapping.csv"
 
 
 @pytest.fixture
@@ -365,14 +370,20 @@ def run_main(session, monkeypatch, tmp_path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
     out_mapping = out_dir / "stable_id_mapping.csv"
-    shutil.copyfile(RESOLVER_FIXTURES / "existing_stable_id_mapping.csv", out_mapping)
+    shutil.copyfile(EXISTING_SYNTHETIC_MAPPING, out_mapping)
     manifest_file = tmp_path / "manifest.json"
+    approved_csv = tmp_path / "approved_mapping.csv"
+    approved_row = _mapping_row(row_identifier="SYN00001:IP6", approved_fdc_food="Synthetic Grain, raw")
+    with open(approved_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(approved_row))
+        writer.writeheader()
+        writer.writerow(approved_row)
     monkeypatch.setattr(resolver, "SessionLocal", lambda: session)
 
     def run(*extra_args):
         monkeypatch.setattr("sys.argv", [
             "resolve_phytate_stable_ids",
-            "--mapping-csv", str(RESOLVER_FIXTURES / "approved_mapping.csv"),
+            "--mapping-csv", str(approved_csv),
             "--manifest-file", str(manifest_file),
             "--overrides-csv", str(tmp_path / "no_overrides.csv"),
             "--out-mapping", str(out_mapping),
