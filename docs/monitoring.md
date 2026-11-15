@@ -247,10 +247,10 @@ check passed against `https://api.nutri-matic.uk` /
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `SENTRY_DSN` | No | unset (backend monitoring disabled) | Enables backend Sentry. |
+| `SENTRY_DSN` | No | unset (backend monitoring disabled) | Enables backend Sentry. Passed into the container by `docker-compose.yml` (`${SENTRY_DSN:-}`); set it in the server `.env`. Before that wiring, a DSN on the server never reached the backend. |
 | `SENTRY_TRACES_SAMPLE_RATE` | No | `0.1` | Backend performance-trace sampling once `SENTRY_DSN` is set. |
 | `RELEASE_VERSION` | No | unset | Backend release tag — now wired automatically end-to-end by `deploy.yml`/`docker-compose.yml` (see "New this round" above); nothing to configure manually on a normal deploy. |
-| `APP_ENV` | Already required (`DEPLOYMENT.md`) | `development` | Reused as Sentry's `environment` tag, backend and frontend both. When `production` and `SENTRY_DSN` is unset, `validate_monitoring_config()` logs a loud `ERROR` at startup (see "New this round" above) — starts anyway, doesn't block. |
+| `APP_ENV` | Already required (`DEPLOYMENT.md`) | `development`; `production` under `docker-compose.yml` | Reused as Sentry's `environment` tag, backend and frontend both. When `production` and `SENTRY_DSN` is unset, `validate_monitoring_config()` logs a loud `ERROR` at startup (see "New this round" above) — starts anyway, doesn't block. |
 | `PUBLIC_SENTRY_DSN` | No | unset (frontend monitoring disabled) | Enables frontend Sentry (client + server). Set in Vercel's project env vars per environment, same mechanism as `VITE_API_URL` — see `docs/frontend-deployment.md`. |
 | `PUBLIC_SENTRY_ENVIRONMENT` | No | `development` | Frontend's `environment` tag. |
 | `PUBLIC_RELEASE_VERSION` | No | unset | Frontend release tag — now wired automatically via `frontend/vercel.json`'s `env` mapping to Vercel's own `$VERCEL_GIT_COMMIT_SHA` (see "New this round" above); nothing to configure manually on Vercel, UNVERIFIED against a live deploy. |

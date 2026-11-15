@@ -116,6 +116,15 @@ services:
       # server's own .env file / host secret manager when an operator
       # actually wants this diagnostic reachable.
       OPS_DIAGNOSTIC_TOKEN: ${OPS_DIAGNOSTIC_TOKEN:-}
+      # Turns on the backend's production-only startup checks (auth.py,
+      # redis_rate_limit.py, monitoring.py) and tags Sentry events.
+      # Defaults to production because this file is what the server runs;
+      # a local .env can set APP_ENV=development. See DEPLOYMENT.md.
+      APP_ENV: ${APP_ENV:-production}
+      # Backend Sentry. Empty means monitoring is off; with
+      # APP_ENV=production that logs an ERROR (monitoring_not_configured)
+      # at startup but does not stop the app. Set in the server .env.
+      SENTRY_DSN: ${SENTRY_DSN:-}
     ports:
       # 127.0.0.1 only: in production Caddy runs on the host and proxies to
       # this port, so the backend must not also be reachable directly (that
