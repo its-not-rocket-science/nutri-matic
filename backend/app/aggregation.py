@@ -363,8 +363,7 @@ def aggregate_nutrients(
     excluded. Silent otherwise — this should be rare given the curated/
     non-branded candidate pool upstream, so a nonzero rate here is
     itself the signal worth alerting on, not routine noise. Logged at
-    ERROR, not WARNING: `LoggingIntegration`'s `event_level=logging.
-    ERROR` means only ERROR+ reaches Sentry as an actual event."""
+    ERROR so it stands out in the container logs."""
     totals: dict[str, float] = {}
     flagged_keys: set[str] = set()
     flagged_count = 0

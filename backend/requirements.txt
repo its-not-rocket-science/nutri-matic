@@ -9,7 +9,6 @@ pytest==9.0.3
 httpx==0.28.1
 bcrypt==4.3.0
 PyJWT==2.15.1
-sentry-sdk==2.74.0
 PyYAML==6.0.3
 redis==5.3.1
 openpyxl==3.1.5

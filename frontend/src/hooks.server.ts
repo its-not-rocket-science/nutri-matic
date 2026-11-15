@@ -1,23 +1,5 @@
-import * as Sentry from '@sentry/sveltekit';
-import { sequence, type Handle } from '@sveltejs/kit/hooks';
-import * as env from '$app/env/public';
+import type { Handle } from '@sveltejs/kit/hooks';
 import { CANONICAL_ORIGIN, REDIRECT_FROM_HOSTS } from '#lib/site.ts';
-import { scrubSentryEvent } from '#lib/sentryScrub.ts';
-
-// Public-launch hardening prompt 6 — server-side half of the frontend
-// Sentry integration (see hooks.client.ts for the client-side half and
-// its no-DSN no-op guarantee, identical here).
-if (env.PUBLIC_SENTRY_DSN) {
-	Sentry.init({
-		dsn: env.PUBLIC_SENTRY_DSN,
-		environment: env.PUBLIC_SENTRY_ENVIRONMENT || 'development',
-		release: env.PUBLIC_RELEASE_VERSION || undefined,
-		tracesSampleRate: env.PUBLIC_SENTRY_TRACES_SAMPLE_RATE
-			? Number(env.PUBLIC_SENTRY_TRACES_SAMPLE_RATE)
-			: 0.1,
-		beforeSend: scrubSentryEvent
-	});
-}
 
 // Public-launch hardening prompt 5.
 //
@@ -72,8 +54,4 @@ export const canonicalAndSecurityHandle: Handle = async ({ event, resolve }) => 
 	return response;
 };
 
-// Sentry's own handle first (a no-op pass-through when PUBLIC_SENTRY_DSN
-// isn't set — Sentry.init() above was never called in that case, and
-// sentryHandle() checks for an active client before doing anything),
-// then this app's redirect/security-header logic.
-export const handle: Handle = sequence(Sentry.sentryHandle(), canonicalAndSecurityHandle);
+export const handle: Handle = canonicalAndSecurityHandle;
