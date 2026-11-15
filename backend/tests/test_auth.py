@@ -1,3 +1,4 @@
+import hashlib
 import time
 
 import jwt
@@ -5,6 +6,8 @@ import pytest
 
 from app.auth import (
     DEV_JWT_SECRET,
+    MIN_JWT_SECRET_LENGTH,
+    PUBLISHED_JWT_SECRET_SHA256,
     InvalidToken,
     JWT_ALGORITHM,
     JWT_SECRET,
@@ -14,6 +17,8 @@ from app.auth import (
     hash_password,
     verify_password,
 )
+
+REAL_SECRET = "a-real-secret-that-is-long-enough-0123456789"
 
 
 def test_password_hash_round_trip():
@@ -52,8 +57,8 @@ def test_decode_rejects_wrong_secret():
 
 
 def test_resolve_jwt_secret_uses_env_value_when_set(monkeypatch):
-    monkeypatch.setenv("JWT_SECRET", "a-real-secret")
-    assert _resolve_jwt_secret() == "a-real-secret"
+    monkeypatch.setenv("JWT_SECRET", REAL_SECRET)
+    assert _resolve_jwt_secret() == REAL_SECRET
 
 
 def test_resolve_jwt_secret_falls_back_to_dev_value_outside_production(monkeypatch):
@@ -70,6 +75,43 @@ def test_resolve_jwt_secret_raises_in_production_without_explicit_secret(monkeyp
 
 
 def test_resolve_jwt_secret_ok_in_production_with_explicit_secret(monkeypatch):
-    monkeypatch.setenv("JWT_SECRET", "a-real-secret")
+    monkeypatch.setenv("JWT_SECRET", REAL_SECRET)
     monkeypatch.setenv("APP_ENV", "production")
-    assert _resolve_jwt_secret() == "a-real-secret"
+    assert _resolve_jwt_secret() == REAL_SECRET
+
+
+@pytest.mark.parametrize("app_env", ["production", "development"])
+def test_resolve_jwt_secret_rejects_short_secret_in_any_environment(monkeypatch, app_env):
+    monkeypatch.setenv("JWT_SECRET", "x" * (MIN_JWT_SECRET_LENGTH - 1))
+    monkeypatch.setenv("APP_ENV", app_env)
+    with pytest.raises(RuntimeError, match="shorter than"):
+        _resolve_jwt_secret()
+
+
+def test_resolve_jwt_secret_rejects_empty_secret(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "")
+    monkeypatch.delenv("APP_ENV", raising=False)
+    with pytest.raises(RuntimeError, match="shorter than"):
+        _resolve_jwt_secret()
+
+
+def test_resolve_jwt_secret_accepts_exactly_minimum_length(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "x" * MIN_JWT_SECRET_LENGTH)
+    monkeypatch.setenv("APP_ENV", "production")
+    assert _resolve_jwt_secret() == "x" * MIN_JWT_SECRET_LENGTH
+
+
+def test_resolve_jwt_secret_rejects_published_secret(monkeypatch):
+    candidate = "y" * 64
+    digest = hashlib.sha256(candidate.encode("utf-8")).hexdigest()
+    monkeypatch.setattr("app.auth.PUBLISHED_JWT_SECRET_SHA256", frozenset({digest}))
+    monkeypatch.setenv("JWT_SECRET", candidate)
+    monkeypatch.delenv("APP_ENV", raising=False)
+    with pytest.raises(RuntimeError, match="published"):
+        _resolve_jwt_secret()
+
+
+def test_published_secret_list_holds_sha256_digests_only():
+    assert PUBLISHED_JWT_SECRET_SHA256
+    for digest in PUBLISHED_JWT_SECRET_SHA256:
+        assert len(digest) == 64 and all(c in "0123456789abcdef" for c in digest)

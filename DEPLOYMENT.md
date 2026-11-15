@@ -1,8 +1,8 @@
 # Deployment
 
 This covers what's required to run the backend outside `docker compose up`
-(the default dev setup, which already has safe defaults for everything
-below). Read this before deploying anywhere the JWT secret or CORS origin
+(the default dev setup, which has safe defaults for everything below
+except `JWT_SECRET`: compose needs it in a `.env`, see `.env.example`). Read this before deploying anywhere the JWT secret or CORS origin
 matters — i.e. anywhere that isn't your own laptop.
 
 ## Required environment variables
@@ -10,7 +10,7 @@ matters — i.e. anywhere that isn't your own laptop.
 | Variable | Required in production | Default | Purpose |
 |---|---|---|---|
 | `DATABASE_URL` | Yes | `postgresql://nutrimatic:nutrimatic@localhost:5433/nutrimatic` | Postgres connection string. The dev default only works against the bundled `docker-compose.yml` Postgres container. |
-| `JWT_SECRET` | Yes (enforced) | `dev-secret-change-me` | Signs auth tokens. The default is a fixed, public string committed to source — anyone can read it and forge a token for any user id. Generate a real one: `python -c "import secrets; print(secrets.token_hex(32))"`. |
+| `JWT_SECRET` | Yes (enforced) | `dev-secret-change-me` outside compose; none under compose | Signs auth tokens. Generate one: `python -c "import secrets; print(secrets.token_hex(32))"`. `docker-compose.yml` reads it from the untracked `.env` next to it (`${JWT_SECRET:?...}`), so compose refuses to start when it's unset or empty; the production server's `.env` already holds it. Whenever it is set, the backend refuses to start if it is shorter than 32 characters or matches a value published in this repository (`backend/app/auth.py::_resolve_jwt_secret`), whatever `APP_ENV` says. The unset fallback is a fixed public string, allowed only outside `APP_ENV=production`, for tests and bare local runs. Changing it logs every user out (tokens last 24h). |
 | `APP_ENV` | Yes — set to `production` | `development` | When `production`, the app refuses to start if `JWT_SECRET` isn't explicitly set, rather than silently falling back to the public dev value (see `backend/app/auth.py::_resolve_jwt_secret`). This is the enforcement mechanism, not just documentation — set it. |
 | `CORS_ORIGINS` | Yes | `http://localhost:5173` | Comma-separated list of frontend origins allowed to call the API (e.g. `https://app.example.com,https://staging.example.com`). |
 | `REDIS_URL` | Yes (enforced) | unset | Shared, durable store for the demo-endpoint rate limiter (`app/redis_rate_limit.py`). When `APP_ENV=production` and this is unset, the app refuses to start rather than silently falling back to the process-local, reset-on-every-deploy limiter — see `docs/rate-limiting.md`. Local dev via `docker compose up` already sets this to the bundled `redis` service. |
@@ -31,9 +31,9 @@ matters — i.e. anywhere that isn't your own laptop.
 
 ## Minimal production checklist
 
-1. Set `JWT_SECRET` to a real, private, randomly-generated value — never
-   reuse the value in `docker-compose.yml` (that one's committed to source
-   control and is dev-only by design).
+1. Set `JWT_SECRET` in the server's `.env` (next to `docker-compose.yml`;
+   see `.env.example`) to a private, random value of at least 32
+   characters. Compose has no default for it and won't start without it.
 2. Set `APP_ENV=production` so a missing `JWT_SECRET` fails startup loudly
    instead of silently degrading auth security.
 3. Set `CORS_ORIGINS` to your actual frontend origin(s).
