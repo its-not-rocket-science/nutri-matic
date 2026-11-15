@@ -110,6 +110,25 @@ repository-policy test, not just softer wording.
    that it's dormant, not broken and not (per PROMPT 14's own
    no-speculative-functionality scope) built out further in this PR.
 
+## Precondition before any real production import (added 2026-11-11)
+
+Production's FDC catalogue is not the one the stable-ID mapping was
+resolved against: on 2026-10-30 production's `foods` table held 1,429,608
+rows against the review catalogue's 1,434,131 (checksum and source
+releases recorded in `docs/phytate-evidence-review.md`, "FDC catalogue
+provenance"). Before any real `import_reviewed_phytate_mappings --apply`
+against production, an operator must reconcile the two, either by
+
+1. re-ingesting the same three FDC CSV releases (Foundation 2026-04-30,
+   SR Legacy 2018-04, Branded 2026-04-30) into production, or
+2. proving every mapped `fdc_id` exists there by running
+   `python -m app.validate_stable_id_mapping --verify-live-catalogue`
+   **read-only** against production,
+
+and record the outcome (date, method, result, row count / checksum) in
+this document. Until that record exists, no real production import may
+run, regardless of licence status.
+
 ## Final acceptance criteria — status against this audit
 
 - **All real PhyFoodComp functionality is available on the ordinary free
