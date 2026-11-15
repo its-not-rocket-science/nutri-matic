@@ -20,6 +20,7 @@ def _reset_monitoring_state(monkeypatch):
     state back down."""
     monkeypatch.delenv("SENTRY_DSN", raising=False)
     monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.delenv("MONITORING_REQUIRED", raising=False)
     monitoring._initialized = False
     yield
     monitoring._initialized = False
@@ -46,12 +47,34 @@ def test_init_monitoring_initialises_when_dsn_is_set(monkeypatch):
 class TestValidateMonitoringConfig:
     """Operational-hardening prompt 4, requirement 1."""
 
-    def test_logs_loud_error_when_production_and_no_dsn(self, monkeypatch, caplog):
+    def test_logs_info_not_error_when_production_and_no_dsn(self, monkeypatch, caplog):
+        """Backend monitoring is intentionally unconfigured in this
+        deployment: production must not log an ERROR on every start."""
         monkeypatch.setenv("APP_ENV", "production")
         monitoring.init_monitoring()  # no DSN — stays uninitialised
-        with caplog.at_level("ERROR", logger="app.monitoring"):
+        with caplog.at_level("INFO", logger="app.monitoring"):
             monitoring.validate_monitoring_config()
-        assert any(r.message == "monitoring_not_configured" for r in caplog.records)
+        records = [r for r in caplog.records if r.message == "monitoring_not_configured"]
+        assert [r.levelname for r in records] == ["INFO"]
+
+    @pytest.mark.parametrize("flag", ["true", "1", "YES"])
+    def test_logs_error_when_production_no_dsn_and_monitoring_required(self, monkeypatch, caplog, flag):
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("MONITORING_REQUIRED", flag)
+        monitoring.init_monitoring()
+        with caplog.at_level("INFO", logger="app.monitoring"):
+            monitoring.validate_monitoring_config()
+        records = [r for r in caplog.records if r.message == "monitoring_not_configured"]
+        assert [r.levelname for r in records] == ["ERROR"]
+
+    def test_unrecognised_flag_value_stays_quiet(self, monkeypatch, caplog):
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("MONITORING_REQUIRED", "false")
+        monitoring.init_monitoring()
+        with caplog.at_level("INFO", logger="app.monitoring"):
+            monitoring.validate_monitoring_config()
+        records = [r for r in caplog.records if r.message == "monitoring_not_configured"]
+        assert [r.levelname for r in records] == ["INFO"]
 
     def test_never_raises_even_in_production_with_no_dsn(self, monkeypatch):
         """Deliberately a warning, not the hard-fail-at-import pattern
@@ -92,7 +115,7 @@ class TestValidateMonitoringConfig:
         import subprocess
         import sys
 
-        child_env = {**os.environ, "APP_ENV": "production"}
+        child_env = {**os.environ, "APP_ENV": "production", "MONITORING_REQUIRED": "true"}
         child_env.pop("SENTRY_DSN", None)
         result = subprocess.run(
             [sys.executable, "-c", "from app import monitoring; monitoring.validate_monitoring_config()"],
