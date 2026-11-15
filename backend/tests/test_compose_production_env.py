@@ -3,8 +3,8 @@ environment the production container receives.
 
 That environment is docker-compose.yml's backend `environment:` block,
 interpolated against the server's .env. The server .env is simulated here
-with the variables it holds (JWT_SECRET, DATABASE_URL, CORS_ORIGINS), plus
-RELEASE_VERSION, which the deploy wrapper exports. The app is then
+with the variables it holds (JWT_SECRET, DATABASE_URL, CORS_ORIGINS). The
+app is then
 imported in a subprocess whose environment is that mapping and nothing
 else (bar the few OS variables Python itself needs), so nothing from the
 developer's or CI's own environment can mask a missing variable.
@@ -61,18 +61,13 @@ def server_dotenv() -> dict[str, str]:
         "JWT_SECRET": secrets.token_hex(32),
         "DATABASE_URL": "postgresql://nutrimatic:not-the-real-one@postgres:5432/nutrimatic",
         "CORS_ORIGINS": "https://nutri-matic.uk",
-        "RELEASE_VERSION": "0" * 40,
     }
 
 
 _PROBE = """
 import json, os
 import app.main  # runs every import-time startup check
-from app import monitoring
-print("PROBE" + json.dumps({
-    "app_env": os.environ.get("APP_ENV"),
-    "monitoring_initialised": monitoring.is_initialized(),
-}))
+print("PROBE" + json.dumps({"app_env": os.environ.get("APP_ENV")}))
 """
 
 
@@ -100,9 +95,7 @@ def test_production_startup_validation_passes_with_exactly_the_compose_environme
 
     assert result.returncode == 0, result.stderr
     line = next(ln for ln in result.stdout.splitlines() if ln.startswith("PROBE"))
-    assert json.loads(line[len("PROBE"):]) == {"app_env": "production", "monitoring_initialised": False}
-    # Monitoring is intentionally unconfigured: no ERROR on every start.
-    assert "monitoring_not_configured" not in result.stderr
+    assert json.loads(line[len("PROBE"):]) == {"app_env": "production"}
 
 
 def test_production_startup_refuses_without_redis_url():

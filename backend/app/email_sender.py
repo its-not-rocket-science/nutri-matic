@@ -7,14 +7,11 @@ enough for this app's actual volume — one invite email at a time, not a
 marketing-send workload.
 
 Configured entirely via env vars (SMTP_HOST/SMTP_PORT/SMTP_USERNAME/
-SMTP_PASSWORD/EMAIL_FROM_ADDRESS), read the same way APP_ENV/SENTRY_DSN
-are elsewhere in this app (see monitoring.py) — no config module, no
-default that pretends to be a real mail server.
+SMTP_PASSWORD/EMAIL_FROM_ADDRESS), read the same way APP_ENV is
+elsewhere in this app — no config module, no default that pretends to
+be a real mail server.
 
-Deliberately NOT the same "no-op without credentials" convention
-monitoring.py uses: Sentry is optional observability that can silently
-do nothing when unconfigured without misleading anyone, but an invite
-email that silently fails to send would leave a clinician believing
+Deliberately NOT a silent no-op without credentials: an invite email that silently fails to send would leave a clinician believing
 their client had been invited when nothing was ever delivered — the
 opposite of this app's "don't fabricate success" rule elsewhere
 (optimizer.py's cost handling, candidate_metadata.py's serving ranges).

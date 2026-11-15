@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-// Tested in isolation from Sentry's own wrapper (see hooks.server.ts's
-// exported `handle`, which composes this with Sentry.sentryHandle()) —
-// this file's job is the redirect/security-header logic specifically.
+// The redirect/security-header logic; hooks.server.ts exports it as `handle`.
 import { canonicalAndSecurityHandle as handle } from './hooks.server';
 
 function makeEvent(url: string) {

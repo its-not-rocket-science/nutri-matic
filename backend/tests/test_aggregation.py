@@ -324,8 +324,7 @@ def test_aggregate_nutrients_logs_once_when_an_implausible_row_is_excluded(caplo
     """Public-launch hardening prompt 6: data-quality quarantine/outlier
     counts. One log line per call (not per row) — bounded, since this
     function runs in hot paths called many times per logical request.
-    Logged at ERROR (see aggregation.py's comment) so it actually reaches
-    Sentry as an event rather than sitting as a breadcrumb only."""
+    Logged at ERROR (see aggregation.py's comment)."""
     import logging
 
     food = Food(id=1, name="Branded outlier", protein_g_per_100g=1, amino_acids=dict.fromkeys(AMINO_ACIDS))
