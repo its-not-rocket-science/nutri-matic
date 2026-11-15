@@ -1,0 +1,2 @@
+row_identifier,food_description,compound_fraction,value,food_id,fdc_id,approved_fdc_food,data_type,review_verdict,match_scope,reviewer,review_date,review_notes,catalogue_checksum
+SYN00001:IP6,"Synthetic test grain, whole",IP6,10.0,99,999999,"Synthetic Grain, raw",sr_legacy_food,approve,category_estimate,Test Reviewer,01/01/2026,Previous successful run.,synthetic-previous-run-checksum
