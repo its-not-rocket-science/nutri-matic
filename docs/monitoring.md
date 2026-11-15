@@ -289,6 +289,28 @@ in this repo's PR history).
    stack traces rather than original source locations — the code is no
    longer the gap, an actual token being provisioned still is.
 
+   **`@sentry/cli` install script (npm 11+).** The plugin uploads through
+   the `sentry-cli` binary. npm 11 warns about dependency install scripts
+   not listed in `package.json`'s `allowScripts`, and npm 12 skips them by
+   default. `@sentry/cli`'s `postinstall` is only a fallback: it exits
+   early when the platform binary (`@sentry/cli-linux-x64` on Vercel) was
+   installed as an optional dependency, and downloads the binary from
+   Sentry's CDN only when it wasn't. `frontend/package.json` approves
+   exactly the locked version (`"@sentry/cli@2.58.6": true`), so the
+   fallback keeps working under npm 12 and the warning goes away. When a
+   dependency update changes the `@sentry/cli` version, npm warns again
+   (npm 12 blocks it, which is harmless while the optional binary
+   installs). Re-review it and run `npm install-scripts approve
+   @sentry/cli` in `frontend/` to re-pin.
+
+   To confirm the upload in a Vercel build log, look for
+   `Successfully uploaded source maps to Sentry` from the Sentry Vite
+   plugin. A `Warning: No auth token provided` / `No organization slug` /
+   `No project provided` line means the plugin loaded with incomplete
+   settings, which `vite.config.ts` is meant to prevent. With any of the
+   three variables unset the plugin isn't added at all: no Sentry plugin
+   lines, and no `.map` files are emitted (`build.sourcemap` is `false`).
+
 **Provider**: unchanged reasoning from the prior version of this
 document — Sentry is what the prompt names as the lightweight default;
 swapping providers later only means changing `app/monitoring.py` and
