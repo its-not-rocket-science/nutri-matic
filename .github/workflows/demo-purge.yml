@@ -58,7 +58,7 @@ concurrency:
 jobs:
   purge:
     name: Demo purge
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Run demo purge on the server
         env:

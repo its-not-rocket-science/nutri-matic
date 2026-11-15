@@ -335,3 +335,17 @@ root. Rejections are logged to syslog under the `deploy-wrapper` tag
 merging a workflow change that depends on it. The new script keeps every
 existing exact-match command, so older workflow versions keep working.
 
+
+## When the backend deploy workflow runs
+
+`.github/workflows/deploy.yml` starts after every successful CI run on `main`,
+but its first job (`changes`) diffs the merged commit against its parent and
+only lets the migration rehearsal and the production deploy run when a path
+under `backend/` or `deploy/`, `docker-compose.yml`, a `Dockerfile`, or
+`deploy.yml` itself changed. Frontend-only or docs-only merges (the frontend is
+deployed by Vercel) show both jobs as *skipped* and queue no production
+approval. If the diff can't be computed the job assumes a deploy is needed. To
+force a backend deploy anyway, run the workflow by hand: **Actions → Rehearse
+and Deploy Backend → Run workflow** on `main` (or
+`gh workflow run deploy.yml --ref main`); `workflow_dispatch` always rehearses
+and then waits for the usual production approval.
