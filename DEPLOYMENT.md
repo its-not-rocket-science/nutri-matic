@@ -335,3 +335,51 @@ root. Rejections are logged to syslog under the `deploy-wrapper` tag
 merging a workflow change that depends on it. The new script keeps every
 existing exact-match command, so older workflow versions keep working.
 
+
+## When the backend deploy workflow runs
+
+`.github/workflows/deploy.yml` starts after every successful CI run on `main`,
+but its first job (`changes`) diffs the new commit against the **last
+successful production deploy** and only lets the migration rehearsal and the
+production deploy run when a path under `backend/` or `deploy/`,
+`docker-compose.yml`, a `Dockerfile`, or `deploy.yml` itself changed since then.
+Frontend-only or docs-only changes (the frontend is deployed by Vercel) show
+both jobs as *skipped* and queue no production approval.
+
+The last good deploy is marked by the lightweight tag `deployed-prod`. The
+deploy job's final step moves it (`git tag -f` + `git push -f`) to the deployed
+SHA, and only after the deploy, the live `alembic current` check and the smoke
+test have all passed; that step is why the deploy job alone has
+`contents: write`. Because the diff runs from the tag rather than from the
+commit's parent, backend changes are not lost when several commits land in one
+push, when a CI run is cancelled, or when a production approval is rejected:
+they stay in the diff until a deploy actually succeeds. A rollback (deploying an
+older SHA) moves the tag back too, so the next run compares against what is
+really live.
+
+The job fails open (`needed=true`, with a warning in the run) when the tag is
+missing or the diff can't be computed. If the tag isn't an ancestor of the new
+commit (e.g. the last deploy was a manual run from another branch) it logs a
+warning and compares the two trees directly.
+
+To force a backend deploy anyway, run the workflow by hand: **Actions →
+Rehearse and Deploy Backend → Run workflow** on `main` (or
+`gh workflow run deploy.yml --ref main`); `workflow_dispatch` always rehearses
+and then waits for the usual production approval, regardless of the tag.
+
+### Resetting `deployed-prod` by hand
+
+Only needed if the tag is wrong (e.g. production was changed outside this
+workflow). Point it at the SHA that is actually running on the server:
+
+```sh
+# on the server: cd nutri-matic && git rev-parse HEAD
+git fetch origin
+git tag -f deployed-prod <live-sha>
+git push -f origin refs/tags/deployed-prod
+```
+
+Deleting it (`git push origin :refs/tags/deployed-prod`) is also safe: the next
+run fails open and deploys, and a successful deploy recreates the tag. If tag
+pushes start failing in the deploy job, check that no tag ruleset blocks
+`deployed-prod` for GitHub Actions.

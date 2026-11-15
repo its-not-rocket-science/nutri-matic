@@ -11,9 +11,72 @@ on:
   workflow_dispatch: {}   # allows manually re-running rehearsal/deploy on demand
 
 jobs:
-  rehearse-migration:
+  # Decide whether this run needs a backend deploy at all. A merge that only
+  # touches the frontend (deployed separately by Vercel) or docs must not run
+  # the rehearsal or queue a production approval. workflow_dispatch always
+  # deploys, so it doubles as the "force a deploy" path.
+  #
+  # The diff base is the `deployed-prod` tag, which the deploy job moves to
+  # the deployed SHA only after a successful deploy + smoke test. Diffing
+  # against the last good deploy (not head_sha~1) means backend changes are
+  # still caught after a multi-commit push, a cancelled CI run, or a
+  # rejected production approval. When in doubt (tag missing, diff fails)
+  # this fails open to needed=true; the production approval gate still
+  # applies.
+  changes:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    outputs:
+      needed: ${{ steps.decide.outputs.needed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        if: ${{ github.event_name == 'workflow_run' }}
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Decide whether a backend deploy is needed
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$EVENT_NAME" != "workflow_run" ]; then
+            echo "Manual run ($EVENT_NAME): backend deploy always needed."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! base=$(git rev-parse -q --verify "refs/tags/deployed-prod^{commit}"); then
+            echo "::warning::Tag deployed-prod not found; assuming a backend deploy is needed."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git merge-base --is-ancestor "$base" "$HEAD_SHA"; then
+            # e.g. the last deploy was a workflow_dispatch from another ref.
+            # A two-tree diff still compares what is live with what would
+            # ship; if even that fails, the check below fails open.
+            echo "::warning::deployed-prod ($base) is not an ancestor of $HEAD_SHA; comparing trees directly."
+          fi
+          if ! changed=$(git diff --name-only "$base" "$HEAD_SHA"); then
+            echo "::warning::Could not diff deployed-prod ($base)..$HEAD_SHA; assuming a backend deploy is needed."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Changed paths since last deploy, deployed-prod ($base)..$HEAD_SHA:"
+          printf '%s\n' "$changed" | sed 's/^/  /'
+          if printf '%s\n' "$changed" | grep -Eq '^(backend/|deploy/|docker-compose\.yml$|\.github/workflows/deploy\.yml$)|(^|/)Dockerfile[^/]*$'; then
+            echo "Backend-relevant change found: deploy needed."
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No backend-relevant change: rehearsal and deploy will be skipped."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  rehearse-migration:
+    needs: changes
+    if: ${{ needs.changes.outputs.needed == 'true' }}
+    runs-on: ubuntu-24.04
     outputs:
       deploy_sha: ${{ steps.pin-sha.outputs.sha }}
     services:
@@ -109,14 +172,18 @@ jobs:
           python -m alembic upgrade head
 
   deploy:
-    needs: rehearse-migration
-    runs-on: ubuntu-latest
+    needs: [changes, rehearse-migration]
+    if: ${{ needs.changes.outputs.needed == 'true' }}
+    runs-on: ubuntu-24.04
     # Configure this environment under Settings > Environments > production
     # with "Required reviewers" set to yourself. The job will pause here and
     # wait for a manual approval click before proceeding — this is the human
     # gate that replaces you typing the deploy commands by hand.
     environment:
       name: production
+    # Only needed to move the deployed-prod tag after a successful deploy.
+    permissions:
+      contents: write
     env:
       DEPLOY_SHA: ${{ needs.rehearse-migration.outputs.deploy_sha }}
     steps:
@@ -198,3 +265,19 @@ jobs:
             -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" -H "Content-Type: application/json" \
             -d '{"environment": "production"}' \
             || echo "::warning::Sentry deploy annotation failed — deploy itself is unaffected, see docs/monitoring.md"
+
+      # Mark this commit as the last good production deploy. The changes job
+      # diffs future runs against this tag, so it must move only after the
+      # deploy and smoke test above succeeded (any failure stops the job
+      # before reaching here). Rollbacks work the same way: deploying an
+      # older SHA moves the tag back to it.
+      - name: Check out the deployed commit for tagging
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 1
+
+      - name: Move deployed-prod tag to the deployed commit
+        run: |
+          git tag -f deployed-prod "$DEPLOY_SHA"
+          git push -f origin refs/tags/deployed-prod
