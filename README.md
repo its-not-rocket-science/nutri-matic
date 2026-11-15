@@ -173,11 +173,16 @@ them; see the in-app methodology page's "What this app doesn't do" section.
 
 ## Installation
 
-Backend + Postgres, via Docker:
+Backend + Postgres, via Docker. Compose needs a `.env` next to `docker-compose.yml` with at
+least `JWT_SECRET` (32+ characters); it refuses to start without one:
 
 ```bash
+cp .env.example .env
+python -c "import secrets; print(secrets.token_hex(32))"   # paste into JWT_SECRET= in .env
 docker-compose up -d --build
 ```
+
+`.env` is gitignored. Use your own value; never reuse the production secret.
 
 Frontend (separate, dev server):
 
