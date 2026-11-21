@@ -28,9 +28,11 @@ found two live, confirmed gaps — both now closed:
 ## New this round (operational-hardening prompt 4)
 
 - **`validate_monitoring_config()`** (`app/monitoring.py`, called from
-  `main.py` right after `init_monitoring()`) — logs a loud `ERROR`
-  (`monitoring_not_configured`) if `APP_ENV=production` and
-  `SENTRY_DSN` was never set, then continues starting up. Deliberately
+  `main.py` right after `init_monitoring()`) — if `APP_ENV=production`
+  and `SENTRY_DSN` was never set, logs `monitoring_not_configured` and
+  continues starting up. Backend monitoring is intentionally not
+  configured in this deployment, so the message is INFO (not shown) by
+  default; `MONITORING_REQUIRED=true` makes it a loud `ERROR`. Deliberately
   a warning, not the hard-fail-at-import pattern `JWT_SECRET`/
   `REDIS_URL` use (see `app/auth.py`/`app/redis_rate_limit.py`): missing
   observability is a real operational risk, but making the whole app's
@@ -250,7 +252,7 @@ check passed against `https://api.nutri-matic.uk` /
 | `SENTRY_DSN` | No | unset (backend monitoring disabled) | Enables backend Sentry. |
 | `SENTRY_TRACES_SAMPLE_RATE` | No | `0.1` | Backend performance-trace sampling once `SENTRY_DSN` is set. |
 | `RELEASE_VERSION` | No | unset | Backend release tag — now wired automatically end-to-end by `deploy.yml`/`docker-compose.yml` (see "New this round" above); nothing to configure manually on a normal deploy. |
-| `APP_ENV` | Already required (`DEPLOYMENT.md`) | `development` | Reused as Sentry's `environment` tag, backend and frontend both. When `production` and `SENTRY_DSN` is unset, `validate_monitoring_config()` logs a loud `ERROR` at startup (see "New this round" above) — starts anyway, doesn't block. |
+| `APP_ENV` | Already required (`DEPLOYMENT.md`) | `development` | Reused as Sentry's `environment` tag, backend and frontend both. When `production` and `SENTRY_DSN` is unset, `validate_monitoring_config()` logs `monitoring_not_configured` at INFO, or at `ERROR` with `MONITORING_REQUIRED=true` (see "New this round" above) — starts anyway, doesn't block. `docker-compose.yml` sets `APP_ENV=production`. |
 | `PUBLIC_SENTRY_DSN` | No | unset (frontend monitoring disabled) | Enables frontend Sentry (client + server). Set in Vercel's project env vars per environment, same mechanism as `VITE_API_URL` — see `docs/frontend-deployment.md`. |
 | `PUBLIC_SENTRY_ENVIRONMENT` | No | `development` | Frontend's `environment` tag. |
 | `PUBLIC_RELEASE_VERSION` | No | unset | Frontend release tag — now wired automatically via `frontend/vercel.json`'s `env` mapping to Vercel's own `$VERCEL_GIT_COMMIT_SHA` (see "New this round" above); nothing to configure manually on Vercel, UNVERIFIED against a live deploy. |

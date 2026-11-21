@@ -116,6 +116,11 @@ services:
       # server's own .env file / host secret manager when an operator
       # actually wants this diagnostic reachable.
       OPS_DIAGNOSTIC_TOKEN: ${OPS_DIAGNOSTIC_TOKEN:-}
+      # Turns on the backend's production-only startup checks: a missing
+      # JWT_SECRET or REDIS_URL stops startup. Backend monitoring is
+      # intentionally not configured (no SENTRY_DSN), which is logged
+      # quietly at INFO. See DEPLOYMENT.md.
+      APP_ENV: production
     ports:
       # 127.0.0.1 only: in production Caddy runs on the host and proxies to
       # this port, so the backend must not also be reachable directly (that
