@@ -43,13 +43,28 @@ fingerprint no longer matches means the Food table has drifted since the
 review judged these targets, and the whole resolution is refused --
 never a partial/best-effort result computed against a catalogue the
 review never saw.
+
+Output safety: both CSVs are written to a temporary file in the same
+directory and moved into place with os.replace only once complete, so a
+reader never sees a half-written file. A failed run (bad input, manifest
+problem, catalogue drift, or unresolved exceptions) leaves an existing
+stable_id_mapping.csv byte-for-byte untouched and says so; it is not
+deleted. The mapping file is untracked (quarantined licensed material), so
+deleting it on failure destroyed the only copy. A mapping left over from an
+earlier successful run cannot be mistaken for a fresh one downstream: the
+importer refuses rows whose catalogue_checksum no longer matches the live
+catalogue (check_catalogue_drift) or whose approved_fdc_food no longer
+matches the signed decision, and app.validate_stable_id_mapping refuses a
+file whose digest no longer matches the recorded one.
 """
 
 import argparse
 import csv
 import dataclasses
 import json
+import os
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -324,22 +339,35 @@ def resolve_mapping_rows(
     return resolved, exceptions
 
 
-def write_exceptions_csv(path: Path, exceptions: list[ExceptionRow]) -> None:
+def _atomic_write_csv(path: Path, fieldnames: list[str], rows: list) -> None:
+    """Write rows to a temporary file next to `path`, then os.replace it
+    into place. On any error the temporary file is removed and `path` is
+    left exactly as it was."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=EXCEPTIONS_OUT_COLUMNS, lineterminator="\n")
-        writer.writeheader()
-        for exc in exceptions:
-            writer.writerow(dataclasses.asdict(exc))
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(dataclasses.asdict(row))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def write_exceptions_csv(path: Path, exceptions: list[ExceptionRow]) -> None:
+    _atomic_write_csv(path, EXCEPTIONS_OUT_COLUMNS, exceptions)
 
 
 def write_mapping_csv(path: Path, resolved: list[ResolvedRow]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=MAPPING_OUT_COLUMNS, lineterminator="\n")
-        writer.writeheader()
-        for row in resolved:
-            writer.writerow(dataclasses.asdict(row))
+    _atomic_write_csv(path, MAPPING_OUT_COLUMNS, resolved)
 
 
 def main() -> None:
@@ -367,8 +395,17 @@ def main() -> None:
     out_exceptions = Path(args.out_exceptions)
 
     def fail(code: int = 1) -> None:
+        # Never delete an existing mapping on failure: it is untracked and
+        # may be the only copy. Staleness is caught downstream instead (see
+        # the module docstring, "Output safety").
         if out_mapping.exists():
-            out_mapping.unlink()
+            print(
+                f"existing mapping left unchanged: {out_mapping} (NOT refreshed by this run; "
+                "it reflects the last successful resolution)",
+                file=sys.stderr,
+            )
+        else:
+            print(f"no mapping written: {out_mapping} does not exist", file=sys.stderr)
         sys.exit(code)
 
     if not mapping_csv.is_file():
