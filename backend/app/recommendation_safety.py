@@ -61,10 +61,8 @@ from .energy import calculate_age
 # four /api/recommendations/* endpoints that call this function. Never
 # logs the medical constraint's free-text note or any other profile
 # content — only the profile id (an integer, not personal data on its
-# own) and the structured reason code. Sentry's LoggingIntegration (see
-# app/monitoring.py) turns a WARNING-level record into a captured event
-# when monitoring is configured; this is a plain stdlib logger call
-# either way, so it's equally useful in local/self-hosted logs.
+# own) and the structured reason code. A plain stdlib logger call, read
+# from the container logs.
 logger = logging.getLogger(__name__)
 from .models import DietaryConstraint, MedicalRecommendationAcknowledgement, Profile
 

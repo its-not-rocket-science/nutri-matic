@@ -172,8 +172,7 @@ def test_readiness_logs_a_slow_db_check(client, monkeypatch, caplog):
     records = [r for r in caplog.records if r.message == "slow_readiness_db_check"]
     assert len(records) == 1
     assert hasattr(records[0], "duration_ms")
-    # ERROR, not WARNING: LoggingIntegration's event_level=ERROR is what
-    # actually turns this into a Sentry event rather than a breadcrumb.
+    # ERROR, not WARNING, so it stands out in the container logs.
     assert records[0].levelno == logging.ERROR
 
 
