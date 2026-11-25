@@ -64,8 +64,7 @@ def test_recommendation_request_logs_mode_and_duration_at_info_on_success(test_c
 
 
 def test_recommendation_request_logs_at_error_on_5xx(test_client, caplog):
-    # ERROR, not WARNING: LoggingIntegration's event_level=ERROR is what
-    # actually turns this into a Sentry event rather than a breadcrumb.
+    # ERROR, not WARNING, so it stands out in the container logs.
     with caplog.at_level(logging.INFO, logger="app.requests"):
         res = test_client.get("/api/recommendations/recipes")
     assert res.status_code == 500

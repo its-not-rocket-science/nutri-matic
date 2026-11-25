@@ -62,16 +62,6 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the server .env}
       CORS_ORIGINS: ${CORS_ORIGINS}
       REDIS_URL: redis://redis:6379/0
-      # Operational-hardening prompt 4, requirement 2: "wire backend and
-      # frontend events to the same release identifier/commit SHA".
-      # ${RELEASE_VERSION:-} — same interpolation-from-the-invoking-
-      # shell's-environment pattern CORS_ORIGINS above already relies on;
-      # deploy.yml's deploy job exports RELEASE_VERSION=<the exact
-      # rehearsed/deployed commit SHA> in the same SSH session that runs
-      # `docker compose up -d backend`, so this picks it up automatically
-      # on every real deploy. Empty locally/in CI (harmless — app/
-      # monitoring.py's release= is already optional).
-      RELEASE_VERSION: ${RELEASE_VERSION:-}
       # Prompt-5 validation finding: production runs behind a reverse
       # proxy (confirmed live via the `Via: 1.1 Caddy` response header on
       # api.nutri-matic.uk) but nothing here ever set this, so it was
@@ -79,7 +69,7 @@ services:
       # reaching the app as Caddy's own address, collapsing the per-IP
       # demo-creation limit into a second global-only one (see
       # demo_protection.py's own docstring for what this value means).
-      # Same shell-interpolation pattern as CORS_ORIGINS/RELEASE_VERSION
+      # Same shell-interpolation pattern as CORS_ORIGINS
       # above — set TRUSTED_PROXY_HOP_COUNT in the server's own env
       # (e.g. its .env file next to this compose file) to the number of
       # proxy hops actually in front of the app; see DEPLOYMENT.md and
@@ -108,7 +98,7 @@ services:
       # PROMPT 13: the shared secret gating GET /api/ready/licence-policy-
       # coverage (app/routers/health.py's require_ops_diagnostic_token).
       # Empty-default shell interpolation, same as CORS_ORIGINS/
-      # RELEASE_VERSION/TRUSTED_PROXY_HOP_COUNT above -- unlike those,
+      # TRUSTED_PROXY_HOP_COUNT above -- unlike those,
       # though, an unset value here is the SAFE default (the endpoint
       # fails every request closed with no token configured, never
       # "unprotected"), so there's no equivalent of DEPLOYMENT_PERMITTED_
@@ -117,9 +107,7 @@ services:
       # actually wants this diagnostic reachable.
       OPS_DIAGNOSTIC_TOKEN: ${OPS_DIAGNOSTIC_TOKEN:-}
       # Turns on the backend's production-only startup checks: a missing
-      # JWT_SECRET or REDIS_URL stops startup. Backend monitoring is
-      # intentionally not configured (no SENTRY_DSN), which is logged
-      # quietly at INFO. See DEPLOYMENT.md.
+      # JWT_SECRET or REDIS_URL stops startup. See DEPLOYMENT.md.
       APP_ENV: production
     ports:
       # 127.0.0.1 only: in production Caddy runs on the host and proxies to

@@ -188,6 +188,11 @@ Full backend suite result recorded in prompt 7's final report.
 
 ## Prompt 5: production monitoring and alerting
 
+> **Superseded 2026-11-15:** Sentry was never provisioned and has been
+> removed from the codebase (`app/monitoring.py`, `sentry-sdk`,
+> `@sentry/sveltekit`). This section is kept as history; see
+> `docs/monitoring.md` for the current state.
+
 Full detail in `docs/monitoring.md` — summary here. **Honesty note
 first**: nothing here is actually live. There is no Sentry account (or
 equivalent) provisioned for this project, so `SENTRY_DSN` is unset

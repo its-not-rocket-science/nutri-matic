@@ -39,7 +39,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..database import DATABASE_URL, get_db
-from ..monitoring import alembic_head_and_current
+from ..migration_status import alembic_head_and_current
 from ..redis_rate_limit import REDIS_URL, RateLimitStoreError, get_redis_rate_limiter
 from ..source_licence_policy import validate_source_licence_policy_coverage
 
@@ -106,10 +106,8 @@ def readiness(db: Session = Depends(get_db), database_url: str = Depends(get_dat
         raise HTTPException(status_code=503, detail=f"database unavailable: {type(exc).__name__}")
     duration_ms = (time.monotonic() - started_at) * 1000
     if duration_ms >= SLOW_READINESS_CHECK_THRESHOLD_MS:
-        # ERROR, not WARNING: init_monitoring()'s LoggingIntegration only
-        # turns ERROR+ into a Sentry event (WARNING is breadcrumb-only) —
-        # this signal needs to actually alert, not sit invisible until
-        # some unrelated exception happens to attach it as context.
+        # ERROR, not WARNING: this signal should stand out in the
+        # container logs, not sit among routine warnings.
         _logger.error("slow_readiness_db_check", extra={"duration_ms": round(duration_ms, 1)})
 
     current, head = alembic_head_and_current(database_url)

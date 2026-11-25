@@ -24,9 +24,6 @@ matters — i.e. anywhere that isn't your own laptop.
 | `FRONTEND_URL` | Yes, once `SMTP_HOST` is set | `http://localhost:5173` | Base URL used to build the `/invite/{token}` join link sent in a clinician invite email — set to the real deployed frontend origin, or every invite email links back to localhost. |
 | `INVITE_RATE_LIMIT_PER_ACCOUNT` / `INVITE_RATE_LIMIT_PER_ACCOUNT_WINDOW_SECONDS` | No | `20` / `3600` | Per-clinician cap on outbound invite emails — see `app/invite_protection.py`. Only the unregistered-invite path (which actually sends email) counts against this. |
 | `INVITE_RATE_LIMIT_GLOBAL` / `INVITE_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `200` / `3600` | Global circuit breaker on total invite-email volume. Same in-process, per-instance caveat as `DEMO_RATE_LIMIT_GLOBAL` above. |
-| `RELEASE_VERSION` | No | unset | Backend release tag (the deployed commit SHA), used by Sentry for "which deploy introduced this error" triage — a no-op string if `SENTRY_DSN` isn't also set. Wired automatically end-to-end: `.github/workflows/deploy.yml`'s deploy job exports it into the SSH session that runs `docker compose up -d backend`, and `docker-compose.yml` threads it through to the container. No manual step needed on a normal deploy. |
-| `MONITORING_REQUIRED` | No | unset | Backend monitoring is intentionally not configured here. With `APP_ENV=production` and no `SENTRY_DSN`, startup logs `monitoring_not_configured` at INFO (not shown). Set `true` to log it at ERROR instead. Not passed through compose. |
-| `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE` | No | unset / `0.1` | Enables backend error monitoring — see `docs/monitoring.md` for the full picture (frontend equivalents, scrubbing policy, source maps, alerting). |
 | `DEPLOYMENT_PERMITTED_SURFACES` | Yes, if the phytate extension's `--apply` write path is ever used | unset (fails closed — `--apply` refuses every surface) | Comma-separated list of `app.source_licence_policy` surfaces *this deployment* is actually provisioned to serve (e.g. `personal_free_ui,personal_free_internal_api`) — a second, deployment-level check `import_reviewed_phytate_mappings.py --apply` consults in addition to the source's own licence policy. Unset is a real, intentional default (not a gap to silently work around): it means no surface is declared, so a write is refused until an operator explicitly states what this deployment serves. |
 | `OPS_DIAGNOSTIC_TOKEN` | No | unset (endpoint always returns `401`) | Shared secret gating `GET /api/ready/licence-policy-coverage` (`app/routers/health.py`) — an operations-only diagnostic that reports whether every stored phytate-extension compound/source pair has a registered licence policy. Checked via `X-Ops-Diagnostic-Token` header, `hmac.compare_digest`. Set this only if you intend to actually poll that diagnostic; leaving it unset is safe, not broken. |
 
@@ -159,10 +156,9 @@ change should walk through, in order.
   row, so its duration scales with `diary_entries`/`meal_plan_entries`
   row counts and is the one worth watching on a database with real
   usage history.
-- **No monitoring/alerting stack (Sentry, Datadog, or equivalent) is
-  configured in this repository** — this is a documented gap, not a
-  claim of coverage. See the "remaining operational risks" in
-  `docs/production-hardening.md`'s final validation report.
+- **No error-tracking or alerting service is used**, by choice: errors
+  are read from the backend container logs, and uptime is checked by
+  `.github/workflows/uptime-check.yml`. See `docs/monitoring.md`.
 
 ## Historical manual migrations (frozen — superseded by Alembic)
 
