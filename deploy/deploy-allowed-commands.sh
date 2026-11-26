@@ -49,7 +49,11 @@ deploy() {
   echo "Deploying commit: $(git rev-parse HEAD)"
   export RELEASE_VERSION="$sha"
   docker compose build backend
-  docker compose up -d backend
+  # --no-deps: a deploy recreates only the backend. Without it, compose also
+  # recreates postgres or redis whenever their config differs from what's
+  # running (e.g. after a .env change), restarting the database mid-deploy.
+  # Postgres/redis config changes are applied by hand; see DEPLOYMENT.md.
+  docker compose up -d --no-deps backend
 }
 
 case "$CMD" in

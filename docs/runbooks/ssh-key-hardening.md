@@ -175,7 +175,7 @@ deploy() {
   echo "Deploying commit: $(git rev-parse HEAD)"
   export RELEASE_VERSION="$sha"
   docker compose build backend
-  docker compose up -d backend
+  docker compose up -d --no-deps backend
 }
 
 # Each *_cmd function either runs an allowed command (and the script exits

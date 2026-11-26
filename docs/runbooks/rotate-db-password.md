@@ -97,7 +97,7 @@ docker compose exec postgres psql -U nutrimatic -d nutrimatic -c '\password nutr
 docker compose up -d --no-deps backend
 ```
 
-Expected downtime is the same as a normal deploy's `up -d backend`, a few
+Expected downtime is the same as a normal deploy's backend restart, a few
 seconds. Requests in that window may fail to get a new DB connection.
 
 ## Step 3 — verify
@@ -141,10 +141,11 @@ production step as you see fit; the rehearsal is what matters here.
 
 Step 2c used `--no-deps`, so the running postgres container still has the
 old `POSTGRES_PASSWORD` in its environment and no longer matches the
-compose config. The normal deploy runs a plain `docker compose up -d
-backend` (`deploy/deploy-allowed-commands.sh`), which would notice that
-and recreate postgres during the next deploy, unplanned. Do it yourself
-instead, at a quiet time:
+compose config. Deploys won't fix that: they run `docker compose up -d
+--no-deps backend` (`deploy/deploy-allowed-commands.sh`) and never touch
+postgres. But the next plain `docker compose up -d` anyone runs on the
+server would recreate postgres unplanned. Do it yourself instead, at a
+quiet time (see also "What a deploy restarts" in `DEPLOYMENT.md`):
 
 ```sh
 cd ~/nutri-matic
