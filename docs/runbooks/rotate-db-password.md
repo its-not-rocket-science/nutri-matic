@@ -155,9 +155,9 @@ curl -sf https://api.nutri-matic.uk/api/ready && echo ready OK
 
 Only postgres is recreated; the backend container keeps running. This is
 still a database restart: open connections drop and requests fail for a
-few seconds. The backend's engine has no `pool_pre_ping`, so a request
-that picks up a dead pooled connection right after the restart can fail
-once before SQLAlchemy discards the pool and reconnects. It doesn't change
+few seconds. Once postgres is healthy the backend reconnects on its own:
+its engine uses `pool_pre_ping` (#118), so connections the restart killed
+are replaced before a request gets them. It doesn't change
 the role's password (`POSTGRES_PASSWORD` is only read when the volume is
 first initialised). Re-run Step 3's checks afterwards.
 
