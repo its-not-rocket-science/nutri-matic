@@ -1,8 +1,8 @@
 # Deployment
 
 This covers what's required to run the backend outside `docker compose up`
-(the default dev setup, which already has safe defaults for everything
-below). Read this before deploying anywhere the JWT secret or CORS origin
+(the default dev setup, which has safe defaults for everything below
+except `JWT_SECRET`: compose needs it in a `.env`, see `.env.example`). Read this before deploying anywhere the JWT secret or CORS origin
 matters — i.e. anywhere that isn't your own laptop.
 
 ## Required environment variables
@@ -10,8 +10,8 @@ matters — i.e. anywhere that isn't your own laptop.
 | Variable | Required in production | Default | Purpose |
 |---|---|---|---|
 | `DATABASE_URL` | Yes | `postgresql://nutrimatic:nutrimatic@localhost:5433/nutrimatic` | Postgres connection string. The dev default only works against the bundled `docker-compose.yml` Postgres container. |
-| `JWT_SECRET` | Yes (enforced) | `dev-secret-change-me` | Signs auth tokens. The default is a fixed, public string committed to source — anyone can read it and forge a token for any user id. Generate a real one: `python -c "import secrets; print(secrets.token_hex(32))"`. |
-| `APP_ENV` | Yes — set to `production` | `development` | When `production`, the app refuses to start if `JWT_SECRET` isn't explicitly set, rather than silently falling back to the public dev value (see `backend/app/auth.py::_resolve_jwt_secret`). This is the enforcement mechanism, not just documentation — set it. |
+| `JWT_SECRET` | Yes (enforced) | `dev-secret-change-me` outside compose; none under compose | Signs auth tokens. Generate one: `python -c "import secrets; print(secrets.token_hex(32))"`. `docker-compose.yml` reads it from the untracked `.env` next to it (`${JWT_SECRET:?...}`), so compose refuses to start when it's unset or empty; the production server's `.env` already holds it. Whenever it is set, the backend refuses to start if it is shorter than 32 characters or matches a value published in this repository (`backend/app/auth.py::_resolve_jwt_secret`), whatever `APP_ENV` says. The unset fallback is a fixed public string, allowed only outside `APP_ENV=production`, for tests and bare local runs. Changing it logs every user out (tokens last 24h). |
+| `APP_ENV` | Yes — set to `production` | `development` in the app; `production` under `docker-compose.yml` | When `production`, the app refuses to start without `JWT_SECRET` or `REDIS_URL`. `docker-compose.yml` sets it to `production` (before that, compose never passed it, so these checks never ran on the server). Local `docker compose up` therefore runs in production mode too; that works because compose also supplies both variables. |
 | `CORS_ORIGINS` | Yes | `http://localhost:5173` | Comma-separated list of frontend origins allowed to call the API (e.g. `https://app.example.com,https://staging.example.com`). |
 | `REDIS_URL` | Yes (enforced) | unset | Shared, durable store for the demo-endpoint rate limiter (`app/redis_rate_limit.py`). When `APP_ENV=production` and this is unset, the app refuses to start rather than silently falling back to the process-local, reset-on-every-deploy limiter — see `docs/rate-limiting.md`. Local dev via `docker compose up` already sets this to the bundled `redis` service. |
 | `DEMO_RATE_LIMIT_PER_IP` / `DEMO_RATE_LIMIT_PER_IP_WINDOW_SECONDS` | No | `5` / `3600` | Per-IP cap on `POST /api/auth/demo`. See `docs/rate-limiting.md`. |
@@ -24,17 +24,15 @@ matters — i.e. anywhere that isn't your own laptop.
 | `FRONTEND_URL` | Yes, once `SMTP_HOST` is set | `http://localhost:5173` | Base URL used to build the `/invite/{token}` join link sent in a clinician invite email — set to the real deployed frontend origin, or every invite email links back to localhost. |
 | `INVITE_RATE_LIMIT_PER_ACCOUNT` / `INVITE_RATE_LIMIT_PER_ACCOUNT_WINDOW_SECONDS` | No | `20` / `3600` | Per-clinician cap on outbound invite emails — see `app/invite_protection.py`. Only the unregistered-invite path (which actually sends email) counts against this. |
 | `INVITE_RATE_LIMIT_GLOBAL` / `INVITE_RATE_LIMIT_GLOBAL_WINDOW_SECONDS` | No | `200` / `3600` | Global circuit breaker on total invite-email volume. Same in-process, per-instance caveat as `DEMO_RATE_LIMIT_GLOBAL` above. |
-| `RELEASE_VERSION` | No | unset | Backend release tag (the deployed commit SHA), used by Sentry for "which deploy introduced this error" triage — a no-op string if `SENTRY_DSN` isn't also set. Wired automatically end-to-end: `.github/workflows/deploy.yml`'s deploy job exports it into the SSH session that runs `docker compose up -d backend`, and `docker-compose.yml` threads it through to the container. No manual step needed on a normal deploy. |
-| `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE` | No | unset / `0.1` | Enables backend error monitoring — see `docs/monitoring.md` for the full picture (frontend equivalents, scrubbing policy, source maps, alerting). |
 | `DEPLOYMENT_PERMITTED_SURFACES` | Yes, if the phytate extension's `--apply` write path is ever used | unset (fails closed — `--apply` refuses every surface) | Comma-separated list of `app.source_licence_policy` surfaces *this deployment* is actually provisioned to serve (e.g. `personal_free_ui,personal_free_internal_api`) — a second, deployment-level check `import_reviewed_phytate_mappings.py --apply` consults in addition to the source's own licence policy. Unset is a real, intentional default (not a gap to silently work around): it means no surface is declared, so a write is refused until an operator explicitly states what this deployment serves. |
 | `OPS_DIAGNOSTIC_TOKEN` | No | unset (endpoint always returns `401`) | Shared secret gating `GET /api/ready/licence-policy-coverage` (`app/routers/health.py`) — an operations-only diagnostic that reports whether every stored phytate-extension compound/source pair has a registered licence policy. Checked via `X-Ops-Diagnostic-Token` header, `hmac.compare_digest`. Set this only if you intend to actually poll that diagnostic; leaving it unset is safe, not broken. |
 
 ## Minimal production checklist
 
-1. Set `JWT_SECRET` to a real, private, randomly-generated value — never
-   reuse the value in `docker-compose.yml` (that one's committed to source
-   control and is dev-only by design).
-2. Set `APP_ENV=production` so a missing `JWT_SECRET` fails startup loudly
+1. Set `JWT_SECRET` in the server's `.env` (next to `docker-compose.yml`;
+   see `.env.example`) to a private, random value of at least 32
+   characters. Compose has no default for it and won't start without it.
+2. `APP_ENV=production` (compose sets it) so a missing `JWT_SECRET` fails startup loudly
    instead of silently degrading auth security.
 3. Set `CORS_ORIGINS` to your actual frontend origin(s).
 4. Point `DATABASE_URL` at a real, backed-up Postgres instance and run
@@ -158,10 +156,9 @@ change should walk through, in order.
   row, so its duration scales with `diary_entries`/`meal_plan_entries`
   row counts and is the one worth watching on a database with real
   usage history.
-- **No monitoring/alerting stack (Sentry, Datadog, or equivalent) is
-  configured in this repository** — this is a documented gap, not a
-  claim of coverage. See the "remaining operational risks" in
-  `docs/production-hardening.md`'s final validation report.
+- **No error-tracking or alerting service is used**, by choice: errors
+  are read from the backend container logs, and uptime is checked by
+  `.github/workflows/uptime-check.yml`. See `docs/monitoring.md`.
 
 ## Historical manual migrations (frozen — superseded by Alembic)
 
@@ -335,3 +332,51 @@ root. Rejections are logged to syslog under the `deploy-wrapper` tag
 merging a workflow change that depends on it. The new script keeps every
 existing exact-match command, so older workflow versions keep working.
 
+
+## When the backend deploy workflow runs
+
+`.github/workflows/deploy.yml` starts after every successful CI run on `main`,
+but its first job (`changes`) diffs the new commit against the **last
+successful production deploy** and only lets the migration rehearsal and the
+production deploy run when a path under `backend/` or `deploy/`,
+`docker-compose.yml`, a `Dockerfile`, or `deploy.yml` itself changed since then.
+Frontend-only or docs-only changes (the frontend is deployed by Vercel) show
+both jobs as *skipped* and queue no production approval.
+
+The last good deploy is marked by the lightweight tag `deployed-prod`. The
+deploy job's final step moves it (`git tag -f` + `git push -f`) to the deployed
+SHA, and only after the deploy, the live `alembic current` check and the smoke
+test have all passed; that step is why the deploy job alone has
+`contents: write`. Because the diff runs from the tag rather than from the
+commit's parent, backend changes are not lost when several commits land in one
+push, when a CI run is cancelled, or when a production approval is rejected:
+they stay in the diff until a deploy actually succeeds. A rollback (deploying an
+older SHA) moves the tag back too, so the next run compares against what is
+really live.
+
+The job fails open (`needed=true`, with a warning in the run) when the tag is
+missing or the diff can't be computed. If the tag isn't an ancestor of the new
+commit (e.g. the last deploy was a manual run from another branch) it logs a
+warning and compares the two trees directly.
+
+To force a backend deploy anyway, run the workflow by hand: **Actions →
+Rehearse and Deploy Backend → Run workflow** on `main` (or
+`gh workflow run deploy.yml --ref main`); `workflow_dispatch` always rehearses
+and then waits for the usual production approval, regardless of the tag.
+
+### Resetting `deployed-prod` by hand
+
+Only needed if the tag is wrong (e.g. production was changed outside this
+workflow). Point it at the SHA that is actually running on the server:
+
+```sh
+# on the server: cd nutri-matic && git rev-parse HEAD
+git fetch origin
+git tag -f deployed-prod <live-sha>
+git push -f origin refs/tags/deployed-prod
+```
+
+Deleting it (`git push origin :refs/tags/deployed-prod`) is also safe: the next
+run fails open and deploys, and a successful deploy recreates the tag. If tag
+pushes start failing in the deploy job, check that no tag ruleset blocks
+`deployed-prod` for GitHub Actions.

@@ -53,7 +53,7 @@ updates:
     schedule:
       interval: weekly
     labels: [dependencies]
-    # Major bumps of the SvelteKit/Vite/Sentry stack need a manual
+    # Major bumps of the SvelteKit/Vite stack need a manual
     # migration, so Dependabot never proposes them.
     ignore:
       - dependency-name: "@sveltejs/kit"
@@ -65,8 +65,6 @@ updates:
       - dependency-name: "svelte"
         update-types: ["version-update:semver-major"]
       - dependency-name: "vite"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@sentry/sveltekit"
         update-types: ["version-update:semver-major"]
       # TypeScript majors must wait until @sveltejs/kit accepts them as a
       # peer (TypeScript 7 broke `npm ci` in #84). vitest and @types/node
@@ -91,7 +89,6 @@ updates:
           - "@sveltejs/vite-plugin-svelte"
           - "svelte"
           - "vite"
-          - "@sentry/sveltekit"
         update-types: [minor, patch]
       npm:
         applies-to: version-updates

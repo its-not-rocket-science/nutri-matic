@@ -90,8 +90,7 @@ _logger = logging.getLogger("app.demo")
 
 # PR review: run standalone (`python -m app.demo_purge`, exactly how the
 # scheduled workflow invokes this — see demo-purge.yml), nothing else in
-# the process ever configures a handler the way the live FastAPI app's
-# monitoring.py does, so this module's own INFO records (demo_purge_
+# the process ever configures a logging handler, so this module's own INFO records (demo_purge_
 # run_summary/demo_purge_batch — the automatic scheduled job's only real
 # observability) were silently dropped by the root logger's default
 # WARNING level. `force=False` (the default) makes this a no-op if a

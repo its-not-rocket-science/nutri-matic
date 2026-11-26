@@ -5,7 +5,6 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .monitoring import init_monitoring, validate_monitoring_config
 from .redis_rate_limit import validate_rate_limit_config
 from .routers import (
     account,
@@ -37,15 +36,6 @@ from .routers import (
 # extension search.py's fuzzy fallback needs. Production-hardening
 # prompt 1 replaced the previous `Base.metadata.create_all()` +
 # opportunistic `CREATE EXTENSION` pair that used to live here.
-
-# No-op unless SENTRY_DSN is set — see app/monitoring.py and
-# docs/monitoring.md (operational-hardening prompt 5).
-init_monitoring()
-# Operational-hardening prompt 4, requirement 1: logs a loud ERROR (never
-# raises — see validate_monitoring_config's own docstring for why this is
-# deliberately not the hard-fail-at-import pattern JWT_SECRET/REDIS_URL
-# use) if APP_ENV=production and SENTRY_DSN was never set.
-validate_monitoring_config()
 
 # Operational-hardening prompt 2, requirement 10: raises (refusing to
 # start) if APP_ENV=production and REDIS_URL isn't set — same fail-fast-
@@ -104,21 +94,13 @@ async def log_recommendation_endpoint_latency(request: Request, call_next):
     recommendations/*` specifically rather than every request — that's
     the one prompt actually asks to be watched closely (it's the
     heaviest read path and the one write path this feature has), not a
-    general-purpose request logger. A plain stdlib logger call, so it's
-    useful in self-hosted logs with or without Sentry configured; when
-    Sentry is active its own performance monitoring
-    (`traces_sample_rate`, see app/monitoring.py) captures per-request
-    timing for every endpoint independently of this.
+    general-purpose request logger. A plain stdlib logger call, read from
+    the container logs.
 
     Public-launch hardening prompt 6: also tags `mode`
     (ingredients/recipes/pairs/substitutions — see `_recommendation_mode`),
-    and logs at ERROR (not INFO) when the response is a server error.
-    ERROR, not WARNING: `init_monitoring()`'s `LoggingIntegration` is
-    configured with `event_level=logging.ERROR` — a WARNING here would
-    only ever become a breadcrumb attached to some later, unrelated
-    captured event, never a Sentry event/alert of its own (caught by
-    review; verified directly against the `LoggingIntegration` config
-    rather than assumed)."""
+    and logs at ERROR (not INFO) when the response is a server error, so
+    it stands out in the container logs."""
     if not request.url.path.startswith("/api/recommendations"):
         return await call_next(request)
 
@@ -146,9 +128,8 @@ async def log_elevated_status_responses(request: Request, call_next):
     above), but deliberately silent on success: logging every request at
     INFO app-wide would be pure noise at real traffic volume with no
     signal this app's own telemetry needs. Only a 5xx gets a log line
-    here, at ERROR (not WARNING) — `LoggingIntegration`'s `event_level`
-    is ERROR, so this is what actually reaches Sentry as an event when
-    monitoring is active; WARNING would only ever be a breadcrumb."""
+    here, at ERROR (not WARNING), so it stands out in the container
+    logs."""
     response = await call_next(request)
     if response.status_code >= 500:
         _request_logger.error(

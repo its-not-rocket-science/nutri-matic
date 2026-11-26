@@ -13,6 +13,7 @@ refresh-token system. Tokens are carried via the Authorization header, not
 cookies, matching the frontend's CSR-only architecture.
 """
 
+import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -29,16 +30,47 @@ from .models import Profile, User
 
 DEV_JWT_SECRET = "dev-secret-change-me"  # never valid when APP_ENV=production — see _resolve_jwt_secret
 
+MIN_JWT_SECRET_LENGTH = 32
+
+# SHA-256 digests of secrets that have been published in this repository
+# and must never be accepted again, whatever APP_ENV says. Digests rather
+# than the values themselves so the source doesn't republish them.
+#   - the JWT_SECRET literal that docker-compose.yml carried until it was
+#     replaced with ${JWT_SECRET:?...}
+PUBLISHED_JWT_SECRET_SHA256 = frozenset(
+    {
+        "8ff888cc9e6005c6f5e69e7f256de88a10768a52e06d396e5c161ef1667f1f3c",
+    }
+)
+
 
 def _resolve_jwt_secret() -> str:
-    """JWT_SECRET must be set explicitly whenever APP_ENV=production — the
-    dev fallback below is a fixed, public string (it's right here in the
-    source), so silently using it in production would let anyone forge a
-    valid token for any user id. APP_ENV defaults to "development" so local
-    runs and the test suite don't need to set anything. See DEPLOYMENT.md
-    for the full list of required production environment variables."""
+    """Return the HS256 signing secret.
+
+    An explicitly set JWT_SECRET is always validated, in every environment:
+    it must be at least MIN_JWT_SECRET_LENGTH characters and must not be a
+    value that has been published in this repository. A short or public
+    secret lets anyone forge a valid token for any user id, and production
+    containers don't reliably carry APP_ENV, so this check can't depend on
+    it.
+
+    When JWT_SECRET is unset, the public dev fallback is used, except when
+    APP_ENV=production, which refuses to start. That keeps the test suite
+    and a bare `uvicorn app.main:app` working without any setup. See
+    DEPLOYMENT.md for the full list of required production variables."""
     secret = os.environ.get("JWT_SECRET")
     if secret is not None:
+        if len(secret) < MIN_JWT_SECRET_LENGTH:
+            raise RuntimeError(
+                f"JWT_SECRET is set but shorter than {MIN_JWT_SECRET_LENGTH} characters — "
+                "refusing to start. Generate one with "
+                "`python -c \"import secrets; print(secrets.token_hex(32))\"`. See DEPLOYMENT.md."
+            )
+        if hashlib.sha256(secret.encode("utf-8")).hexdigest() in PUBLISHED_JWT_SECRET_SHA256:
+            raise RuntimeError(
+                "JWT_SECRET is a value that has been published in this repository — "
+                "refusing to start. Generate a new private one. See DEPLOYMENT.md."
+            )
         return secret
     if os.environ.get("APP_ENV", "development") == "production":
         raise RuntimeError(
