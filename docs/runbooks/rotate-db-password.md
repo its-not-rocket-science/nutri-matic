@@ -137,16 +137,50 @@ Backend → Run workflow**) and confirm the rehearsal's `pg_dump` step still
 succeeds. That proves the rehearsal path end to end. Approve or reject the
 production step as you see fit; the rehearsal is what matters here.
 
+## Step 4 — planned postgres recreate (quiet window, after Step 3 passes)
+
+Step 2c used `--no-deps`, so the running postgres container still has the
+old `POSTGRES_PASSWORD` in its environment and no longer matches the
+compose config. The normal deploy runs a plain `docker compose up -d
+backend` (`deploy/deploy-allowed-commands.sh`), which would notice that
+and recreate postgres during the next deploy, unplanned. Do it yourself
+instead, at a quiet time:
+
+```sh
+cd ~/nutri-matic
+docker compose up -d postgres         # recreates postgres only; data stays in the volume
+docker compose ps postgres            # wait for "(healthy)"
+curl -sf https://api.nutri-matic.uk/api/ready && echo ready OK
+```
+
+Only postgres is recreated; the backend container keeps running. This is
+still a database restart: open connections drop and requests fail for a
+few seconds. The backend's engine has no `pool_pre_ping`, so a request
+that picks up a dead pooled connection right after the restart can fail
+once before SQLAlchemy discards the pool and reconnects. It doesn't change
+the role's password (`POSTGRES_PASSWORD` is only read when the volume is
+first initialised). Re-run Step 3's checks afterwards.
+
+If you rolled back before this step, skip it: removing the `.env` line
+makes the running postgres container match the compose config again. If
+you roll back after it, run this step again once the `.env` line is gone.
+
 ## pg_dump in `deploy.yml`'s rehearsal
 
 The rehearsal sends the fixed string
 `cd nutri-matic && docker compose exec -T postgres pg_dump -U nutrimatic -Fc nutrimatic`
 through the forced-command wrapper. It runs **inside the postgres
 container** and connects over the local Unix socket, not TCP. The official
-`postgres` image's `initdb` normally leaves `local all all trust` in
-`pg_hba.conf` and adds password auth only for `host` (TCP) connections. If
-that's so, the dump needs no password and is unaffected by the rotation.
-Check this with the `pg_hba.conf` command in Step 1. Also look at the
+`postgres` image's `pg_hba.conf` trusts every connection from inside the
+container: the Unix socket (`local all all trust`) and loopback TCP
+(`host all all 127.0.0.1/32 trust` and `::1/128 trust`). It requires a
+password (`host all all all scram-sha-256`) only for TCP from other
+addresses, which includes the backend over the Docker network and host
+tools through the published port. If that's so, the dump needs no password
+and is unaffected by the rotation. Check this with the `pg_hba.conf`
+command in Step 1: the `local all all` line must say `trust`. (The loopback
+`trust` lines are also why the old-password check in Step 3 must run from
+the backend container, not inside postgres.) Also look at the
 `demo_purge` and `migrate_profiles` commands: they run in the backend
 container and use `DATABASE_URL`, so Step 3's checks cover them.
 
