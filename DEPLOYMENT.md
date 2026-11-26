@@ -332,6 +332,42 @@ root. Rejections are logged to syslog under the `deploy-wrapper` tag
 merging a workflow change that depends on it. The new script keeps every
 existing exact-match command, so older workflow versions keep working.
 
+The server runs its installed copy, `/root/deploy-allowed-commands.sh`, not
+the file in the repo checkout, so merging a change to
+`deploy/deploy-allowed-commands.sh` does nothing on the server by itself.
+After merging, re-install it (copy it to `/root/deploy-allowed-commands.sh`,
+mode `0700`, owner root). The merge's own production deploy runs whichever
+copy is installed when it is approved, so re-install before approving that
+deploy if it should use the new behaviour.
+
+### What a deploy restarts
+
+`deploy <sha>` runs `docker compose build backend` and then
+`docker compose up -d --no-deps backend`. It recreates **only the backend**
+container. Postgres and Redis are never restarted or recreated by a deploy,
+even when their settings in `docker-compose.yml` or the server `.env`
+changed. (Before `--no-deps`, compose recreated them during the deploy
+whenever their config differed from what was running.)
+
+So a Postgres or Redis config change (image tag, environment, ports,
+volumes, healthcheck, or a `.env` value they read) is not live until an
+operator applies it deliberately, in a quiet window:
+
+```sh
+cd ~/nutri-matic
+docker compose up -d postgres redis   # recreates only those whose config changed
+docker compose ps                     # wait for both to be "(healthy)"
+curl -sf https://api.nutri-matic.uk/api/ready && echo ready OK
+```
+
+This restarts the database and/or Redis: open connections drop and requests
+fail for a few seconds (the backend reconnects on its own; see #118). Data
+stays in the `postgres_data` volume. Redis holds only rate-limit counters,
+which start fresh.
+
+A deploy also no longer starts Postgres or Redis if they are stopped. If
+either is down, start it with the command above before deploying.
+
 
 ## When the backend deploy workflow runs
 
