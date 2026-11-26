@@ -78,6 +78,21 @@ fine to build, test, and ship in the app's free tier once real ingestion
 download above), so that's no longer blocked — but gate it out of any
 paid tier until a written commercial-use answer arrives.
 
+**Follow-up (recorded 2026-11-26):**
+
+- 2026-10-27: follow-up email sent about the 2026-08-16 request.
+- 2026-11-26: no reply from FAO to the original email, the 2026-08-16
+  form submission or the 2026-10-27 follow-up. Status is unchanged:
+  `awaiting_fao_reply` (`backend/app/source_licence_policy.py`), phytate
+  data stays non-commercial-tier only.
+- Next: a phone follow-up is planned; no date is set yet.
+
+When FAO answers, by any channel, record the answer **verbatim** in this
+file, with its date and channel, before changing any licence policy flag,
+`licence_request_status` or permitted-surface list. A summary or a phone
+note is not enough: if the answer comes by phone, ask FAO to confirm it in
+writing and record that text.
+
 ## 2. What PhyFoodComp actually contains
 
 Source: Dahdouh et al. 2019 (full citation in §4), the paper describing
