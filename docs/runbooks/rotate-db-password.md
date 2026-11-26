@@ -89,9 +89,12 @@ unset NEWPW
 docker compose exec postgres psql -U nutrimatic -d nutrimatic -c '\password nutrimatic'
 
 # 2c. Recreate the backend so it picks up the new DATABASE_URL.
-#     (Compose sees the changed environment and recreates the container.
-#     Only the backend: don't recreate postgres, it gains nothing.)
-docker compose up -d backend
+#     --no-deps is required. POSTGRES_PASSWORD also changes the postgres
+#     service's environment, so a plain `up -d backend` recreates postgres
+#     too (it is a depends_on service whose config changed), dropping every
+#     connection and restarting the database. Recreating postgres gains
+#     nothing: POSTGRES_PASSWORD is only read when the volume is initialised.
+docker compose up -d --no-deps backend
 ```
 
 Expected downtime is the same as a normal deploy's `up -d backend`, a few
@@ -105,9 +108,27 @@ curl -sf https://api.nutri-matic.uk/api/ready  && echo ready OK      # opens a D
 docker compose exec -T backend alembic current                       # must show head, no auth error
 # Confirm the backend is NOT using the dev password (prints True/False only):
 docker compose exec -T backend python -c "import os; print(':nutrimatic@' not in os.environ['DATABASE_URL'])"
-# Confirm the old password is refused over TCP:
-docker compose exec -T postgres sh -c 'PGPASSWORD=nutrimatic psql -h 127.0.0.1 -U nutrimatic -d nutrimatic -c "select 1"' \
-  && echo "OLD PASSWORD STILL WORKS: investigate" || echo "old password refused: good"
+# Confirm the old password is refused over the Docker network, the way the
+# backend connects. Run it from the backend container: inside the postgres
+# container, pg_hba.conf trusts 127.0.0.1, so any password "works" there.
+# The backend image has no psql, so this uses psycopg2. Only an explicit
+# "password authentication failed" counts as success; anything else (DNS,
+# timeout, postgres down, backend not running) is not proof.
+docker compose exec -T backend python - <<'EOF'
+import sys
+import psycopg2
+try:
+    psycopg2.connect(host="postgres", port=5432, user="nutrimatic", password="nutrimatic",
+                     dbname="nutrimatic", connect_timeout=5).close()
+except psycopg2.OperationalError as e:
+    if "password authentication failed" in str(e):
+        print("old password refused: good")
+        sys.exit(0)
+    print("INCONCLUSIVE, not an auth refusal:", str(e).strip())
+    sys.exit(2)
+print("OLD PASSWORD STILL WORKS: investigate")
+sys.exit(1)
+EOF
 docker compose logs --since 10m backend | grep -i -E 'password authentication failed|OperationalError' || echo "no auth errors"
 ```
 
@@ -157,8 +178,8 @@ cd ~/nutri-matic
 docker compose exec postgres psql -U nutrimatic -d nutrimatic -c '\password nutrimatic'   # enter: nutrimatic
 # 2. Remove the POSTGRES_PASSWORD line from .env (the compose default takes over again).
 sed -i '/^POSTGRES_PASSWORD=/d' .env
-# 3. Recreate the backend with the default URL.
-docker compose up -d backend
+# 3. Recreate the backend with the default URL (--no-deps: see Step 2c).
+docker compose up -d --no-deps backend
 curl -sf https://api.nutri-matic.uk/api/ready && echo ready OK
 ```
 
