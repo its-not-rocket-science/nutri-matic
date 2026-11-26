@@ -6,7 +6,12 @@ Postgres-only feature, and this module never invokes any part of
 app.stock_recipes.food_matching (the fuzzy/alias matcher), which is the
 point being tested."""
 
+import csv
+import dataclasses
+import os
+import shutil
 from datetime import date
+from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine
@@ -19,6 +24,7 @@ from app.catalogue_manifest import (
     ManifestSnapshot,
     compute_fdc_catalogue_manifest,
 )
+from app import resolve_phytate_stable_ids as resolver
 from app.database import Base
 from app.models import Food
 from app.reference_patterns import AMINO_ACIDS
@@ -341,3 +347,137 @@ def test_release_status_reads_the_recorded_manifest_when_one_exists():
 def test_release_status_falls_back_to_actual_on_a_first_run():
     fresh = _snapshot()
     assert release_status_source(None, fresh) is fresh
+
+
+# ---- main(): output files on failure and success ----------------------------
+# Regression coverage: main() used to delete an existing stable_id_mapping.csv
+# on any failure. That file is untracked, so the deletion destroyed the only
+# copy. A failed run must now leave it byte-for-byte untouched, a successful
+# run must replace it via a same-directory temp file + os.replace, and no
+# temporary file may be left behind either way. Synthetic data only: the
+# "existing mapping" is the already-reviewed, allowlisted synthetic fixture
+# (see .github/scripts/check_licensed_artifacts.py), and the approved-mapping
+# input is generated per test from _mapping_row() rather than committed, so
+# no new file with the licensed-data header shape enters the repo.
+
+EXISTING_SYNTHETIC_MAPPING = Path(__file__).parent / "fixtures" / "synthetic_stable_id_mapping.csv"
+
+
+@pytest.fixture
+def run_main(session, monkeypatch, tmp_path):
+    """Set up a synthetic output directory holding an existing mapping and
+    return a function that runs resolver.main() against it."""
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    out_mapping = out_dir / "stable_id_mapping.csv"
+    shutil.copyfile(EXISTING_SYNTHETIC_MAPPING, out_mapping)
+    manifest_file = tmp_path / "manifest.json"
+    approved_csv = tmp_path / "approved_mapping.csv"
+    approved_row = _mapping_row(row_identifier="SYN00001:IP6", approved_fdc_food="Synthetic Grain, raw")
+    with open(approved_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(approved_row))
+        writer.writeheader()
+        writer.writerow(approved_row)
+    monkeypatch.setattr(resolver, "SessionLocal", lambda: session)
+
+    def run(*extra_args):
+        monkeypatch.setattr("sys.argv", [
+            "resolve_phytate_stable_ids",
+            "--mapping-csv", str(approved_csv),
+            "--manifest-file", str(manifest_file),
+            "--overrides-csv", str(tmp_path / "no_overrides.csv"),
+            "--out-mapping", str(out_mapping),
+            "--out-exceptions", str(out_dir / "stable_id_exceptions.csv"),
+            *extra_args,
+        ])
+        resolver.main()
+
+    return run, out_dir, out_mapping, manifest_file
+
+
+def _no_temp_files(directory: Path) -> bool:
+    return not [p for p in directory.iterdir() if p.name.endswith(".tmp")]
+
+
+def test_catalogue_drift_leaves_existing_mapping_untouched(session, run_main, capsys):
+    run, out_dir, out_mapping, manifest_file = run_main
+    session.add(_food(name="Synthetic Grain, raw", data_type="sr_legacy_food", fdc_id=100001))
+    session.commit()
+    actual = compute_fdc_catalogue_manifest(session)
+    write_manifest(manifest_file, dataclasses.replace(actual, catalogue_snapshot_checksum="0" * 64))
+    before = out_mapping.read_bytes()
+
+    with pytest.raises(SystemExit) as exc_info:
+        run()
+
+    assert exc_info.value.code != 0
+    assert out_mapping.read_bytes() == before
+    assert "existing mapping left unchanged" in capsys.readouterr().err
+    assert _no_temp_files(out_dir)
+
+
+def test_unresolved_exceptions_leave_existing_mapping_untouched(run_main, capsys):
+    run, out_dir, out_mapping, _ = run_main
+    before = out_mapping.read_bytes()
+
+    # Empty catalogue: the one approved row is "missing", so the run blocks.
+    with pytest.raises(SystemExit) as exc_info:
+        run("--acknowledge-new-catalogue-baseline")
+
+    assert exc_info.value.code != 0
+    assert out_mapping.read_bytes() == before
+    assert "existing mapping left unchanged" in capsys.readouterr().err
+    assert (out_dir / "stable_id_exceptions.csv").is_file()
+    assert _no_temp_files(out_dir)
+
+
+def test_write_error_leaves_existing_mapping_untouched_and_no_temp_file(session, run_main, monkeypatch):
+    run, out_dir, out_mapping, _ = run_main
+    session.add(_food(name="Synthetic Grain, raw", data_type="sr_legacy_food", fdc_id=100001))
+    session.commit()
+    before = out_mapping.read_bytes()
+
+    def broken_replace(src, dst):
+        if Path(dst) == out_mapping:
+            raise OSError("simulated failure while moving the mapping into place")
+        return real_replace(src, dst)
+
+    real_replace = os.replace
+    monkeypatch.setattr(resolver.os, "replace", broken_replace)
+
+    with pytest.raises(OSError):
+        run("--acknowledge-new-catalogue-baseline")
+
+    assert out_mapping.read_bytes() == before
+    assert _no_temp_files(out_dir)
+
+
+def test_success_replaces_mapping_atomically(session, run_main, monkeypatch):
+    run, out_dir, out_mapping, _ = run_main
+    food = _food(name="Synthetic Grain, raw", data_type="sr_legacy_food", fdc_id=100001)
+    session.add(food)
+    session.commit()
+    before = out_mapping.read_bytes()
+
+    replaced = []
+    real_replace = os.replace
+
+    def spy_replace(src, dst):
+        replaced.append((Path(src), Path(dst)))
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(resolver.os, "replace", spy_replace)
+
+    run("--acknowledge-new-catalogue-baseline")
+
+    after = out_mapping.read_bytes()
+    assert after != before
+    rows = resolver.load_mapping_rows(out_mapping)
+    assert [(r["row_identifier"], r["fdc_id"], r["food_id"]) for r in rows] == [
+        ("SYN00001:IP6", "100001", str(food.id)),
+    ]
+    mapping_moves = [(src, dst) for src, dst in replaced if dst == out_mapping]
+    assert len(mapping_moves) == 1
+    src, _ = mapping_moves[0]
+    assert src.parent == out_mapping.parent and src.name.endswith(".tmp")
+    assert _no_temp_files(out_dir)
