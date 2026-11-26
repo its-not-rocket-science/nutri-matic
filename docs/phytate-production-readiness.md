@@ -110,6 +110,66 @@ repository-policy test, not just softer wording.
    that it's dormant, not broken and not (per PROMPT 14's own
    no-speculative-functionality scope) built out further in this PR.
 
+## Precondition before any real production import (added 2026-11-11)
+
+Production's FDC catalogue is not the one the stable-ID mapping was
+resolved against: on 2026-10-30 production's `foods` table held 1,429,608
+rows against the review catalogue's 1,434,131 (checksum and source
+releases recorded in `docs/phytate-evidence-review.md`, "FDC catalogue
+provenance"). Before any real `import_reviewed_phytate_mappings --apply`
+against production, an operator must reconcile the two catalogues.
+
+**What does not reconcile them on its own:**
+
+- *Pair verification.* `python -m app.validate_stable_id_mapping
+  --verify-live-catalogue` (`verify_against_live_catalogue`) only checks
+  that each recorded `food_id` exists and carries the recorded `fdc_id`.
+  It is necessary but not sufficient: the importer separately calls
+  `check_catalogue_drift` on every run, with no flag to skip it, and
+  refuses to import unless the mapping's recorded `catalogue_checksum`
+  equals the checksum of the whole live catalogue. That checksum covers
+  every `foods` row (`id`, `fdc_id`, `name`, `data_type`, plus manually
+  entered rows), not just the mapped ones.
+- *Re-ingesting the three releases* (Foundation 2026-04-30, SR Legacy
+  2018-04, Branded 2026-04-30). `app.ingest_fdc` updates an existing row
+  in place, keeping its local `id`, and assigns new `id`s only to rows it
+  inserts. It never deletes rows. Production's local `id`s and any extra
+  rows therefore survive a re-ingest, and because `id` is part of the
+  checksum, production would still not reproduce the review catalogue's
+  checksum.
+
+**Required reconciliation:**
+
+1. **Compare checksums, read-only.** Compute production's catalogue
+   checksum and compare it with the review manifest's
+   (`docs/phytate-review/fdc_catalogue_manifest.json`, checksum recorded
+   in `docs/phytate-evidence-review.md`). `compute_fdc_catalogue_manifest`
+   only reads the `foods` table; `python -m app.resolve_phytate_stable_ids`
+   run against production with the committed manifest prints both
+   checksums and row counts when they differ and stops before resolving.
+   Pass `--out-mapping` and `--out-exceptions` paths outside the repo:
+   on a drift failure the resolver deletes its `--out-mapping` file, and
+   the default is the committed `stable_id_mapping.csv`.
+2. **If the checksums differ** (expected, since production holds 4,523
+   fewer rows), the committed stable-ID mapping cannot be imported into
+   production. Regenerate it against production's catalogue: record
+   production's catalogue as a separate baseline manifest (its own
+   `--manifest-file`, with `--acknowledge-new-catalogue-baseline`; never
+   overwrite the review manifest), re-run the resolver, and re-review
+   every exception and every changed target by hand, as was done for the
+   review catalogue. Then run `validate_stable_id_mapping
+   --verify-live-catalogue` read-only on the regenerated mapping and an
+   importer dry run (no `--apply`) against production; both must pass.
+3. **If the checksums match**, the committed mapping applies as is; still
+   run the pair verification and an importer dry run first.
+
+Record the outcome below (date, operator, both checksums and row counts,
+which branch of step 2/3 applied, review sign-off for any regenerated
+mapping, dry-run result). Until that record exists, no real production
+import may run, regardless of licence status.
+
+**Reconciliation record:** none yet.
+
 ## Final acceptance criteria — status against this audit
 
 - **All real PhyFoodComp functionality is available on the ordinary free

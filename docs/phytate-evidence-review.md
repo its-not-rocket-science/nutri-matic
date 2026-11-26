@@ -536,6 +536,39 @@ removed from `stable_id_exceptions_resolved.csv`, because that row is now a
 reject; a re-run without it produces a byte-identical mapping. Nothing was imported: the reviewed importer
 was not run with `--apply`.
 
+## FDC catalogue provenance (recorded 2026-11-11)
+
+The review catalogue that the stable-ID mapping was resolved against has
+1,434,131 rows and catalogue checksum
+`7e7836ad3e41985c306efc62d0c2456f69b4aad225a1ed83a2591f68dec84c86`
+(copied from `docs/phytate-review/fdc_catalogue_manifest.json`; that
+manifest's `upstream_release_version` stays `unrecorded_at_ingestion`,
+because the release was not recorded at ingestion time, and the checksum
+remains the authoritative fingerprint).
+
+It was rebuilt on 2026-10-30 with `app.ingest_fdc` from these USDA
+FoodData Central CSV exports:
+
+- Foundation 2026-04-30 (`FoodData_Central_foundation_food_csv_2026-04-30`)
+- SR Legacy 2018-04 (`FoodData_Central_sr_legacy_food_csv_2018-04`)
+- Branded 2026-04-30 (`FoodData_Central_branded_food_csv_2026-04-30`)
+
+Ingest totals: considered=2,008,212, skipped_no_protein=574,081,
+inserted=1,434,131 (Foundation 420, SR Legacy 7,460, Branded 1,426,251),
+duplicate_barcode_skipped=1,078,970, nutrient_rows=14,097,639. These match
+the 2026-08-23 audit-log run exactly.
+
+**Production gap.** The production database's `foods` table, observed on
+2026-10-30 by a read-only `pg_dump` of that table, held 1,429,608 rows:
+4,523 fewer than the review catalogue. The cause is not established
+(likely a different Branded release or ingest date). Production is
+therefore **not** the catalogue the mapping was resolved against. The
+release list above records where the review catalogue came from; it is not
+a recipe for making production match. Re-ingesting these releases into
+production would keep production's existing local `id`s (which the
+checksum includes), so it would not reproduce the checksum above. See the
+import precondition in `docs/phytate-production-readiness.md`.
+
 ## Summary for the human reviewer
 
 - Dataset content, structure, and reporting-basis questions (Prompt 1
