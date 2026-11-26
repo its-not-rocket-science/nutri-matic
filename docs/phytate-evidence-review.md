@@ -562,7 +562,11 @@ the 2026-08-23 audit-log run exactly.
 2026-10-30 by a read-only `pg_dump` of that table, held 1,429,608 rows:
 4,523 fewer than the review catalogue. The cause is not established
 (likely a different Branded release or ingest date). Production is
-therefore **not** the catalogue the mapping was resolved against; see the
+therefore **not** the catalogue the mapping was resolved against. The
+release list above records where the review catalogue came from; it is not
+a recipe for making production match. Re-ingesting these releases into
+production would keep production's existing local `id`s (which the
+checksum includes), so it would not reproduce the checksum above. See the
 import precondition in `docs/phytate-production-readiness.md`.
 
 ## Summary for the human reviewer
