@@ -52,7 +52,17 @@
 		{#each results as food (food.id)}
 			<li>
 				<button type="button" class="btn-plain" onclick={() => handleSelect(food)}>
-					<span>{food.name}</span>
+					<span class="result-name">
+						<span>{food.name}</span>
+						{#if food.search_note}
+							<span class="muted search-note">{food.search_note}</span>
+						{/if}
+					</span>
+					{#if food.preparation_label}
+						<span class="badge badge-info" title="Preparation state, read from the food's name">
+							{food.preparation_label}
+						</span>
+					{/if}
 					{#if food.dietary_status}
 						<span
 							class="badge {food.dietary_status.status === 'avoid' ? 'badge-estimated' : 'badge-info'}"
@@ -88,6 +98,15 @@
 		border: none;
 		padding: var(--space-2) var(--space-2);
 		border-radius: var(--radius-sm);
+	}
+	.result-name {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-width: 0;
+	}
+	.search-note {
+		font-size: 0.85em;
 	}
 	.btn-plain:hover {
 		background: var(--color-surface-muted);

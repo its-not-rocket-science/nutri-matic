@@ -1,0 +1,4433 @@
+{
+"_about": "Mini catalogue for the en-GB search golden tests. Every row is a real public USDA FoodData Central name and fdc_id (Foundation, SR Legacy or Branded), taken from a full FDC import. Branded rows are the adversarial matches observed in docs/plans/canonical-foods-plan.md section 1.2, plus a few right-food branded rows. No other source.",
+"foods": [
+{
+"id": 1,
+"fdc_id": 167537,
+"data_type": "sr_legacy_food",
+"name": "Snacks, corn-based, extruded, chips, plain"
+},
+{
+"id": 2,
+"fdc_id": 167538,
+"data_type": "sr_legacy_food",
+"name": "Snacks, corn-based, extruded, chips, barbecue-flavor"
+},
+{
+"id": 3,
+"fdc_id": 167553,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, made from dried potatoes, reduced fat"
+},
+{
+"id": 4,
+"fdc_id": 167554,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, made from dried potatoes, sour-cream and onion-flavor"
+},
+{
+"id": 5,
+"fdc_id": 167558,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, plain, white corn, salted"
+},
+{
+"id": 6,
+"fdc_id": 167559,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, nacho cheese"
+},
+{
+"id": 7,
+"fdc_id": 167560,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, ranch-flavor"
+},
+{
+"id": 8,
+"fdc_id": 167605,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, hash brown, refrigerated, prepared, pan-fried in canola oil"
+},
+{
+"id": 9,
+"fdc_id": 167672,
+"data_type": "sr_legacy_food",
+"name": "DENNY'S, french fries"
+},
+{
+"id": 10,
+"fdc_id": 167697,
+"data_type": "sr_legacy_food",
+"name": "Milk, buttermilk, fluid, cultured, reduced fat"
+},
+{
+"id": 11,
+"fdc_id": 167702,
+"data_type": "sr_legacy_food",
+"name": "Oil, flaxseed, cold pressed"
+},
+{
+"id": 12,
+"fdc_id": 167962,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, barbecue-flavor"
+},
+{
+"id": 13,
+"fdc_id": 167963,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, sour-cream-and-onion-flavor"
+},
+{
+"id": 14,
+"fdc_id": 167969,
+"data_type": "sr_legacy_food",
+"name": "Snacks, trail mix, regular, with chocolate chips, salted nuts and seeds"
+},
+{
+"id": 15,
+"fdc_id": 167970,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, taco-flavor"
+},
+{
+"id": 16,
+"fdc_id": 168014,
+"data_type": "sr_legacy_food",
+"name": "Cookies, animal crackers (includes arrowroot, tea biscuits)"
+},
+{
+"id": 17,
+"fdc_id": 168116,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, unsalted, white corn"
+},
+{
+"id": 18,
+"fdc_id": 168127,
+"data_type": "sr_legacy_food",
+"name": "Snacks, corn-based, extruded, chips, unsalted"
+},
+{
+"id": 19,
+"fdc_id": 168128,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, canned, no salt added"
+},
+{
+"id": 20,
+"fdc_id": 168137,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, light (baked with less oil)"
+},
+{
+"id": 21,
+"fdc_id": 168150,
+"data_type": "sr_legacy_food",
+"name": "Java-plum, (jambolan), raw"
+},
+{
+"id": 22,
+"fdc_id": 168395,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, mature seeds, sprouted, cooked, boiled, drained, without salt"
+},
+{
+"id": 23,
+"fdc_id": 168397,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, drained solids, rinsed with tap water"
+},
+{
+"id": 24,
+"fdc_id": 168398,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, frozen, kernels cut off cob, unprepared (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 25,
+"fdc_id": 168399,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, frozen, kernels cut off cob, boiled, drained, without salt"
+},
+{
+"id": 26,
+"fdc_id": 168400,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, frozen, kernels on cob, unprepared"
+},
+{
+"id": 27,
+"fdc_id": 168401,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, frozen, kernels on cob, cooked, boiled, drained, without salt"
+},
+{
+"id": 28,
+"fdc_id": 168427,
+"data_type": "sr_legacy_food",
+"name": "Lentils, sprouted, raw"
+},
+{
+"id": 29,
+"fdc_id": 168428,
+"data_type": "sr_legacy_food",
+"name": "Lentils, sprouted, cooked, stir-fried, without salt"
+},
+{
+"id": 30,
+"fdc_id": 168442,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, all types, salt added in processing, frozen, unprepared"
+},
+{
+"id": 31,
+"fdc_id": 168444,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, steak fries, salt added in processing, frozen, as purchased"
+},
+{
+"id": 32,
+"fdc_id": 168445,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, steak fries, salt added in processing, frozen, oven-heated"
+},
+{
+"id": 33,
+"fdc_id": 168446,
+"data_type": "sr_legacy_food",
+"name": "Potato flour"
+},
+{
+"id": 34,
+"fdc_id": 168454,
+"data_type": "sr_legacy_food",
+"name": "Rutabagas, raw"
+},
+{
+"id": 35,
+"fdc_id": 168455,
+"data_type": "sr_legacy_food",
+"name": "Rutabagas, cooked, boiled, drained, without salt"
+},
+{
+"id": 36,
+"fdc_id": 168469,
+"data_type": "sr_legacy_food",
+"name": "Squash, summer, zucchini, includes skin, frozen, unprepared"
+},
+{
+"id": 37,
+"fdc_id": 168470,
+"data_type": "sr_legacy_food",
+"name": "Squash, summer, zucchini, includes skin, frozen, cooked, boiled, drained, without salt"
+},
+{
+"id": 38,
+"fdc_id": 168471,
+"data_type": "sr_legacy_food",
+"name": "Squash, summer, zucchini, italian style, canned"
+},
+{
+"id": 39,
+"fdc_id": 168525,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, cooked, boiled, drained, with salt"
+},
+{
+"id": 40,
+"fdc_id": 168538,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, raw"
+},
+{
+"id": 41,
+"fdc_id": 168539,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, cooked, boiled, drained, without salt"
+},
+{
+"id": 42,
+"fdc_id": 168540,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, cooked, boiled, drained, with salt"
+},
+{
+"id": 43,
+"fdc_id": 168541,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, canned, whole kernel, regular pack, solids and liquids"
+},
+{
+"id": 44,
+"fdc_id": 168542,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, canned, vacuum pack, regular pack"
+},
+{
+"id": 45,
+"fdc_id": 168543,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, canned, vacuum pack, no salt added"
+},
+{
+"id": 46,
+"fdc_id": 168544,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, frozen, kernels cut off cob, unprepared"
+},
+{
+"id": 47,
+"fdc_id": 168545,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, frozen, kernels cut off cob, boiled, drained, without salt"
+},
+{
+"id": 48,
+"fdc_id": 168551,
+"data_type": "sr_legacy_food",
+"name": "Lentils, sprouted, cooked, stir-fried, with salt"
+},
+{
+"id": 49,
+"fdc_id": 168565,
+"data_type": "sr_legacy_food",
+"name": "Squash, zucchini, baby, raw"
+},
+{
+"id": 50,
+"fdc_id": 168608,
+"data_type": "sr_legacy_food",
+"name": "Beef, grass-fed, ground, raw"
+},
+{
+"id": 51,
+"fdc_id": 168650,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 70% lean meat / 30% fat, patty cooked, pan-broiled"
+},
+{
+"id": 52,
+"fdc_id": 168651,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 70% lean meat / 30% fat, patty, cooked, broiled"
+},
+{
+"id": 53,
+"fdc_id": 168652,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 70% lean meat / 30% fat, raw"
+},
+{
+"id": 54,
+"fdc_id": 168833,
+"data_type": "sr_legacy_food",
+"name": "Sugars, brown"
+},
+{
+"id": 55,
+"fdc_id": 168849,
+"data_type": "sr_legacy_food",
+"name": "Snacks, banana chips"
+},
+{
+"id": 56,
+"fdc_id": 168853,
+"data_type": "sr_legacy_food",
+"name": "Snack, potato chips, made from dried potatoes, plain"
+},
+{
+"id": 57,
+"fdc_id": 168858,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, nacho-flavor, reduced fat"
+},
+{
+"id": 58,
+"fdc_id": 168863,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, low fat, made with olestra, nacho cheese"
+},
+{
+"id": 59,
+"fdc_id": 168864,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, made from dried potatoes, fat-free, made with olestra"
+},
+{
+"id": 60,
+"fdc_id": 168865,
+"data_type": "sr_legacy_food",
+"name": "Snacks, taro chips"
+},
+{
+"id": 61,
+"fdc_id": 168873,
+"data_type": "sr_legacy_food",
+"name": "Oat bran, cooked"
+},
+{
+"id": 62,
+"fdc_id": 168877,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, regular, raw, enriched"
+},
+{
+"id": 63,
+"fdc_id": 168878,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, regular, enriched, cooked"
+},
+{
+"id": 64,
+"fdc_id": 168879,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, medium-grain, raw, enriched"
+},
+{
+"id": 65,
+"fdc_id": 168880,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, medium-grain, enriched, cooked"
+},
+{
+"id": 66,
+"fdc_id": 168881,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, short-grain, enriched, uncooked"
+},
+{
+"id": 67,
+"fdc_id": 168882,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, short-grain, enriched, cooked"
+},
+{
+"id": 68,
+"fdc_id": 168883,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, glutinous, unenriched, uncooked"
+},
+{
+"id": 69,
+"fdc_id": 168893,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 70,
+"fdc_id": 168894,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, all-purpose, enriched, bleached"
+},
+{
+"id": 71,
+"fdc_id": 168895,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, all-purpose, self-rising, enriched"
+},
+{
+"id": 72,
+"fdc_id": 168896,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, bread, enriched"
+},
+{
+"id": 73,
+"fdc_id": 168899,
+"data_type": "sr_legacy_food",
+"name": "Pasta, gluten-free, corn, dry"
+},
+{
+"id": 74,
+"fdc_id": 168900,
+"data_type": "sr_legacy_food",
+"name": "Pasta, gluten-free, corn, cooked"
+},
+{
+"id": 75,
+"fdc_id": 168901,
+"data_type": "sr_legacy_food",
+"name": "Pasta, homemade, made with egg, cooked"
+},
+{
+"id": 76,
+"fdc_id": 168902,
+"data_type": "sr_legacy_food",
+"name": "Pasta, homemade, made without egg, cooked"
+},
+{
+"id": 77,
+"fdc_id": 168910,
+"data_type": "sr_legacy_food",
+"name": "Pasta, whole-wheat, cooked (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 78,
+"fdc_id": 168913,
+"data_type": "sr_legacy_food",
+"name": "Wheat flours, bread, unenriched"
+},
+{
+"id": 79,
+"fdc_id": 168915,
+"data_type": "sr_legacy_food",
+"name": "Pasta, whole grain, 51% whole wheat, remaining unenriched semolina, dry"
+},
+{
+"id": 80,
+"fdc_id": 168916,
+"data_type": "sr_legacy_food",
+"name": "Pasta, whole grain, 51% whole wheat, remaining unenriched semolina, cooked"
+},
+{
+"id": 81,
+"fdc_id": 168927,
+"data_type": "sr_legacy_food",
+"name": "Pasta, dry, unenriched"
+},
+{
+"id": 82,
+"fdc_id": 168928,
+"data_type": "sr_legacy_food",
+"name": "Pasta, cooked, unenriched, without added salt"
+},
+{
+"id": 83,
+"fdc_id": 168930,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, medium-grain, cooked, unenriched"
+},
+{
+"id": 84,
+"fdc_id": 168931,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, short-grain, raw, unenriched"
+},
+{
+"id": 85,
+"fdc_id": 168932,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, short-grain, cooked, unenriched"
+},
+{
+"id": 86,
+"fdc_id": 168935,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, regular, cooked, unenriched, with salt"
+},
+{
+"id": 87,
+"fdc_id": 168936,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, all-purpose, enriched, unbleached"
+},
+{
+"id": 88,
+"fdc_id": 168938,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 10% protein, unbleached, enriched"
+},
+{
+"id": 89,
+"fdc_id": 168939,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 11.5% protein, bleached, enriched"
+},
+{
+"id": 90,
+"fdc_id": 168940,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 11.5% protein, bleached, unenriched"
+},
+{
+"id": 91,
+"fdc_id": 168941,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 11.5% protein, unbleached, enriched"
+},
+{
+"id": 92,
+"fdc_id": 168942,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 13% protein, bleached, enriched"
+},
+{
+"id": 93,
+"fdc_id": 168944,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, whole-grain, soft wheat"
+},
+{
+"id": 94,
+"fdc_id": 168946,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, wedge cut, frozen, unprepared"
+},
+{
+"id": 95,
+"fdc_id": 168947,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, steak cut, salt not added in processing, frozen, unprepared"
+},
+{
+"id": 96,
+"fdc_id": 168948,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, cross cut, frozen, unprepared"
+},
+{
+"id": 97,
+"fdc_id": 169009,
+"data_type": "sr_legacy_food",
+"name": "APPLEBEE'S, french fries"
+},
+{
+"id": 98,
+"fdc_id": 169046,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, white, restructured, baked"
+},
+{
+"id": 99,
+"fdc_id": 169058,
+"data_type": "sr_legacy_food",
+"name": "Jams and preserves, no sugar (with sodium saccharin), any flavor"
+},
+{
+"id": 100,
+"fdc_id": 169145,
+"data_type": "sr_legacy_food",
+"name": "Beets, raw"
+},
+{
+"id": 101,
+"fdc_id": 169213,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, mature seeds, sprouted, raw"
+},
+{
+"id": 102,
+"fdc_id": 169214,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, whole kernel, drained solids"
+},
+{
+"id": 103,
+"fdc_id": 169215,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, cream style, regular pack"
+},
+{
+"id": 104,
+"fdc_id": 169216,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, vacuum pack, regular pack"
+},
+{
+"id": 105,
+"fdc_id": 169228,
+"data_type": "sr_legacy_food",
+"name": "Eggplant, raw"
+},
+{
+"id": 106,
+"fdc_id": 169229,
+"data_type": "sr_legacy_food",
+"name": "Eggplant, cooked, boiled, drained, without salt"
+},
+{
+"id": 107,
+"fdc_id": 169264,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, all types, salt added in processing, frozen, home-prepared, oven heated"
+},
+{
+"id": 108,
+"fdc_id": 169265,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, cottage-cut, salt not added in processing, frozen, as purchased"
+},
+{
+"id": 109,
+"fdc_id": 169266,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, cottage-cut, salt not added in processing, frozen, oven-heated"
+},
+{
+"id": 110,
+"fdc_id": 169291,
+"data_type": "sr_legacy_food",
+"name": "Squash, summer, zucchini, includes skin, raw"
+},
+{
+"id": 111,
+"fdc_id": 169292,
+"data_type": "sr_legacy_food",
+"name": "Squash, summer, zucchini, includes skin, cooked, boiled, drained, without salt"
+},
+{
+"id": 112,
+"fdc_id": 169315,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, mature seeds, sprouted, cooked, boiled, drained, with salt"
+},
+{
+"id": 113,
+"fdc_id": 169345,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, no salt added, solids and liquids (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 114,
+"fdc_id": 169346,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, cream style, no salt added"
+},
+{
+"id": 115,
+"fdc_id": 169347,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, vacuum pack, no salt added"
+},
+{
+"id": 116,
+"fdc_id": 169348,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, frozen, kernels, cut off cob, boiled, drained, with salt"
+},
+{
+"id": 117,
+"fdc_id": 169349,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, frozen, kernels on cob, cooked, boiled, drained, with salt"
+},
+{
+"id": 118,
+"fdc_id": 169352,
+"data_type": "sr_legacy_food",
+"name": "Eggplant, cooked, boiled, drained, with salt"
+},
+{
+"id": 119,
+"fdc_id": 169360,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, canned, whole kernel, no salt added, solids and liquids"
+},
+{
+"id": 120,
+"fdc_id": 169361,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, canned, whole kernel, drained solids"
+},
+{
+"id": 121,
+"fdc_id": 169362,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, canned, cream style, regular pack"
+},
+{
+"id": 122,
+"fdc_id": 169363,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, canned, cream style, no salt added"
+},
+{
+"id": 123,
+"fdc_id": 169364,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, frozen, kernels cut off cob, boiled, drained, with salt"
+},
+{
+"id": 124,
+"fdc_id": 169365,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, frozen, kernels on cob, unprepared"
+},
+{
+"id": 125,
+"fdc_id": 169366,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, frozen, kernels on cob, cooked, boiled, drained, without salt"
+},
+{
+"id": 126,
+"fdc_id": 169367,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, white, frozen, kernels on cob, cooked, boiled, drained, with salt"
+},
+{
+"id": 127,
+"fdc_id": 169387,
+"data_type": "sr_legacy_food",
+"name": "Arugula, raw"
+},
+{
+"id": 128,
+"fdc_id": 169447,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, patties, frozen, cooked, broiled"
+},
+{
+"id": 129,
+"fdc_id": 169473,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 70% lean meat / 30% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 130,
+"fdc_id": 169474,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 70% lean meat / 30% fat, loaf, cooked, baked"
+},
+{
+"id": 131,
+"fdc_id": 169641,
+"data_type": "sr_legacy_food",
+"name": "Jams and preserves"
+},
+{
+"id": 132,
+"fdc_id": 169658,
+"data_type": "sr_legacy_food",
+"name": "Sugars, maple"
+},
+{
+"id": 133,
+"fdc_id": 169677,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, plain, salted"
+},
+{
+"id": 134,
+"fdc_id": 169678,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, made from dried potatoes, cheese-flavor"
+},
+{
+"id": 135,
+"fdc_id": 169682,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, cheese-flavor"
+},
+{
+"id": 136,
+"fdc_id": 169683,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, reduced fat"
+},
+{
+"id": 137,
+"fdc_id": 169684,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, fat-free, made with olestra"
+},
+{
+"id": 138,
+"fdc_id": 169686,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, fat free, salted"
+},
+{
+"id": 139,
+"fdc_id": 169705,
+"data_type": "sr_legacy_food",
+"name": "Oats (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 140,
+"fdc_id": 169707,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, parboiled, enriched, dry"
+},
+{
+"id": 141,
+"fdc_id": 169708,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, parboiled, enriched, cooked"
+},
+{
+"id": 142,
+"fdc_id": 169709,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, precooked or instant, enriched, dry"
+},
+{
+"id": 143,
+"fdc_id": 169710,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, precooked or instant, enriched, prepared"
+},
+{
+"id": 144,
+"fdc_id": 169711,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, glutinous, unenriched, cooked"
+},
+{
+"id": 145,
+"fdc_id": 169712,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, steamed, Chinese restaurant"
+},
+{
+"id": 146,
+"fdc_id": 169723,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, cake, enriched"
+},
+{
+"id": 147,
+"fdc_id": 169724,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, tortilla mix, enriched"
+},
+{
+"id": 148,
+"fdc_id": 169727,
+"data_type": "sr_legacy_food",
+"name": "Pasta, fresh-refrigerated, plain, as purchased"
+},
+{
+"id": 149,
+"fdc_id": 169728,
+"data_type": "sr_legacy_food",
+"name": "Pasta, fresh-refrigerated, plain, cooked"
+},
+{
+"id": 150,
+"fdc_id": 169729,
+"data_type": "sr_legacy_food",
+"name": "Pasta, fresh-refrigerated, spinach, as purchased"
+},
+{
+"id": 151,
+"fdc_id": 169730,
+"data_type": "sr_legacy_food",
+"name": "Pasta, fresh-refrigerated, spinach, cooked"
+},
+{
+"id": 152,
+"fdc_id": 169736,
+"data_type": "sr_legacy_food",
+"name": "Pasta, dry, enriched"
+},
+{
+"id": 153,
+"fdc_id": 169737,
+"data_type": "sr_legacy_food",
+"name": "Pasta, cooked, enriched, without added salt"
+},
+{
+"id": 154,
+"fdc_id": 169738,
+"data_type": "sr_legacy_food",
+"name": "Pasta, whole-wheat, dry (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 155,
+"fdc_id": 169751,
+"data_type": "sr_legacy_food",
+"name": "Pasta, cooked, enriched, with added salt"
+},
+{
+"id": 156,
+"fdc_id": 169753,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, regular, cooked, enriched, with salt"
+},
+{
+"id": 157,
+"fdc_id": 169754,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, all-purpose, enriched, calcium-fortified"
+},
+{
+"id": 158,
+"fdc_id": 169756,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, regular, raw, unenriched"
+},
+{
+"id": 159,
+"fdc_id": 169757,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, regular, unenriched, cooked without salt"
+},
+{
+"id": 160,
+"fdc_id": 169758,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, parboiled, unenriched, dry"
+},
+{
+"id": 161,
+"fdc_id": 169759,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, long-grain, parboiled, unenriched, cooked"
+},
+{
+"id": 162,
+"fdc_id": 169760,
+"data_type": "sr_legacy_food",
+"name": "Rice, white, medium-grain, raw, unenriched"
+},
+{
+"id": 163,
+"fdc_id": 169761,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white, all-purpose, unenriched"
+},
+{
+"id": 164,
+"fdc_id": 169764,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, yellow fleshed, french fried, frozen, unprepared"
+},
+{
+"id": 165,
+"fdc_id": 169833,
+"data_type": "sr_legacy_food",
+"name": "T.G.I. FRIDAY'S, french fries"
+},
+{
+"id": 166,
+"fdc_id": 169836,
+"data_type": "sr_legacy_food",
+"name": "Restaurant, family style, french fries"
+},
+{
+"id": 167,
+"fdc_id": 169868,
+"data_type": "sr_legacy_food",
+"name": "Milk, fluid, nonfat, calcium fortified (fat free or skim)"
+},
+{
+"id": 168,
+"fdc_id": 169892,
+"data_type": "sr_legacy_food",
+"name": "Eggplant, pickled"
+},
+{
+"id": 169,
+"fdc_id": 169997,
+"data_type": "sr_legacy_food",
+"name": "Coriander (cilantro) leaves, raw"
+},
+{
+"id": 170,
+"fdc_id": 169998,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, raw"
+},
+{
+"id": 171,
+"fdc_id": 169999,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, cooked, boiled, drained, without salt"
+},
+{
+"id": 172,
+"fdc_id": 170005,
+"data_type": "sr_legacy_food",
+"name": "Onions, spring or scallions (includes tops and bulb), raw"
+},
+{
+"id": 173,
+"fdc_id": 170006,
+"data_type": "sr_legacy_food",
+"name": "Onions, young green, tops only"
+},
+{
+"id": 174,
+"fdc_id": 170010,
+"data_type": "sr_legacy_food",
+"name": "Peas, edible-podded, raw"
+},
+{
+"id": 175,
+"fdc_id": 170044,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, hash brown, frozen, plain, prepared, pan fried in canola oil"
+},
+{
+"id": 176,
+"fdc_id": 170051,
+"data_type": "sr_legacy_food",
+"name": "Tomatoes, red, ripe, canned, packed in tomato juice"
+},
+{
+"id": 177,
+"fdc_id": 170052,
+"data_type": "sr_legacy_food",
+"name": "Tomatoes, red, ripe, canned, stewed"
+},
+{
+"id": 178,
+"fdc_id": 170053,
+"data_type": "sr_legacy_food",
+"name": "Tomatoes, red, ripe, canned, with green chilies"
+},
+{
+"id": 179,
+"fdc_id": 170118,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, all types, salt not added in processing, frozen, oven-heated"
+},
+{
+"id": 180,
+"fdc_id": 170138,
+"data_type": "sr_legacy_food",
+"name": "Tomatoes, red, ripe, canned, packed in tomato juice, no salt added"
+},
+{
+"id": 181,
+"fdc_id": 170245,
+"data_type": "sr_legacy_food",
+"name": "Snacks, corn-based, extruded, chips, barbecue-flavor, made with enriched masa flour"
+},
+{
+"id": 182,
+"fdc_id": 170248,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, plain, made with partially hydrogenated soybean oil, salted"
+},
+{
+"id": 183,
+"fdc_id": 170253,
+"data_type": "sr_legacy_food",
+"name": "Potato chips, without salt, reduced fat"
+},
+{
+"id": 184,
+"fdc_id": 170254,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, low fat, unsalted"
+},
+{
+"id": 185,
+"fdc_id": 170256,
+"data_type": "sr_legacy_food",
+"name": "Snacks, tortilla chips, nacho-flavor, made with enriched masa flour"
+},
+{
+"id": 186,
+"fdc_id": 170327,
+"data_type": "sr_legacy_food",
+"name": "BURGER KING, french fries"
+},
+{
+"id": 187,
+"fdc_id": 170341,
+"data_type": "sr_legacy_food",
+"name": "KFC, Crispy Chicken Strips"
+},
+{
+"id": 188,
+"fdc_id": 170390,
+"data_type": "sr_legacy_food",
+"name": "Cabbage, chinese (pak-choi), raw"
+},
+{
+"id": 189,
+"fdc_id": 170409,
+"data_type": "sr_legacy_food",
+"name": "Corn, sweet, yellow, canned, brine pack, regular pack, solids and liquids"
+},
+{
+"id": 190,
+"fdc_id": 170436,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, crinkle or regular cut, salt added in processing, frozen, as purchased"
+},
+{
+"id": 191,
+"fdc_id": 170437,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, crinkle or regular cut, salt added in processing, frozen, oven-heated"
+},
+{
+"id": 192,
+"fdc_id": 170451,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, shoestring, salt added in processing, frozen, as purchased"
+},
+{
+"id": 193,
+"fdc_id": 170452,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, shoestring, salt added in processing, frozen, oven-heated"
+},
+{
+"id": 194,
+"fdc_id": 170457,
+"data_type": "sr_legacy_food",
+"name": "Tomatoes, red, ripe, raw, year round average"
+},
+{
+"id": 195,
+"fdc_id": 170462,
+"data_type": "sr_legacy_food",
+"name": "Tomato products, canned, sauce, with onions, green peppers, and celery"
+},
+{
+"id": 196,
+"fdc_id": 170463,
+"data_type": "sr_legacy_food",
+"name": "Tomato products, canned, sauce, with tomato tidbits"
+},
+{
+"id": 197,
+"fdc_id": 170501,
+"data_type": "sr_legacy_food",
+"name": "Tomatoes, crushed, canned"
+},
+{
+"id": 198,
+"fdc_id": 170523,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, french fried, all types, salt not added in processing, frozen, as purchased"
+},
+{
+"id": 199,
+"fdc_id": 170528,
+"data_type": "sr_legacy_food",
+"name": "Rutabagas, cooked, boiled, drained, with salt"
+},
+{
+"id": 200,
+"fdc_id": 170534,
+"data_type": "sr_legacy_food",
+"name": "Squash, summer, zucchini, includes skin, cooked, boiled, drained, with salt"
+},
+{
+"id": 201,
+"fdc_id": 170535,
+"data_type": "sr_legacy_food",
+"name": "Squash, summer, zucchini, includes skin, frozen, cooked, boiled, drained, with salt"
+},
+{
+"id": 202,
+"fdc_id": 170545,
+"data_type": "sr_legacy_food",
+"name": "Tomato juice, canned, without salt added"
+},
+{
+"id": 203,
+"fdc_id": 170554,
+"data_type": "sr_legacy_food",
+"name": "Seeds, chia seeds, dried"
+},
+{
+"id": 204,
+"fdc_id": 170645,
+"data_type": "sr_legacy_food",
+"name": "Jams and preserves, apricot"
+},
+{
+"id": 205,
+"fdc_id": 170648,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, plain, made with partially hydrogenated soybean oil, unsalted"
+},
+{
+"id": 206,
+"fdc_id": 170649,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, plain, unsalted"
+},
+{
+"id": 207,
+"fdc_id": 170655,
+"data_type": "sr_legacy_food",
+"name": "Snacks, trail mix, regular, with chocolate chips, unsalted nuts and seeds"
+},
+{
+"id": 208,
+"fdc_id": 170675,
+"data_type": "sr_legacy_food",
+"name": "Sweeteners, sugar substitute, granulated, brown"
+},
+{
+"id": 209,
+"fdc_id": 170686,
+"data_type": "sr_legacy_food",
+"name": "Buckwheat groats, roasted, cooked"
+},
+{
+"id": 210,
+"fdc_id": 170721,
+"data_type": "sr_legacy_food",
+"name": "McDONALD'S, french fries"
+},
+{
+"id": 211,
+"fdc_id": 170857,
+"data_type": "sr_legacy_food",
+"name": "Cream, fluid, light (coffee cream or table cream)"
+},
+{
+"id": 212,
+"fdc_id": 170858,
+"data_type": "sr_legacy_food",
+"name": "Cream, fluid, light whipping"
+},
+{
+"id": 213,
+"fdc_id": 170859,
+"data_type": "sr_legacy_food",
+"name": "Cream, fluid, heavy whipping"
+},
+{
+"id": 214,
+"fdc_id": 170860,
+"data_type": "sr_legacy_food",
+"name": "Cream, whipped, cream topping, pressurized"
+},
+{
+"id": 215,
+"fdc_id": 170861,
+"data_type": "sr_legacy_food",
+"name": "Milk, filled, fluid, with blend of hydrogenated vegetable oils"
+},
+{
+"id": 216,
+"fdc_id": 170862,
+"data_type": "sr_legacy_food",
+"name": "Milk, filled, fluid, with lauric acid oil"
+},
+{
+"id": 217,
+"fdc_id": 170870,
+"data_type": "sr_legacy_food",
+"name": "Milk, reduced fat, fluid, 2% milkfat, with added nonfat milk solids and vitamin A and vitamin D"
+},
+{
+"id": 218,
+"fdc_id": 170871,
+"data_type": "sr_legacy_food",
+"name": "Milk, reduced fat, fluid, 2% milkfat, protein fortified, with added vitamin A and vitamin D"
+},
+{
+"id": 219,
+"fdc_id": 170872,
+"data_type": "sr_legacy_food",
+"name": "Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D"
+},
+{
+"id": 220,
+"fdc_id": 170873,
+"data_type": "sr_legacy_food",
+"name": "Milk, lowfat, fluid, 1% milkfat, with added nonfat milk solids, vitamin A and vitamin D"
+},
+{
+"id": 221,
+"fdc_id": 170874,
+"data_type": "sr_legacy_food",
+"name": "Milk, buttermilk, fluid, cultured, lowfat"
+},
+{
+"id": 222,
+"fdc_id": 170875,
+"data_type": "sr_legacy_food",
+"name": "Milk, low sodium, fluid"
+},
+{
+"id": 223,
+"fdc_id": 170879,
+"data_type": "sr_legacy_food",
+"name": "Milk, chocolate, fluid, commercial, whole, with added vitamin A and vitamin D"
+},
+{
+"id": 224,
+"fdc_id": 170880,
+"data_type": "sr_legacy_food",
+"name": "Milk, chocolate, fluid, commercial, reduced fat, with added vitamin A and vitamin D"
+},
+{
+"id": 225,
+"fdc_id": 170882,
+"data_type": "sr_legacy_food",
+"name": "Milk, sheep, fluid"
+},
+{
+"id": 226,
+"fdc_id": 170899,
+"data_type": "sr_legacy_food",
+"name": "Cheese, cheddar, sharp, sliced"
+},
+{
+"id": 227,
+"fdc_id": 170903,
+"data_type": "sr_legacy_food",
+"name": "Yogurt, Greek, plain, lowfat"
+},
+{
+"id": 228,
+"fdc_id": 170921,
+"data_type": "sr_legacy_food",
+"name": "Spices, coriander leaf, dried"
+},
+{
+"id": 229,
+"fdc_id": 170922,
+"data_type": "sr_legacy_food",
+"name": "Spices, coriander seed"
+},
+{
+"id": 230,
+"fdc_id": 171110,
+"data_type": "sr_legacy_food",
+"name": "Chicken, canned, no broth"
+},
+{
+"id": 231,
+"fdc_id": 171160,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato beef with noodle, canned, condensed"
+},
+{
+"id": 232,
+"fdc_id": 171176,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato, canned, prepared with equal volume water, commercial"
+},
+{
+"id": 233,
+"fdc_id": 171255,
+"data_type": "sr_legacy_food",
+"name": "Cream, fluid, half and half"
+},
+{
+"id": 234,
+"fdc_id": 171256,
+"data_type": "sr_legacy_food",
+"name": "Cream, sour, reduced fat, cultured"
+},
+{
+"id": 235,
+"fdc_id": 171257,
+"data_type": "sr_legacy_food",
+"name": "Cream, sour, cultured"
+},
+{
+"id": 236,
+"fdc_id": 171265,
+"data_type": "sr_legacy_food",
+"name": "Milk, whole, 3.25% milkfat, with added vitamin D"
+},
+{
+"id": 237,
+"fdc_id": 171266,
+"data_type": "sr_legacy_food",
+"name": "Milk, producer, fluid, 3.7% milkfat"
+},
+{
+"id": 238,
+"fdc_id": 171267,
+"data_type": "sr_legacy_food",
+"name": "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D"
+},
+{
+"id": 239,
+"fdc_id": 171268,
+"data_type": "sr_legacy_food",
+"name": "Milk, lowfat, fluid, 1% milkfat, protein fortified, with added vitamin A and vitamin D"
+},
+{
+"id": 240,
+"fdc_id": 171269,
+"data_type": "sr_legacy_food",
+"name": "Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)"
+},
+{
+"id": 241,
+"fdc_id": 171270,
+"data_type": "sr_legacy_food",
+"name": "Milk, nonfat, fluid, with added nonfat milk solids, vitamin A and vitamin D (fat free or skim)"
+},
+{
+"id": 242,
+"fdc_id": 171271,
+"data_type": "sr_legacy_food",
+"name": "Milk, nonfat, fluid, protein fortified, with added vitamin A and vitamin D (fat free and skim)"
+},
+{
+"id": 243,
+"fdc_id": 171278,
+"data_type": "sr_legacy_food",
+"name": "Milk, goat, fluid, with added vitamin D"
+},
+{
+"id": 244,
+"fdc_id": 171279,
+"data_type": "sr_legacy_food",
+"name": "Milk, human, mature, fluid"
+},
+{
+"id": 245,
+"fdc_id": 171280,
+"data_type": "sr_legacy_food",
+"name": "Milk, indian buffalo, fluid"
+},
+{
+"id": 246,
+"fdc_id": 171287,
+"data_type": "sr_legacy_food",
+"name": "Egg, whole, raw, fresh"
+},
+{
+"id": 247,
+"fdc_id": 171292,
+"data_type": "sr_legacy_food",
+"name": "Cheese, cheddar, reduced fat (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 248,
+"fdc_id": 171295,
+"data_type": "sr_legacy_food",
+"name": "Cheese, cheddar, nonfat or fat free"
+},
+{
+"id": 249,
+"fdc_id": 171302,
+"data_type": "sr_legacy_food",
+"name": "Milk, evaporated, 2% fat, with added vitamin A and vitamin D"
+},
+{
+"id": 250,
+"fdc_id": 171308,
+"data_type": "sr_legacy_food",
+"name": "Cream, half and half, lowfat"
+},
+{
+"id": 251,
+"fdc_id": 171320,
+"data_type": "sr_legacy_food",
+"name": "Spices, cinnamon, ground"
+},
+{
+"id": 252,
+"fdc_id": 171432,
+"data_type": "sr_legacy_food",
+"name": "Margarine, 80% fat, tub, CANOLA HARVEST Soft Spread (canola, palm and palm kernel oils)"
+},
+{
+"id": 253,
+"fdc_id": 171505,
+"data_type": "sr_legacy_food",
+"name": "Turkey, Ground, raw"
+},
+{
+"id": 254,
+"fdc_id": 171557,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato rice, canned, condensed"
+},
+{
+"id": 255,
+"fdc_id": 171574,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato bisque, canned, prepared with equal volume water"
+},
+{
+"id": 256,
+"fdc_id": 171587,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato, canned, condensed, reduced sodium"
+},
+{
+"id": 257,
+"fdc_id": 171661,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, instant, fortified, plain, dry"
+},
+{
+"id": 258,
+"fdc_id": 171662,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, instant, fortified, plain, prepared with water (boiling water added or microwaved)"
+},
+{
+"id": 259,
+"fdc_id": 171664,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, instant, fortified, with cinnamon and spice, dry"
+},
+{
+"id": 260,
+"fdc_id": 171675,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, regular and quick and instant, unenriched, cooked with water (includes boiling and microwaving), with salt"
+},
+{
+"id": 261,
+"fdc_id": 171790,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 95% lean meat / 5% fat, raw"
+},
+{
+"id": 262,
+"fdc_id": 171791,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 95% lean meat / 5% fat, patty, cooked, broiled"
+},
+{
+"id": 263,
+"fdc_id": 171792,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 95% lean meat / 5% fat, patty, cooked, pan-broiled"
+},
+{
+"id": 264,
+"fdc_id": 171793,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 90% lean meat / 10% fat, patty, cooked, pan-broiled"
+},
+{
+"id": 265,
+"fdc_id": 171794,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 90% lean meat / 10% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 266,
+"fdc_id": 171795,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 90% lean meat / 10% fat, loaf, cooked, baked"
+},
+{
+"id": 267,
+"fdc_id": 171796,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 85% lean meat / 15% fat, raw (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 268,
+"fdc_id": 171797,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 80% lean meat / 20% fat, patty, cooked, broiled"
+},
+{
+"id": 269,
+"fdc_id": 171798,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 80% lean meat / 20% fat, patty, cooked, pan-broiled"
+},
+{
+"id": 270,
+"fdc_id": 171799,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 80% lean meat / 20% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 271,
+"fdc_id": 171800,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 80% lean meat / 20% fat, loaf, cooked, baked"
+},
+{
+"id": 272,
+"fdc_id": 171801,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 75% lean meat / 25% fat, loaf, cooked, baked"
+},
+{
+"id": 273,
+"fdc_id": 171837,
+"data_type": "sr_legacy_food",
+"name": "Cookies, animal, with frosting or icing"
+},
+{
+"id": 274,
+"fdc_id": 171840,
+"data_type": "sr_legacy_food",
+"name": "Cookies, brownies, commercially prepared, reduced fat, with added fiber"
+},
+{
+"id": 275,
+"fdc_id": 171841,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate sandwich, with creme filling, reduced fat"
+},
+{
+"id": 276,
+"fdc_id": 171842,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal sandwich, with creme filling"
+},
+{
+"id": 277,
+"fdc_id": 171843,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter, commercially prepared, sugar free"
+},
+{
+"id": 278,
+"fdc_id": 171847,
+"data_type": "sr_legacy_food",
+"name": "Cookies, coconut macaroon"
+},
+{
+"id": 279,
+"fdc_id": 171857,
+"data_type": "sr_legacy_food",
+"name": "Cookies, gluten-free, chocolate sandwich, with creme filling"
+},
+{
+"id": 280,
+"fdc_id": 171858,
+"data_type": "sr_legacy_food",
+"name": "Cookies, gluten-free, chocolate wafer"
+},
+{
+"id": 281,
+"fdc_id": 171860,
+"data_type": "sr_legacy_food",
+"name": "Cookies, gluten-free, vanilla sandwich, with creme filling"
+},
+{
+"id": 282,
+"fdc_id": 171865,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, reduced fat"
+},
+{
+"id": 283,
+"fdc_id": 171866,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate cream covered biscuit sticks"
+},
+{
+"id": 284,
+"fdc_id": 171867,
+"data_type": "sr_legacy_food",
+"name": "Cookies, Marie biscuit"
+},
+{
+"id": 285,
+"fdc_id": 171868,
+"data_type": "sr_legacy_food",
+"name": "Cookies, vanilla sandwich with creme filling, reduced fat"
+},
+{
+"id": 286,
+"fdc_id": 172014,
+"data_type": "sr_legacy_food",
+"name": "Pasta, cooked, unenriched, with added salt"
+},
+{
+"id": 287,
+"fdc_id": 172016,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 9% protein, bleached, enriched"
+},
+{
+"id": 288,
+"fdc_id": 172017,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 9% protein, bleached, unenriched"
+},
+{
+"id": 289,
+"fdc_id": 172018,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 10% protein, bleached, enriched"
+},
+{
+"id": 290,
+"fdc_id": 172019,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 10% protein, bleached, unenriched"
+},
+{
+"id": 291,
+"fdc_id": 172020,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 13% protein, bleached, unenriched"
+},
+{
+"id": 292,
+"fdc_id": 172021,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 15% protein, bleached, enriched"
+},
+{
+"id": 293,
+"fdc_id": 172022,
+"data_type": "sr_legacy_food",
+"name": "Wheat flour, white (industrial), 15% protein, bleached, unenriched"
+},
+{
+"id": 294,
+"fdc_id": 172024,
+"data_type": "sr_legacy_food",
+"name": "Pasta, whole grain, 51% whole wheat, remaining enriched semolina, cooked (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 295,
+"fdc_id": 172025,
+"data_type": "sr_legacy_food",
+"name": "Pasta, whole grain, 51% whole wheat, remaining enriched semolina, dry (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 296,
+"fdc_id": 172026,
+"data_type": "sr_legacy_food",
+"name": "Pasta, gluten-free, brown rice flour, cooked, TINKYADA"
+},
+{
+"id": 297,
+"fdc_id": 172027,
+"data_type": "sr_legacy_food",
+"name": "Pasta, gluten-free, corn flour and quinoa flour, cooked, ANCIENT HARVEST"
+},
+{
+"id": 298,
+"fdc_id": 172108,
+"data_type": "sr_legacy_food",
+"name": "LEAN POCKETS, Ham N Cheddar"
+},
+{
+"id": 299,
+"fdc_id": 172161,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, unspecified fat content, cooked"
+},
+{
+"id": 300,
+"fdc_id": 172182,
+"data_type": "sr_legacy_food",
+"name": "Cheese, cottage, lowfat, 2% milkfat"
+},
+{
+"id": 301,
+"fdc_id": 172193,
+"data_type": "sr_legacy_food",
+"name": "Milk, reduced fat, fluid, 2% milkfat, with added nonfat milk solids, without added vitamin A"
+},
+{
+"id": 302,
+"fdc_id": 172205,
+"data_type": "sr_legacy_food",
+"name": "Milk, reduced fat, fluid, 2% milkfat, without added vitamin A and vitamin D"
+},
+{
+"id": 303,
+"fdc_id": 172212,
+"data_type": "sr_legacy_food",
+"name": "Cream, half and half, fat free"
+},
+{
+"id": 304,
+"fdc_id": 172217,
+"data_type": "sr_legacy_food",
+"name": "Milk, whole, 3.25% milkfat, without added vitamin A and vitamin D"
+},
+{
+"id": 305,
+"fdc_id": 172225,
+"data_type": "sr_legacy_food",
+"name": "Milk, buttermilk, fluid, whole"
+},
+{
+"id": 306,
+"fdc_id": 172420,
+"data_type": "sr_legacy_food",
+"name": "Lentils, raw"
+},
+{
+"id": 307,
+"fdc_id": 172421,
+"data_type": "sr_legacy_food",
+"name": "Lentils, mature seeds, cooked, boiled, without salt"
+},
+{
+"id": 308,
+"fdc_id": 172454,
+"data_type": "sr_legacy_food",
+"name": "Hummus, home prepared"
+},
+{
+"id": 309,
+"fdc_id": 172667,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, frozen, baked"
+},
+{
+"id": 310,
+"fdc_id": 172668,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, refrigerated dough, higher fat"
+},
+{
+"id": 311,
+"fdc_id": 172669,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, refrigerated dough, higher fat, baked"
+},
+{
+"id": 312,
+"fdc_id": 172670,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, prepared from recipe"
+},
+{
+"id": 313,
+"fdc_id": 172671,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, mixed grain, refrigerated dough"
+},
+{
+"id": 314,
+"fdc_id": 172688,
+"data_type": "sr_legacy_food",
+"name": "Bread, whole-wheat, commercially prepared"
+},
+{
+"id": 315,
+"fdc_id": 172689,
+"data_type": "sr_legacy_food",
+"name": "Bread, whole-wheat, commercially prepared, toasted"
+},
+{
+"id": 316,
+"fdc_id": 172690,
+"data_type": "sr_legacy_food",
+"name": "Bread, whole-wheat, prepared from recipe"
+},
+{
+"id": 317,
+"fdc_id": 172691,
+"data_type": "sr_legacy_food",
+"name": "Bread, whole-wheat, prepared from recipe, toasted"
+},
+{
+"id": 318,
+"fdc_id": 172713,
+"data_type": "sr_legacy_food",
+"name": "Cookies, brownies, commercially prepared"
+},
+{
+"id": 319,
+"fdc_id": 172714,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate wafers"
+},
+{
+"id": 320,
+"fdc_id": 172715,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, commercially prepared, regular, lower fat"
+},
+{
+"id": 321,
+"fdc_id": 172716,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, commercially prepared, regular, higher fat, enriched"
+},
+{
+"id": 322,
+"fdc_id": 172717,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, commercially prepared, soft-type"
+},
+{
+"id": 323,
+"fdc_id": 172718,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate sandwich, with creme filling, regular"
+},
+{
+"id": 324,
+"fdc_id": 172719,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate sandwich, with creme filling, regular, chocolate-coated"
+},
+{
+"id": 325,
+"fdc_id": 172720,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate sandwich, with extra creme filling"
+},
+{
+"id": 326,
+"fdc_id": 172721,
+"data_type": "sr_legacy_food",
+"name": "Cookies, fig bars"
+},
+{
+"id": 327,
+"fdc_id": 172722,
+"data_type": "sr_legacy_food",
+"name": "Cookies, fortune"
+},
+{
+"id": 328,
+"fdc_id": 172723,
+"data_type": "sr_legacy_food",
+"name": "Cookies, marshmallow, chocolate-coated (includes marshmallow pies)"
+},
+{
+"id": 329,
+"fdc_id": 172724,
+"data_type": "sr_legacy_food",
+"name": "Cookies, molasses"
+},
+{
+"id": 330,
+"fdc_id": 172725,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, commercially prepared, regular"
+},
+{
+"id": 331,
+"fdc_id": 172726,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, commercially prepared, soft-type"
+},
+{
+"id": 332,
+"fdc_id": 172727,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter, commercially prepared, regular"
+},
+{
+"id": 333,
+"fdc_id": 172728,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter, commercially prepared, soft-type"
+},
+{
+"id": 334,
+"fdc_id": 172729,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter, refrigerated dough"
+},
+{
+"id": 335,
+"fdc_id": 172730,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter, refrigerated dough, baked"
+},
+{
+"id": 336,
+"fdc_id": 172731,
+"data_type": "sr_legacy_food",
+"name": "Cookies, brownies, dry mix, sugar free"
+},
+{
+"id": 337,
+"fdc_id": 172732,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, commercially prepared, special dietary"
+},
+{
+"id": 338,
+"fdc_id": 172733,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate sandwich, with creme filling, special dietary"
+},
+{
+"id": 339,
+"fdc_id": 172734,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, commercially prepared, special dietary"
+},
+{
+"id": 340,
+"fdc_id": 172735,
+"data_type": "sr_legacy_food",
+"name": "Cookies, sugar, refrigerated dough, baked"
+},
+{
+"id": 341,
+"fdc_id": 172736,
+"data_type": "sr_legacy_food",
+"name": "Cookies, sugar wafers with creme filling, regular"
+},
+{
+"id": 342,
+"fdc_id": 172737,
+"data_type": "sr_legacy_food",
+"name": "Cookies, vanilla sandwich with creme filling"
+},
+{
+"id": 343,
+"fdc_id": 172739,
+"data_type": "sr_legacy_food",
+"name": "Crackers, crispbread, rye"
+},
+{
+"id": 344,
+"fdc_id": 172807,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, prepared from recipe, without raisins"
+},
+{
+"id": 345,
+"fdc_id": 172808,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, prepared from recipe, made with butter"
+},
+{
+"id": 346,
+"fdc_id": 172819,
+"data_type": "sr_legacy_food",
+"name": "Cookies, butter, commercially prepared, unenriched"
+},
+{
+"id": 347,
+"fdc_id": 172820,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, commercially prepared, regular, higher fat, unenriched"
+},
+{
+"id": 348,
+"fdc_id": 172821,
+"data_type": "sr_legacy_food",
+"name": "Cookies, ladyfingers, without lemon juice and rind"
+},
+{
+"id": 349,
+"fdc_id": 172881,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato bisque, canned, condensed"
+},
+{
+"id": 350,
+"fdc_id": 172882,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato, canned, condensed"
+},
+{
+"id": 351,
+"fdc_id": 172902,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato bisque, canned, prepared with equal volume milk"
+},
+{
+"id": 352,
+"fdc_id": 172919,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato beef with noodle, canned, prepared with equal volume water"
+},
+{
+"id": 353,
+"fdc_id": 172920,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato rice, canned, prepared with equal volume water"
+},
+{
+"id": 354,
+"fdc_id": 172928,
+"data_type": "sr_legacy_food",
+"name": "Pate, chicken liver, canned"
+},
+{
+"id": 355,
+"fdc_id": 173110,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 93% lean meat / 7% fat, raw"
+},
+{
+"id": 356,
+"fdc_id": 173111,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 97% lean meat / 3% fat, raw"
+},
+{
+"id": 357,
+"fdc_id": 173112,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 97% lean meat / 3% fat, patty, cooked, broiled"
+},
+{
+"id": 358,
+"fdc_id": 173113,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 97% lean meat /3% fat, patty, cooked, pan-broiled"
+},
+{
+"id": 359,
+"fdc_id": 173114,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 97% lean meat / 3% fat, loaf, cooked, baked"
+},
+{
+"id": 360,
+"fdc_id": 173140,
+"data_type": "sr_legacy_food",
+"name": "Snacks, soy chips or crisps, salted"
+},
+{
+"id": 361,
+"fdc_id": 173142,
+"data_type": "sr_legacy_food",
+"name": "Snacks, plantain chips, salted"
+},
+{
+"id": 362,
+"fdc_id": 173147,
+"data_type": "sr_legacy_food",
+"name": "Snacks, pita chips, salted"
+},
+{
+"id": 363,
+"fdc_id": 173150,
+"data_type": "sr_legacy_food",
+"name": "Snacks, bagel chips, plain"
+},
+{
+"id": 364,
+"fdc_id": 173152,
+"data_type": "sr_legacy_food",
+"name": "Snacks, yucca (cassava) chips, salted"
+},
+{
+"id": 365,
+"fdc_id": 173155,
+"data_type": "sr_legacy_food",
+"name": "Snacks, brown rice chips"
+},
+{
+"id": 366,
+"fdc_id": 173264,
+"data_type": "sr_legacy_food",
+"name": "Pasta, gluten-free, rice flour and rice bran extract, cooked, DE BOLES"
+},
+{
+"id": 367,
+"fdc_id": 173265,
+"data_type": "sr_legacy_food",
+"name": "Pasta, gluten-free, corn and rice flour, cooked"
+},
+{
+"id": 368,
+"fdc_id": 173414,
+"data_type": "sr_legacy_food",
+"name": "Cheese, cheddar (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 369,
+"fdc_id": 173432,
+"data_type": "sr_legacy_food",
+"name": "Milk, nonfat, fluid, without added vitamin A and vitamin D (fat free or skim)"
+},
+{
+"id": 370,
+"fdc_id": 173439,
+"data_type": "sr_legacy_food",
+"name": "Cheese, low fat, cheddar or colby"
+},
+{
+"id": 371,
+"fdc_id": 173441,
+"data_type": "sr_legacy_food",
+"name": "Milk, fluid, 1% fat, without added vitamin A and vitamin D"
+},
+{
+"id": 372,
+"fdc_id": 173450,
+"data_type": "sr_legacy_food",
+"name": "Milk, chocolate, fluid, commercial, reduced fat, with added calcium"
+},
+{
+"id": 373,
+"fdc_id": 173731,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, home prepared"
+},
+{
+"id": 374,
+"fdc_id": 173732,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, canned, with pork and sweet sauce"
+},
+{
+"id": 375,
+"fdc_id": 173733,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, canned, with pork and tomato sauce"
+},
+{
+"id": 376,
+"fdc_id": 173740,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, all types, mature seeds, cooked, boiled, without salt"
+},
+{
+"id": 377,
+"fdc_id": 173741,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, all types, mature seeds, canned"
+},
+{
+"id": 378,
+"fdc_id": 173742,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, california red, mature seeds, raw"
+},
+{
+"id": 379,
+"fdc_id": 173743,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, california red, mature seeds, cooked, boiled, without salt"
+},
+{
+"id": 380,
+"fdc_id": 173744,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, red, mature seeds, raw"
+},
+{
+"id": 381,
+"fdc_id": 173756,
+"data_type": "sr_legacy_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), mature seeds, raw"
+},
+{
+"id": 382,
+"fdc_id": 173757,
+"data_type": "sr_legacy_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt"
+},
+{
+"id": 383,
+"fdc_id": 173792,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, all types, mature seeds, cooked, boiled, with salt"
+},
+{
+"id": 384,
+"fdc_id": 173793,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, california red, mature seeds, cooked, boiled, with salt"
+},
+{
+"id": 385,
+"fdc_id": 173799,
+"data_type": "sr_legacy_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, with salt"
+},
+{
+"id": 386,
+"fdc_id": 173800,
+"data_type": "sr_legacy_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained solids"
+},
+{
+"id": 387,
+"fdc_id": 173801,
+"data_type": "sr_legacy_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained, rinsed in tap water"
+},
+{
+"id": 388,
+"fdc_id": 173865,
+"data_type": "sr_legacy_food",
+"name": "Ham, minced"
+},
+{
+"id": 389,
+"fdc_id": 173904,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, regular and quick, not fortified, dry"
+},
+{
+"id": 390,
+"fdc_id": 173905,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, regular and quick, unenriched, cooked with water (includes boiling and microwaving), without salt"
+},
+{
+"id": 391,
+"fdc_id": 173906,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, instant, fortified, with cinnamon and spice, prepared with water"
+},
+{
+"id": 392,
+"fdc_id": 173908,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, instant, fortified, with raisins and spice, prepared with water"
+},
+{
+"id": 393,
+"fdc_id": 173920,
+"data_type": "sr_legacy_food",
+"name": "Cereals, oats, instant, fortified, maple and brown sugar, dry"
+},
+{
+"id": 394,
+"fdc_id": 174028,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 95% lean meat / 5% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 395,
+"fdc_id": 174029,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 95% lean meat / 5% fat, loaf, cooked, baked"
+},
+{
+"id": 396,
+"fdc_id": 174030,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 90% lean meat / 10% fat, raw"
+},
+{
+"id": 397,
+"fdc_id": 174031,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 90% lean meat / 10% fat, patty, cooked, broiled"
+},
+{
+"id": 398,
+"fdc_id": 174032,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 85% lean meat / 15% fat, patty, cooked, broiled"
+},
+{
+"id": 399,
+"fdc_id": 174033,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 85% lean meat / 15% fat, patty, cooked, pan-broiled"
+},
+{
+"id": 400,
+"fdc_id": 174034,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 85% lean meat / 15% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 401,
+"fdc_id": 174035,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 85% lean meat / 15% fat, loaf, cooked, baked"
+},
+{
+"id": 402,
+"fdc_id": 174036,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 80% lean meat / 20% fat, raw"
+},
+{
+"id": 403,
+"fdc_id": 174037,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 75% lean meat / 25% fat, raw"
+},
+{
+"id": 404,
+"fdc_id": 174038,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 75% lean meat / 25% fat, patty, cooked, broiled"
+},
+{
+"id": 405,
+"fdc_id": 174039,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 75% lean meat / 25% fat, patty, cooked, pan-broiled"
+},
+{
+"id": 406,
+"fdc_id": 174040,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 75% lean meat / 25% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 407,
+"fdc_id": 174083,
+"data_type": "sr_legacy_food",
+"name": "Cookies, graham crackers, plain or honey, lowfat"
+},
+{
+"id": 408,
+"fdc_id": 174087,
+"data_type": "sr_legacy_food",
+"name": "Cookies, shortbread, reduced fat"
+},
+{
+"id": 409,
+"fdc_id": 174088,
+"data_type": "sr_legacy_food",
+"name": "Cookies, sugar wafer, chocolate-covered"
+},
+{
+"id": 410,
+"fdc_id": 174095,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip sandwich, with creme filling"
+},
+{
+"id": 411,
+"fdc_id": 174096,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate, made with rice cereal"
+},
+{
+"id": 412,
+"fdc_id": 174097,
+"data_type": "sr_legacy_food",
+"name": "Cookies, marshmallow, with rice cereal and chocolate chips"
+},
+{
+"id": 413,
+"fdc_id": 174284,
+"data_type": "sr_legacy_food",
+"name": "Lentils, pink or red, raw"
+},
+{
+"id": 414,
+"fdc_id": 174285,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, red, mature seeds, canned, drained solids"
+},
+{
+"id": 415,
+"fdc_id": 174288,
+"data_type": "sr_legacy_food",
+"name": "Chickpea flour (besan)"
+},
+{
+"id": 416,
+"fdc_id": 174289,
+"data_type": "sr_legacy_food",
+"name": "Hummus, commercial"
+},
+{
+"id": 417,
+"fdc_id": 174370,
+"data_type": "sr_legacy_food",
+"name": "Lamb, ground, raw"
+},
+{
+"id": 418,
+"fdc_id": 174546,
+"data_type": "sr_legacy_food",
+"name": "Soup, tomato, canned, prepared with equal volume low fat (2%) milk"
+},
+{
+"id": 419,
+"fdc_id": 174752,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 93% lean meat / 7% fat, patty, cooked, broiled"
+},
+{
+"id": 420,
+"fdc_id": 174753,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 93% lean meat /7% fat, patty, cooked, pan-broiled"
+},
+{
+"id": 421,
+"fdc_id": 174754,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 93% lean meat / 7% fat, loaf, cooked, baked"
+},
+{
+"id": 422,
+"fdc_id": 174755,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 93% lean meat / 7% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 423,
+"fdc_id": 174756,
+"data_type": "sr_legacy_food",
+"name": "Beef, ground, 97% lean meat / 3% fat, crumbles, cooked, pan-browned"
+},
+{
+"id": 424,
+"fdc_id": 174783,
+"data_type": "sr_legacy_food",
+"name": "Snacks, sweet potato chips, unsalted"
+},
+{
+"id": 425,
+"fdc_id": 174784,
+"data_type": "sr_legacy_food",
+"name": "Snacks, FRITOLAY, SUNCHIPS, Multigrain Snack, original flavor"
+},
+{
+"id": 426,
+"fdc_id": 174788,
+"data_type": "sr_legacy_food",
+"name": "Snacks, FRITOLAY, SUNCHIPS, multigrain, French onion flavor"
+},
+{
+"id": 427,
+"fdc_id": 174789,
+"data_type": "sr_legacy_food",
+"name": "Snacks, FRITOLAY, SUNCHIPS, Multigrain Snack, Harvest Cheddar flavor"
+},
+{
+"id": 428,
+"fdc_id": 174791,
+"data_type": "sr_legacy_food",
+"name": "Snacks, vegetable chips, HAIN CELESTIAL GROUP, TERRA CHIPS"
+},
+{
+"id": 429,
+"fdc_id": 174796,
+"data_type": "sr_legacy_food",
+"name": "Snacks, vegetable chips, made from garden vegetables"
+},
+{
+"id": 430,
+"fdc_id": 174804,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, made from dried potatoes (preformed), multigrain"
+},
+{
+"id": 431,
+"fdc_id": 174805,
+"data_type": "sr_legacy_food",
+"name": "Snacks, potato chips, lightly salted"
+},
+{
+"id": 432,
+"fdc_id": 174902,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, dry mix"
+},
+{
+"id": 433,
+"fdc_id": 174903,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, dry mix, prepared"
+},
+{
+"id": 434,
+"fdc_id": 174904,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, refrigerated dough, lower fat"
+},
+{
+"id": 435,
+"fdc_id": 174905,
+"data_type": "sr_legacy_food",
+"name": "Biscuits, plain or buttermilk, refrigerated dough, lower fat, baked"
+},
+{
+"id": 436,
+"fdc_id": 174948,
+"data_type": "sr_legacy_food",
+"name": "Cookies, brownies, dry mix, regular"
+},
+{
+"id": 437,
+"fdc_id": 174949,
+"data_type": "sr_legacy_food",
+"name": "Cookies, brownies, prepared from recipe"
+},
+{
+"id": 438,
+"fdc_id": 174950,
+"data_type": "sr_legacy_food",
+"name": "Cookies, butter, commercially prepared, enriched"
+},
+{
+"id": 439,
+"fdc_id": 174951,
+"data_type": "sr_legacy_food",
+"name": "Cookies, fudge, cake-type (includes trolley cakes)"
+},
+{
+"id": 440,
+"fdc_id": 174952,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, dry mix"
+},
+{
+"id": 441,
+"fdc_id": 174953,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, refrigerated dough"
+},
+{
+"id": 442,
+"fdc_id": 174954,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, refrigerated dough, baked"
+},
+{
+"id": 443,
+"fdc_id": 174955,
+"data_type": "sr_legacy_food",
+"name": "Cookies, chocolate chip, prepared from recipe, made with margarine"
+},
+{
+"id": 444,
+"fdc_id": 174956,
+"data_type": "sr_legacy_food",
+"name": "Cookies, gingersnaps"
+},
+{
+"id": 445,
+"fdc_id": 174957,
+"data_type": "sr_legacy_food",
+"name": "Cookies, graham crackers, plain or honey (includes cinnamon)"
+},
+{
+"id": 446,
+"fdc_id": 174958,
+"data_type": "sr_legacy_food",
+"name": "Cookies, graham crackers, chocolate-coated"
+},
+{
+"id": 447,
+"fdc_id": 174959,
+"data_type": "sr_legacy_food",
+"name": "Cookies, ladyfingers, with lemon juice and rind"
+},
+{
+"id": 448,
+"fdc_id": 174960,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, dry mix"
+},
+{
+"id": 449,
+"fdc_id": 174961,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, refrigerated dough"
+},
+{
+"id": 450,
+"fdc_id": 174962,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, refrigerated dough, baked"
+},
+{
+"id": 451,
+"fdc_id": 174963,
+"data_type": "sr_legacy_food",
+"name": "Cookies, oatmeal, with raisins"
+},
+{
+"id": 452,
+"fdc_id": 174964,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter, prepared from recipe"
+},
+{
+"id": 453,
+"fdc_id": 174965,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter sandwich, regular"
+},
+{
+"id": 454,
+"fdc_id": 174966,
+"data_type": "sr_legacy_food",
+"name": "Cookies, raisin, soft-type"
+},
+{
+"id": 455,
+"fdc_id": 174967,
+"data_type": "sr_legacy_food",
+"name": "Cookies, shortbread, commercially prepared, plain"
+},
+{
+"id": 456,
+"fdc_id": 174968,
+"data_type": "sr_legacy_food",
+"name": "Cookies, shortbread, commercially prepared, pecan"
+},
+{
+"id": 457,
+"fdc_id": 174969,
+"data_type": "sr_legacy_food",
+"name": "Cookies, peanut butter sandwich, special dietary"
+},
+{
+"id": 458,
+"fdc_id": 174970,
+"data_type": "sr_legacy_food",
+"name": "Cookies, sugar wafer, with creme filling, sugar free"
+},
+{
+"id": 459,
+"fdc_id": 174971,
+"data_type": "sr_legacy_food",
+"name": "Cookies, sugar, commercially prepared, regular (includes vanilla)"
+},
+{
+"id": 460,
+"fdc_id": 174972,
+"data_type": "sr_legacy_food",
+"name": "Cookies, sugar, refrigerated dough"
+},
+{
+"id": 461,
+"fdc_id": 174973,
+"data_type": "sr_legacy_food",
+"name": "Cookies, vanilla wafers, lower fat"
+},
+{
+"id": 462,
+"fdc_id": 174974,
+"data_type": "sr_legacy_food",
+"name": "Cookies, vanilla wafers, higher fat"
+},
+{
+"id": 463,
+"fdc_id": 175182,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, canned, plain or vegetarian"
+},
+{
+"id": 464,
+"fdc_id": 175183,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, canned, with beef"
+},
+{
+"id": 465,
+"fdc_id": 175184,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, canned, with franks"
+},
+{
+"id": 466,
+"fdc_id": 175185,
+"data_type": "sr_legacy_food",
+"name": "Beans, baked, canned, with pork"
+},
+{
+"id": 467,
+"fdc_id": 175193,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, all types, mature seeds, raw"
+},
+{
+"id": 468,
+"fdc_id": 175194,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, red, mature seeds, cooked, boiled, without salt"
+},
+{
+"id": 469,
+"fdc_id": 175195,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, red, mature seeds, canned, solids and liquids"
+},
+{
+"id": 470,
+"fdc_id": 175196,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, royal red, mature seeds, raw"
+},
+{
+"id": 471,
+"fdc_id": 175197,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, royal red, mature seeds, cooked, boiled, without salt"
+},
+{
+"id": 472,
+"fdc_id": 175206,
+"data_type": "sr_legacy_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, solids and liquids"
+},
+{
+"id": 473,
+"fdc_id": 175242,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, red, mature seeds, cooked, boiled, with salt"
+},
+{
+"id": 474,
+"fdc_id": 175243,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, red, mature seeds, canned, drained solids, rinsed in tap water"
+},
+{
+"id": 475,
+"fdc_id": 175244,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, royal red, mature seeds, cooked, boiled with salt"
+},
+{
+"id": 476,
+"fdc_id": 175245,
+"data_type": "sr_legacy_food",
+"name": "Beans, kidney, red, mature seeds, canned, solids and liquid, low sodium"
+},
+{
+"id": 477,
+"fdc_id": 175250,
+"data_type": "sr_legacy_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, solids and liquids, low sodium"
+},
+{
+"id": 478,
+"fdc_id": 175254,
+"data_type": "sr_legacy_food",
+"name": "Lentils, mature seeds, cooked, boiled, with salt"
+},
+{
+"id": 479,
+"fdc_id": 175304,
+"data_type": "sr_legacy_food",
+"name": "Game meat, goat, cooked, roasted"
+},
+{
+"id": 480,
+"fdc_id": 321358,
+"data_type": "foundation_food",
+"name": "Hummus, commercial"
+},
+{
+"id": 481,
+"fdc_id": 321359,
+"data_type": "foundation_food",
+"name": "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D"
+},
+{
+"id": 482,
+"fdc_id": 322228,
+"data_type": "foundation_food",
+"name": "Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D"
+},
+{
+"id": 483,
+"fdc_id": 322559,
+"data_type": "foundation_food",
+"name": "Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)"
+},
+{
+"id": 484,
+"fdc_id": 322892,
+"data_type": "foundation_food",
+"name": "Milk, whole, 3.25% milkfat, with added vitamin D"
+},
+{
+"id": 485,
+"fdc_id": 328637,
+"data_type": "foundation_food",
+"name": "Cheese, cheddar"
+},
+{
+"id": 486,
+"fdc_id": 328841,
+"data_type": "foundation_food",
+"name": "Cheese, cottage, lowfat, 2% milkfat"
+},
+{
+"id": 487,
+"fdc_id": 333008,
+"data_type": "foundation_food",
+"name": "Cookies, oatmeal, soft, with raisins"
+},
+{
+"id": 488,
+"fdc_id": 333281,
+"data_type": "foundation_food",
+"name": "Tomatoes, canned, red, ripe, diced"
+},
+{
+"id": 489,
+"fdc_id": 335240,
+"data_type": "foundation_food",
+"name": "Bread, whole-wheat, commercially prepared"
+},
+{
+"id": 490,
+"fdc_id": 356460,
+"data_type": "branded_food",
+"name": "Target Stores TRADITIONAL HUMMUS"
+},
+{
+"id": 491,
+"fdc_id": 356461,
+"data_type": "branded_food",
+"name": "Target Stores SUN-DRIED TOMATO & BASIL HUMMUS"
+},
+{
+"id": 492,
+"fdc_id": 356462,
+"data_type": "branded_food",
+"name": "Target Stores SPINACH & ARTICHOKE HUMMUS"
+},
+{
+"id": 493,
+"fdc_id": 356463,
+"data_type": "branded_food",
+"name": "Target Stores ROASTED GARLIC HUMMUS"
+},
+{
+"id": 494,
+"fdc_id": 356464,
+"data_type": "branded_food",
+"name": "Target Stores SPICY THREE PEPPER HUMMUS"
+},
+{
+"id": 495,
+"fdc_id": 356465,
+"data_type": "branded_food",
+"name": "Target Stores ROASTED RED PEPPER HUMMUS"
+},
+{
+"id": 496,
+"fdc_id": 356572,
+"data_type": "branded_food",
+"name": "FRESH & EASY FRESH & EASY, GARBANZO BEANS"
+},
+{
+"id": 497,
+"fdc_id": 356888,
+"data_type": "branded_food",
+"name": "Inventure Foods, Inc. KETTLE COOKED POTATO CHIPS"
+},
+{
+"id": 498,
+"fdc_id": 356889,
+"data_type": "branded_food",
+"name": "Inventure Foods, Inc. POTATO CHIPS"
+},
+{
+"id": 499,
+"fdc_id": 357046,
+"data_type": "branded_food",
+"name": "All Snax, Inc. POTATO CHIPS"
+},
+{
+"id": 500,
+"fdc_id": 357226,
+"data_type": "branded_food",
+"name": "UTZ Quality Foods, Inc. CALIFORNIA CHIPS, SEA SALTED POTATO CHIPS"
+},
+{
+"id": 501,
+"fdc_id": 357232,
+"data_type": "branded_food",
+"name": "Uncle Rays, LLC UNCLE RAY'S, POTATO CHIPS"
+},
+{
+"id": 502,
+"fdc_id": 357418,
+"data_type": "branded_food",
+"name": "Herr Foods Inc. HERR'S, OLD BAY, SEASONED POTATO CHIPS"
+},
+{
+"id": 503,
+"fdc_id": 358056,
+"data_type": "branded_food",
+"name": "WEIS QUALITY GARBANZO BEANS"
+},
+{
+"id": 504,
+"fdc_id": 359676,
+"data_type": "branded_food",
+"name": "Harris-Teeter Inc. GARBANZO BEANS"
+},
+{
+"id": 505,
+"fdc_id": 363551,
+"data_type": "branded_food",
+"name": "Cadia CADIA, ORGANIC GARBANZO BEANS"
+},
+{
+"id": 506,
+"fdc_id": 365475,
+"data_type": "branded_food",
+"name": "ROUNDY'S GARBANZO BEANS"
+},
+{
+"id": 507,
+"fdc_id": 365485,
+"data_type": "branded_food",
+"name": "SIMPLY ROUNDY'S ORGANIC SIMPLY ROUNDY'S ORGANIC, GARBANZO BEANS"
+},
+{
+"id": 508,
+"fdc_id": 370331,
+"data_type": "branded_food",
+"name": "United Natural Foods, Inc. OLD WESSEX LTD., SCOTTISH-STYLE PORRIDGE OATS CEREAL"
+},
+{
+"id": 509,
+"fdc_id": 371942,
+"data_type": "branded_food",
+"name": "Wasabrod Ab Sweden CRISP'N LIGHT WHOLESOME WHEAT CRISPBREAD"
+},
+{
+"id": 510,
+"fdc_id": 371968,
+"data_type": "branded_food",
+"name": "Wasabrod Ab Sweden FLAX SEED CRISPBREAD"
+},
+{
+"id": 511,
+"fdc_id": 373702,
+"data_type": "branded_food",
+"name": "Wasabrod Ab Sweden WHOLE GRAIN CRISPBREAD"
+},
+{
+"id": 512,
+"fdc_id": 376223,
+"data_type": "branded_food",
+"name": "Euro-USA Trading Co., Inc. ORGANIC STRAINED TOMATOES"
+},
+{
+"id": 513,
+"fdc_id": 378700,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. ORGANIC BABY ARUGULA"
+},
+{
+"id": 514,
+"fdc_id": 382741,
+"data_type": "branded_food",
+"name": "Wasabrod Ab Sweden WHOLE MULTI GRAIN CRISPBREAD"
+},
+{
+"id": 515,
+"fdc_id": 382835,
+"data_type": "branded_food",
+"name": "Wasabrod Ab Sweden HEARTLY CRISPBREAD"
+},
+{
+"id": 516,
+"fdc_id": 383746,
+"data_type": "branded_food",
+"name": "Agropur Inc. Division Natrel USA STRAINED TOMATOES"
+},
+{
+"id": 517,
+"fdc_id": 385870,
+"data_type": "branded_food",
+"name": "Wasabrod Ab Sweden CRISPBREAD"
+},
+{
+"id": 518,
+"fdc_id": 387050,
+"data_type": "branded_food",
+"name": "ARRIBA! ROASTED GARLIC & CILANTRO SALSA"
+},
+{
+"id": 519,
+"fdc_id": 388253,
+"data_type": "branded_food",
+"name": "H E Butt Grocery Company BLACK BEAN, CORN & CILANTRO SALSA"
+},
+{
+"id": 520,
+"fdc_id": 389362,
+"data_type": "branded_food",
+"name": "Cedars Co. HOMMOUS DIP"
+},
+{
+"id": 521,
+"fdc_id": 393415,
+"data_type": "branded_food",
+"name": "PEREG CHICKPEA"
+},
+{
+"id": 522,
+"fdc_id": 393551,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. BAKED BEANS"
+},
+{
+"id": 523,
+"fdc_id": 393772,
+"data_type": "branded_food",
+"name": "STRIANESE ORGANIC ITALIAN STRAINED TOMATOES"
+},
+{
+"id": 524,
+"fdc_id": 396855,
+"data_type": "branded_food",
+"name": "The Kroger Co. SIMPLE TRUTH ORGANIC, BABY ARUGULA"
+},
+{
+"id": 525,
+"fdc_id": 399396,
+"data_type": "branded_food",
+"name": "The Pasty Oven Inc. THE PASTY OVEN, PASTY WITH BEEF, PORK & RUTABAGA"
+},
+{
+"id": 526,
+"fdc_id": 405312,
+"data_type": "branded_food",
+"name": "Natural Selection Foods, LLC ORGANIC BABY SPINACH, BABY ARUGULA"
+},
+{
+"id": 527,
+"fdc_id": 405783,
+"data_type": "branded_food",
+"name": "Natural Selection Foods, LLC ORGANIC BABY ARUGULA"
+},
+{
+"id": 528,
+"fdc_id": 410611,
+"data_type": "branded_food",
+"name": "Red Apple Cheese LLC DOUBLE CREAM BRIE"
+},
+{
+"id": 529,
+"fdc_id": 411733,
+"data_type": "branded_food",
+"name": "WWF Operating Company ORGANIC 2% REDUCED FAT MILK"
+},
+{
+"id": 530,
+"fdc_id": 411842,
+"data_type": "branded_food",
+"name": "Toft Dairy Inc. 2% REDUCED FAT MILK"
+},
+{
+"id": 531,
+"fdc_id": 412733,
+"data_type": "branded_food",
+"name": "Borden Inc./dairy & Service Div. BORDEN, 2% REDUCED FAT MILK"
+},
+{
+"id": 532,
+"fdc_id": 412737,
+"data_type": "branded_food",
+"name": "Borden Inc./dairy & Service Div. BORDEN, 2% REDUCED FAT MILK"
+},
+{
+"id": 533,
+"fdc_id": 412759,
+"data_type": "branded_food",
+"name": "Guernsey Dairy Stores, Inc. 2% REDUCED FAT MILK"
+},
+{
+"id": 534,
+"fdc_id": 412761,
+"data_type": "branded_food",
+"name": "Guernsey Dairy Stores, Inc. 2% REDUCED FAT MILK"
+},
+{
+"id": 535,
+"fdc_id": 413304,
+"data_type": "branded_food",
+"name": "Dean Foods Company HEAVY WHIPPING CREAM"
+},
+{
+"id": 536,
+"fdc_id": 424867,
+"data_type": "branded_food",
+"name": "Rocket Science Games, Inc. INVIGORATE JUICE"
+},
+{
+"id": 537,
+"fdc_id": 428537,
+"data_type": "branded_food",
+"name": "Rocket Science Games, Inc. LOVE GRACE, MATCHA DAIRY FREE SUPERFOOD TEA BLEND"
+},
+{
+"id": 538,
+"fdc_id": 434984,
+"data_type": "branded_food",
+"name": "Rocket Science Games, Inc. COLD-PRESSED JUICE"
+},
+{
+"id": 539,
+"fdc_id": 437489,
+"data_type": "branded_food",
+"name": "First Field LLC FIRST FIELD, PURE STRAINED TOMATOES"
+},
+{
+"id": 540,
+"fdc_id": 441319,
+"data_type": "branded_food",
+"name": "FOSKA OATMEAL INSTANT PORRIDGE"
+},
+{
+"id": 541,
+"fdc_id": 444134,
+"data_type": "branded_food",
+"name": "Hy-Vee, Inc. DOUBLE CREAM BRIE"
+},
+{
+"id": 542,
+"fdc_id": 447302,
+"data_type": "branded_food",
+"name": "SIMPLY ROUNDY'S BABY ARUGULA"
+},
+{
+"id": 543,
+"fdc_id": 448015,
+"data_type": "branded_food",
+"name": "Taylor Fresh Foods, Inc. ORGANIC BABY ARUGULA"
+},
+{
+"id": 544,
+"fdc_id": 451847,
+"data_type": "branded_food",
+"name": "ALL NATURAL GROUND BEEF PATTIES"
+},
+{
+"id": 545,
+"fdc_id": 452120,
+"data_type": "branded_food",
+"name": "BAJASON GREEN ONIONS"
+},
+{
+"id": 546,
+"fdc_id": 453418,
+"data_type": "branded_food",
+"name": "ODLUMS STONEGROUND WHOLEMEAL BREAD MIX"
+},
+{
+"id": 547,
+"fdc_id": 457763,
+"data_type": "branded_food",
+"name": "OBERWEIS HEAVY WHIPPING CREAM"
+},
+{
+"id": 548,
+"fdc_id": 457764,
+"data_type": "branded_food",
+"name": "Dean Foods Company DEAN'S, HEAVY WHIPPING CREAM"
+},
+{
+"id": 549,
+"fdc_id": 457765,
+"data_type": "branded_food",
+"name": "Dean Foods Company DEAN'S, HEAVY WHIPPING CREAM"
+},
+{
+"id": 550,
+"fdc_id": 465373,
+"data_type": "branded_food",
+"name": "REGA REGA ITALIAN STRAINED TOMATOES"
+},
+{
+"id": 551,
+"fdc_id": 465458,
+"data_type": "branded_food",
+"name": "Rocket Science Games, Inc. BBQ SAUCE"
+},
+{
+"id": 552,
+"fdc_id": 466341,
+"data_type": "branded_food",
+"name": "POMI STRAINED TOMATOES"
+},
+{
+"id": 553,
+"fdc_id": 475285,
+"data_type": "branded_food",
+"name": "AVA INC GROUND BEEF PATTIES"
+},
+{
+"id": 554,
+"fdc_id": 483789,
+"data_type": "branded_food",
+"name": "82's, LLC JAMBALAYA SAUCE"
+},
+{
+"id": 555,
+"fdc_id": 485022,
+"data_type": "branded_food",
+"name": "Bumble Bee Foods, LLC SMOKED TROUT FILLETS IN CANOLA OIL"
+},
+{
+"id": 556,
+"fdc_id": 487725,
+"data_type": "branded_food",
+"name": "Borden Dairy Company HEAVY WHIPPING CREAM"
+},
+{
+"id": 557,
+"fdc_id": 487895,
+"data_type": "branded_food",
+"name": "Kemps LLC KEMPS, HEAVY WHIPPING CREAM"
+},
+{
+"id": 558,
+"fdc_id": 491008,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. TILAPIA WITH CILANTRO LIME BUTTER"
+},
+{
+"id": 559,
+"fdc_id": 507069,
+"data_type": "branded_food",
+"name": "VIFON ARTIFICIAL CHICKEN PORRIDGE"
+},
+{
+"id": 560,
+"fdc_id": 508787,
+"data_type": "branded_food",
+"name": "SONKO CRISP BREAD WHOLEMEAL"
+},
+{
+"id": 561,
+"fdc_id": 516545,
+"data_type": "branded_food",
+"name": "BEEHIVE MINCE PIE"
+},
+{
+"id": 562,
+"fdc_id": 516795,
+"data_type": "branded_food",
+"name": "WHOLE FOODS MARKET DOUBLE CREAM FRENCH BRIE"
+},
+{
+"id": 563,
+"fdc_id": 516797,
+"data_type": "branded_food",
+"name": "ISIGNY STE-MERE DOUBLE CREAM BRIE"
+},
+{
+"id": 564,
+"fdc_id": 517893,
+"data_type": "branded_food",
+"name": "Saco Foods, Inc. MIX'N DRINK INSTANT SKIM MILK"
+},
+{
+"id": 565,
+"fdc_id": 517894,
+"data_type": "branded_food",
+"name": "Saco Foods, Inc. MIX'N DRINK INSTANT SKIM MILK"
+},
+{
+"id": 566,
+"fdc_id": 530179,
+"data_type": "branded_food",
+"name": "34 DEGREES CHOCOLATE CRISPS"
+},
+{
+"id": 567,
+"fdc_id": 536727,
+"data_type": "branded_food",
+"name": "13 FOODS CHICKPEAS"
+},
+{
+"id": 568,
+"fdc_id": 547016,
+"data_type": "branded_food",
+"name": "TIP TOP DICED TOMATOES"
+},
+{
+"id": 569,
+"fdc_id": 550215,
+"data_type": "branded_food",
+"name": "Rocket Science Games, Inc. LOVE GRACE, PURIFY COLD-PRESSED JUICE"
+},
+{
+"id": 570,
+"fdc_id": 552837,
+"data_type": "branded_food",
+"name": "HOUSE KOMBUCHA KOMBUCHA"
+},
+{
+"id": 571,
+"fdc_id": 555238,
+"data_type": "branded_food",
+"name": "Renaissance Food Group, LLC DICED RUTABAGA"
+},
+{
+"id": 572,
+"fdc_id": 559644,
+"data_type": "branded_food",
+"name": "KLEINPETER SKIM MILK"
+},
+{
+"id": 573,
+"fdc_id": 559655,
+"data_type": "branded_food",
+"name": "KLEINPETER SKIM MILK"
+},
+{
+"id": 574,
+"fdc_id": 559656,
+"data_type": "branded_food",
+"name": "KLEINPETER SKIM MILK"
+},
+{
+"id": 575,
+"fdc_id": 570385,
+"data_type": "branded_food",
+"name": "Artforum Internat'L. Magazine EGGPLANT DIP"
+},
+{
+"id": 576,
+"fdc_id": 572987,
+"data_type": "branded_food",
+"name": "COPPER HARBOR PASTY WITH BEEF, PORK & RUTABAGA"
+},
+{
+"id": 577,
+"fdc_id": 573000,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. BAKED BEANS"
+},
+{
+"id": 578,
+"fdc_id": 573521,
+"data_type": "branded_food",
+"name": "Rocket Science Games, Inc. LOVE GRACE, SUPERFOOD BEVERAGES, CHOCOLATE"
+},
+{
+"id": 579,
+"fdc_id": 588785,
+"data_type": "branded_food",
+"name": "MOO-VILLE SKIM MILK"
+},
+{
+"id": 580,
+"fdc_id": 591098,
+"data_type": "branded_food",
+"name": "CASERA CHICK PEAS"
+},
+{
+"id": 581,
+"fdc_id": 597935,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. SLICED ZUCCHINI"
+},
+{
+"id": 582,
+"fdc_id": 601147,
+"data_type": "branded_food",
+"name": "Target Stores SOFT RIPENED CHEESE, DOUBLE CREAM BRIE"
+},
+{
+"id": 583,
+"fdc_id": 602465,
+"data_type": "branded_food",
+"name": "BIO-BUD SPROUTED CHICKPEAS"
+},
+{
+"id": 584,
+"fdc_id": 633774,
+"data_type": "branded_food",
+"name": "Tops Markets, LLC SUGAR COOKIES, SUGAR"
+},
+{
+"id": 585,
+"fdc_id": 660458,
+"data_type": "branded_food",
+"name": "Target Stores SUGAR COOKIES, SUGAR"
+},
+{
+"id": 586,
+"fdc_id": 667752,
+"data_type": "branded_food",
+"name": "Glencourt Inc. ORGANIC SUGAR COOKIES, SUGAR"
+},
+{
+"id": 587,
+"fdc_id": 693784,
+"data_type": "branded_food",
+"name": "Target Stores SUGAR COOKIES, SUGAR"
+},
+{
+"id": 588,
+"fdc_id": 705258,
+"data_type": "branded_food",
+"name": "AbiMar Foods, Inc. SUGAR COOKIES, SUGAR"
+},
+{
+"id": 589,
+"fdc_id": 710070,
+"data_type": "branded_food",
+"name": "Target Stores SUGAR COOKIES, SUGAR"
+},
+{
+"id": 590,
+"fdc_id": 713486,
+"data_type": "branded_food",
+"name": "GOOD & GATHER DOUBLE CREAM BRIE SOFT RIPENED CHEESE"
+},
+{
+"id": 591,
+"fdc_id": 713512,
+"data_type": "branded_food",
+"name": "GOOD & GATHER PEPPERCORN DOUBLE CREAM BRIE SOFT RIPENED CHEESE, PEPPERCORN DOUBLE CREAM BRIE"
+},
+{
+"id": 592,
+"fdc_id": 728112,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. DARK KIDNEY BEANS"
+},
+{
+"id": 593,
+"fdc_id": 732402,
+"data_type": "branded_food",
+"name": "2-YEAR AGED CHEDDAR"
+},
+{
+"id": 594,
+"fdc_id": 746772,
+"data_type": "foundation_food",
+"name": "Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D"
+},
+{
+"id": 595,
+"fdc_id": 746776,
+"data_type": "foundation_food",
+"name": "Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)"
+},
+{
+"id": 596,
+"fdc_id": 746778,
+"data_type": "foundation_food",
+"name": "Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D"
+},
+{
+"id": 597,
+"fdc_id": 746782,
+"data_type": "foundation_food",
+"name": "Milk, whole, 3.25% milkfat, with added vitamin D"
+},
+{
+"id": 598,
+"fdc_id": 789890,
+"data_type": "foundation_food",
+"name": "Flour, wheat, all-purpose, enriched, bleached"
+},
+{
+"id": 599,
+"fdc_id": 789951,
+"data_type": "foundation_food",
+"name": "Flour, wheat, all-purpose, enriched, unbleached"
+},
+{
+"id": 600,
+"fdc_id": 790018,
+"data_type": "foundation_food",
+"name": "Flour, wheat, all-purpose, unenriched, unbleached"
+},
+{
+"id": 601,
+"fdc_id": 790085,
+"data_type": "foundation_food",
+"name": "Flour, whole wheat, unenriched"
+},
+{
+"id": 602,
+"fdc_id": 790146,
+"data_type": "foundation_food",
+"name": "Flour, bread, white, enriched, unbleached"
+},
+{
+"id": 603,
+"fdc_id": 790214,
+"data_type": "foundation_food",
+"name": "Flour, rice, white, unenriched"
+},
+{
+"id": 604,
+"fdc_id": 790276,
+"data_type": "foundation_food",
+"name": "Flour, corn, yellow, fine meal, enriched"
+},
+{
+"id": 605,
+"fdc_id": 795983,
+"data_type": "branded_food",
+"name": "Baja Son Growers, LLC GREEN ONIONS"
+},
+{
+"id": 606,
+"fdc_id": 917336,
+"data_type": "branded_food",
+"name": "Target Stores HAND-DECORATED SUGAR COOKIE, SUGAR"
+},
+{
+"id": 607,
+"fdc_id": 918184,
+"data_type": "branded_food",
+"name": "Target Stores HAND DECORATED SUGAR COOKIE, SUGAR"
+},
+{
+"id": 608,
+"fdc_id": 918186,
+"data_type": "branded_food",
+"name": "Target Stores HAND DECORATED SUGAR COOKIE, SUGAR"
+},
+{
+"id": 609,
+"fdc_id": 918188,
+"data_type": "branded_food",
+"name": "Target Stores HAND DECORATED SUGAR COOKIE, SUGAR"
+},
+{
+"id": 610,
+"fdc_id": 918190,
+"data_type": "branded_food",
+"name": "Target Stores HAND DECORATED SUGAR COOKIE, SUGAR"
+},
+{
+"id": 611,
+"fdc_id": 922410,
+"data_type": "branded_food",
+"name": "Target Stores HAND DECORATED SUGAR COOKIE, SUGAR"
+},
+{
+"id": 612,
+"fdc_id": 944364,
+"data_type": "branded_food",
+"name": "Wellness Shots Co., Inc. ANTIOXIDANT DETOX ASTAXANTHIN (RED ALGAE), POMEGRANATE SEED OIL, GRAPESEED OIL, 65 BERRIES SHOT, ANTIOXIDANT DETOX"
+},
+{
+"id": 613,
+"fdc_id": 971645,
+"data_type": "branded_food",
+"name": "Bumble Bee Foods, LLC SKINLESS BONELESS SMOKED TROUT FILLETS IN CANOLA OIL, SMOKED TROUT"
+},
+{
+"id": 614,
+"fdc_id": 1070709,
+"data_type": "branded_food",
+"name": "Bumble Bee Foods, LLC SKINLESS BONELESS SMOKED TROUT FILLETS IN CANOLA OIL, CANOLA OIL"
+},
+{
+"id": 615,
+"fdc_id": 1104705,
+"data_type": "foundation_food",
+"name": "Flour, soy, defatted"
+},
+{
+"id": 616,
+"fdc_id": 1104766,
+"data_type": "foundation_food",
+"name": "Flour, soy, full-fat"
+},
+{
+"id": 617,
+"fdc_id": 1104812,
+"data_type": "foundation_food",
+"name": "Flour, rice, brown"
+},
+{
+"id": 618,
+"fdc_id": 1104867,
+"data_type": "foundation_food",
+"name": "Flour, rice, glutinous"
+},
+{
+"id": 619,
+"fdc_id": 1104913,
+"data_type": "foundation_food",
+"name": "Flour, pastry, unenriched, unbleached"
+},
+{
+"id": 620,
+"fdc_id": 1144590,
+"data_type": "branded_food",
+"name": "Authentic Joy ZUCCHINI SPIRALS WITH BASIL PESTO"
+},
+{
+"id": 621,
+"fdc_id": 1162651,
+"data_type": "branded_food",
+"name": "Traditional Irish Foods ORGANIC PORRIDGE OATS"
+},
+{
+"id": 622,
+"fdc_id": 1199201,
+"data_type": "branded_food",
+"name": "H E Butt Grocery Company BLACK BEAN, CORN & CILANTRO SALSA"
+},
+{
+"id": 623,
+"fdc_id": 1200216,
+"data_type": "branded_food",
+"name": "Cedars Co. HOMMOUS DIP"
+},
+{
+"id": 624,
+"fdc_id": 1203938,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. BAKED BEANS"
+},
+{
+"id": 625,
+"fdc_id": 1257423,
+"data_type": "branded_food",
+"name": "Baja Son Growers, LLC GREEN ONIONS"
+},
+{
+"id": 626,
+"fdc_id": 1282866,
+"data_type": "branded_food",
+"name": "82's, LLC JAMBALAYA SAUCE"
+},
+{
+"id": 627,
+"fdc_id": 1289533,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. TILAPIA WITH CILANTRO LIME BUTTER"
+},
+{
+"id": 628,
+"fdc_id": 1315372,
+"data_type": "branded_food",
+"name": "Saco Foods, Inc. MIX'N DRINK INSTANT SKIM MILK"
+},
+{
+"id": 629,
+"fdc_id": 1315373,
+"data_type": "branded_food",
+"name": "Saco Foods, Inc. MIX'N DRINK INSTANT SKIM MILK"
+},
+{
+"id": 630,
+"fdc_id": 1364233,
+"data_type": "branded_food",
+"name": "Artforum Internat'L. Magazine EGGPLANT DIP"
+},
+{
+"id": 631,
+"fdc_id": 1366472,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. BAKED BEANS"
+},
+{
+"id": 632,
+"fdc_id": 1385692,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. SLICED ZUCCHINI"
+},
+{
+"id": 633,
+"fdc_id": 1404433,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. DARK KIDNEY BEANS"
+},
+{
+"id": 634,
+"fdc_id": 1474978,
+"data_type": "branded_food",
+"name": "United Natural Foods, Inc. OLD WESSEX LTD., SCOTTISH-STYLE PORRIDGE OATS CEREAL"
+},
+{
+"id": 635,
+"fdc_id": 1491248,
+"data_type": "branded_food",
+"name": "H E Butt Grocery Company BLACK BEAN, CORN & CILANTRO SALSA"
+},
+{
+"id": 636,
+"fdc_id": 1492263,
+"data_type": "branded_food",
+"name": "Cedars Co. HOMMOUS DIP"
+},
+{
+"id": 637,
+"fdc_id": 1495988,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. BAKED BEANS"
+},
+{
+"id": 638,
+"fdc_id": 1549490,
+"data_type": "branded_food",
+"name": "Baja Son Growers, LLC GREEN ONIONS"
+},
+{
+"id": 639,
+"fdc_id": 1574968,
+"data_type": "branded_food",
+"name": "82's, LLC JAMBALAYA SAUCE"
+},
+{
+"id": 640,
+"fdc_id": 1576001,
+"data_type": "branded_food",
+"name": "Bumble Bee Foods, LLC SKINLESS BONELESS SMOKED TROUT FILLETS IN CANOLA OIL, CANOLA OIL"
+},
+{
+"id": 641,
+"fdc_id": 1581638,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. TILAPIA WITH CILANTRO LIME BUTTER"
+},
+{
+"id": 642,
+"fdc_id": 1607495,
+"data_type": "branded_food",
+"name": "Saco Foods, Inc. MIX'N DRINK INSTANT SKIM MILK"
+},
+{
+"id": 643,
+"fdc_id": 1607496,
+"data_type": "branded_food",
+"name": "Saco Foods, Inc. MIX'N DRINK INSTANT SKIM MILK"
+},
+{
+"id": 644,
+"fdc_id": 1656436,
+"data_type": "branded_food",
+"name": "Artforum Internat'L. Magazine EGGPLANT DIP"
+},
+{
+"id": 645,
+"fdc_id": 1658677,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. BAKED BEANS"
+},
+{
+"id": 646,
+"fdc_id": 1677933,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. SLICED ZUCCHINI"
+},
+{
+"id": 647,
+"fdc_id": 1696705,
+"data_type": "branded_food",
+"name": "Ahold Usa, Inc. DARK KIDNEY BEANS"
+},
+{
+"id": 648,
+"fdc_id": 1739073,
+"data_type": "branded_food",
+"name": "Authentic Joy ZUCCHINI SPIRALS WITH BASIL PESTO"
+},
+{
+"id": 649,
+"fdc_id": 1743923,
+"data_type": "branded_food",
+"name": "Traditional Irish Foods ORGANIC PORRIDGE OATS"
+},
+{
+"id": 650,
+"fdc_id": 1749566,
+"data_type": "branded_food",
+"name": "Gotera, Inc. SUGAR CANE"
+},
+{
+"id": 651,
+"fdc_id": 1775805,
+"data_type": "branded_food",
+"name": "Aldon Food Corporation SCALLION CREAM CHEESE"
+},
+{
+"id": 652,
+"fdc_id": 1783697,
+"data_type": "branded_food",
+"name": "Aldon Food Corporation REDUCED FAT SCALLION CREAM CHEESE"
+},
+{
+"id": 653,
+"fdc_id": 1787801,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. TILAPIA WITH CILANTRO LIME BUTTER"
+},
+{
+"id": 654,
+"fdc_id": 1793583,
+"data_type": "branded_food",
+"name": "Dinovite, Inc. DOUBLE CREAM FRENCH BRIE"
+},
+{
+"id": 655,
+"fdc_id": 1798391,
+"data_type": "branded_food",
+"name": "13 Foods LLC CHICKPEAS"
+},
+{
+"id": 656,
+"fdc_id": 1813524,
+"data_type": "branded_food",
+"name": "Moo-Ville SKIM MILK"
+},
+{
+"id": 657,
+"fdc_id": 1817014,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. SLICED ZUCCHINI"
+},
+{
+"id": 658,
+"fdc_id": 1825537,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. DARK KIDNEY BEANS"
+},
+{
+"id": 659,
+"fdc_id": 1848083,
+"data_type": "branded_food",
+"name": "GENERAL MILLS SALES INC. Muir Glen Organic Garlic Cilantro Salsa"
+},
+{
+"id": 660,
+"fdc_id": 1886279,
+"data_type": "branded_food",
+"name": "Aldon Food Corporation SCALLION CREAM CHEESE"
+},
+{
+"id": 661,
+"fdc_id": 1899485,
+"data_type": "branded_food",
+"name": "Aldon Food Corporation REDUCED FAT SCALLION CREAM CHEESE"
+},
+{
+"id": 662,
+"fdc_id": 1906859,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. TILAPIA WITH CILANTRO LIME BUTTER"
+},
+{
+"id": 663,
+"fdc_id": 1917556,
+"data_type": "branded_food",
+"name": "Dinovite, Inc. DOUBLE CREAM FRENCH BRIE"
+},
+{
+"id": 664,
+"fdc_id": 1925585,
+"data_type": "branded_food",
+"name": "13 Foods LLC CHICKPEAS"
+},
+{
+"id": 665,
+"fdc_id": 1944151,
+"data_type": "branded_food",
+"name": "Artforum Internat'L. Magazine EGGPLANT DIP"
+},
+{
+"id": 666,
+"fdc_id": 1952881,
+"data_type": "branded_food",
+"name": "Moo-Ville SKIM MILK"
+},
+{
+"id": 667,
+"fdc_id": 1957902,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. SLICED ZUCCHINI"
+},
+{
+"id": 668,
+"fdc_id": 1971007,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. DARK KIDNEY BEANS"
+},
+{
+"id": 669,
+"fdc_id": 1989790,
+"data_type": "branded_food",
+"name": "Authentic Joy ZUCCHINI SPIRALS WITH BASIL PESTO"
+},
+{
+"id": 670,
+"fdc_id": 1993966,
+"data_type": "branded_food",
+"name": "Gotera, Inc. SUGAR CANE"
+},
+{
+"id": 671,
+"fdc_id": 2003586,
+"data_type": "foundation_food",
+"name": "Flour, 00"
+},
+{
+"id": 672,
+"fdc_id": 2003587,
+"data_type": "foundation_food",
+"name": "Flour, spelt, whole grain"
+},
+{
+"id": 673,
+"fdc_id": 2003588,
+"data_type": "foundation_food",
+"name": "Flour, semolina, coarse and semi-coarse"
+},
+{
+"id": 674,
+"fdc_id": 2003589,
+"data_type": "foundation_food",
+"name": "Flour, semolina, fine"
+},
+{
+"id": 675,
+"fdc_id": 2007583,
+"data_type": "branded_food",
+"name": "GENERAL MILLS SALES INC. Muir Glen Organic Garlic Cilantro Salsa"
+},
+{
+"id": 676,
+"fdc_id": 2015623,
+"data_type": "branded_food",
+"name": "United Natural Foods, Inc. OLD WESSEX LTD., SCOTTISH-STYLE PORRIDGE OATS CEREAL"
+},
+{
+"id": 677,
+"fdc_id": 2026279,
+"data_type": "branded_food",
+"name": "Cedars Co. HOMMOUS DIP"
+},
+{
+"id": 678,
+"fdc_id": 2061219,
+"data_type": "branded_food",
+"name": "Baja Son Growers, LLC GREEN ONIONS"
+},
+{
+"id": 679,
+"fdc_id": 2076764,
+"data_type": "branded_food",
+"name": "82's, LLC JAMBALAYA SAUCE"
+},
+{
+"id": 680,
+"fdc_id": 2168938,
+"data_type": "branded_food",
+"name": "Traditional Irish Foods ORGANIC PORRIDGE OATS"
+},
+{
+"id": 681,
+"fdc_id": 2192948,
+"data_type": "branded_food",
+"name": "Wal-Mart Stores, Inc. SOUTHERN STYLE BISCUITS & BLUEBERRY JAM ICE CREAM, SOUTHERN STYLE BISCUITS & BLUEBERRY JAM"
+},
+{
+"id": 682,
+"fdc_id": 2261420,
+"data_type": "foundation_food",
+"name": "Flour, almond"
+},
+{
+"id": 683,
+"fdc_id": 2261421,
+"data_type": "foundation_food",
+"name": "Flour, oat, whole grain"
+},
+{
+"id": 684,
+"fdc_id": 2261422,
+"data_type": "foundation_food",
+"name": "Flour, potato"
+},
+{
+"id": 685,
+"fdc_id": 2263890,
+"data_type": "foundation_food",
+"name": "Grapes, red, seedless, raw"
+},
+{
+"id": 686,
+"fdc_id": 2263891,
+"data_type": "foundation_food",
+"name": "Grapes, green, seedless, raw"
+},
+{
+"id": 687,
+"fdc_id": 2274923,
+"data_type": "branded_food",
+"name": "Balducci Enterprises Inc. 2-YEAR AGED CHEDDAR CHEESE, 2-YEAR AGED CHEDDAR"
+},
+{
+"id": 688,
+"fdc_id": 2329643,
+"data_type": "branded_food",
+"name": "Wal-Mart Stores, Inc. SOUTHERN STYLE BISCUITS & BLUEBERRY JAM ICE CREAM, SOUTHERN STYLE BISCUITS & BLUEBERRY JAM"
+},
+{
+"id": 689,
+"fdc_id": 2346386,
+"data_type": "foundation_food",
+"name": "Cream, heavy"
+},
+{
+"id": 690,
+"fdc_id": 2346387,
+"data_type": "foundation_food",
+"name": "Cream, sour, full fat"
+},
+{
+"id": 691,
+"fdc_id": 2346396,
+"data_type": "foundation_food",
+"name": "Oats, whole grain, rolled, old fashioned"
+},
+{
+"id": 692,
+"fdc_id": 2346397,
+"data_type": "foundation_food",
+"name": "Oats, whole grain, steel cut"
+},
+{
+"id": 693,
+"fdc_id": 2346412,
+"data_type": "foundation_food",
+"name": "Grapes, red, seedless, raw"
+},
+{
+"id": 694,
+"fdc_id": 2346413,
+"data_type": "foundation_food",
+"name": "Grapes, green, seedless, raw"
+},
+{
+"id": 695,
+"fdc_id": 2388846,
+"data_type": "branded_food",
+"name": "Authentic Joy ZUCCHINI SPIRALS WITH BASIL PESTO"
+},
+{
+"id": 696,
+"fdc_id": 2405648,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. DARK KIDNEY BEANS"
+},
+{
+"id": 697,
+"fdc_id": 2405679,
+"data_type": "branded_food",
+"name": "Harris-Teeter Inc. GRANULATED SUGAR"
+},
+{
+"id": 698,
+"fdc_id": 2412720,
+"data_type": "branded_food",
+"name": "Agbotic, Inc PETITE ARUGULA"
+},
+{
+"id": 699,
+"fdc_id": 2427738,
+"data_type": "branded_food",
+"name": "Ahold USA, Inc. SLICED ZUCCHINI"
+},
+{
+"id": 700,
+"fdc_id": 2430918,
+"data_type": "branded_food",
+"name": "Associated Wholesale Grocers, Inc. GRANULATED SUGAR"
+},
+{
+"id": 701,
+"fdc_id": 2437078,
+"data_type": "branded_food",
+"name": "Fiesta Mart Inc. 100% PURE GRANULATED SUGAR"
+},
+{
+"id": 702,
+"fdc_id": 2437480,
+"data_type": "branded_food",
+"name": "Bi-Lo Inc. PURE CANE GRANULATED SUGAR"
+},
+{
+"id": 703,
+"fdc_id": 2438415,
+"data_type": "branded_food",
+"name": "Artforum Internat'L. Magazine EGGPLANT DIP"
+},
+{
+"id": 704,
+"fdc_id": 2512371,
+"data_type": "foundation_food",
+"name": "Flour, amaranth"
+},
+{
+"id": 705,
+"fdc_id": 2512372,
+"data_type": "foundation_food",
+"name": "Flour, quinoa"
+},
+{
+"id": 706,
+"fdc_id": 2512373,
+"data_type": "foundation_food",
+"name": "Flour, sorghum"
+},
+{
+"id": 707,
+"fdc_id": 2512374,
+"data_type": "foundation_food",
+"name": "Flour, buckwheat"
+},
+{
+"id": 708,
+"fdc_id": 2512375,
+"data_type": "foundation_food",
+"name": "Flour, rye"
+},
+{
+"id": 709,
+"fdc_id": 2512376,
+"data_type": "foundation_food",
+"name": "Flour, barley"
+},
+{
+"id": 710,
+"fdc_id": 2512377,
+"data_type": "foundation_food",
+"name": "Flour, cassava"
+},
+{
+"id": 711,
+"fdc_id": 2512381,
+"data_type": "foundation_food",
+"name": "Rice, white, long grain, unenriched, raw"
+},
+{
+"id": 712,
+"fdc_id": 2514743,
+"data_type": "foundation_food",
+"name": "Beef, ground, 90% lean meat / 10% fat, raw"
+},
+{
+"id": 713,
+"fdc_id": 2514744,
+"data_type": "foundation_food",
+"name": "Beef, ground, 80% lean meat / 20% fat, raw"
+},
+{
+"id": 714,
+"fdc_id": 2515377,
+"data_type": "foundation_food",
+"name": "Flour, chestnut"
+},
+{
+"id": 715,
+"fdc_id": 2515382,
+"data_type": "foundation_food",
+"name": "Flour, coconut"
+},
+{
+"id": 716,
+"fdc_id": 2532332,
+"data_type": "branded_food",
+"name": "BLUEBERRY JAM"
+},
+{
+"id": 717,
+"fdc_id": 2532990,
+"data_type": "branded_food",
+"name": "5 YEAR CHEDDAR CHEESE"
+},
+{
+"id": 718,
+"fdc_id": 2533035,
+"data_type": "branded_food",
+"name": "LIOR CHICKPEAS, 17.6 OZ"
+},
+{
+"id": 719,
+"fdc_id": 2571153,
+"data_type": "branded_food",
+"name": "Agri-Mark, Inc. 5 YEAR CHEDDAR CHEESE"
+},
+{
+"id": 720,
+"fdc_id": 2571230,
+"data_type": "branded_food",
+"name": "Colonel Lee's Enterprises LIOR CHICKPEAS, 17.6 OZ"
+},
+{
+"id": 721,
+"fdc_id": 2616925,
+"data_type": "branded_food",
+"name": "Colonel Lee's Enterprises LIOR CHICKPEAS, 17.6 OZ"
+},
+{
+"id": 722,
+"fdc_id": 2644282,
+"data_type": "foundation_food",
+"name": "Chickpeas, (garbanzo beans, bengal gram), dry"
+},
+{
+"id": 723,
+"fdc_id": 2644283,
+"data_type": "foundation_food",
+"name": "Lentils, dry"
+},
+{
+"id": 724,
+"fdc_id": 2644288,
+"data_type": "foundation_food",
+"name": "Chickpeas (garbanzo beans, bengal gram), canned, sodium added, drained and rinsed"
+},
+{
+"id": 725,
+"fdc_id": 2644289,
+"data_type": "foundation_food",
+"name": "Beans, kidney, dark red, canned, sodium added, sugar added, drained and rinsed"
+},
+{
+"id": 726,
+"fdc_id": 2644290,
+"data_type": "foundation_food",
+"name": "Beans, kidney, light red, canned, sodium added, sugar added, drained and rinsed"
+},
+{
+"id": 727,
+"fdc_id": 2685568,
+"data_type": "foundation_food",
+"name": "Squash, summer, green, zucchini, includes skin, raw"
+},
+{
+"id": 728,
+"fdc_id": 2685576,
+"data_type": "foundation_food",
+"name": "Beets, raw"
+},
+{
+"id": 729,
+"fdc_id": 2685577,
+"data_type": "foundation_food",
+"name": "Eggplant, raw"
+},
+{
+"id": 730,
+"fdc_id": 2685578,
+"data_type": "foundation_food",
+"name": "Tomatoes, whole, canned, solids and liquids, with salt added"
+},
+{
+"id": 731,
+"fdc_id": 2685580,
+"data_type": "foundation_food",
+"name": "Tomato, paste, canned, without salt added"
+},
+{
+"id": 732,
+"fdc_id": 2685581,
+"data_type": "foundation_food",
+"name": "Tomatoes, crushed, canned"
+},
+{
+"id": 733,
+"fdc_id": 2710822,
+"data_type": "foundation_food",
+"name": "Arugula, baby, raw"
+},
+{
+"id": 734,
+"fdc_id": 2710826,
+"data_type": "foundation_food",
+"name": "Corn, sweet, yellow and white kernels,  fresh, raw"
+},
+{
+"id": 735,
+"fdc_id": 2727570,
+"data_type": "foundation_food",
+"name": "Lamb, ground, raw"
+},
+{
+"id": 736,
+"fdc_id": 2727580,
+"data_type": "foundation_food",
+"name": "Rutabaga, peeled, raw"
+},
+{
+"id": 737,
+"fdc_id": 2727585,
+"data_type": "foundation_food",
+"name": "Green onion, (scallion), bulb and greens, root removed, raw"
+},
+{
+"id": 738,
+"fdc_id": 2755828,
+"data_type": "branded_food",
+"name": "Double Cream Cremont Aged Cow & Goat Milk Cheese, 5 oz"
+}
+]
+}

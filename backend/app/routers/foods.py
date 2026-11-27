@@ -12,7 +12,8 @@ from ..methodology import SCORING_METHODOLOGY_VERSION
 from ..nutrients import NUTRIENTS, resolve_drv
 from ..reference_patterns import DEFAULT_PATTERN
 from ..scoring import IncompleteAminoAcidProfile, ScoreResult, UnknownReferencePattern, compute_diaas, compute_pdcaas
-from ..search import NutrientFilter, UnknownFilterKey, search_foods, search_foods_by_name
+from ..search import NutrientFilter, UnknownFilterKey, search_foods, search_foods_by_name_hits
+from ..search_locale import search_locale
 
 router = APIRouter(prefix="/api/foods", tags=["foods"])
 
@@ -120,9 +121,17 @@ def food_search_by_name(
     with typo-tolerant fuzzy fallback where the database supports it. See
     search.py's module docstring for the full design. Signed-in results
     have any hard dietary exclusion (allergy, religious requirement,
-    dietary pattern) removed — see dietary_filter.py."""
-    results = search_foods_by_name(db, q, limit=limit)
-    results = filter_excluded_foods(results, db, profile)
+    dietary pattern) removed — see dietary_filter.py. Each result carries
+    its preparation state/label and any regional-synonym note."""
+    hits = search_foods_by_name_hits(db, q, limit=limit, locale=search_locale(profile))
+    results = filter_excluded_foods([hit.food for hit in hits], db, profile)
+    hit_by_id = {hit.food.id: hit for hit in hits}
+    for food in results:
+        hit = hit_by_id[food.id]
+        food.preparation_state = hit.preparation_state
+        food.preparation_label = hit.preparation_label
+        food.search_relationship = hit.relationship
+        food.search_note = hit.note
     return _with_dietary_status(results, db, profile)
 
 
