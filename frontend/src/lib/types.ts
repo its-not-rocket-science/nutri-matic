@@ -28,6 +28,14 @@ export interface Food {
 	digestibility_pdcaas: number | null;
 	gtin_upc: string | null;
 	dietary_status?: DietaryStatus | null;
+	// name-search results only (GET /api/foods/search-by-name): preparation
+	// state read from the food name, its label ("Dry", "Tinned, drained",
+	// "Preparation not stated"), and the note/relationship of a regional
+	// synonym the result was reached through ("approx. UK semi-skimmed").
+	preparation_state?: string | null;
+	preparation_label?: string | null;
+	search_relationship?: string | null;
+	search_note?: string | null;
 }
 
 export interface FoodList {

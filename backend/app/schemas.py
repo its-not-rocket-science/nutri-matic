@@ -54,6 +54,16 @@ class FoodOut(FoodCreate):
     # constraints — see dietary_filter.py. Absent (null) elsewhere, not a
     # claim that the food's been checked and is safe.
     dietary_status: DietaryStatusOut | None = None
+    # only set on name-search results (search.search_foods_by_name_hits):
+    # the preparation state read from the food's name and its user-facing
+    # label (so dry and tinned chickpeas are never confused when logging),
+    # and, when the result was reached through a regional synonym, that
+    # synonym's relationship and note (e.g. "approx. UK semi-skimmed").
+    # Absent (null) elsewhere.
+    preparation_state: str | None = None
+    preparation_label: str | None = None
+    search_relationship: str | None = None
+    search_note: str | None = None
 
 
 class FoodListOut(BaseModel):
