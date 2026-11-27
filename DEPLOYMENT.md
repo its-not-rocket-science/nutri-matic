@@ -386,9 +386,9 @@ test have all passed; that step is why the deploy job alone has
 `contents: write`. Because the diff runs from the tag rather than from the
 commit's parent, backend changes are not lost when several commits land in one
 push, when a CI run is cancelled, or when a production approval is rejected:
-they stay in the diff until a deploy actually succeeds. A rollback (deploying an
-older SHA) moves the tag back too, so the next run compares against what is
-really live.
+they stay in the diff until a deploy actually succeeds. A deliberate rollback
+(see "Deploy ordering and rollbacks" below) moves the tag back too, so the
+next run compares against what is really live.
 
 The job fails open (`needed=true`, with a warning in the run) when the tag is
 missing or the diff can't be computed. If the tag isn't an ancestor of the new
@@ -399,6 +399,49 @@ To force a backend deploy anyway, run the workflow by hand: **Actions →
 Rehearse and Deploy Backend → Run workflow** on `main` (or
 `gh workflow run deploy.yml --ref main`); `workflow_dispatch` always rehearses
 and then waits for the usual production approval, regardless of the tag.
+
+### Deploy ordering and rollbacks
+
+Two guards in `deploy.yml` stop production from moving backwards by accident:
+
+- **One deploy at a time.** The `deploy` job is in the concurrency group
+  `prod-deploy` with `cancel-in-progress: false`. A deploy that is already
+  running is never cancelled; the next one waits behind it.
+  GitHub keeps only **one** pending deploy in the group: if a third run
+  arrives, it replaces the pending one, which shows as *cancelled*. Nothing is
+  lost: its changes are still in the diff against `deployed-prod`, so the
+  newer run deploys them.
+- **No accidental rollback.** After approval, and before contacting the
+  server, the deploy job fetches the current `deployed-prod` tag. If the
+  commit to deploy is a **strict ancestor** of it (an older commit on the
+  same line of `main`), the run fails with "an older commit than what is
+  deployed; not rolling back" and the server is not touched. This is what
+  happens if an older run's approval is clicked after a newer commit has been
+  deployed. Fix: reject or ignore the old run; nothing needs undoing.
+  Deploying the same commit again, or any newer commit, is allowed, and so is
+  a manual run on `main` (its HEAD is never older than what's deployed). If
+  the tag is missing, the check is skipped with a warning.
+
+**Rolling back on purpose.** Run the workflow by hand from `main` with the
+older commit and the rollback flag:
+
+```sh
+gh workflow run deploy.yml --ref main -f sha=<40-hex sha on main> -f allow_rollback=true
+```
+
+(or **Actions → Rehearse and Deploy Backend → Run workflow**, with the same
+two fields). Always run it on `main`: a manual run uses the workflow file from
+the ref it runs on, so running it on an old commit would use that commit's
+`deploy.yml`, without these guards. The run rehearses that commit, waits for
+the usual approval, deploys it and moves `deployed-prod` back to it, so the
+next automatic run compares against what is really live. The server wrapper
+still refuses any commit that is not on `origin/main`.
+
+A rollback only covers application code. If a migration was added after the
+target commit, that commit's code doesn't know the database's current Alembic
+revision: the rehearsal (and the backend's own `alembic upgrade head` on
+start) fail. Roll the database back first, following "5. Rollback" above and
+`docs/migrations.md`.
 
 ### Resetting `deployed-prod` by hand
 
