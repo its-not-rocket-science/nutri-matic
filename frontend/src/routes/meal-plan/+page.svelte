@@ -5,6 +5,7 @@
 	import { auth } from '#lib/auth.svelte.ts';
 	import BarcodeScanner from '#lib/components/BarcodeScanner.svelte';
 	import FoodSearchInput from '#lib/components/FoodSearchInput.svelte';
+	import { BARCODE_MISS_HINT, isBarcodeMiss } from '#lib/barcodeMiss.ts';
 	import ImproveThis from '#lib/components/ImproveThis.svelte';
 	import PrintButton from '#lib/components/PrintButton.svelte';
 	import RecipeSearchInput from '#lib/components/RecipeSearchInput.svelte';
@@ -67,6 +68,7 @@
 	let markingId: number | null = $state(null);
 	let showScanner = $state(false);
 	let scanning = $state(false);
+	let barcodeMissHint: string | null = $state(null);
 
 	let showShoppingList = $state(false);
 	let shoppingList: ShoppingList | null = $state(null);
@@ -297,13 +299,22 @@
 		showScanner = false;
 		error = null;
 		scanning = true;
+		barcodeMissHint = null;
 		try {
 			const food = await api.getFoodByBarcode(barcode);
 			itemType = 'food';
 			selectedFood = food;
 			selectedRecipe = null;
 		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
+			if (isBarcodeMiss(e)) {
+				// not a dead end: open the name search with a hint instead of an error banner
+				itemType = 'food';
+				selectedFood = null;
+				selectedRecipe = null;
+				barcodeMissHint = BARCODE_MISS_HINT;
+			} else {
+				error = e instanceof Error ? e.message : String(e);
+			}
 		} finally {
 			scanning = false;
 		}
@@ -514,7 +525,14 @@
 				>
 			</p>
 		{:else if itemType === 'food'}
-			<FoodSearchInput onSelect={(food) => (selectedFood = food)} label="Search foods" />
+			<FoodSearchInput
+				onSelect={(food) => {
+					selectedFood = food;
+					barcodeMissHint = null;
+				}}
+				label="Search foods"
+				hint={barcodeMissHint}
+			/>
 		{:else}
 			<RecipeSearchInput onSelect={(recipe) => (selectedRecipe = recipe)} label="Search recipes" />
 		{/if}

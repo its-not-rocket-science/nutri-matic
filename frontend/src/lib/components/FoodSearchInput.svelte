@@ -5,8 +5,22 @@
 	let {
 		onSelect,
 		label = 'Search foods',
-		exclude
-	}: { onSelect: (food: Food) => void; label?: string; exclude?: (food: Food) => boolean } = $props();
+		exclude,
+		hint = null
+	}: {
+		onSelect: (food: Food) => void;
+		label?: string;
+		exclude?: (food: Food) => boolean;
+		// shown above the input, and the input is focused, e.g. after a
+		// barcode miss sends the user here to search by name instead
+		hint?: string | null;
+	} = $props();
+
+	let input: HTMLInputElement | undefined = $state();
+
+	$effect(() => {
+		if (hint) input?.focus();
+	});
 
 	let query = $state('');
 	let results: Food[] = $state([]);
@@ -43,7 +57,17 @@
 
 <div class="field">
 	<label for="food-search-input">{label}</label>
-	<input id="food-search-input" type="text" bind:value={query} oninput={handleInput} placeholder="Search…" />
+	{#if hint}
+		<p class="search-hint" role="status">{hint}</p>
+	{/if}
+	<input
+		id="food-search-input"
+		type="text"
+		bind:this={input}
+		bind:value={query}
+		oninput={handleInput}
+		placeholder="Search…"
+	/>
 </div>
 {#if searching}
 	<p class="muted">Searching…</p>
@@ -98,6 +122,9 @@
 		border: none;
 		padding: var(--space-2) var(--space-2);
 		border-radius: var(--radius-sm);
+	}
+	.search-hint {
+		margin: 0 0 var(--space-2);
 	}
 	.result-name {
 		display: flex;
