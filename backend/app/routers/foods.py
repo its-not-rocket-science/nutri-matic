@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..auth import get_optional_owned_profile
+from ..barcode import find_food_by_barcode
 from ..aggregation import WeightedFood
 from ..complement import PAIRING_QUANTITY_G, suggest_complements
 from ..data_quality import implausibility_reason
@@ -152,7 +153,11 @@ def food_search(
 
 @router.get("/barcode/{gtin_upc}", response_model=schemas.FoodOut)
 def get_food_by_barcode(gtin_upc: str, db: Session = Depends(get_db)):
-    food = db.query(models.Food).filter(models.Food.gtin_upc == gtin_upc).one_or_none()
+    """Exact match first, then the same GTIN at another zero-padded width
+    (a 13-digit EAN scan finds a row FDC stored as 14 digits). See
+    barcode.py for the collision rule. The response's `gtin_upc` is the
+    stored form, which may differ in width from what was scanned."""
+    food = find_food_by_barcode(db, gtin_upc)
     if food is None:
         raise HTTPException(status_code=404, detail="No food found for that barcode")
     return food
