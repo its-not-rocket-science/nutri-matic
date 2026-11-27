@@ -55,6 +55,54 @@ def test_classify_preparation(name, state):
     assert state in PREPARATION_STATES
 
 
+@pytest.mark.parametrize("name, state", [
+    # fresh legumes and sweetcorn: "raw" means raw
+    ("Peas, edible-podded, raw", "raw"),
+    ("Peas, green, raw", "raw"),
+    ("Beans, snap, green, raw", "raw"),
+    ("Corn, sweet, yellow, raw", "raw"),
+    ("Lima beans, immature seeds, raw", "raw"),
+    ("Soybeans, green, raw", "raw"),
+    # dry pulses and grains: FDC's "raw" is the dry product
+    ("Chickpeas (garbanzo beans, bengal gram), mature seeds, raw", "dry"),
+    ("Beans, kidney, all types, mature seeds, raw", "dry"),
+    ("Lentils, raw", "dry"),
+    ("Peas, split, mature seeds, raw", "dry"),
+    ("Rice, white, long-grain, raw", "dry"),
+    # a pulse name with neither cue is not guessed
+    ("Chickpeas, raw", "unknown"),
+    ("Beans, pinto, raw", "unknown"),
+])
+def test_raw_means_dry_only_for_dry_pulses_and_grains(name, state):
+    """Codex review on #124: "raw" was turned into "dry" for every pulse
+    head, so fresh peas and green beans were labelled Dry."""
+    assert classify_preparation(name) == state
+
+
+def test_unknown_state_has_no_badge_and_no_tie_break():
+    assert "unknown" in PREPARATION_STATES
+    assert preparation_label("unknown", "en-GB") is None
+    # same rank whatever is preferred as an unstated row: no promotion or demotion
+    for preferred in (None, "dry", "canned_drained", "raw"):
+        assert preparation_rank("unknown", preferred) == preparation_rank("unspecified", preferred)
+
+
+def test_unknown_rows_are_not_flagged_preparation_not_stated(db):
+    _food(db, 1, "Chickpeas, raw")
+    _food(db, 2, "13 FOODS CHICKPEAS", data_type="branded_food")
+    db.commit()
+    labels = {h.food.name: h.preparation_label for h in search_foods_by_name_hits(db, "chickpeas", locale="en-GB")}
+    assert labels["Chickpeas, raw"] is None
+    assert labels["13 FOODS CHICKPEAS"] == "Preparation not stated"
+
+
+def test_mangetout_shows_raw_not_dry(db):
+    _food(db, 1, "Peas, edible-podded, raw")
+    db.commit()
+    (hit,) = search_foods_by_name_hits(db, "mangetout", locale="en-GB")
+    assert (hit.preparation_state, hit.preparation_label) == ("raw", "Raw")
+
+
 def test_preparation_labels_follow_locale():
     assert preparation_label("canned_drained", "en-GB") == "Tinned, drained"
     assert preparation_label("canned_drained", "en-US") == "Canned, drained"
