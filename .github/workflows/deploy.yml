@@ -8,7 +8,21 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
-  workflow_dispatch: {}   # allows manually re-running rehearsal/deploy on demand
+  # Manual runs: force a rehearsal + deploy of main's HEAD, or of an older
+  # commit on main (a deliberate rollback). See DEPLOYMENT.md, "Deploy
+  # ordering and rollbacks".
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit to deploy (40-hex, must be on main). Empty = HEAD of the ref this runs on."
+        required: false
+        default: ""
+        type: string
+      allow_rollback:
+        description: "Allow deploying a commit older than the one currently deployed (deliberate rollback)."
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   # Decide whether this run needs a backend deploy at all. A merge that only
@@ -97,12 +111,24 @@ jobs:
       # by the time a human approves the deploy step.
       - name: Determine commit to rehearse and deploy
         id: pin-sha
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_SHA: ${{ inputs.sha }}
+          REF_SHA: ${{ github.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            sha="$RUN_HEAD_SHA"
+          elif [ -n "$INPUT_SHA" ]; then
+            sha="$INPUT_SHA"
           else
-            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            sha="$REF_SHA"
           fi
+          if ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::Commit to deploy must be a full 40-character lowercase hex SHA"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -181,12 +207,52 @@ jobs:
     # gate that replaces you typing the deploy commands by hand.
     environment:
       name: production
+    # One production deploy at a time, across all runs of this workflow. A
+    # deploy that is already running is never cancelled.
+    # GitHub keeps at most one more deploy job pending in the group; a newer
+    # one replaces it, and the replaced run shows as cancelled.
+    concurrency:
+      group: prod-deploy
+      cancel-in-progress: false
     # Only needed to move the deployed-prod tag after a successful deploy.
     permissions:
       contents: write
     env:
       DEPLOY_SHA: ${{ needs.rehearse-migration.outputs.deploy_sha }}
     steps:
+      # Full history + tags: the ordering guard below needs both, and the
+      # last step uses this checkout to move the tag.
+      - name: Check out the commit being deployed
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Refuse to move production backwards by accident, e.g. when an older
+      # run's approval is clicked after a newer commit has already been
+      # deployed. Runs after the approval, so it compares against the tag as
+      # it is now, not as it was when the run started.
+      - name: Refuse to deploy a commit older than the deployed one
+        env:
+          ALLOW_ROLLBACK: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_rollback }}
+        run: |
+          git fetch --force origin 'refs/tags/deployed-prod:refs/tags/deployed-prod' || true
+          if ! deployed=$(git rev-parse -q --verify "refs/tags/deployed-prod^{commit}"); then
+            echo "::warning::Tag deployed-prod not found; skipping the ordering check."
+            exit 0
+          fi
+          if [ "$DEPLOY_SHA" != "$deployed" ] && git merge-base --is-ancestor "$DEPLOY_SHA" "$deployed"; then
+            if [ "$ALLOW_ROLLBACK" = "true" ]; then
+              echo "::warning::Deliberate rollback: deploying $DEPLOY_SHA, older than deployed-prod ($deployed)."
+            else
+              echo "::error::$DEPLOY_SHA is an older commit than what is deployed (deployed-prod = $deployed); not rolling back. To roll back on purpose, run this workflow by hand with sha=$DEPLOY_SHA and allow_rollback=true."
+              exit 1
+            fi
+          else
+            echo "OK: $DEPLOY_SHA is not older than deployed-prod ($deployed)."
+          fi
+
       - name: Deploy the exact rehearsed commit via SSH
         env:
           SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
@@ -233,14 +299,8 @@ jobs:
       # Mark this commit as the last good production deploy. The changes job
       # diffs future runs against this tag, so it must move only after the
       # deploy and smoke test above succeeded (any failure stops the job
-      # before reaching here). Rollbacks work the same way: deploying an
-      # older SHA moves the tag back to it.
-      - name: Check out the deployed commit for tagging
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ env.DEPLOY_SHA }}
-          fetch-depth: 1
-
+      # before reaching here). A deliberate rollback (allow_rollback) moves
+      # the tag back to the older SHA. Uses the checkout from the first step.
       - name: Move deployed-prod tag to the deployed commit
         run: |
           git tag -f deployed-prod "$DEPLOY_SHA"
