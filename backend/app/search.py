@@ -344,7 +344,7 @@ def _rank_hits(foods: list[Food], variants: list[QueryVariant], query: str, loca
             continue
         sort_key, variant, matched_term = best
         label = preparation_label(state, locale)
-        if label is None and preferred_state is not None:
+        if label is None and preferred_state is not None and state != "unknown":
             label = NOT_STATED_LABEL
         hit = FoodSearchHit(food, state, label, matched_term, variant.relationship, variant.note)
         keyed.append((sort_key, hit))
