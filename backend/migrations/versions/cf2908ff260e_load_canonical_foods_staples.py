@@ -30,7 +30,7 @@ down_revision: Union[str, None] = '5085bc12af5a'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-CSV_SHA256 = "PENDING-REVIEW"
+CSV_SHA256 = "28c9a2be2f18986d665ee19e94a58491d272dc48e461005b201e6aa479855138"
 ADDED_KEYS = (
     'beef_dripping.unspecified', 'lard.unspecified', 'oil_avocado.unspecified', 'oil_coconut.unspecified',
     'oil_corn.unspecified', 'oil_groundnut.unspecified', 'oil_olive.unspecified', 'oil_rapeseed.unspecified',
