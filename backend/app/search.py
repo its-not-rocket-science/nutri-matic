@@ -317,7 +317,7 @@ def _rank_hits(foods: list[Food], variants: list[QueryVariant], query: str, loca
         # similarity and length ignore FDC's distribution-programme
         # boilerplate, which otherwise makes the standard row look "longer"
         compare_name = name_lower.replace(_USDA_BOILERPLATE, "").strip()
-        state = classify_preparation(food.name)
+        state = classify_preparation(food.name, food.data_type)
         prep_rank = preparation_rank(state, preferred_state)
         best = None
         for variant in variants:
@@ -469,7 +469,7 @@ def _trigram_fallback(db: Session, query: str, limit: int, locale: str) -> list[
         food = fuzzy_foods_by_id.get(food_id)
         if food is None:
             continue
-        state = classify_preparation(food.name)
+        state = classify_preparation(food.name, food.data_type)
         hits.append(FoodSearchHit(food, state, preparation_label(state, locale), query.lower()))
     return _collapse_branded_versions(hits)[:limit]
 

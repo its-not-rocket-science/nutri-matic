@@ -1,30 +1,53 @@
 """Preparation state of a food, read from its name.
 
-This is the *simple* classifier that docs/plans/canonical-foods-plan.md
-section 4 allows PR 1 to ship with; PR 3 replaces it with a fuller,
-coverage-reported version. It is a pure function over the food's name
-(FDC puts the state in the name text: "..., dry", "..., canned, drained
-solids", "..., cooked, boiled, with salt") and is used for two things only:
+The classifier of docs/plans/canonical-foods-plan.md section 4, PR 3: a
+pure function over the food's name (FDC puts the state in the name text:
+"..., dry", "..., canned, drained solids", "..., cooked, boiled, with
+salt"). Today it is used for two things only:
 
   * a ranking tie-break in name search (never a filter: every row that
     matched the query is still returned), and
   * a label shown next to each search result, so dry and cooked rice, or
     dried and tinned chickpeas, are not confused when logging.
 
-Known limits of this simple version (see the PR description):
+PR 4 will also use it for the canonical-member invariant (plan 3.1): a
+member's state must equal its canonical food's, and a row in
+UNCLASSIFIED_STATES can never be a member. So it is tuned for precision
+over recall: where a name does not clearly state one preparation, it says
+`unspecified` (no cue) or `unknown` (ambiguous), never a guess.
 
-  * Branded names often omit the state ("13 FOODS CHICKPEAS"). Those come
-    back `unspecified`; nothing is guessed.
+Tests: tests/test_food_preparation.py, against a hand-labelled fixture of
+real FDC names (tests/fixtures/preparation_labelled.json). Coverage over a
+real catalogue: `python -m app.preparation_coverage_report` (read-only).
+
+How names are read:
+
+  * Generic (Foundation/SR Legacy) names are "Head, modifier, ..." and the
+    rules below read them directly.
+  * Branded names are manufacturer text. Pass `data_type="branded_food"`:
+    "fresh", "braised" and "sauteed" are then ignored (mostly brand names
+    or one component of a ready meal), and a component-prone state
+    (roasted, dried, dry, sprouted, soaked) in a composite product's name
+    ("HONEY ROASTED PECAN GELATO", "... BREAD") is `unknown`.
   * FDC calls dry pulses "mature seeds, raw" and dry rice "raw", but also
-    calls fresh legumes "raw" ("Peas, green, raw", "Beans, snap, green,
-    raw"). "raw" becomes `dry` only with a mature-seeds/split cue or a
-    cereal/rice/pasta/oats/lentil head; a fresh cue (green, snap,
-    immature, edible-podded, pods, sweet, ...) keeps `raw`; a pulse name
-    with neither is `unknown` (no badge, no tie-break), not a guess.
+    calls fresh legumes "raw" ("Peas, green, raw"). "raw" is `dry` only
+    with a mature-seeds/split cue or a grain/rice/pasta/oats/lentil head; a
+    fresh cue (green, snap, immature, edible-podded, pods, sweet, ...)
+    keeps `raw`; a pulse name with neither is `unknown`.
+  * "uncooked" is `raw` for meat and fish, `dry` for everything else.
+  * A name giving two alternatives ("Durian, raw or frozen") is `unknown`.
+
+Known limits:
+
+  * Branded names often omit the state ("13 FOODS CHICKPEAS"): those stay
+    `unspecified`. Only about 6% of branded rows state one.
   * Words are matched, not parsed: "baked" means roasted/baked, so
-    "Beans, baked, home prepared" is `roasted` (the tinned baked-bean rows
-    are caught by "canned" first).
-  * "dry mix" (a packet mix) is not `dry`; it stays `unspecified`.
+    "Beans, baked, home prepared" is `roasted` (the tinned rows are caught
+    by "canned" first; the phrase "baked beans" is a dish, not a state).
+  * "dry mix" (a packet mix), "dry-cured", "dry salami" and "dry rub" are
+    not `dry`. "kettle cooked" crisps are not cooked.
+  * Processing such as smoked, cured or pickled is not a preparation state
+    in the vocabulary; those rows stay `unspecified`.
 
 The vocabulary is the closed list from the plan (section 3.1), plus
 `unknown` for names too ambiguous to classify.
@@ -54,15 +77,21 @@ PREPARATION_STATES = (
     # preparation tie-break, rather than a guessed state.
     "unknown",
 )
+# States that say nothing about how the food was prepared. A canonical
+# food's members (plan 3.1, PR 4) must have a state outside this set.
+UNCLASSIFIED_STATES = ("unspecified", "unknown")
 
-# Heads (first word of the name, singular) whose "raw"/"uncooked"/no-state
-# rows are, in practice, the dry product: dry pasta, uncooked rice, rolled
-# oats, dry lentils. Lentils are only sold dry, so they sit here rather than
-# with the other pulses.
+# Heads (first comma segment, when it is a single word) whose
+# "raw"/"uncooked"/no-state rows are, in practice, the dry product: dry
+# pasta, uncooked rice and grains, rolled oats, dry lentils. Lentils are
+# only sold dry, so they sit here rather than with the other pulses.
 _DRY_GOODS_HEADS = frozenset({
     "oat", "oats", "rice", "pasta", "spaghetti", "macaroni", "lentil", "lentils",
-    "couscous", "quinoa", "barley", "bulgur",
+    "couscous", "quinoa", "barley", "bulgur", "millet", "sorghum", "teff", "spelt",
+    "farro", "amaranth", "buckwheat", "khorasan", "freekeh",
 })
+# Multi-word first segments that are the same kind of dry good.
+_DRY_GOODS_SEGMENTS = frozenset({"wild rice", "amaranth grain", "buckwheat groats"})
 # Heads whose plain "dried" means the dry pulse/grain/seed, not a
 # dehydrated fruit/vegetable/herb ("Seeds, sesame seeds, whole, dried").
 # Not used for "raw": see _RAW_PULSE_HEADS.
@@ -79,15 +108,42 @@ _RAW_PULSE_HEADS = frozenset({
 })
 _DRY_PULSE_CUE = r"\bmature seeds?\b|\bsplit\b"
 _FRESH_CUE = r"\b(immature|green|snap|edible-podded|sprouted|pods?|fresh|sweet)\b"
+# "uncooked" means raw for meat and fish, dry for everything else FDC
+# calls uncooked (grains, pasta, dried fruit).
+_MEAT_WORDS = (
+    r"\b(beef|pork|lamb|veal|chicken|turkey|duck|goose|meat|sausages?|patty|patties|"
+    r"bacon|ham|fish|salmon|tuna|cod|shrimp|prawns?|seafood|steaks?|fillets?|breasts?|thighs?|wings?)\b"
+)
+# Words a name uses for two alternative states ("Durian, raw or frozen"):
+# the row is either, so it is not classified.
+_ALTERNATIVE_STATES = r"\b(raw|fresh) or (frozen|cooked)\b|\b(frozen|cooked) or (raw|fresh)\b"
+
+# Branded names (manufacturer text, not FDC's "Head, modifier" form) often
+# use a preparation word for one component or a flavour, not the product:
+# "HONEY ROASTED PECAN GELATO", "TRES LECHES SPONGE CAKE SOAKED IN ...",
+# "SNACK MIX ... DRIED CINNAMON APPLES", "SPROUTED GRAINS BREAD". When a
+# branded name has one of these markers of a composite product, the
+# component-prone cues below give `unknown` rather than a guessed state.
+_COMPOSITE_MARKERS = (
+    r"\b(with|and|mix|blend|clusters|trail|salad|sauce|spread|pesto|dip|bars?|cakes?|"
+    r"cookies?|bread|breads|rolls?|buns?|cereal|granola|crackers|pizza|soup|gelato|ice cream|"
+    r"yogurt|bites|snacks?|kit|meal|dinner|entree|sandwich|wrap|burrito|crust|waffles?|"
+    r"butter|chips|crisps|puree|flour)\b|&|\+"
+)
+_COMPONENT_PRONE = frozenset({"roasted", "soaked", "sprouted", "dehydrated", "dry"})
 
 
-def _raw_state(name_lower: str, head: str) -> str:
+def _raw_state(name_lower: str, head: str, segment: str) -> str:
     """What an explicit "raw"/"fresh" means for this name: a mature/split
     cue, or a cereal/rice/pasta/oats/lentil head, means the dry product
     ("Rice, white, long-grain, raw" is uncooked rice); otherwise a fresh
     cue keeps raw; a pulse with neither is unknown. Names saying dry/dried
     never get here (earlier rules catch them)."""
-    if _has(_DRY_PULSE_CUE, name_lower) or head in _DRY_GOODS_HEADS:
+    dry_goods = head in _DRY_GOODS_HEADS or segment in _DRY_GOODS_SEGMENTS
+    if dry_goods and not _has(r"\braw\b", name_lower):
+        # "Pasta, fresh-refrigerated": fresh pasta is neither raw nor dry
+        return "unknown"
+    if _has(_DRY_PULSE_CUE, name_lower) or dry_goods:
         return "dry"
     if _has(_FRESH_CUE, name_lower):
         return "raw"
@@ -100,31 +156,46 @@ def _has(pattern: str, text: str) -> bool:
     return re.search(pattern, text) is not None
 
 
+def _first_segment(name_lower: str) -> str:
+    return name_lower.split(",", 1)[0].split("(", 1)[0].strip()
+
+
 def _head(name_lower: str) -> str:
     """The head noun when the first comma segment is a single word
     ("Rice, white, ..." -> "rice"; "Oats (Includes ...)" -> "oats"), else
     "" ("Rice crackers" is not rice)."""
-    first_segment = name_lower.split(",", 1)[0].split("(", 1)[0]
-    words = re.findall(r"[a-z]+", first_segment)
+    words = re.findall(r"[a-z]+", _first_segment(name_lower))
     return words[0] if len(words) == 1 else ""
 
 
-def classify_preparation(name: str) -> str:
-    """One state from PREPARATION_STATES for this food name. Order matters:
+def _generic_state(n: str) -> str:
+    """The rules for a name, before the branded-name check. Order matters:
     the first matching rule wins (tinned before cooked, so "Beans, baked,
     canned" is tinned; fried before frozen, so frozen french fries are
     fried)."""
-    n = name.lower()
+    # "BAKED BEANS" names a dish (usually tinned), not a roasting method
+    n = re.sub(r"\bbaked beans?\b", "beans", n)
     head = _head(n)
-    is_pulse_or_grain = head in _DRY_GOODS_HEADS or head in _PULSE_HEADS or "mature seeds" in n
+    segment = _first_segment(n)
+    is_pulse_or_grain = (
+        head in _DRY_GOODS_HEADS or head in _PULSE_HEADS or segment in _DRY_GOODS_SEGMENTS or "mature seeds" in n
+    )
 
+    if _has(_ALTERNATIVE_STATES, n):
+        return "unknown"
     if _has(r"\b(canned|tinned)\b", n):
         return "canned_drained" if _has(r"\bdrained\b", n) else "canned_with_liquid"
-    if _has(r"\b(fried|french fries|fries)\b", n):
+    if _has(r"\b(fried|french fries|fries|sauteed|sautéed)\b", n):
         return "fried"
-    if _has(r"\b(cooked|boiled|simmered|steamed|stewed|microwaved|poached)\b", n):
+    if _has(r"\bkettle[- ]cooked\b", n):
+        # a crisp-making method, not "cooked" in the meal sense
+        return "unspecified"
+    if _has(r"\b(cooked|boiled|simmered|steamed|stewed|braised|microwaved|poached)\b", n):
         return "cooked_boiled"
-    if _has(r"\b(roasted|baked|broiled|grilled|toasted)\b", n) or _has(r"oven[- ]heated", n):
+    if head in ("cereals", "oats", "oat") and _has(r"\bprepared with\b", n):
+        # "Cereals, oats, instant, ..., prepared with water" is porridge
+        return "cooked_boiled"
+    if _has(r"\b(roasted|baked|broiled|grilled|toasted)\b", n) or _has(r"oven[- ]heated|\bpan-broil", n):
         return "roasted"
     if _has(r"\bsprouted\b", n):
         return "sprouted"
@@ -132,17 +203,46 @@ def classify_preparation(name: str) -> str:
         return "soaked"
     if _has(r"\bfrozen\b", n):
         return "frozen"
-    if _has(r"\bdehydrated\b", n):
+    if _has(r"\b(dehydrated|freeze[- ]dried)\b", n):
         return "dehydrated"
     if _has(r"\bdried\b", n):
         return "dry" if is_pulse_or_grain else "dehydrated"
-    if _has(r"\bdry\b(?! mix)", n) or _has(r"\buncooked\b", n):
+    if _has(r"\buncooked\b", n):
+        return "raw" if _has(_MEAT_WORDS, n) else "dry"
+    if _has(r"\bdry\b(?! mix)(?!-cured| cured| salam)(?!\s*-?\s*rub)", n):
         return "dry"
     if _has(r"\b(raw|fresh)\b", n):
-        return _raw_state(n, head)
-    if head in _DRY_GOODS_HEADS:
+        return _raw_state(n, head, segment)
+    if head in _DRY_GOODS_HEADS or segment in _DRY_GOODS_SEGMENTS:
         return "dry"
     return "unspecified"
+
+
+def classify_preparation(name: str, data_type: str | None = None) -> str:
+    """One state from PREPARATION_STATES for this food name.
+
+    `data_type` is the FDC data type when known. Branded names get two
+    extra rules (see _COMPOSITE_MARKERS): "fresh" is ignored, because it is
+    mostly part of a brand ("Fresh Express", "Taylor Fresh Foods"), and a
+    component-prone state in a composite product's name is `unknown`.
+    Without `data_type` the name is read as an FDC generic name."""
+    n = name.lower()
+    if data_type != "branded_food":
+        return _generic_state(n)
+
+    # "Fresh" in a branded name is a brand or a claim, not a state
+    # ("FRESH FROZEN" keeps its frozen). "Braised"/"sauteed" in a branded
+    # name usually describe one component of a ready meal or sauce
+    # ("SAUTEED ONION & MUSHROOM SAUCE"), so they are only read in FDC
+    # generic names.
+    n = re.sub(r"\b(fresh(ly)?|braised|saut[eé]ed)\b", " ", n)
+    state = _generic_state(n)
+    if state in _COMPONENT_PRONE:
+        # "ROASTED & SALTED MIXED NUTS" is one product, not a composite
+        plain = re.sub(r"\b(?:lightly |un)?salted\s*(?:&|and)\s*|\s*(?:&|and)\s*(?:lightly |un)?salted\b", " ", n)
+        if _has(_COMPOSITE_MARKERS, plain):
+            return "unknown"
+    return state
 
 
 def preparation_family(state: str) -> str:
