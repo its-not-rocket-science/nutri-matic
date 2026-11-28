@@ -1,0 +1,391 @@
+fdc_id,name,nutrient_key,amount_per_100g,source_nutrient_nbr
+321358,"Hummus, commercial",folate,36.0,417
+321359,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",folate,2.0,417
+321360,"Tomatoes, grape, raw",folate,10.0,417
+321900,"Broccoli, raw",folate,65.0,417
+322228,"Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D",folate,2.0,417
+322559,"Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",folate,2.0,417
+322892,"Milk, whole, 3.25% milkfat, with added vitamin D",folate,0.0,417
+323121,"Frankfurter, beef, unheated",folate,0.0,417
+323294,"Nuts, almonds, dry roasted, with salt added",folate,35.0,417
+323444,"Cheese, ricotta, whole milk",folate,4.0,417
+323505,"Kale, raw",folate,62.0,417
+324653,"Pickles, cucumber, dill or kosher dill",folate,8.0,417
+324860,"Peanut butter, smooth style, with salt",folate,86.0,417
+325036,"Cheese, parmesan, grated",folate,6.0,417
+325287,"Grapefruit juice, white, canned or bottled, unsweetened",folate,12.0,417
+325430,"Peaches, yellow, raw",folate,6.0,417
+325524,"Seeds, sunflower seed kernels, dry roasted, with salt added",folate,169.0,417
+325658,"Sausage, Italian, pork, mild, cooked, pan-fried",folate,0.0,417
+326135,"Cheese, swiss",folate,9.0,417
+326196,"Kale, frozen, cooked, boiled, drained, without salt",folate,65.0,417
+326458,"Carrots, frozen, unprepared (Includes foods for USDA's Food Distribution Program)",folate,7.0,417
+326698,"Mustard, prepared, yellow",folate,7.0,417
+326905,"Figs, dried, uncooked",folate,9.0,417
+327046,"Kiwifruit, green, raw",folate,26.0,417
+327198,"Melons, cantaloupe, raw",folate,14.0,417
+327357,"Nectarines, raw",folate,6.0,417
+327501,"Oranges, raw, navels (Includes foods for USDA's Food Distribution Program)",folate,25.0,417
+327699,"Strawberries, raw",folate,8.0,417
+327923,"Lettuce, cos or romaine, raw",folate,50.0,417
+328637,"Cheese, cheddar",folate,21.0,417
+328841,"Cheese, cottage, lowfat, 2% milkfat",folate,10.0,417
+329370,"Cheese, mozzarella, low moisture, part-skim",folate,26.0,417
+330415,"Yogurt, Greek, strawberry, nonfat",folate,20.0,417
+332597,"Pears, raw, bartlett (Includes foods for USDA's Food Distribution Program)",folate,6.0,417
+332791,"Olives, green, Manzanilla, stuffed with pimiento",folate,0.0,417
+332864,"Sausage, pork, chorizo, link or ground, cooked, pan-fried",folate,10.0,417
+333008,"Cookies, oatmeal, soft, with raisins",folate,34.0,417
+335240,"Bread, whole-wheat, commercially prepared",folate,42.0,417
+746764,"Carrots, frozen, unprepared",folate,7.0,417
+746766,"Cheese, ricotta, whole milk",folate,4.0,417
+746767,"Cheese, swiss",folate,9.0,417
+746768,"Figs, dried, uncooked",folate,9.0,417
+746769,"Lettuce, cos or romaine, raw",folate,50.0,417
+746770,"Melons, cantaloupe, raw",folate,14.0,417
+746771,"Oranges, raw, navels",folate,25.0,417
+746772,"Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D",folate,2.0,417
+746773,"Pears, raw, bartlett",folate,6.0,417
+746776,"Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",folate,2.0,417
+746778,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",folate,2.0,417
+746780,"Sausage, Italian, pork, mild, cooked, pan-fried",folate,0.0,417
+746781,"Sausage, pork, chorizo, link or ground, cooked, pan-fried",folate,10.0,417
+746782,"Milk, whole, 3.25% milkfat, with added vitamin D",folate,0.0,417
+747447,"Broccoli, raw",folate,65.0,417
+747448,"Strawberries, raw",folate,8.0,417
+748967,"Eggs, Grade A, Large, egg whole",folate,71.0,417
+790018,"Flour, wheat, all-purpose, unenriched, unbleached",folate,23.0,417
+790085,"Flour, whole wheat, unenriched",folate,39.0,417
+790214,"Flour, rice, white, unenriched",folate,16.0,417
+790774,"Bananas, overripe, raw",folate,25.0,417
+790991,"Bananas, ripe and slightly ripe, raw",folate,14.0,417
+1105073,"Bananas, overripe, raw",folate,25.0,417
+1105314,"Bananas, ripe and slightly ripe, raw",folate,14.0,417
+1105430,"Apples, red delicious, with skin, raw",folate,0.0,417
+1105547,"Apples, honeycrisp, with skin, raw",folate,0.0,417
+1105664,"Apples, granny smith, with skin, raw",folate,0.0,417
+1105781,"Apples, gala, with skin, raw",folate,0.0,417
+1105897,"Apples, fuji, with skin, raw",folate,0.0,417
+1750337,"Soy milk, unsweetened, plain, shelf stable",energy,38.485,958
+1750337,"Soy milk, unsweetened, plain, shelf stable",folate,19.69,417
+1750338,"Almond milk, unsweetened, plain, shelf stable",energy,14.5562,958
+1750338,"Almond milk, unsweetened, plain, shelf stable",folate,0.0,417
+1750339,"Apples, red delicious, with skin, raw",energy,55.622745,958
+1750339,"Apples, red delicious, with skin, raw",folate,0.0,417
+1750340,"Apples, fuji, with skin, raw",energy,58.20306,958
+1750340,"Apples, fuji, with skin, raw",folate,0.0,417
+1750341,"Apples, gala, with skin, raw",energy,54.866865,958
+1750341,"Apples, gala, with skin, raw",folate,0.8125,417
+1750342,"Apples, granny smith, with skin, raw",energy,52.958085,958
+1750342,"Apples, granny smith, with skin, raw",folate,0.0,417
+1750343,"Apples, honeycrisp, with skin, raw",energy,54.033225,958
+1750343,"Apples, honeycrisp, with skin, raw",folate,0.0,417
+1750344,"Mushroom, lion's mane",energy,35.107387,958
+1750344,"Mushroom, lion's mane",folate,29.58,417
+1750345,"Mushroom, oyster",energy,33.31965,958
+1750345,"Mushroom, oyster",folate,63.14,417
+1750346,"Mushrooms, shiitake",energy,36.3915875,958
+1750346,"Mushrooms, shiitake",folate,32.13,417
+1750347,"Mushrooms, white button",energy,24.8732585,958
+1750347,"Mushrooms, white button",folate,34.76,417
+1750352,"Spinach, baby",energy,20.72851125,958
+1750352,"Spinach, baby",folate,116.5,417
+1750353,"Spinach, mature",energy,21.5796975,958
+1750353,"Spinach, mature",folate,113.4,417
+1750354,"Tomato, roma",energy,18.95436075,958
+1750354,"Tomato, roma",folate,9.994,417
+1999626,"Mushroom, lion's mane",energy,35.107387,958
+1999626,"Mushroom, lion's mane",folate,29.58,417
+1999627,"Mushroom, oyster",energy,33.31965,958
+1999627,"Mushroom, oyster",folate,63.14,417
+1999628,"Mushrooms, shiitake",energy,36.3915875,958
+1999628,"Mushrooms, shiitake",folate,32.13,417
+1999629,"Mushrooms, white button",energy,24.8732585,958
+1999629,"Mushrooms, white button",folate,34.76,417
+1999630,"Soy milk, unsweetened, plain, shelf stable",energy,38.485,958
+1999630,"Soy milk, unsweetened, plain, shelf stable",folate,19.69,417
+1999631,"Almond milk, unsweetened, plain, shelf stable",energy,14.5562,958
+1999631,"Almond milk, unsweetened, plain, shelf stable",folate,0.0,417
+1999632,"Spinach, baby",energy,20.72851125,958
+1999632,"Spinach, baby",folate,116.5,417
+1999633,"Spinach, mature",energy,21.5796975,958
+1999633,"Spinach, mature",folate,113.4,417
+1999634,"Tomato, roma",energy,18.95436075,958
+1999634,"Tomato, roma",folate,9.994,417
+2003586,"Flour, 00",energy,365.610744,958
+2003586,"Flour, 00",folate,13.46,417
+2003587,"Flour, spelt, whole grain",energy,340.5831,958
+2003587,"Flour, spelt, whole grain",folate,38.42,417
+2003588,"Flour, semolina, coarse and semi-coarse",energy,365.0310665,958
+2003589,"Flour, semolina, fine",energy,365.9569125,958
+2003590,"Apple juice, with added vitamin C, from concentrate, shelf stable",energy,47.231814,958
+2003590,"Apple juice, with added vitamin C, from concentrate, shelf stable",folate,3.088,417
+2003591,"Orange juice, no pulp, not fortified, from concentrate, refrigerated",energy,45.723,958
+2003591,"Orange juice, no pulp, not fortified, from concentrate, refrigerated",folate,29.85,417
+2003592,"Grape juice, purple, with added vitamin C, from concentrate, shelf stable",energy,64.513952,958
+2003592,"Grape juice, purple, with added vitamin C, from concentrate, shelf stable",folate,0.6644,417
+2003593,"Grape juice, white, with added vitamin C, from concentrate, shelf stable",energy,64.64055,958
+2003593,"Grape juice, white, with added vitamin C, from concentrate, shelf stable",folate,1.731,417
+2003595,"Grapefruit juice, red, not fortified, not from concentrate, refrigerated",energy,39.830778,958
+2003595,"Grapefruit juice, red, not fortified, not from concentrate, refrigerated",folate,19.02,417
+2003596,"Tomato juice, with added ingredients, from concentrate, shelf stable",energy,19.92788125,958
+2003596,"Tomato juice, with added ingredients, from concentrate, shelf stable",folate,18.93,417
+2003597,"Orange juice, no pulp, not fortified, not from concentrate, refrigerated",energy,44.960839,958
+2003597,"Orange juice, no pulp, not fortified, not from concentrate, refrigerated",folate,28.98,417
+2003598,"Mushroom, portabella",energy,26.024813,958
+2003599,"Mushroom, king oyster",energy,38.460412,958
+2003600,"Mushroom, enoki",energy,36.7150215,958
+2003601,"Mushroom, crimini",energy,23.722638,958
+2003602,"Mushroom, maitake",energy,30.9734625,958
+2003603,"Mushroom, beech",energy,32.995442,958
+2003604,"Mushroom, pioppini",energy,31.236476,958
+2257044,"Soy milk, sweetened, plain, refrigerated",energy,40.705,957
+2257044,"Soy milk, sweetened, plain, refrigerated",folate,15.81,417
+2257045,"Almond milk, unsweetened, plain, refrigerated",energy,19.33,957
+2257045,"Almond milk, unsweetened, plain, refrigerated",folate,0.0,417
+2257046,"Oat milk, unsweetened, plain, refrigerated",energy,48.3298,957
+2257046,"Oat milk, unsweetened, plain, refrigerated",folate,0.0,417
+2258586,"Carrots, mature, raw",energy,44.978589,958
+2258586,"Carrots, mature, raw",folate,37.06,417
+2258587,"Carrots, baby, raw",energy,38.250983,958
+2258587,"Carrots, baby, raw",folate,43.65,417
+2258588,"Peppers, bell, green, raw",energy,19.692148,958
+2258588,"Peppers, bell, green, raw",folate,22.21,417
+2258589,"Peppers, bell, yellow, raw",energy,26.58104025,958
+2258589,"Peppers, bell, yellow, raw",folate,41.63,417
+2258590,"Peppers, bell, red, raw",energy,26.98843175,958
+2258590,"Peppers, bell, red, raw",folate,47.32,417
+2258591,"Peppers, bell, orange, raw",energy,27.38430325,958
+2259792,"Buttermilk, low fat",energy,42.9180362,958
+2259793,"Yogurt, plain, whole milk",energy,77.3185458,958
+2259794,"Yogurt, Greek, plain, whole milk",energy,94.507135,958
+2259795,"Cheese, parmesan, grated, refrigerated",energy,404.763418,958
+2259796,"Cheese, feta, whole milk, crumbled",energy,273.472498,958
+2261420,"Flour, almond",energy,577.62536,958
+2261420,"Flour, almond",folate,37.83,417
+2261421,"Flour, oat, whole grain",energy,386.429275,958
+2261421,"Flour, oat, whole grain",folate,34.69,417
+2261422,"Flour, potato",energy,352.682197,958
+2261422,"Flour, potato",folate,41.15,417
+2262072,"Peanut butter, creamy",energy,589.383006,958
+2262072,"Peanut butter, creamy",folate,97.29,417
+2262073,"Sesame butter, creamy",energy,648.374268,958
+2262073,"Sesame butter, creamy",folate,108.4,417
+2262074,"Almond butter, creamy",energy,602.510076,958
+2262074,"Almond butter, creamy",folate,42.46,417
+2262075,"Flaxseed, ground",energy,514.44343,958
+2262075,"Flaxseed, ground",folate,41.45,417
+2263887,"Strawberries, raw",energy,32.66565,958
+2263888,"Raspberries, raw",energy,51.412425,958
+2263889,"Blueberries, raw",energy,57.384621,958
+2263890,"Grapes, red, seedless, raw",energy,77.151876,958
+2263891,"Grapes, green, seedless, raw",energy,71.939325,958
+2263892,"Applesauce, unsweetened, with added vitamin C",energy,46.4205,958
+2346384,"Cottage cheese, full fat, large or small curd",energy,104.574374,958
+2346385,"Cream cheese, full fat, block",energy,336.73206,958
+2346386,"Cream, heavy",energy,335.8933226,958
+2346387,"Cream, sour, full fat",energy,192.7437716,958
+2346388,"Lettuce, iceberg, raw",energy,14.455425,958
+2346389,"Lettuce, romaine, green, raw",energy,17.45834025,958
+2346390,"Lettuce, leaf, red, raw",energy,14.68480875,958
+2346391,"Lettuce, leaf, green, raw",energy,18.4931365,958
+2346392,"Nuts, pine nuts, raw",energy,642.99228,958
+2346393,"Nuts, almonds, whole, raw",energy,583.597022,958
+2346394,"Nuts, walnuts, English, halves, raw",energy,678.66434,958
+2346395,"Nuts, pecans, halves, raw",energy,699.59644,958
+2346396,"Oats, whole grain, rolled, old fashioned",energy,378.866123,958
+2346396,"Oats, whole grain, rolled, old fashioned",folate,32.03,417
+2346397,"Oats, whole grain, steel cut",energy,379.2080612,958
+2346397,"Oats, whole grain, steel cut",folate,29.99,417
+2346398,"Pineapple, raw",energy,54.046596,958
+2346399,"Cherries, sweet, dark red, raw",energy,63.290775,958
+2346400,"Beans, snap, green, raw",energy,33.5679465,958
+2346401,"Potatoes, russet, without skin, raw",energy,80.9523625,958
+2346402,"Potatoes, red, without skin, raw",energy,73.373425,958
+2346403,"Potatoes, gold, without skin, raw",energy,71.575228,958
+2346404,"Sweet potatoes, orange flesh, without skin, raw",energy,77.35727375,958
+2346405,"Celery, raw",energy,14.83215875,958
+2346406,"Cucumber, with peel, raw",energy,13.934925,958
+2346407,"Cabbage, green, raw",energy,27.8695,958
+2346408,"Cabbage, red, raw",energy,29.943836,958
+2346409,"Strawberries, raw",energy,32.66565,958
+2346410,"Raspberries, raw",energy,51.412425,958
+2346411,"Blueberries, raw",energy,57.384621,958
+2346412,"Grapes, red, seedless, raw",energy,77.151876,958
+2346413,"Grapes, green, seedless, raw",energy,71.939325,958
+2346414,"Applesauce, unsweetened, with added vitamin C",energy,46.4205,958
+2512371,"Flour, amaranth",energy,377.9609,958
+2512372,"Flour, quinoa",energy,378.394015,958
+2512373,"Flour, sorghum",energy,363.8590417,958
+2512374,"Flour, buckwheat",energy,334.3016028,958
+2512375,"Flour, rye",energy,350.962038,958
+2512376,"Flour, barley",energy,357.191828,958
+2512377,"Flour, cassava",energy,358.55706075,958
+2512378,"Buckwheat, whole grain",energy,331.6005206,958
+2512379,"Millet, whole grain",energy,380.6064975,958
+2512380,"Rice, brown, long grain, unenriched, raw",energy,368.3584745,958
+2512381,"Rice, white, long grain, unenriched, raw",energy,369.637321,958
+2514743,"Beef, ground, 90% lean meat / 10% fat, raw",energy,190.134819,958
+2514744,"Beef, ground, 80% lean meat / 20% fat, raw",energy,247.812675,958
+2514745,"Pork, ground, raw",energy,233.442059,958
+2514746,"Chicken, ground, with additives, raw",energy,138.128494,958
+2514747,"Turkey, ground, 93% lean/ 7% fat, raw",energy,157.5897,958
+2515373,"Nuts, brazilnuts, raw",energy,620.950526,958
+2515374,"Nuts, cashew nuts, raw",energy,533.47799,958
+2515375,"Nuts, hazelnuts or filberts, raw",energy,602.39467,958
+2515376,"Peanuts, raw",energy,550.62181,958
+2515377,"Flour, chestnut",energy,384.58086,958
+2515378,"Nuts, macadamia nuts, raw",energy,668.54428,958
+2515379,"Nuts, pistachio nuts, raw",energy,560.68798,958
+2515380,"Seeds, pumpkin seeds (pepitas), raw",energy,514.83917,958
+2515381,"Seeds, sunflower seed, kernel, raw",energy,570.651,958
+2515382,"Flour, coconut",energy,423.62737,958
+2644281,"Beans, cannellini, dry",energy,336.59519,958
+2644282,"Chickpeas, (garbanzo beans, bengal gram), dry",energy,371.99469,958
+2644283,"Lentils, dry",energy,350.9328,958
+2644284,"Blackeye pea, dry",energy,345.5703,958
+2644285,"Beans, black, canned, sodium added, drained and rinsed",energy,115.28233,958
+2644286,"Beans, navy, canned, sodium added, drained and rinsed",energy,115.82665,958
+2644287,"Beans, cannellini, canned, sodium added, drained and rinsed",energy,112.0972,958
+2644288,"Chickpeas (garbanzo beans, bengal gram), canned, sodium added, drained and rinsed",energy,132.972,958
+2644289,"Beans, kidney, dark red, canned, sodium added, sugar added, drained and rinsed",energy,123.17082,958
+2644290,"Beans, kidney, light red, canned, sodium added, sugar added, drained and rinsed",energy,123.51359,958
+2644291,"Peas, green, sweet, canned, sodium added, sugar added, drained and rinsed",energy,77.798925,958
+2644292,"Beans, pinto, canned, sodium added, drained and rinsed",energy,113.59675,958
+2644293,"Blackeye pea, canned, sodium added, drained and rinsed",energy,112.882483,958
+2644294,"Beans, great northern, canned, sodium added, drained and rinsed",energy,113.66287,958
+2646168,"Pork, loin, boneless, raw",energy,173.72307,958
+2646169,"Pork, loin, tenderloin, boneless, raw",energy,125.02117,958
+2646170,"Chicken, breast, boneless, skinless, raw",energy,112.20227,958
+2646171,"Chicken, thigh, boneless, skinless, raw",energy,149.306475,958
+2646172,"Beef, ribeye, steak, boneless, choice, raw",energy,259.611425,958
+2646173,"Beef, round, top round, boneless, choice, raw",energy,146.43655,958
+2646174,"Beef, chuck, roast, boneless, choice, raw",energy,237.096894,958
+2646175,"Beef, flank, steak, boneless, choice, raw",energy,169.562744,958
+2647437,"Yogurt, plain, nonfat",energy,50.07437,958
+2647438,"Cheese, monterey jack, solid",energy,390.73759,958
+2647439,"Cheese, pasteurized process cheese food or product, American, singles",energy,307.89587,958
+2647440,"Cheese, provolone, sliced",energy,356.900072,958
+2647441,"Cheese, oaxaca, solid",energy,298.113882,958
+2647442,"Cheese, queso fresco, solid",energy,297.41686,958
+2647443,"Cheese, cotija, solid",energy,351.761072,958
+2684440,"Fish, salmon, sockeye, wild caught, raw",energy,136.22202,958
+2684441,"Fish, salmon, Atlantic, farm raised, raw",energy,203.10632,958
+2684442,"Fish, tilapia, farm raised, raw",energy,99.95727,958
+2684443,"Crustaceans, shrimp, farm raised, raw",energy,75.699433,958
+2684444,"Fish, cod, Atlantic, wild caught, raw",energy,70.477065,958
+2684445,"Fish, catfish, farm raised, raw",energy,133.787497,958
+2684446,"Crustaceans, crab, blue swimming, lump, pasteurized, refrigerated",energy,86.021115,958
+2685568,"Squash, summer, green, zucchini, includes skin, raw",energy,16.0,958
+2685568,"Squash, summer, green, zucchini, includes skin, raw",folate,71.0,417
+2685569,"Squash, summer, yellow, includes skin, raw",energy,19.0,958
+2685569,"Squash, summer, yellow, includes skin, raw",folate,36.0,417
+2685570,"Squash, winter, butternut, raw",energy,41.7165215,958
+2685570,"Squash, winter, butternut, raw",folate,55.0,417
+2685571,"Squash, winter, acorn, raw",energy,41.991125,958
+2685571,"Squash, winter, acorn, raw",folate,50.0,417
+2685572,"Cabbage, bok choy, raw",energy,17.0032275,958
+2685572,"Cabbage, bok choy, raw",folate,68.0,417
+2685573,"Cauliflower, raw",energy,22.85237775,958
+2685573,"Cauliflower, raw",folate,97.0,417
+2685574,"Collards, raw",energy,38.7580825,958
+2685574,"Collards, raw",folate,168.0,417
+2685575,"Brussels sprouts, raw",energy,48.77870625,958
+2685575,"Brussels sprouts, raw",folate,86.0,417
+2685576,"Beets, raw",energy,40.965255,958
+2685576,"Beets, raw",folate,103.0,417
+2685577,"Eggplant, raw",energy,22.35856525,958
+2685577,"Eggplant, raw",folate,20.0,417
+2685578,"Tomatoes, whole, canned, solids and liquids, with salt added",energy,19.149449,958
+2685579,"Tomato, sauce, canned, with salt added",energy,29.10400125,958
+2685580,"Tomato, paste, canned, without salt added",energy,88.53450625,958
+2685581,"Tomatoes, crushed, canned",energy,32.313665,958
+2685582,"Tomato, puree, canned",energy,34.76031875,958
+2710815,"Apricot, with skin, raw",energy,43.47915,958
+2710816,"Melons, honeydew, raw",energy,32.935251,958
+2710817,"Plantains, ripe, raw",energy,122.789661,958
+2710818,"Plantains, underripe, raw",energy,144.50803225,958
+2710819,"Chia seeds, dry, raw",energy,490.09552,958
+2710820,"Bulgur, dry, raw",energy,349.3017225,958
+2710821,"Wild rice, dry, raw",energy,358.55263,958
+2710822,"Arugula, baby, raw",energy,25.9078525,958
+2710822,"Arugula, baby, raw",folate,149.2,417
+2710823,"Asparagus, green, raw",energy,23.529215,958
+2710823,"Asparagus, green, raw",folate,182.5,417
+2710824,"Avocado, Hass, peeled, raw",energy,206.0493,958
+2710824,"Avocado, Hass, peeled, raw",folate,128.7,417
+2710825,"Rice, black, unenriched, raw",energy,360.53871,958
+2710826,"Corn, sweet, yellow and white kernels,  fresh, raw",energy,72.85765625,958
+2710827,"Einkorn, grain, dry, raw",energy,345.6801839,958
+2710828,"Farro, pearled, dry, raw",energy,344.0049964,958
+2710829,"Fonio, grain, dry, raw",energy,376.8911025,958
+2710830,"Khorasan, grain, dry, raw",energy,347.7914113,958
+2710831,"Kiwifruit (kiwi), green, peeled, raw",energy,58.48917,958
+2710831,"Kiwifruit (kiwi), green, peeled, raw",folate,32.85,417
+2710832,"Mandarin, seedless, peeled, raw",energy,55.640145,958
+2710833,"Mango, Tommy Atkins, peeled, raw",energy,61.635825,958
+2710834,"Mango, Ataulfo, peeled, raw",energy,70.638801,958
+2710835,"Corn flour, masa harina, white or yellow, dry, raw",energy,366.03011,958
+2710836,"Pear, Anjou, green, with skin, raw",energy,57.320421,958
+2710837,"Plum, black, with skin, raw",energy,52.747095,958
+2710838,"Rice, red, unenriched, dry, raw",energy,359.99995,958
+2710839,"Sorghum bran, white, unenriched, dry, raw",energy,364.50325,958
+2710840,"Sorghum flour, white, pearled, unenriched, dry, raw",energy,349.558015,958
+2710841,"Sorghum grain, white, pearled, unenriched, dry, raw",energy,338.38971,958
+2710842,"Sorghum, whole grain, white, dry, raw",energy,340.98918,958
+2710843,"Plantains, overripe, raw",energy,117.29613,958
+2727566,"Chicken, drumstick, meat and skin, raw",energy,130.121544,958
+2727567,"Chicken, thigh, meat and skin, raw",energy,192.792919,958
+2727568,"Chicken, wing, meat and skin, raw",energy,172.792125,958
+2727569,"Chicken, breast, meat and skin, raw",energy,132.8359,958
+2727570,"Lamb, ground, raw",energy,241.727079,958
+2727571,"Bison, ground, raw",energy,164.411779,958
+2727572,"Beef, short loin (NY strip steak), raw",energy,196.004594,958
+2727573,"Beef, tenderloin steak, raw",energy,149.001,958
+2727574,"Beef, top sirloin steak, raw",energy,146.16307,958
+2727575,"Pork, chop, center cut, raw",energy,144.617,958
+2727576,"Pork, belly, with skin, raw",energy,385.36225,958
+2727577,"Pawpaw, peeled, seeded, raw",folate,116.1,417
+2727578,"Squash, pie pumpkin, peeled, seeded, raw",folate,30.98,417
+2727579,"Squash, spaghetti, peeled, seeded, raw",folate,12.7,417
+2727582,"Tomatillos, dehusked, raw",folate,16.39,417
+2727587,"Juice, prune, shelf-stable",folate,5.293,417
+2727589,"Juice, tart cherry, from concentrate, shelf-stable",folate,4.674,417
+2747652,"Anchovies, canned in olive oil, with salt, drained",energy,206.065,957
+2747653,"Beet greens, raw",energy,26.367,957
+2747653,"Beet greens, raw",folate,151.8,417
+2747654,"Cod, Pacific or Alaskan, frozen, wild caught",energy,60.84,957
+2747655,"Fennel, bulb, raw",energy,26.8924,957
+2747655,"Fennel, bulb, raw",folate,37.02,417
+2747656,"Halibut, frozen, wild caught",energy,81.3345,957
+2747657,"Lobster, tail only, frozen, wild caught",energy,58.8175,957
+2747658,"Mahi mahi, frozen, wild caught",energy,83.7115,957
+2747659,"Parsnips, raw",energy,87.0745,957
+2747659,"Parsnips, raw",folate,83.42,417
+2747660,"Peppers, banana or Hungarian wax, seeded, raw",energy,23.9398,957
+2747660,"Peppers, banana or Hungarian wax, seeded, raw",folate,31.82,417
+2747661,"Peppers, jalapeno, seeded, raw",energy,24.1264,957
+2747661,"Peppers, jalapeno, seeded, raw",folate,27.43,417
+2747662,"Peppers, poblano, seeded, raw",energy,27.9906,957
+2747662,"Peppers, poblano, seeded, raw",folate,26.05,417
+2747663,"Peppers, serrano, seeded, raw",energy,29.233,957
+2747663,"Peppers, serrano, seeded, raw",folate,28.23,417
+2747664,"Radicchio, raw",energy,26.3679,957
+2747664,"Radicchio, raw",folate,116.6,417
+2747665,"Radishes, red, raw",energy,19.60045,957
+2747665,"Radishes, red, raw",folate,63.2,417
+2747666,"Scallops, bay, Patagonian, frozen, wild caught",energy,78.456,957
+2747667,"Scallops, sea, frozen, wild caught",energy,66.3545,957
+2747668,"Sea bass, Chilean, frozen, wild caught",energy,209.3868,957
+2747669,"Snapper, frozen, wild caught",energy,89.538,957
+2747670,"Snow crab, legs only, frozen  ",energy,69.223,957
+2747671,"Squid (calamari), frozen, tubes only",energy,43.9108,957
+2747672,"Swordfish, frozen, wild caught",energy,151.855,957
+2747673,"Tuna, ahi or yellowfin, frozen, wild caught",energy,101.8695,957
+2747674,"Turnips, raw",energy,33.9816,957
+2747674,"Turnips, raw",folate,60.24,417
+2747675,"Watermelon, seedless, flesh only, raw",folate,11.93,417
+2747676,"Watermelon, seedless, rind only, raw",energy,19.419,957
+2747676,"Watermelon, seedless, rind only, raw",folate,29.68,417
+2768188,"Alaska Pollock, raw",energy,78.4785,957
+2768188,"Alaska Pollock, raw",folate,9.573,417
