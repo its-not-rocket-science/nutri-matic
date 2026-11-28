@@ -197,6 +197,31 @@ jobs:
           python -m alembic downgrade -1
           python -m alembic upgrade head
 
+      # Canonical foods plan Q6 (owner, 2026-11-28): grade the 34 golden
+      # en-GB search queries against the migrated production copy. Read-only
+      # (the report sets default_transaction_read_only on every connection),
+      # and it prints only public FDC/canonical food names and timings, never
+      # user data. NON-BLOCKING: a regression shows as a warning annotation
+      # and a failed step, but continue-on-error keeps the job green, so it
+      # never stops a deploy.
+      - name: Golden search report on the production copy (non-blocking)
+        continue-on-error: true
+        timeout-minutes: 10
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:rehearsal@localhost:5432/rehearsal
+        run: |
+          status=0
+          python -m app.search_golden_report --github > golden_report.out || status=$?
+          # workflow-command lines (::warning) are for the log; the table is for the summary
+          grep '^::' golden_report.out || true
+          {
+            echo "## Golden search report (production copy, after migrations)"
+            echo
+            grep -v '^::' golden_report.out
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
   deploy:
     needs: [changes, rehearse-migration]
     if: ${{ needs.changes.outputs.needed == 'true' }}
