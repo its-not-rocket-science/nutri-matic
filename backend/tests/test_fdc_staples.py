@@ -156,3 +156,58 @@ def test_staple_canonicals_are_exactly_the_migrations_added_keys():
     names = {f.fdc_id: f.name for f in load_extract()}
     for key in on_staples:
         assert canonicals[key].anchor_fdc_name == names[canonicals[key].anchor_fdc_id], key
+
+
+# --- fresh install: migrations ran before ingest (Codex review on #130) ----
+
+def test_fresh_install_reaches_the_upgraded_state_through_the_load_commands(monkeypatch):
+    """On a fresh database both data migrations skip (no catalogue yet). After
+    ingest, `fdc_staples load` then `canonical_foods load` must give the same
+    result an upgraded database gets from its migrations."""
+    import json
+
+    from app import database
+    from app.canonical_foods.csv_schema import CanonicalCsvError
+    from app.canonical_foods.loader import load as load_canonicals
+    from app.fdc_staples import main as staples_cli
+    from app.models import CanonicalFood
+    from sqlalchemy.pool import StaticPool
+
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    monkeypatch.setattr(database, "SessionLocal", Session)
+
+    # migrations on the empty database: the staples step skips
+    assert staples_cli(["load"]) == 1
+
+    # "ingest": every golden-catalogue row except the staples, which ingest skips
+    session = Session()
+    fixture = Path(__file__).parent / "fixtures" / "search_golden_catalogue.json"
+    for row in json.loads(fixture.read_text(encoding="utf-8"))["foods"]:
+        if row["fdc_id"] in STAPLES:
+            continue
+        session.add(Food(id=row["id"], fdc_id=row["fdc_id"], name=row["name"], data_type=row["data_type"],
+                         protein_g_per_100g=1.0, amino_acids={}))
+        session.add(FoodNutrient(food_id=row["id"], nutrient_key="energy", amount_per_100g=100.0))
+    session.commit()
+
+    with pytest.raises(CanonicalCsvError) as e:
+        load_canonicals(session, load_file())
+    session.rollback()
+    missing = [p for p in e.value.problems if "not in the catalogue" in p]
+    assert len(missing) == len(STAPLES)
+    assert all("run python -m app.fdc_staples load first" in p for p in missing)
+
+    assert staples_cli(["load", "--dry-run"]) == 0
+    assert session.scalar(select(func.count()).select_from(Food).where(Food.fdc_id.in_(STAPLES))) == 0
+    assert staples_cli(["load"]) == 0
+    assert staples_cli(["load"]) == 0  # idempotent
+    session.expire_all()
+    assert session.scalar(select(func.count()).select_from(Food).where(Food.fdc_id.in_(STAPLES))) == len(STAPLES)
+
+    result = load_canonicals(session, load_file())
+    session.commit()
+    assert len(result.created) == len(load_file())
+    assert session.scalar(select(func.count()).select_from(CanonicalFood)) == len(load_file())
+    session.close()

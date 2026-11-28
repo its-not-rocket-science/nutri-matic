@@ -230,6 +230,17 @@ prints a per-dataset summary (`considered`/`skipped_no_protein`/`inserted`) so y
 happened. Foods it skips for that reason (mainly pure fats/oils/sugars/salt) aren't a bug; see
 the next step.
 
+**2b. Load the protein-free staples, then the canonical foods.** On a fresh database
+`alembic upgrade head` runs before any ingest, so the data migrations that add these find no
+catalogue and skip. Run both once after ingesting (each is idempotent):
+
+```bash
+python -m app.fdc_staples load        # 23 SR Legacy sugars/oils/salt/vinegars/tea/water rows
+python -m app.canonical_foods load    # reviewed canonical foods (search tier 1); anchors on the staples
+```
+
+Both accept `--dry-run`. An upgraded database already has both from its migrations.
+
 **3. Backfill digestibility coefficients** (DIAAS/PDCAAS scores are null for every food until
 this runs — it's a separate step from ingestion on purpose, so the reference table in
 `digestibility_reference.py` can be revised and re-applied without re-ingesting):
@@ -238,7 +249,8 @@ this runs — it's a separate step from ingestion on purpose, so the reference t
 python -m app.assign_digestibility
 ```
 
-**4. (Optional) Seed pure-fat foods** — oils/ghee have no protein, so step 2 always skips them
+**4. (Optional) Seed pure-fat foods** — step 2b already adds the common SR Legacy oils; this
+adds hand-entered olive/rapeseed oil and ghee rows without FDC ids. Oils/ghee have no protein, so step 2 always skips them
 (by design: amino acid scoring needs a protein value, and fabricating one would misrepresent the
 food). If you want recipes with realistic calorie counts for dishes that use oil/butter/ghee,
 add a small set of hand-entered pure-fat foods (protein 0, so they never affect any DIAAS/PDCAAS

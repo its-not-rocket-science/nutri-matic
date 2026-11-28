@@ -27,6 +27,16 @@ production loads. Rebuild it from the export with
 and `python -m app.fdc_staples verify --sr-dir ...` checks the committed
 file against the export byte for byte.
 
+Loading:
+  * an upgraded database gets the rows from the data migration below;
+  * a fresh install runs migrations before any FDC ingest, so that
+    migration skips (nothing to add to yet). After ingesting, run
+
+        python -m app.fdc_staples load [--dry-run]
+
+    and then `python -m app.canonical_foods load`, which anchors on these
+    rows (README setup steps). Both are idempotent.
+
 Production loads it through an Alembic data migration pinned to the
 extract's sha256 (owner's decision, as for the canonical CSV). Inserting
 rows changes the catalogue snapshot checksum (catalogue_manifest.py), so
@@ -202,7 +212,12 @@ def main(argv: list[str] | None = None) -> int:
                         ("verify", "Check the committed extract against the raw SR export")):
         p = sub.add_parser(name, help=help_)
         p.add_argument("--sr-dir", type=Path, required=True)
+    p = sub.add_parser("load", help="Insert the committed extract into the database DATABASE_URL points at "
+                                    "(after ingest_fdc on a fresh install)")
+    p.add_argument("--dry-run", action="store_true", help="Report what would be inserted, then roll back")
     args = parser.parse_args(argv)
+    if args.command == "load":
+        return _load(args.dry_run)
     text = render(build_rows(args.sr_dir))
     if args.command == "build":
         EXTRACT_PATH.write_text(text, encoding="utf-8", newline="\n")
@@ -212,6 +227,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{EXTRACT_PATH.name} differs from the export", file=sys.stderr)
         return 1
     print(f"{EXTRACT_PATH.name} matches the export (sha256 {file_sha256()})")
+    return 0
+
+
+def _load(dry_run: bool) -> int:
+    from .database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        result = apply(db, load_extract())
+        print(result.summary())
+        if result.skipped_reason:
+            print("ingest the FDC catalogue first (python -m app.ingest_fdc), then re-run", file=sys.stderr)
+            db.rollback()
+            return 1
+        if dry_run:
+            db.rollback()
+            print("dry run: rolled back, nothing written")
+        else:
+            db.commit()
+    finally:
+        db.close()
     return 0
 
 
