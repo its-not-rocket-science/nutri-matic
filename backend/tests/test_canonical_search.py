@@ -19,7 +19,7 @@ from app.canonical_foods.csv_schema import COLUMNS, CanonicalCsvError, load_file
 from app.canonical_foods.loader import load
 from app.database import Base, get_db
 from app.main import app
-from app.models import Food
+from app.models import Food, FoodNutrient
 from app.search import search_foods_by_name_hits
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -37,10 +37,13 @@ FOODS = [
 ]
 
 
+NAMES = {fdc_id: name for _, fdc_id, _, name in FOODS}
+
+
 def _row(key, gb, us, anchor, alias, locale="*", relationship="exact", note="", ambiguous=""):
     concept, state = key.split(".")
-    return dict(zip(COLUMNS, (concept, key, state, gb, us, str(anchor), alias, locale, relationship, note,
-                               ambiguous, "Tester", "2026-11-28", "")))
+    return dict(zip(COLUMNS, (concept, key, state, gb, us, str(anchor), NAMES[anchor], alias, locale,
+                               relationship, note, ambiguous, "Tester", "2026-11-28", "")))
 
 
 ROWS = [
@@ -75,6 +78,7 @@ def _session(rows=ROWS):
     for id_, fdc_id, data_type, name in FOODS:
         session.add(Food(id=id_, fdc_id=fdc_id, data_type=data_type, name=name, protein_g_per_100g=1.0,
                          amino_acids={}))
+        session.add(FoodNutrient(food_id=id_, nutrient_key="energy", amount_per_100g=100.0))
     session.commit()
     if rows:
         load(session, parse(_csv(rows)))
@@ -245,6 +249,7 @@ def golden_db():
     for row in json.loads((FIXTURES / "search_golden_catalogue.json").read_text(encoding="utf-8"))["foods"]:
         session.add(Food(id=row["id"], fdc_id=row["fdc_id"], name=row["name"], data_type=row["data_type"],
                          protein_g_per_100g=1.0, amino_acids={}))
+        session.add(FoodNutrient(food_id=row["id"], nutrient_key="energy", amount_per_100g=100.0))
     session.commit()
     load(session, load_file(require_signoff=False))
     session.commit()
@@ -269,3 +274,41 @@ def test_every_alias_in_the_file_leads_to_its_concept(golden_db, alias, locale, 
     assert hits and hits[0].canonical_key is not None
     concepts = {h.canonical_key.split(".")[0] for h in hits if h.canonical_key}
     assert concept in concepts
+
+
+# The first variant shown for every alias that covers several preparation
+# states of one concept. Owner decisions: PR 1 (tinned chickpeas, kidney
+# beans, tomatoes, sweetcorn; dry lentils, rice, pasta, porridge oats; raw
+# vegetables) and the PR 4b review (frozen peas, tinned black beans).
+# A new multi-state alias must be added here, so its default is a decision.
+MULTI_STATE_FIRST = {
+    "chickpeas": "canned_drained", "chickpea": "canned_drained",
+    "kidney beans": "canned_drained", "red kidney beans": "canned_drained",
+    "tomatoes": "canned_with_liquid", "tomato": "canned_with_liquid",
+    "sweetcorn": "canned_drained", "sweet corn": "canned_drained",
+    "black beans": "canned_with_liquid",
+    "lentils": "dry",
+    "rice": "dry", "white rice": "dry", "basmati rice": "dry", "brown rice": "dry",
+    "pasta": "dry", "spaghetti": "dry", "penne": "dry", "fusilli": "dry",
+    "oats": "dry",
+    "peas": "frozen",
+}
+
+
+def _multi_state_aliases():
+    states: dict[tuple[str, str], set[str]] = {}
+    for canonical in load_file(require_signoff=False).values():
+        for a in canonical.aliases:
+            states.setdefault((a.alias, a.locale), set()).add(canonical.key)
+    return sorted(k for k, keys in states.items() if len({key.split(".")[0] for key in keys}) == 1 and len(keys) > 1)
+
+
+def test_every_multi_state_alias_has_a_decided_default():
+    undecided = sorted({alias for alias, _ in _multi_state_aliases()} - set(MULTI_STATE_FIRST))
+    assert not undecided, f"decide the first preparation state for: {undecided}"
+
+
+@pytest.mark.parametrize("alias, locale", _multi_state_aliases(), ids=lambda v: str(v))
+def test_multi_state_alias_lists_the_decided_state_first(golden_db, alias, locale):
+    hits = _search(golden_db, alias, locale="en-GB" if locale == "*" else locale)
+    assert hits[0].canonical_key.split(".")[1] == MULTI_STATE_FIRST[alias], [h.canonical_key for h in hits[:4]]

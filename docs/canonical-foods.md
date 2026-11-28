@@ -17,8 +17,14 @@ page covers the day-to-day workflow.
 
 ## Changing the file
 
-1. **Edit the CSV.** There is one row per alias. Keep the canonical columns
-   identical on every row of the same `canonical_key`.
+1. **Edit the CSV as UTF-8 text**, not in Excel. A spreadsheet round trip
+   garbles accents ("purÃ©e"), adds a byte-order mark and rewrites dates as
+   28/11/2026. The validator rejects all three. There is one row per alias.
+   Keep the canonical columns identical on every row of the same
+   `canonical_key`.
+   - `anchor_fdc_name` is the anchor row's exact FDC name, so a reviewer can
+     see what the id is. The load fails if the catalogue's name differs, and
+     also if the anchor reports no energy.
    - Anchors are FDC ids of **SR Legacy or Foundation** rows. The anchor's
      classified preparation state must equal the row's `preparation_state`;
      `python -m app.preparation_coverage_report` and `classify_preparation`
@@ -71,7 +77,10 @@ page covers the day-to-day workflow.
 - The concept's other active preparation variants follow as siblings
   ("chickpeas" → tinned, boiled, dried). Within a concept the matched
   canonicals come first, then the preparation tie-break: the state the query
-  names, else the en-GB default (tinned chickpeas, dry lentils, ...).
+  names, else the en-GB default (tinned chickpeas, dry lentils, frozen
+  peas, ...). `tests/test_canonical_search.py::MULTI_STATE_FIRST` records
+  the expected first state for every alias that covers several states; a
+  new one fails CI until its default is decided.
 - An `ambiguous` alias ("milk", "pepper") lists each concept, in concept-key
   order.
 - The ranked token search fills the rest of the list without repeating an

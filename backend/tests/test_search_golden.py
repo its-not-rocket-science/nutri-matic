@@ -27,7 +27,7 @@ from sqlalchemy.orm import sessionmaker
 from app.canonical_foods.csv_schema import load_file
 from app.canonical_foods.loader import load
 from app.database import Base
-from app.models import Food
+from app.models import Food, FoodNutrient
 from app.search import search_foods_by_name_hits
 from app.search_golden_report import judge, load_golden, must_not_violations
 
@@ -45,6 +45,7 @@ def _catalogue_session(with_canonical: bool):
             id=row["id"], fdc_id=row["fdc_id"], name=row["name"], data_type=row["data_type"],
             protein_g_per_100g=1.0, amino_acids={},
         ))
+        session.add(FoodNutrient(food_id=row["id"], nutrient_key="energy", amount_per_100g=100.0))
     session.commit()
     if with_canonical:
         # sign-off is gated separately (test_canonical_foods); this tests

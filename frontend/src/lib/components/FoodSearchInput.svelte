@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api } from '#lib/api.ts';
 	import type { Food } from '#lib/types.ts';
+	import { searchResultText } from '#lib/searchResult.ts';
 
 	let {
 		onSelect,
@@ -74,19 +75,16 @@
 {:else if results.length > 0}
 	<ul class="search-results card">
 		{#each results as food (food.id)}
+			{@const text = searchResultText(food)}
 			<li>
 				<button type="button" class="btn-plain" onclick={() => handleSelect(food)}>
 					<span class="result-name">
-						{#if food.canonical_name}
-							<span>{food.canonical_name}</span>
-							<span class="muted search-source">
-								{food.canonical_source ?? 'USDA'}: {food.name}
-							</span>
-						{:else}
-							<span>{food.name}</span>
+						<span>{text.title}</span>
+						{#if text.source}
+							<span class="muted search-source">{text.source}</span>
 						{/if}
-						{#if food.search_note}
-							<span class="muted search-note">{food.search_note}</span>
+						{#if text.note}
+							<span class="muted search-note">{text.note}</span>
 						{/if}
 					</span>
 					{#if food.preparation_label}

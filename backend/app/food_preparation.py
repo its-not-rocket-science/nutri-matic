@@ -306,10 +306,15 @@ DEFAULT_PREPARATION_BY_LOCALE: dict[str, list[tuple[tuple[str, ...], str]]] = {
         (("baked", "bean"), "canned_drained"),
         (("tomato",), "canned_drained"),
         (("sweetcorn",), "canned_drained"),
+        (("sweet", "corn"), "canned_drained"),
         (("lentil",), "dry"),
         (("rice",), "dry"),
         (("pasta",), "dry"),
         (("porridge", "oat"), "dry"),
+        # owner's review of PR 4b: frozen peas are what most UK diaries
+        # mean; black beans are usually bought tinned
+        (("pea",), "frozen"),
+        (("black", "bean"), "canned_drained"),
     ],
     EN_US: [],
 }

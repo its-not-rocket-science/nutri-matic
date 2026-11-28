@@ -11,9 +11,12 @@ dump before the deploy approval gate. The CLI is for local use.
 Checks, all before anything is written (plan 3.4):
   * the file passes csv_schema.parse (closed vocabularies, reviewer and
     date on every row, no conflicting aliases, ...);
-  * every anchor_fdc_id exists, is a Foundation or SR Legacy row, and its
-    classified preparation state equals the canonical's (the plan 3.1
-    invariant). A branded or derived default needs PR 5.
+  * every anchor_fdc_id exists, is a Foundation or SR Legacy row, has the
+    exact name the file's anchor_fdc_name says (so the id a reviewer
+    signed off is the row they read), reports energy (plan 1.3: many
+    Foundation rows do not), and its classified preparation state equals
+    the canonical's (the plan 3.1 invariant). A branded or derived default
+    needs PR 5.
 
 The load is one transaction and all-or-nothing. It is idempotent and
 replaces canonical rows by key: a key's fields, aliases and anchor are
@@ -32,7 +35,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..food_preparation import classify_preparation
-from ..models import CanonicalAlias, CanonicalFood, CanonicalMember, Food
+from ..models import CanonicalAlias, CanonicalFood, CanonicalMember, Food, FoodNutrient
 from .csv_schema import CSV_PATH, CanonicalCsvError, CanonicalRow
 
 _GENERIC_TYPES = ("foundation_food", "sr_legacy_food")
@@ -66,6 +69,13 @@ def resolve_anchors(db: Session, canonicals: dict[str, CanonicalRow]) -> dict[st
     listing every anchor that is missing, branded or in the wrong state."""
     fdc_ids = {c.anchor_fdc_id for c in canonicals.values()}
     foods = {f.fdc_id: f for f in db.execute(select(Food).where(Food.fdc_id.in_(fdc_ids))).scalars()}
+    with_energy = set(db.execute(
+        select(FoodNutrient.food_id).where(
+            FoodNutrient.food_id.in_([f.id for f in foods.values()]),
+            FoodNutrient.nutrient_key == "energy",
+            FoodNutrient.amount_per_100g.isnot(None),
+        )
+    ).scalars())
     problems, anchors = [], {}
     for key, canonical in sorted(canonicals.items()):
         food = foods.get(canonical.anchor_fdc_id)
@@ -77,6 +87,15 @@ def resolve_anchors(db: Session, canonicals: dict[str, CanonicalRow]) -> dict[st
                 f"{key}: anchor fdc_id {canonical.anchor_fdc_id} ({food.name!r}) is {food.data_type}, "
                 "not Foundation or SR Legacy"
             )
+            continue
+        if food.name != canonical.anchor_fdc_name:
+            problems.append(
+                f"{key}: anchor fdc_id {canonical.anchor_fdc_id} is {food.name!r} in the catalogue, "
+                f"but the file says {canonical.anchor_fdc_name!r}"
+            )
+            continue
+        if food.id not in with_energy:
+            problems.append(f"{key}: anchor {food.name!r} reports no energy value")
             continue
         state = classify_preparation(food.name, food.data_type)
         if state != canonical.preparation_state:
