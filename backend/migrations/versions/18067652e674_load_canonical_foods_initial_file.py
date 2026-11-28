@@ -31,7 +31,7 @@ down_revision: Union[str, None] = '348add18915d'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-CSV_SHA256 = "PENDING-REVIEW"
+CSV_SHA256 = "2a2eb670c92415c0be55305fb7400d4050fbcbb5913b4203f10025b5c88c84d8"
 
 
 def upgrade() -> None:
