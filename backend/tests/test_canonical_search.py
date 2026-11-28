@@ -312,3 +312,15 @@ def test_every_multi_state_alias_has_a_decided_default():
 def test_multi_state_alias_lists_the_decided_state_first(golden_db, alias, locale):
     hits = _search(golden_db, alias, locale="en-GB" if locale == "*" else locale)
     assert hits[0].canonical_key.split(".")[1] == MULTI_STATE_FIRST[alias], [h.canonical_key for h in hits[:4]]
+
+
+@pytest.mark.parametrize("query, locale, key, note", [
+    ("caster sugar", "en-GB", "sugar_white.unspecified", "US granulated sugar; caster is the same sugar, ground finer"),
+    ("vegetable oil", "en-GB", "oil_rapeseed.unspecified", "UK vegetable oil is usually rapeseed oil"),
+    ("vegetable oil", "en-US", "oil_soybean.unspecified", "US vegetable oil is usually soybean oil"),
+    ("tea", "en-GB", "tea_black.unspecified", "brewed, without milk; add milk separately"),
+    ("golden syrup", "en-GB", "syrup_cane.unspecified", "US cane syrup; golden syrup is a similar sugar syrup"),
+])
+def test_staple_aliases_disclose_their_approximation(golden_db, query, locale, key, note):
+    top = _search(golden_db, query, locale=locale)[0]
+    assert (top.canonical_key, top.note) == (key, note)

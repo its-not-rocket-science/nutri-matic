@@ -688,6 +688,13 @@ workflow (row id, verdict, reviewer, date, notes).
 | 5 | **Typical values** (medoid logging, median display, refusal rules from 3.2) for canonicals without an anchor. | Additive table from PR 4 | Covers UK-only concepts with no SR/Foundation row. |
 | 6 | Optional. **Golden report in the rehearse job** (non-blocking), and the Foundation energy/folate mapping fix (1.3) as its own PR. | No | Ongoing regression visibility on real data. Better Foundation anchors. |
 
+**PR 5 is deferred** (Q4, answered 2026-11-28). In its place: **protein-free
+SR staples.** `ingest_fdc.py` skips every row with no protein, so the
+catalogue had no white sugar, cooking oil, salt, vinegar, plain tea or
+water. A data migration inserts an owner-approved shortlist of 23 SR Legacy
+rows with their FDC ids (`backend/app/fdc_staples.py`), and canonical rows
+anchor on them. It changes the catalogue checksum (see 1.5).
+
 Not proposed here: re-pointing existing GTINs to the newest label version
 (a data change to `foods`, which alters the checksum) and new data sources
 (Q7).
@@ -732,6 +739,14 @@ Not proposed here: re-pointing existing GTINs to the newest label version
 4. **Typical-value thresholds.** Are N ≥ 10 distinct products and an
    IQR/median of 0.5 or less acceptable? Or should we skip typical values
    entirely until UK data exists?
+   - **Answered 2026-11-28: skip PR 5 for now.** On the full local
+     catalogue the draft rule qualified only six UK concepts with no SR or
+     Foundation row (halloumi, muesli, scones, flapjack, gnocchi, tikka
+     masala sauce), and their micronutrients would show "not reported".
+     The protein-free SR staples gap (sugar, oils, salt) went next instead.
+   - If PR 5 is revisited, branded members are reviewed as **a name rule
+     plus a tracked snapshot of the matched members** (fdc_id and name),
+     reviewed in the PR. The load uses only the snapshot.
 5. **Loading in production.** A new wrapper command (needs a wrapper
    reinstall), or an alembic data migration (rehearsed, but every CSV edit
    becomes a migration)?

@@ -12,7 +12,7 @@ page covers the day-to-day workflow.
 | Column rules | the docstring of `backend/app/canonical_foods/csv_schema.py` |
 | Loader | `backend/app/canonical_foods/loader.py` |
 | Tables | `canonical_foods`, `canonical_aliases`, `canonical_members`, `canonical_typical_values` |
-| Loads in production | Alembic data migrations that pin the file's sha256 (`348add18915d`, then `18067652e674`) |
+| Loads in production | Alembic data migrations that pin the file's sha256 (`348add18915d`, `18067652e674`, then `cf2908ff260e`) |
 | Read by | `search.search_foods_by_name_hits`, tier 1 (below) |
 
 ## Changing the file
@@ -63,7 +63,9 @@ page covers the day-to-day workflow.
   - A key that is removed from the file becomes `retired`: its aliases are
     removed and the row stays.
 - It is skipped on a database with no FDC catalogue rows (CI, a fresh dev
-  database).
+  database). After ingesting into a fresh database (`app.ingest_fdc` also
+  inserts the protein-free staples the file anchors on), run
+  `python -m app.canonical_foods load` (README step 2b).
 - It never writes `foods`, so the catalogue checksum does not change. It never
   reads or writes phytate data.
 - Diary entries, recipes and plans keep their own `food_id`. Nothing is
@@ -91,5 +93,7 @@ page covers the day-to-day workflow.
 
 ## Not yet
 
-- `canonical_typical_values` stays empty until PR 5, so a concept with no
-  SR Legacy or Foundation row (caster sugar, oils, salt) has no canonical.
+- `canonical_typical_values` stays empty: PR 5 (typical values) is deferred
+  (plan Q4). A concept with no SR Legacy or Foundation row has no canonical.
+- Sugar, oils, salt and other protein-free staples are anchorable since the
+  SR staples migration (`5085bc12af5a`, `backend/app/fdc_staples.py`).

@@ -16,7 +16,11 @@ that file's presence, no separate flag needed.
 Only foods with data_type "foundation_food", "sr_legacy_food", or
 "branded_food" are considered. Foods without a usable protein value are
 skipped (amino acid content can't be expressed per gram protein without
-it). Individual amino acids missing from the source data are left null —
+it). After a real (non --dry-run) ingest, the reviewed protein-free SR
+Legacy staples (white sugar, cooking oils, salt, ...; app/fdc_staples.py)
+are inserted from their committed extract, so a fresh install reaches the
+same catalogue as an upgraded one. That step is idempotent; --no-staples
+skips it. Individual amino acids missing from the source data are left null —
 see IncompleteAminoAcidProfile in scoring.py for how that's handled at
 score time. In practice Branded Foods foods are *always* missing amino
 acids (nutrition labels don't publish them), so scanned/packaged foods are
@@ -231,14 +235,31 @@ def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
     return stats
 
 
-def main() -> None:
+def load_staples_after_ingest() -> str:
+    """The post-ingest hook: insert the reviewed protein-free SR staples that
+    ingest_dir() skips (no protein). Idempotent; never touches an existing
+    row. Returns the summary line."""
+    from .fdc_staples import apply, load_extract
+
+    db = SessionLocal()
+    try:
+        result = apply(db, load_extract())
+        db.commit()
+        return result.summary()
+    finally:
+        db.close()
+
+
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--dir", dest="dirs", action="append", required=True,
         help="Path to an unzipped FDC CSV export directory. Repeatable.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Parse and report counts without writing to the DB")
-    args = parser.parse_args()
+    parser.add_argument("--no-staples", action="store_true",
+                        help="Do not insert the protein-free SR staples (app/fdc_staples.py) afterwards")
+    args = parser.parse_args(argv)
 
     if not args.dry_run:
         Base.metadata.create_all(bind=engine)
@@ -263,6 +284,9 @@ def main() -> None:
     print(f"Total: considered={totals['considered']} skipped_no_protein={totals['skipped_no_protein']} "
           f"inserted={totals['inserted']} updated={totals['updated']} complete_profile={totals['complete']} "
           f"nutrient_rows={totals['nutrient_rows']} duplicate_barcode_skipped={totals['duplicate_barcode_skipped']}")
+
+    if not args.dry_run and not args.no_staples:
+        print(load_staples_after_ingest())
 
 
 if __name__ == "__main__":

@@ -18,7 +18,20 @@ alone.
   `ingest_fdc.py`).
 - **How it is loaded:** `python -m app.ingest_fdc`. Foods without a usable
   protein value are skipped (`ingest_fdc.py`), so zero-protein FDC rows,
-  such as pure oils and sugars, are not in the catalogue. A GTIN is kept
+  such as pure oils and sugars, are not loaded by ingest.
+- **Protein-free staples (added 2026-11-28):** 23 of those SR Legacy rows
+  (white and icing sugar, cooking oils, table salt, syrups, vinegars, brewed
+  tea, tap water, lard, beef tallow) are inserted by the Alembic data
+  migration `5085bc12af5a` from the committed extract
+  `backend/app/fdc_staples_sr_legacy_2018_04.csv`.
+  - Source: SR Legacy April 2018 CSV export,
+    `FoodData_Central_sr_legacy_food_csv_2018-04.zip`, sha256
+    `b80817294b8850530aaedf2e515c02593b1824f763a0ff356e5c2081643e6fd0`
+    (the local download; it is git-ignored).
+  - `python -m app.fdc_staples verify --sr-dir <unzipped export>` checks the
+    extract against it.
+  - The rows are written exactly as `ingest_fdc.py` would write them, except
+    that protein is 0 and every amino acid is null. A GTIN is kept
   only on the first row that claims it; later label versions of the same
   barcode are stored without one (`docs/plans/canonical-foods-plan.md`
   1.1.1).

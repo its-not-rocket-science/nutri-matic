@@ -35,6 +35,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from ..food_preparation import classify_preparation
+from ..fdc_staples import STAPLES
 from ..models import CanonicalAlias, CanonicalFood, CanonicalMember, Food, FoodNutrient
 from .csv_schema import CSV_PATH, CanonicalCsvError, CanonicalRow
 
@@ -80,7 +81,9 @@ def resolve_anchors(db: Session, canonicals: dict[str, CanonicalRow]) -> dict[st
     for key, canonical in sorted(canonicals.items()):
         food = foods.get(canonical.anchor_fdc_id)
         if food is None:
-            problems.append(f"{key}: anchor fdc_id {canonical.anchor_fdc_id} is not in the catalogue")
+            hint = (" (a protein-free SR staple: run python -m app.fdc_staples load first)"
+                    if canonical.anchor_fdc_id in STAPLES else "")
+            problems.append(f"{key}: anchor fdc_id {canonical.anchor_fdc_id} is not in the catalogue{hint}")
             continue
         if food.data_type not in _GENERIC_TYPES:
             problems.append(
