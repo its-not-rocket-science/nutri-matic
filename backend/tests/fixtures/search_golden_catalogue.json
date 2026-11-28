@@ -1,5 +1,5 @@
 {
-"_about": "Mini catalogue for the en-GB search golden tests. Every row is a real public USDA FoodData Central name and fdc_id (Foundation, SR Legacy or Branded), taken from a full FDC import. Branded rows are the adversarial matches observed in docs/plans/canonical-foods-plan.md section 1.2, plus a few right-food branded rows. No other source.",
+"_about": "Mini catalogue for the en-GB search golden tests. Every row is a real public USDA FoodData Central name and fdc_id (Foundation, SR Legacy or Branded), taken from a full FDC import. Branded rows are the adversarial matches observed in docs/plans/canonical-foods-plan.md section 1.2, plus a few right-food branded rows. No other source. Rows 739 onwards are the anchors of the canonical-foods CSV (app/canonical_foods/canonical_foods_en_gb.csv), so the golden tests can run with the canonical layer loaded.",
 "foods": [
 {
 "id": 1,
@@ -4428,6 +4428,438 @@
 "fdc_id": 2755828,
 "data_type": "branded_food",
 "name": "Double Cream Cremont Aged Cow & Goat Milk Cheese, 5 oz"
+},
+{
+"id": 739,
+"fdc_id": 167746,
+"data_type": "sr_legacy_food",
+"name": "Lemons, raw, without peel"
+},
+{
+"id": 740,
+"fdc_id": 167822,
+"data_type": "sr_legacy_food",
+"name": "Pork, fresh, loin, blade (chops or roasts), bone-in, separable lean and fat, raw"
+},
+{
+"id": 741,
+"fdc_id": 167902,
+"data_type": "sr_legacy_food",
+"name": "Pork, fresh, ground, raw"
+},
+{
+"id": 742,
+"fdc_id": 168409,
+"data_type": "sr_legacy_food",
+"name": "Cucumber, with peel, raw"
+},
+{
+"id": 743,
+"fdc_id": 168462,
+"data_type": "sr_legacy_food",
+"name": "Spinach, raw"
+},
+{
+"id": 744,
+"fdc_id": 169094,
+"data_type": "sr_legacy_food",
+"name": "Olives, ripe, canned (small-extra large)"
+},
+{
+"id": 745,
+"fdc_id": 169230,
+"data_type": "sr_legacy_food",
+"name": "Garlic, raw"
+},
+{
+"id": 746,
+"fdc_id": 169247,
+"data_type": "sr_legacy_food",
+"name": "Lettuce, cos or romaine, raw"
+},
+{
+"id": 747,
+"fdc_id": 169251,
+"data_type": "sr_legacy_food",
+"name": "Mushrooms, white, raw"
+},
+{
+"id": 748,
+"fdc_id": 169295,
+"data_type": "sr_legacy_food",
+"name": "Squash, winter, butternut, raw"
+},
+{
+"id": 749,
+"fdc_id": 169703,
+"data_type": "sr_legacy_food",
+"name": "Rice, brown, long-grain, raw (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 750,
+"fdc_id": 169704,
+"data_type": "sr_legacy_food",
+"name": "Rice, brown, long-grain, cooked (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 751,
+"fdc_id": 169961,
+"data_type": "sr_legacy_food",
+"name": "Beans, snap, green, raw"
+},
+{
+"id": 752,
+"fdc_id": 169986,
+"data_type": "sr_legacy_food",
+"name": "Cauliflower, raw"
+},
+{
+"id": 753,
+"fdc_id": 169988,
+"data_type": "sr_legacy_food",
+"name": "Celery, raw"
+},
+{
+"id": 754,
+"fdc_id": 170000,
+"data_type": "sr_legacy_food",
+"name": "Onions, raw"
+},
+{
+"id": 755,
+"fdc_id": 170016,
+"data_type": "sr_legacy_food",
+"name": "Peas, green, frozen, unprepared (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 756,
+"fdc_id": 170026,
+"data_type": "sr_legacy_food",
+"name": "Potatoes, flesh and skin, raw"
+},
+{
+"id": 757,
+"fdc_id": 170108,
+"data_type": "sr_legacy_food",
+"name": "Peppers, sweet, red, raw"
+},
+{
+"id": 758,
+"fdc_id": 170187,
+"data_type": "sr_legacy_food",
+"name": "Nuts, walnuts, english"
+},
+{
+"id": 759,
+"fdc_id": 170189,
+"data_type": "sr_legacy_food",
+"name": "Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type)"
+},
+{
+"id": 760,
+"fdc_id": 170379,
+"data_type": "sr_legacy_food",
+"name": "Broccoli, raw"
+},
+{
+"id": 761,
+"fdc_id": 170393,
+"data_type": "sr_legacy_food",
+"name": "Carrots, raw"
+},
+{
+"id": 762,
+"fdc_id": 170419,
+"data_type": "sr_legacy_food",
+"name": "Peas, green, raw"
+},
+{
+"id": 763,
+"fdc_id": 170459,
+"data_type": "sr_legacy_food",
+"name": "Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 764,
+"fdc_id": 170460,
+"data_type": "sr_legacy_food",
+"name": "Tomato products, canned, puree, without salt added"
+},
+{
+"id": 765,
+"fdc_id": 170845,
+"data_type": "sr_legacy_food",
+"name": "Cheese, mozzarella, whole milk"
+},
+{
+"id": 766,
+"fdc_id": 170848,
+"data_type": "sr_legacy_food",
+"name": "Cheese, parmesan, hard"
+},
+{
+"id": 767,
+"fdc_id": 170924,
+"data_type": "sr_legacy_food",
+"name": "Spices, curry powder"
+},
+{
+"id": 768,
+"fdc_id": 170929,
+"data_type": "sr_legacy_food",
+"name": "Spices, mustard seed, ground"
+},
+{
+"id": 769,
+"fdc_id": 170931,
+"data_type": "sr_legacy_food",
+"name": "Spices, pepper, black"
+},
+{
+"id": 770,
+"fdc_id": 170932,
+"data_type": "sr_legacy_food",
+"name": "Spices, pepper, red or cayenne"
+},
+{
+"id": 771,
+"fdc_id": 170938,
+"data_type": "sr_legacy_food",
+"name": "Spices, thyme, dried"
+},
+{
+"id": 772,
+"fdc_id": 171077,
+"data_type": "sr_legacy_food",
+"name": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw"
+},
+{
+"id": 773,
+"fdc_id": 171206,
+"data_type": "sr_legacy_food",
+"name": "Beef, chuck for stew, separable lean and fat, all grades, raw"
+},
+{
+"id": 774,
+"fdc_id": 171284,
+"data_type": "sr_legacy_food",
+"name": "Yogurt, plain, whole milk"
+},
+{
+"id": 775,
+"fdc_id": 171304,
+"data_type": "sr_legacy_food",
+"name": "Yogurt, Greek, plain, whole milk"
+},
+{
+"id": 776,
+"fdc_id": 171560,
+"data_type": "sr_legacy_food",
+"name": "Soup, beef broth or bouillon, powder, dry"
+},
+{
+"id": 777,
+"fdc_id": 171562,
+"data_type": "sr_legacy_food",
+"name": "Soup, chicken broth or bouillon, dry"
+},
+{
+"id": 778,
+"fdc_id": 171583,
+"data_type": "sr_legacy_food",
+"name": "Soup, vegetable broth, ready to serve"
+},
+{
+"id": 779,
+"fdc_id": 171646,
+"data_type": "sr_legacy_food",
+"name": "Cereals ready-to-eat, granola, homemade"
+},
+{
+"id": 780,
+"fdc_id": 172183,
+"data_type": "sr_legacy_food",
+"name": "Egg, white, raw, fresh"
+},
+{
+"id": 781,
+"fdc_id": 172184,
+"data_type": "sr_legacy_food",
+"name": "Egg, yolk, raw, fresh"
+},
+{
+"id": 782,
+"fdc_id": 172429,
+"data_type": "sr_legacy_food",
+"name": "Peas, split, mature seeds, cooked, boiled, without salt"
+},
+{
+"id": 783,
+"fdc_id": 172475,
+"data_type": "sr_legacy_food",
+"name": "Tofu, raw, firm, prepared with calcium sulfate"
+},
+{
+"id": 784,
+"fdc_id": 172675,
+"data_type": "sr_legacy_food",
+"name": "Bread, french or vienna (includes sourdough)"
+},
+{
+"id": 785,
+"fdc_id": 172793,
+"data_type": "sr_legacy_food",
+"name": "Rolls, dinner, plain, commercially prepared (includes brown-and-serve)"
+},
+{
+"id": 786,
+"fdc_id": 172883,
+"data_type": "sr_legacy_food",
+"name": "Soup, stock, beef, home-prepared"
+},
+{
+"id": 787,
+"fdc_id": 172884,
+"data_type": "sr_legacy_food",
+"name": "Soup, stock, chicken, home-prepared"
+},
+{
+"id": 788,
+"fdc_id": 173002,
+"data_type": "sr_legacy_food",
+"name": "Cereals ready-to-eat, RALSTON Enriched Wheat Bran flakes"
+},
+{
+"id": 789,
+"fdc_id": 173410,
+"data_type": "sr_legacy_food",
+"name": "Butter, salted"
+},
+{
+"id": 790,
+"fdc_id": 173430,
+"data_type": "sr_legacy_food",
+"name": "Butter, without salt"
+},
+{
+"id": 791,
+"fdc_id": 173627,
+"data_type": "sr_legacy_food",
+"name": "Chicken, broilers or fryers, dark meat, thigh, meat only, raw"
+},
+{
+"id": 792,
+"fdc_id": 173709,
+"data_type": "sr_legacy_food",
+"name": "Fish, tuna, light, canned in water, drained solids (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 793,
+"fdc_id": 173760,
+"data_type": "sr_legacy_food",
+"name": "Cowpeas, common (blackeyes, crowder, southern), mature seeds, canned, plain"
+},
+{
+"id": 794,
+"fdc_id": 173944,
+"data_type": "sr_legacy_food",
+"name": "Bananas, raw"
+},
+{
+"id": 795,
+"fdc_id": 174254,
+"data_type": "sr_legacy_food",
+"name": "Lima beans, large, mature seeds, canned"
+},
+{
+"id": 796,
+"fdc_id": 174266,
+"data_type": "sr_legacy_food",
+"name": "Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)"
+},
+{
+"id": 797,
+"fdc_id": 174277,
+"data_type": "sr_legacy_food",
+"name": "Soy sauce made from soy and wheat (shoyu)"
+},
+{
+"id": 798,
+"fdc_id": 174531,
+"data_type": "sr_legacy_food",
+"name": "Sauce, fish, ready-to-serve"
+},
+{
+"id": 799,
+"fdc_id": 174763,
+"data_type": "sr_legacy_food",
+"name": "Beef, top sirloin, steak, separable lean only, trimmed to 1/8\" fat, choice, raw"
+},
+{
+"id": 800,
+"fdc_id": 174837,
+"data_type": "sr_legacy_food",
+"name": "Alcoholic beverage, wine, table, white"
+},
+{
+"id": 801,
+"fdc_id": 174899,
+"data_type": "sr_legacy_food",
+"name": "Bagels, plain, enriched, with calcium propionate (includes onion, poppy, sesame)"
+},
+{
+"id": 802,
+"fdc_id": 174915,
+"data_type": "sr_legacy_food",
+"name": "Bread, pita, white, enriched"
+},
+{
+"id": 803,
+"fdc_id": 174924,
+"data_type": "sr_legacy_food",
+"name": "Bread, white, commercially prepared (includes soft bread crumbs)"
+},
+{
+"id": 804,
+"fdc_id": 174994,
+"data_type": "sr_legacy_food",
+"name": "Muffins, English, plain, enriched, with ca prop (includes sourdough)"
+},
+{
+"id": 805,
+"fdc_id": 175140,
+"data_type": "sr_legacy_food",
+"name": "Fish, sardine, Pacific, canned in tomato sauce, drained solids with bone"
+},
+{
+"id": 806,
+"fdc_id": 175167,
+"data_type": "sr_legacy_food",
+"name": "Fish, salmon, Atlantic, farmed, raw"
+},
+{
+"id": 807,
+"fdc_id": 175186,
+"data_type": "sr_legacy_food",
+"name": "Beans, black turtle, mature seeds, raw"
+},
+{
+"id": 808,
+"fdc_id": 175188,
+"data_type": "sr_legacy_food",
+"name": "Beans, black turtle, mature seeds, canned"
+},
+{
+"id": 809,
+"fdc_id": 175204,
+"data_type": "sr_legacy_food",
+"name": "Beans, white, mature seeds, canned"
+},
+{
+"id": 810,
+"fdc_id": 790577,
+"data_type": "foundation_food",
+"name": "Onions, red, raw"
 }
 ]
 }

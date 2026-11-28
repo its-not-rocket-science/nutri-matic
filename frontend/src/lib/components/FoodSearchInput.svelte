@@ -77,7 +77,14 @@
 			<li>
 				<button type="button" class="btn-plain" onclick={() => handleSelect(food)}>
 					<span class="result-name">
-						<span>{food.name}</span>
+						{#if food.canonical_name}
+							<span>{food.canonical_name}</span>
+							<span class="muted search-source">
+								{food.canonical_source ?? 'USDA'}: {food.name}
+							</span>
+						{:else}
+							<span>{food.name}</span>
+						{/if}
 						{#if food.search_note}
 							<span class="muted search-note">{food.search_note}</span>
 						{/if}
@@ -132,7 +139,8 @@
 		flex: 1;
 		min-width: 0;
 	}
-	.search-note {
+	.search-note,
+	.search-source {
 		font-size: 0.85em;
 	}
 	.btn-plain:hover {

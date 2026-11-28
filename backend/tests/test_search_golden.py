@@ -10,6 +10,11 @@ Brie, SUGAR COOKIES, six versions of Ahold BAKED BEANS, ...).
 The plan's 1.2 table is the "before"; these assert the "after". The same
 grading (`app.search_golden_report.judge`) drives the full-catalogue
 report, `python -m app.search_golden_report`.
+
+Every golden query runs twice: on the token-ranked search alone (empty
+canonical tables, as on a database whose canonical load was skipped), and
+with the reviewed canonical CSV loaded (search tier 1, PR 4b). The fixture
+holds every canonical anchor row, so the real file loads.
 """
 
 import json
@@ -19,6 +24,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.canonical_foods.csv_schema import load_file
+from app.canonical_foods.loader import load
 from app.database import Base
 from app.models import Food
 from app.search import search_foods_by_name_hits
@@ -28,8 +35,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 GOLDEN = load_golden(FIXTURES / "search_golden_en_gb.json")
 
 
-@pytest.fixture(scope="module")
-def db():
+def _catalogue_session(with_canonical: bool):
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     session = sessionmaker(bind=engine)()
@@ -40,8 +46,31 @@ def db():
             protein_g_per_100g=1.0, amino_acids={},
         ))
     session.commit()
+    if with_canonical:
+        # sign-off is gated separately (test_canonical_foods); this tests
+        # what the file does to search
+        load(session, load_file(require_signoff=False))
+        session.commit()
+    return session
+
+
+@pytest.fixture(scope="module")
+def db():
+    session = _catalogue_session(with_canonical=False)
     yield session
     session.close()
+
+
+@pytest.fixture(scope="module")
+def canonical_db():
+    session = _catalogue_session(with_canonical=True)
+    yield session
+    session.close()
+
+
+@pytest.fixture(params=["token", "canonical"])
+def golden_db(request, db, canonical_db):
+    return db if request.param == "token" else canonical_db
 
 
 def _search(db, query):
@@ -55,8 +84,8 @@ def test_golden_file_covers_the_plans_34_queries():
 
 
 @pytest.mark.parametrize("entry", GOLDEN["queries"], ids=lambda e: f"{e['n']}-{e['query']}")
-def test_golden_query(db, entry):
-    hits = _search(db, entry["query"])
+def test_golden_query(golden_db, entry):
+    hits = _search(golden_db, entry["query"])
     names = [h.food.name for h in hits]
 
     assert not must_not_violations(entry, names), names[:5]

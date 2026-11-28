@@ -12,7 +12,8 @@ page covers the day-to-day workflow.
 | Column rules | the docstring of `backend/app/canonical_foods/csv_schema.py` |
 | Loader | `backend/app/canonical_foods/loader.py` |
 | Tables | `canonical_foods`, `canonical_aliases`, `canonical_members`, `canonical_typical_values` |
-| Loads in production | Alembic data migrations that pin the file's sha256 (the first is `348add18915d`) |
+| Loads in production | Alembic data migrations that pin the file's sha256 (`348add18915d`, then `18067652e674`) |
+| Read by | `search.search_foods_by_name_hits`, tier 1 (below) |
 
 ## Changing the file
 
@@ -32,6 +33,12 @@ page covers the day-to-day workflow.
      sha256.
    - `python -m app.canonical_foods load --dry-run` also runs the anchor checks
      against your local database, then rolls back.
+   - Add `--allow-unsigned` to either to preview a draft whose rows still say
+     `PENDING`. A real `load` refuses it.
+   - `tests/test_canonical_search.py` searches every alias in the file over
+     the golden mini catalogue. A new anchor must be added to
+     `tests/fixtures/search_golden_catalogue.json` (FDC id, type and name
+     only).
 4. **Add a data migration.** Copy the newest `*_load_canonical_foods*`
    migration and set `CSV_SHA256` to the new value. If that migration has never
    been deployed, update its pin instead.
@@ -56,7 +63,24 @@ page covers the day-to-day workflow.
 - Diary entries, recipes and plans keep their own `food_id`. Nothing is
   re-pointed retroactively.
 
+## How search uses it (tier 1)
+
+- A query that equals an alias, in the request locale or `*`, returns that
+  canonical's anchor row first. The last word may be singular or plural
+  ("chickpea" finds "chickpeas"). Anything else is not a tier-1 match.
+- The concept's other active preparation variants follow as siblings
+  ("chickpeas" → tinned, boiled, dried). Within a concept the matched
+  canonicals come first, then the preparation tie-break: the state the query
+  names, else the en-GB default (tinned chickpeas, dry lentils, ...).
+- An `ambiguous` alias ("milk", "pepper") lists each concept, in concept-key
+  order.
+- The ranked token search fills the rest of the list without repeating an
+  anchor. With empty canonical tables search behaves exactly as before.
+- A result shows the canonical's display name, then "USDA SR Legacy: <FDC
+  row name>", and the alias note if there is one. What gets logged is the
+  anchor's own `food_id`.
+
 ## Not yet
 
-- Search does not read canonical tables yet; that is PR 4b.
-- `canonical_typical_values` stays empty until PR 5.
+- `canonical_typical_values` stays empty until PR 5, so a concept with no
+  SR Legacy or Foundation row (caster sugar, oils, salt) has no canonical.

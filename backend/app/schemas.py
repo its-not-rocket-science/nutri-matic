@@ -64,6 +64,13 @@ class FoodOut(FoodCreate):
     preparation_label: str | None = None
     search_relationship: str | None = None
     search_note: str | None = None
+    # name-search results that are a reviewed canonical food (tier 1,
+    # docs/canonical-foods.md): its key, display name in the request
+    # locale, and the source of the logged row ("USDA SR Legacy"). `name`
+    # stays the FDC row's own name, which is what gets logged.
+    canonical_key: str | None = None
+    canonical_name: str | None = None
+    canonical_source: str | None = None
 
 
 class FoodListOut(BaseModel):

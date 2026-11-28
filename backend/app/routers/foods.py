@@ -123,7 +123,9 @@ def food_search_by_name(
     search.py's module docstring for the full design. Signed-in results
     have any hard dietary exclusion (allergy, religious requirement,
     dietary pattern) removed — see dietary_filter.py. Each result carries
-    its preparation state/label and any regional-synonym note."""
+    its preparation state/label and any regional-synonym note; a result
+    that is a reviewed canonical food (search tier 1) also carries its
+    canonical key, display name and source."""
     hits = search_foods_by_name_hits(db, q, limit=limit, locale=search_locale(profile))
     results = filter_excluded_foods([hit.food for hit in hits], db, profile)
     hit_by_id = {hit.food.id: hit for hit in hits}
@@ -133,6 +135,9 @@ def food_search_by_name(
         food.preparation_label = hit.preparation_label
         food.search_relationship = hit.relationship
         food.search_note = hit.note
+        food.canonical_key = hit.canonical_key
+        food.canonical_name = hit.canonical_name
+        food.canonical_source = hit.canonical_source
     return _with_dietary_status(results, db, profile)
 
 

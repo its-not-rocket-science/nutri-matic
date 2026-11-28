@@ -26,8 +26,13 @@ the same canonical_key and must agree.
     ambiguous           "yes" lets one (locale, alias) point at more than
                         one concept; otherwise blank
     reviewer            who signed the row off; never blank or PENDING
-    review_date         ISO date of that sign-off
+    review_date         ISO date of that sign-off (blank while PENDING)
     notes               free-text review notes, not shown to users
+
+A reviewer previewing a draft can parse it with require_signoff=False
+(`validate --allow-unsigned`, `load --dry-run --allow-unsigned`). Nothing
+that writes for real accepts that: the data migration and a plain `load`
+always require sign-off.
 
 The file holds only FDC identifiers and names plus hand-written terms. It
 must never be seeded from any phytate review file (plan 1.5 #7).
@@ -74,7 +79,7 @@ class AliasRow:
     note: str | None
     ambiguous: bool
     reviewer: str
-    review_date: date
+    review_date: date | None
     line: int
 
 
@@ -95,8 +100,9 @@ def file_sha256(path: Path = CSV_PATH) -> str:
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
-def parse(text: str, *, today: date | None = None) -> dict[str, CanonicalRow]:
-    """Canonical rows by key. Raises CanonicalCsvError listing every problem."""
+def parse(text: str, *, today: date | None = None, require_signoff: bool = True) -> dict[str, CanonicalRow]:
+    """Canonical rows by key. Raises CanonicalCsvError listing every problem.
+    require_signoff=False accepts PENDING rows (blank date) for previews only."""
     today = today or date.today()
     problems: list[str] = []
     reader = csv.DictReader(io.StringIO(text))
@@ -143,15 +149,17 @@ def parse(text: str, *, today: date | None = None) -> dict[str, CanonicalRow]:
             bad(f"a {row['relationship']} alias needs an alias_note for users")
         if row["ambiguous"] not in ("", "yes"):
             bad("ambiguous must be blank or 'yes'")
-        if not row["reviewer"] or row["reviewer"].upper() == PENDING_REVIEWER:
+        pending = not row["reviewer"] or row["reviewer"].upper() == PENDING_REVIEWER
+        reviewed = None
+        if pending and require_signoff:
             bad("reviewer is missing: the row has not been signed off")
-        try:
-            reviewed = date.fromisoformat(row["review_date"])
-            if reviewed > today:
-                bad(f"review_date {row['review_date']} is in the future")
-        except ValueError:
-            bad(f"review_date {row['review_date']!r} must be an ISO date (YYYY-MM-DD)")
-            reviewed = date.min
+        if not pending or row["review_date"]:
+            try:
+                reviewed = date.fromisoformat(row["review_date"])
+                if reviewed > today:
+                    bad(f"review_date {row['review_date']} is in the future")
+            except ValueError:
+                bad(f"review_date {row['review_date']!r} must be an ISO date (YYYY-MM-DD)")
 
         alias_id = (row["alias_locale"], alias, key)
         if alias_id in seen_alias:
@@ -192,6 +200,19 @@ def _cross_row_problems(canonicals: dict[str, CanonicalRow]) -> list[str]:
             problems.append(
                 f"alias {alias!r} ({locale}) points at concepts {sorted(concepts)}; mark every such row ambiguous=yes"
             )
+    # Search reads a locale's own aliases and the '*' ones together, so the
+    # same rule applies to their union ("chips": en-GB fries, en-US crisps
+    # is fine; a '*' alias plus an en-GB one for another concept is not,
+    # unless both say ambiguous).
+    for (locale, alias), concepts in sorted(concepts_by_alias.items()):
+        if locale == "*" or ("*", alias) not in concepts_by_alias:
+            continue
+        union = concepts | concepts_by_alias[("*", alias)]
+        if len(union) > 1 and not (flagged[(locale, alias)] and flagged[("*", alias)]):
+            problems.append(
+                f"alias {alias!r} points at concepts {sorted(union)} across {locale} and '*'; "
+                "mark every such row ambiguous=yes"
+            )
 
     names = {c.concept for c in canonicals.values()} | set(canonicals)
     for canonical in canonicals.values():
@@ -208,5 +229,5 @@ def _cross_row_problems(canonicals: dict[str, CanonicalRow]) -> list[str]:
     return problems
 
 
-def load_file(path: Path = CSV_PATH) -> dict[str, CanonicalRow]:
-    return parse(path.read_text(encoding="utf-8"))
+def load_file(path: Path = CSV_PATH, *, require_signoff: bool = True) -> dict[str, CanonicalRow]:
+    return parse(path.read_text(encoding="utf-8"), require_signoff=require_signoff)
