@@ -12,6 +12,7 @@ from sqlalchemy import (
     JSON,
     String,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -1306,3 +1307,128 @@ class CompoundImportAuditRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+
+
+# --- canonical foods (docs/plans/canonical-foods-plan.md, sections 3.1-3.5) ---
+#
+# A curated layer *over* the FDC catalogue: one canonical food per concept
+# and preparation state ("chickpeas, tinned, drained"), pointing at existing
+# `foods` rows. Nothing here alters `foods`, so the catalogue checksum is
+# unchanged; diary, recipe and plan rows keep storing a concrete food_id.
+# Canonical tables are never consulted for phytate (plan 1.5 #2).
+#
+# The data comes only from the reviewed CSV
+# (app/canonical_foods/canonical_foods_en_gb.csv) via app.canonical_foods
+# .loader. The CHECK vocabularies below are repeated, literally, in the
+# migration that created them; change both together.
+
+CANONICAL_PREPARATION_STATES = (
+    "unspecified", "raw", "dry", "soaked", "sprouted", "cooked_boiled", "canned_drained",
+    "canned_with_liquid", "frozen", "roasted", "fried", "dehydrated",
+)
+CANONICAL_ALIAS_LOCALES = ("en-GB", "en-US", "*")
+CANONICAL_ALIAS_RELATIONSHIPS = ("exact", "regional_equivalent", "close_analogue", "category_proxy")
+
+
+def _in_list(column: str, values: tuple[str, ...]) -> str:
+    return f"{column} IN ({', '.join(repr(v) for v in values)})"
+
+
+class CanonicalFood(Base):
+    """One concept in one preparation state. `preparation_state` is
+    `unspecified` for concepts where preparation does not apply (cheddar,
+    jam); it is never `unknown`."""
+
+    __tablename__ = "canonical_foods"
+    __table_args__ = (
+        CheckConstraint(_in_list("preparation_state", CANONICAL_PREPARATION_STATES),
+                        name="ck_canonical_food_preparation_state"),
+        CheckConstraint("status IN ('active', 'retired')", name="ck_canonical_food_status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # "chickpeas.canned_drained": always f"{concept}.{preparation_state}"
+    key: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    concept: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    preparation_state: Mapped[str] = mapped_column(String, nullable=False)
+    display_name_en_gb: Mapped[str] = mapped_column(String, nullable=False)
+    display_name_en_us: Mapped[str | None] = mapped_column(String, nullable=True)
+    # the concrete row logged when this canonical is chosen (an SR Legacy or
+    # Foundation anchor in PR 4; a branded medoid only once PR 5 exists)
+    default_food_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("foods.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="active")
+    # where the decision lives: "<csv file name>#<canonical key>"
+    review_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class CanonicalAlias(Base):
+    """A search term for a canonical food in one locale ('*' = any)."""
+
+    __tablename__ = "canonical_aliases"
+    __table_args__ = (
+        UniqueConstraint("locale", "alias", "canonical_food_id", name="uq_canonical_alias_locale_alias_food"),
+        CheckConstraint(_in_list("locale", CANONICAL_ALIAS_LOCALES), name="ck_canonical_alias_locale"),
+        CheckConstraint(_in_list("relationship", CANONICAL_ALIAS_RELATIONSHIPS),
+                        name="ck_canonical_alias_relationship"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    canonical_food_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("canonical_foods.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    alias: Mapped[str] = mapped_column(String, nullable=False)
+    locale: Mapped[str] = mapped_column(String, nullable=False)
+    relationship: Mapped[str] = mapped_column(String, nullable=False)
+    # shown to the user wherever this alias resolves the canonical, e.g.
+    # "approx. UK semi-skimmed" (plan 3.2); required for close_analogue and
+    # category_proxy. Not in the plan's 3.1 sketch, which predates 3.2.
+    display_note: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+Index("ix_canonical_aliases_lower_alias", func.lower(CanonicalAlias.alias))
+
+
+class CanonicalMember(Base):
+    """A concrete `foods` row belonging to a canonical food. Invariant
+    (plan 3.1, checked by the loader): an anchor or member has the same
+    classified preparation state as its canonical food."""
+
+    __tablename__ = "canonical_members"
+    __table_args__ = (
+        UniqueConstraint("canonical_food_id", "food_id", name="uq_canonical_member_food"),
+        CheckConstraint("confidence IN ('high', 'medium', 'low')", name="ck_canonical_member_confidence"),
+        CheckConstraint("role IN ('anchor', 'member', 'excluded')", name="ck_canonical_member_role"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    canonical_food_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("canonical_foods.id", ondelete="CASCADE"), nullable=False
+    )
+    food_id: Mapped[int] = mapped_column(Integer, ForeignKey("foods.id"), nullable=False, index=True)
+    match_method: Mapped[str] = mapped_column(String, nullable=False)  # "reviewed" | "rule:<name>"
+    confidence: Mapped[str] = mapped_column(String, nullable=False)  # not a model score
+    role: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class CanonicalTypicalValue(Base):
+    """Derived "typical" nutrient values for a canonical food with no
+    anchor (plan 3.2). Created empty here; filled only by PR 5."""
+
+    __tablename__ = "canonical_typical_values"
+
+    canonical_food_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("canonical_foods.id", ondelete="CASCADE"), primary_key=True
+    )
+    nutrient_key: Mapped[str] = mapped_column(String, primary_key=True)
+    median: Mapped[float] = mapped_column(Float, nullable=False)
+    p25: Mapped[float | None] = mapped_column(Float, nullable=True)
+    p75: Mapped[float | None] = mapped_column(Float, nullable=True)
+    n_members: Mapped[int] = mapped_column(Integer, nullable=False)
+    computed_from_catalogue_checksum: Mapped[str] = mapped_column(String, nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
