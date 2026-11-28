@@ -32,6 +32,9 @@ digestibility_pdcaas are always left null by this script.
 Vitamin/mineral amounts (per 100g) are pulled for every nutrient listed in
 nutrients.NUTRIENTS and stored as FoodNutrient rows — a food simply
 has no row for a nutrient FDC didn't report, rather than a null placeholder.
+Energy and folate fall back to the numbers Foundation Foods publishes
+instead (Atwater energy 958/957, total folate 417, with reviewed
+exclusions); see foundation_nutrients.py.
 
 A branded food's name is prefixed with its brand_owner (e.g. "General
 Mills Cheerios") since "description" alone is often ambiguous/generic
@@ -46,6 +49,7 @@ import sys
 from pathlib import Path
 
 from .database import Base, SessionLocal, engine
+from .foundation_nutrients import FALLBACK_NBR_TO_FIELD, apply_fallbacks
 from .nutrients import NUTRIENTS
 from .models import Food, FoodNutrient
 
@@ -81,6 +85,10 @@ NUTRIENT_NBR_TO_FIELD = {
     # 853 in SR Legacy) — a single food only ever comes from one dataset, so
     # aliasing both to the same key is safe, no overwrite-order ambiguity.
     "853": "arachidonic_acid",
+    # Foundation Foods' energy (Atwater 957/958) and folate (total, 417)
+    # numbers, read under their own names and used only as fallbacks; see
+    # foundation_nutrients.apply_fallbacks
+    **FALLBACK_NBR_TO_FIELD,
 }
 
 
@@ -177,6 +185,7 @@ def ingest_dir(dir_path: Path, dry_run: bool) -> dict[str, int]:
             nutrients = amounts.get(fdc_id, {})
             if "fiber_total" not in nutrients and "fiber_total_aoac" in nutrients:
                 nutrients["fiber_total"] = nutrients["fiber_total_aoac"]
+            apply_fallbacks(int(fdc_id), food_info["data_type"], nutrients)
             protein = nutrients.get("protein")
             profile = build_amino_acid_profile(nutrients)
             if profile is None:

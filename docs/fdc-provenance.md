@@ -19,6 +19,17 @@ alone.
 - **How it is loaded:** `python -m app.ingest_fdc`. Foods without a usable
   protein value are skipped (`ingest_fdc.py`), so zero-protein FDC rows,
   such as pure oils and sugars, are not loaded by ingest.
+- **Foundation energy and folate (added 2026-11-28):** `ingest_fdc.py` falls
+  back to Foundation's Atwater energy (958, then 957) and its total folate
+  (417, except on 7 reviewed fortified rows) where 208 or 435 is absent
+  (`backend/app/foundation_nutrients.py`). Older databases get the same 390
+  values from `backend/app/foundation_nutrients_2026_04_30.csv` through the
+  data migration `868a02252a15`.
+  - Source: `FoodData_Central_foundation_food_csv_2026-04-30.zip`, sha256
+    `d6d4f41dcd19a46abcdd67775379cb6f0292ff08daa7e0680fdd0982830bf57b`
+    (the local download, git-ignored).
+  - `python -m app.foundation_nutrients verify --foundation-dir <unzipped
+    export>` checks the extract against it.
 - **Protein-free staples (added 2026-11-28):** 23 of those SR Legacy rows
   (white and icing sugar, cooking oils, table salt, syrups, vinegars, brewed
   tea, tap water, lard, beef tallow) are inserted by the Alembic data

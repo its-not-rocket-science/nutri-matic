@@ -226,7 +226,15 @@ Implications:
     Atwater-specific energy (nutrient 957/958) rather than nutrient 208,
     and `ingest_fdc.py` maps only 208. This is a likely cause; I have not
     verified it.
+    - **Verified 2026-11-28** on the Foundation 2026-04-30 export: of the
+      420 rows ingested, 132 report 208, and 373 report 208, 958 or 957.
+      Where 208 and 958 both appear they agree.
   - Folate (DFE, nutrient 435) is absent for every Foundation row.
+    - **Verified:** Foundation reports only 417 (Folate, total), on 156 of
+      the 420; never 435, 432 or 431.
+    - **Fixed** in the Foundation energy/folate PR
+      (`backend/app/foundation_nutrients.py`): energy falls back 208 → 958
+      → 957; folate takes 417 except on 7 owner-reviewed fortified rows.
   - **The canonical default should therefore prefer SR Legacy where
     Foundation lacks energy or folate.** Alternatively, fix the energy
     mapping as a separate, independent change (Q9).
@@ -761,6 +769,9 @@ Not proposed here: re-pointing existing GTINs to the newest label version
 9. **Foundation energy and folate gaps** (31% and 0%). Should fixing the
    ingest nutrient mapping be its own PR before Foundation rows become
    canonical anchors?
+   - **Answered 2026-11-28:** its own PR, after PR 6a. Folate: map total
+     folate (417) as DFE for unfortified Foundation rows, with a reviewed
+     list of fortified rows left "not reported".
 10. **Barcode version.** Should a barcode keep returning the oldest label
     version (today), or should we plan a re-point to the newest? The
     re-point changes `foods` and the catalogue checksum.
