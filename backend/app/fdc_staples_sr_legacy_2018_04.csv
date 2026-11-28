@@ -1,0 +1,764 @@
+fdc_id,data_type,name,nutrient_key,amount_per_100g
+167743,sr_legacy_food,"Syrup, Cane",protein,0.0
+167743,sr_legacy_food,"Syrup, Cane",beta_carotene,0.0
+167743,sr_legacy_food,"Syrup, Cane",calcium,13.0
+167743,sr_legacy_food,"Syrup, Cane",copper,0.02
+167743,sr_legacy_food,"Syrup, Cane",dha,0.0
+167743,sr_legacy_food,"Syrup, Cane",energy,269.0
+167743,sr_legacy_food,"Syrup, Cane",epa,0.0
+167743,sr_legacy_food,"Syrup, Cane",fat_total,0.0
+167743,sr_legacy_food,"Syrup, Cane",fiber_total,0.0
+167743,sr_legacy_food,"Syrup, Cane",folate,0.0
+167743,sr_legacy_food,"Syrup, Cane",iron,3.6
+167743,sr_legacy_food,"Syrup, Cane",magnesium,10.0
+167743,sr_legacy_food,"Syrup, Cane",monounsaturated_fat,0.0
+167743,sr_legacy_food,"Syrup, Cane",niacin,0.1
+167743,sr_legacy_food,"Syrup, Cane",phosphorus,8.0
+167743,sr_legacy_food,"Syrup, Cane",polyunsaturated_fat,0.0
+167743,sr_legacy_food,"Syrup, Cane",potassium,63.0
+167743,sr_legacy_food,"Syrup, Cane",protein,0.0
+167743,sr_legacy_food,"Syrup, Cane",retinol,0.0
+167743,sr_legacy_food,"Syrup, Cane",riboflavin,0.06
+167743,sr_legacy_food,"Syrup, Cane",saturated_fat,0.0
+167743,sr_legacy_food,"Syrup, Cane",selenium,0.7
+167743,sr_legacy_food,"Syrup, Cane",sodium,58.0
+167743,sr_legacy_food,"Syrup, Cane",thiamin,0.13
+167743,sr_legacy_food,"Syrup, Cane",vitamin_a,0.0
+167743,sr_legacy_food,"Syrup, Cane",vitamin_b12,0.0
+167743,sr_legacy_food,"Syrup, Cane",vitamin_b6,0.0
+167743,sr_legacy_food,"Syrup, Cane",vitamin_c,0.0
+167743,sr_legacy_food,"Syrup, Cane",vitamin_d,0.0
+167743,sr_legacy_food,"Syrup, Cane",vitamin_e,0.0
+167743,sr_legacy_food,"Syrup, Cane",vitamin_k1,0.0
+167743,sr_legacy_food,"Syrup, Cane",zinc,0.19
+168837,sr_legacy_food,"Syrups, corn, light",protein,0.0
+168837,sr_legacy_food,"Syrups, corn, light",beta_carotene,0.0
+168837,sr_legacy_food,"Syrups, corn, light",calcium,13.0
+168837,sr_legacy_food,"Syrups, corn, light",choline,0.0
+168837,sr_legacy_food,"Syrups, corn, light",copper,0.0
+168837,sr_legacy_food,"Syrups, corn, light",dha,0.0
+168837,sr_legacy_food,"Syrups, corn, light",energy,283.0
+168837,sr_legacy_food,"Syrups, corn, light",epa,0.0
+168837,sr_legacy_food,"Syrups, corn, light",fat_total,0.2
+168837,sr_legacy_food,"Syrups, corn, light",fiber_total,0.0
+168837,sr_legacy_food,"Syrups, corn, light",folate,0.0
+168837,sr_legacy_food,"Syrups, corn, light",iron,0.0
+168837,sr_legacy_food,"Syrups, corn, light",magnesium,1.0
+168837,sr_legacy_food,"Syrups, corn, light",manganese,0.0
+168837,sr_legacy_food,"Syrups, corn, light",monounsaturated_fat,0.0
+168837,sr_legacy_food,"Syrups, corn, light",niacin,0.0
+168837,sr_legacy_food,"Syrups, corn, light",pantothenic_acid,0.0
+168837,sr_legacy_food,"Syrups, corn, light",phosphorus,0.0
+168837,sr_legacy_food,"Syrups, corn, light",polyunsaturated_fat,0.0
+168837,sr_legacy_food,"Syrups, corn, light",potassium,1.0
+168837,sr_legacy_food,"Syrups, corn, light",protein,0.0
+168837,sr_legacy_food,"Syrups, corn, light",retinol,0.0
+168837,sr_legacy_food,"Syrups, corn, light",riboflavin,0.0
+168837,sr_legacy_food,"Syrups, corn, light",saturated_fat,0.0
+168837,sr_legacy_food,"Syrups, corn, light",selenium,0.7
+168837,sr_legacy_food,"Syrups, corn, light",sodium,62.0
+168837,sr_legacy_food,"Syrups, corn, light",thiamin,0.059
+168837,sr_legacy_food,"Syrups, corn, light",vitamin_a,0.0
+168837,sr_legacy_food,"Syrups, corn, light",vitamin_b12,0.0
+168837,sr_legacy_food,"Syrups, corn, light",vitamin_b6,0.0
+168837,sr_legacy_food,"Syrups, corn, light",vitamin_c,0.0
+168837,sr_legacy_food,"Syrups, corn, light",vitamin_d,0.0
+168837,sr_legacy_food,"Syrups, corn, light",vitamin_e,0.0
+168837,sr_legacy_food,"Syrups, corn, light",vitamin_k1,0.0
+168837,sr_legacy_food,"Syrups, corn, light",zinc,0.44
+169655,sr_legacy_food,"Sugars, granulated",protein,0.0
+169655,sr_legacy_food,"Sugars, granulated",beta_carotene,0.0
+169655,sr_legacy_food,"Sugars, granulated",calcium,1.0
+169655,sr_legacy_food,"Sugars, granulated",choline,0.0
+169655,sr_legacy_food,"Sugars, granulated",copper,0.007
+169655,sr_legacy_food,"Sugars, granulated",dha,0.0
+169655,sr_legacy_food,"Sugars, granulated",energy,387.0
+169655,sr_legacy_food,"Sugars, granulated",epa,0.0
+169655,sr_legacy_food,"Sugars, granulated",fat_total,0.0
+169655,sr_legacy_food,"Sugars, granulated",fiber_total,0.0
+169655,sr_legacy_food,"Sugars, granulated",folate,0.0
+169655,sr_legacy_food,"Sugars, granulated",iron,0.05
+169655,sr_legacy_food,"Sugars, granulated",magnesium,0.0
+169655,sr_legacy_food,"Sugars, granulated",manganese,0.004
+169655,sr_legacy_food,"Sugars, granulated",monounsaturated_fat,0.0
+169655,sr_legacy_food,"Sugars, granulated",niacin,0.0
+169655,sr_legacy_food,"Sugars, granulated",pantothenic_acid,0.0
+169655,sr_legacy_food,"Sugars, granulated",phosphorus,0.0
+169655,sr_legacy_food,"Sugars, granulated",polyunsaturated_fat,0.0
+169655,sr_legacy_food,"Sugars, granulated",potassium,2.0
+169655,sr_legacy_food,"Sugars, granulated",protein,0.0
+169655,sr_legacy_food,"Sugars, granulated",retinol,0.0
+169655,sr_legacy_food,"Sugars, granulated",riboflavin,0.019
+169655,sr_legacy_food,"Sugars, granulated",saturated_fat,0.0
+169655,sr_legacy_food,"Sugars, granulated",selenium,0.6
+169655,sr_legacy_food,"Sugars, granulated",sodium,1.0
+169655,sr_legacy_food,"Sugars, granulated",thiamin,0.0
+169655,sr_legacy_food,"Sugars, granulated",vitamin_a,0.0
+169655,sr_legacy_food,"Sugars, granulated",vitamin_b12,0.0
+169655,sr_legacy_food,"Sugars, granulated",vitamin_b6,0.0
+169655,sr_legacy_food,"Sugars, granulated",vitamin_c,0.0
+169655,sr_legacy_food,"Sugars, granulated",vitamin_d,0.0
+169655,sr_legacy_food,"Sugars, granulated",vitamin_e,0.0
+169655,sr_legacy_food,"Sugars, granulated",vitamin_k1,0.0
+169655,sr_legacy_food,"Sugars, granulated",zinc,0.01
+169656,sr_legacy_food,"Sugars, powdered",protein,0.0
+169656,sr_legacy_food,"Sugars, powdered",beta_carotene,0.0
+169656,sr_legacy_food,"Sugars, powdered",calcium,1.0
+169656,sr_legacy_food,"Sugars, powdered",choline,0.0
+169656,sr_legacy_food,"Sugars, powdered",copper,0.007
+169656,sr_legacy_food,"Sugars, powdered",dha,0.0
+169656,sr_legacy_food,"Sugars, powdered",energy,389.0
+169656,sr_legacy_food,"Sugars, powdered",epa,0.0
+169656,sr_legacy_food,"Sugars, powdered",fat_total,0.0
+169656,sr_legacy_food,"Sugars, powdered",fiber_total,0.0
+169656,sr_legacy_food,"Sugars, powdered",folate,0.0
+169656,sr_legacy_food,"Sugars, powdered",iron,0.06
+169656,sr_legacy_food,"Sugars, powdered",magnesium,0.0
+169656,sr_legacy_food,"Sugars, powdered",manganese,0.004
+169656,sr_legacy_food,"Sugars, powdered",monounsaturated_fat,0.0
+169656,sr_legacy_food,"Sugars, powdered",niacin,0.0
+169656,sr_legacy_food,"Sugars, powdered",pantothenic_acid,0.0
+169656,sr_legacy_food,"Sugars, powdered",phosphorus,0.0
+169656,sr_legacy_food,"Sugars, powdered",polyunsaturated_fat,0.0
+169656,sr_legacy_food,"Sugars, powdered",potassium,2.0
+169656,sr_legacy_food,"Sugars, powdered",protein,0.0
+169656,sr_legacy_food,"Sugars, powdered",retinol,0.0
+169656,sr_legacy_food,"Sugars, powdered",riboflavin,0.019
+169656,sr_legacy_food,"Sugars, powdered",saturated_fat,0.0
+169656,sr_legacy_food,"Sugars, powdered",selenium,0.6
+169656,sr_legacy_food,"Sugars, powdered",sodium,2.0
+169656,sr_legacy_food,"Sugars, powdered",thiamin,0.0
+169656,sr_legacy_food,"Sugars, powdered",vitamin_a,0.0
+169656,sr_legacy_food,"Sugars, powdered",vitamin_b12,0.0
+169656,sr_legacy_food,"Sugars, powdered",vitamin_b6,0.0
+169656,sr_legacy_food,"Sugars, powdered",vitamin_c,0.0
+169656,sr_legacy_food,"Sugars, powdered",vitamin_d,0.0
+169656,sr_legacy_food,"Sugars, powdered",vitamin_e,0.0
+169656,sr_legacy_food,"Sugars, powdered",vitamin_k1,0.0
+169656,sr_legacy_food,"Sugars, powdered",zinc,0.01
+170276,sr_legacy_food,"Syrup, maple, Canadian",protein,0.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",calcium,109.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",energy,270.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",fat_total,0.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",fiber_total,0.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",iron,0.11
+170276,sr_legacy_food,"Syrup, maple, Canadian",magnesium,21.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",manganese,2.3
+170276,sr_legacy_food,"Syrup, maple, Canadian",niacin,0.081
+170276,sr_legacy_food,"Syrup, maple, Canadian",potassium,225.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",protein,0.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",riboflavin,1.27
+170276,sr_legacy_food,"Syrup, maple, Canadian",sodium,9.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",thiamin,0.066
+170276,sr_legacy_food,"Syrup, maple, Canadian",vitamin_a,0.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",vitamin_b12,0.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",vitamin_c,0.0
+170276,sr_legacy_food,"Syrup, maple, Canadian",zinc,0.7
+170674,sr_legacy_food,"Sugar, turbinado",protein,0.0
+170674,sr_legacy_food,"Sugar, turbinado",calcium,12.0
+170674,sr_legacy_food,"Sugar, turbinado",copper,0.009
+170674,sr_legacy_food,"Sugar, turbinado",energy,399.0
+170674,sr_legacy_food,"Sugar, turbinado",fat_total,0.0
+170674,sr_legacy_food,"Sugar, turbinado",iron,0.37
+170674,sr_legacy_food,"Sugar, turbinado",magnesium,2.0
+170674,sr_legacy_food,"Sugar, turbinado",manganese,0.046
+170674,sr_legacy_food,"Sugar, turbinado",phosphorus,1.0
+170674,sr_legacy_food,"Sugar, turbinado",potassium,29.0
+170674,sr_legacy_food,"Sugar, turbinado",protein,0.0
+170674,sr_legacy_food,"Sugar, turbinado",sodium,3.0
+170674,sr_legacy_food,"Sugar, turbinado",zinc,0.03
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",protein,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",beta_carotene,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",calcium,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",choline,0.2
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",copper,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",dha,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",energy,884.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",epa,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",fat_total,100.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",fiber_total,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",folate,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",iron,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",magnesium,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",monounsaturated_fat,39.7
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",niacin,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",pantothenic_acid,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",phosphorus,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",polyunsaturated_fat,41.7
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",potassium,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",protein,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",retinol,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",riboflavin,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",saturated_fat,14.2
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",selenium,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",sodium,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",thiamin,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",vitamin_a,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",vitamin_b12,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",vitamin_b6,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",vitamin_c,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",vitamin_d,0.0
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",vitamin_e,1.4
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",vitamin_k1,13.6
+171016,sr_legacy_food,"Oil, sesame, salad or cooking",zinc,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",protein,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",beta_carotene,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",calcium,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",choline,0.2
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",copper,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",dha,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",energy,884.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",epa,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",fat_total,100.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",fiber_total,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",folate,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",iron,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",magnesium,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",monounsaturated_fat,19.5
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",niacin,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",pantothenic_acid,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",phosphorus,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",polyunsaturated_fat,65.7
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",potassium,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",protein,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",retinol,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",riboflavin,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",saturated_fat,10.3
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",selenium,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",sodium,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",thiamin,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",vitamin_a,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",vitamin_b12,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",vitamin_b6,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",vitamin_c,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",vitamin_d,0.0
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",vitamin_e,41.08
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",vitamin_k1,5.4
+171025,sr_legacy_food,"Oil, sunflower, linoleic, (approx. 65%)",zinc,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",protein,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",ala,1.161
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",beta_carotene,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",calcium,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",choline,0.2
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",copper,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",dha,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",energy,900.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",epa,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",fat_total,100.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",fiber_total,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",folate,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",iron,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",la,53.23
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",magnesium,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",monounsaturated_fat,27.576
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",niacin,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",pantothenic_acid,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",phosphorus,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",polyunsaturated_fat,54.677
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",potassium,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",protein,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",retinol,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",riboflavin,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",saturated_fat,12.948
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",selenium,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",sodium,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",thiamin,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",vitamin_a,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",vitamin_b12,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",vitamin_b6,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",vitamin_c,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",vitamin_d,0.0
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",vitamin_e,14.3
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",vitamin_k1,1.9
+171029,sr_legacy_food,"Oil, corn, industrial and retail, all purpose salad or cooking",zinc,0.0
+171400,sr_legacy_food,"Fat, beef tallow",protein,0.0
+171400,sr_legacy_food,"Fat, beef tallow",beta_carotene,0.0
+171400,sr_legacy_food,"Fat, beef tallow",calcium,0.0
+171400,sr_legacy_food,"Fat, beef tallow",choline,79.8
+171400,sr_legacy_food,"Fat, beef tallow",copper,0.0
+171400,sr_legacy_food,"Fat, beef tallow",dha,0.0
+171400,sr_legacy_food,"Fat, beef tallow",energy,902.0
+171400,sr_legacy_food,"Fat, beef tallow",epa,0.0
+171400,sr_legacy_food,"Fat, beef tallow",fat_total,100.0
+171400,sr_legacy_food,"Fat, beef tallow",fiber_total,0.0
+171400,sr_legacy_food,"Fat, beef tallow",folate,0.0
+171400,sr_legacy_food,"Fat, beef tallow",iron,0.0
+171400,sr_legacy_food,"Fat, beef tallow",magnesium,0.0
+171400,sr_legacy_food,"Fat, beef tallow",monounsaturated_fat,41.8
+171400,sr_legacy_food,"Fat, beef tallow",niacin,0.0
+171400,sr_legacy_food,"Fat, beef tallow",pantothenic_acid,0.0
+171400,sr_legacy_food,"Fat, beef tallow",phosphorus,0.0
+171400,sr_legacy_food,"Fat, beef tallow",polyunsaturated_fat,4.0
+171400,sr_legacy_food,"Fat, beef tallow",potassium,0.0
+171400,sr_legacy_food,"Fat, beef tallow",protein,0.0
+171400,sr_legacy_food,"Fat, beef tallow",retinol,0.0
+171400,sr_legacy_food,"Fat, beef tallow",riboflavin,0.0
+171400,sr_legacy_food,"Fat, beef tallow",saturated_fat,49.8
+171400,sr_legacy_food,"Fat, beef tallow",selenium,0.2
+171400,sr_legacy_food,"Fat, beef tallow",sodium,0.0
+171400,sr_legacy_food,"Fat, beef tallow",thiamin,0.0
+171400,sr_legacy_food,"Fat, beef tallow",vitamin_a,0.0
+171400,sr_legacy_food,"Fat, beef tallow",vitamin_b12,0.0
+171400,sr_legacy_food,"Fat, beef tallow",vitamin_b6,0.0
+171400,sr_legacy_food,"Fat, beef tallow",vitamin_c,0.0
+171400,sr_legacy_food,"Fat, beef tallow",vitamin_d,0.7
+171400,sr_legacy_food,"Fat, beef tallow",vitamin_e,2.7
+171400,sr_legacy_food,"Fat, beef tallow",vitamin_k1,0.0
+171400,sr_legacy_food,"Fat, beef tallow",zinc,0.0
+171401,sr_legacy_food,Lard,protein,0.0
+171401,sr_legacy_food,Lard,beta_carotene,0.0
+171401,sr_legacy_food,Lard,calcium,0.0
+171401,sr_legacy_food,Lard,choline,49.7
+171401,sr_legacy_food,Lard,copper,0.0
+171401,sr_legacy_food,Lard,dha,0.0
+171401,sr_legacy_food,Lard,energy,902.0
+171401,sr_legacy_food,Lard,epa,0.0
+171401,sr_legacy_food,Lard,fat_total,100.0
+171401,sr_legacy_food,Lard,fiber_total,0.0
+171401,sr_legacy_food,Lard,folate,0.0
+171401,sr_legacy_food,Lard,iron,0.0
+171401,sr_legacy_food,Lard,magnesium,0.0
+171401,sr_legacy_food,Lard,manganese,0.0
+171401,sr_legacy_food,Lard,monounsaturated_fat,45.1
+171401,sr_legacy_food,Lard,niacin,0.0
+171401,sr_legacy_food,Lard,pantothenic_acid,0.0
+171401,sr_legacy_food,Lard,phosphorus,0.0
+171401,sr_legacy_food,Lard,polyunsaturated_fat,11.2
+171401,sr_legacy_food,Lard,potassium,0.0
+171401,sr_legacy_food,Lard,protein,0.0
+171401,sr_legacy_food,Lard,retinol,0.0
+171401,sr_legacy_food,Lard,riboflavin,0.0
+171401,sr_legacy_food,Lard,saturated_fat,39.2
+171401,sr_legacy_food,Lard,selenium,0.2
+171401,sr_legacy_food,Lard,sodium,0.0
+171401,sr_legacy_food,Lard,thiamin,0.0
+171401,sr_legacy_food,Lard,vitamin_a,0.0
+171401,sr_legacy_food,Lard,vitamin_b12,0.0
+171401,sr_legacy_food,Lard,vitamin_b6,0.0
+171401,sr_legacy_food,Lard,vitamin_c,0.0
+171401,sr_legacy_food,Lard,vitamin_d,2.5
+171401,sr_legacy_food,Lard,vitamin_e,0.6
+171401,sr_legacy_food,Lard,vitamin_k1,0.0
+171401,sr_legacy_food,Lard,zinc,0.11
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",protein,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",beta_carotene,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",calcium,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",choline,0.1
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",copper,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",dha,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",energy,884.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",epa,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",fat_total,100.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",fiber_total,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",folate,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",iron,0.03
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",magnesium,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",monounsaturated_fat,46.2
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",niacin,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",pantothenic_acid,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",phosphorus,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",polyunsaturated_fat,32.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",potassium,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",protein,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",retinol,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",riboflavin,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",saturated_fat,16.9
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",selenium,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",sodium,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",thiamin,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",vitamin_a,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",vitamin_b12,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",vitamin_b6,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",vitamin_c,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",vitamin_d,0.0
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",vitamin_e,15.69
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",vitamin_k1,0.7
+171410,sr_legacy_food,"Oil, peanut, salad or cooking",zinc,0.01
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",protein,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",ala,6.789
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",beta_carotene,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",calcium,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",choline,0.2
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",copper,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",dha,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",energy,884.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",epa,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",fat_total,100.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",fiber_total,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",folate,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",iron,0.05
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",la,50.418
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",magnesium,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",manganese,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",monounsaturated_fat,22.783
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",niacin,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",pantothenic_acid,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",phosphorus,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",polyunsaturated_fat,57.74
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",potassium,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",protein,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",retinol,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",riboflavin,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",saturated_fat,15.65
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",selenium,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",sodium,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",thiamin,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_a,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_b12,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_b6,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_c,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_d,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_e,8.18
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_k1,183.9
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",vitamin_k2,0.0
+171411,sr_legacy_food,"Oil, soybean, salad or cooking",zinc,0.01
+171412,sr_legacy_food,"Oil, coconut",protein,0.0
+171412,sr_legacy_food,"Oil, coconut",ala,0.019
+171412,sr_legacy_food,"Oil, coconut",arachidonic_acid,0.0
+171412,sr_legacy_food,"Oil, coconut",beta_carotene,0.0
+171412,sr_legacy_food,"Oil, coconut",calcium,1.0
+171412,sr_legacy_food,"Oil, coconut",choline,0.3
+171412,sr_legacy_food,"Oil, coconut",copper,0.0
+171412,sr_legacy_food,"Oil, coconut",dha,0.0
+171412,sr_legacy_food,"Oil, coconut",energy,892.0
+171412,sr_legacy_food,"Oil, coconut",epa,0.0
+171412,sr_legacy_food,"Oil, coconut",fat_total,99.06
+171412,sr_legacy_food,"Oil, coconut",fiber_total,0.0
+171412,sr_legacy_food,"Oil, coconut",folate,0.0
+171412,sr_legacy_food,"Oil, coconut",iron,0.05
+171412,sr_legacy_food,"Oil, coconut",la,1.676
+171412,sr_legacy_food,"Oil, coconut",magnesium,0.0
+171412,sr_legacy_food,"Oil, coconut",manganese,0.0
+171412,sr_legacy_food,"Oil, coconut",monounsaturated_fat,6.332
+171412,sr_legacy_food,"Oil, coconut",niacin,0.0
+171412,sr_legacy_food,"Oil, coconut",pantothenic_acid,0.0
+171412,sr_legacy_food,"Oil, coconut",phosphorus,0.0
+171412,sr_legacy_food,"Oil, coconut",polyunsaturated_fat,1.702
+171412,sr_legacy_food,"Oil, coconut",potassium,0.0
+171412,sr_legacy_food,"Oil, coconut",protein,0.0
+171412,sr_legacy_food,"Oil, coconut",retinol,0.0
+171412,sr_legacy_food,"Oil, coconut",riboflavin,0.0
+171412,sr_legacy_food,"Oil, coconut",saturated_fat,82.475
+171412,sr_legacy_food,"Oil, coconut",selenium,0.0
+171412,sr_legacy_food,"Oil, coconut",sodium,0.0
+171412,sr_legacy_food,"Oil, coconut",thiamin,0.0
+171412,sr_legacy_food,"Oil, coconut",vitamin_a,0.0
+171412,sr_legacy_food,"Oil, coconut",vitamin_b12,0.0
+171412,sr_legacy_food,"Oil, coconut",vitamin_b6,0.0
+171412,sr_legacy_food,"Oil, coconut",vitamin_c,0.0
+171412,sr_legacy_food,"Oil, coconut",vitamin_d,0.0
+171412,sr_legacy_food,"Oil, coconut",vitamin_e,0.11
+171412,sr_legacy_food,"Oil, coconut",vitamin_k1,0.6
+171412,sr_legacy_food,"Oil, coconut",vitamin_k2,0.0
+171412,sr_legacy_food,"Oil, coconut",zinc,0.02
+171413,sr_legacy_food,"Oil, olive, salad or cooking",protein,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",beta_carotene,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",calcium,1.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",choline,0.3
+171413,sr_legacy_food,"Oil, olive, salad or cooking",copper,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",dha,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",energy,884.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",epa,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",fat_total,100.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",fiber_total,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",folate,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",iron,0.56
+171413,sr_legacy_food,"Oil, olive, salad or cooking",magnesium,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",manganese,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",monounsaturated_fat,72.961
+171413,sr_legacy_food,"Oil, olive, salad or cooking",niacin,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",pantothenic_acid,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",phosphorus,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",polyunsaturated_fat,10.523
+171413,sr_legacy_food,"Oil, olive, salad or cooking",potassium,1.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",protein,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",retinol,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",riboflavin,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",saturated_fat,13.808
+171413,sr_legacy_food,"Oil, olive, salad or cooking",selenium,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",sodium,2.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",thiamin,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",vitamin_a,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",vitamin_b12,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",vitamin_b6,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",vitamin_c,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",vitamin_d,0.0
+171413,sr_legacy_food,"Oil, olive, salad or cooking",vitamin_e,14.35
+171413,sr_legacy_food,"Oil, olive, salad or cooking",vitamin_k1,60.2
+171413,sr_legacy_food,"Oil, olive, salad or cooking",zinc,0.0
+172237,sr_legacy_food,"Vinegar, distilled",protein,0.0
+172237,sr_legacy_food,"Vinegar, distilled",beta_carotene,0.0
+172237,sr_legacy_food,"Vinegar, distilled",calcium,6.0
+172237,sr_legacy_food,"Vinegar, distilled",choline,0.0
+172237,sr_legacy_food,"Vinegar, distilled",copper,0.006
+172237,sr_legacy_food,"Vinegar, distilled",dha,0.0
+172237,sr_legacy_food,"Vinegar, distilled",energy,18.0
+172237,sr_legacy_food,"Vinegar, distilled",epa,0.0
+172237,sr_legacy_food,"Vinegar, distilled",fat_total,0.0
+172237,sr_legacy_food,"Vinegar, distilled",fiber_total,0.0
+172237,sr_legacy_food,"Vinegar, distilled",folate,0.0
+172237,sr_legacy_food,"Vinegar, distilled",iron,0.03
+172237,sr_legacy_food,"Vinegar, distilled",magnesium,1.0
+172237,sr_legacy_food,"Vinegar, distilled",manganese,0.055
+172237,sr_legacy_food,"Vinegar, distilled",monounsaturated_fat,0.0
+172237,sr_legacy_food,"Vinegar, distilled",niacin,0.0
+172237,sr_legacy_food,"Vinegar, distilled",pantothenic_acid,0.0
+172237,sr_legacy_food,"Vinegar, distilled",phosphorus,4.0
+172237,sr_legacy_food,"Vinegar, distilled",polyunsaturated_fat,0.0
+172237,sr_legacy_food,"Vinegar, distilled",potassium,2.0
+172237,sr_legacy_food,"Vinegar, distilled",protein,0.0
+172237,sr_legacy_food,"Vinegar, distilled",retinol,0.0
+172237,sr_legacy_food,"Vinegar, distilled",riboflavin,0.0
+172237,sr_legacy_food,"Vinegar, distilled",saturated_fat,0.0
+172237,sr_legacy_food,"Vinegar, distilled",selenium,0.5
+172237,sr_legacy_food,"Vinegar, distilled",sodium,2.0
+172237,sr_legacy_food,"Vinegar, distilled",thiamin,0.0
+172237,sr_legacy_food,"Vinegar, distilled",vitamin_a,0.0
+172237,sr_legacy_food,"Vinegar, distilled",vitamin_b12,0.0
+172237,sr_legacy_food,"Vinegar, distilled",vitamin_b6,0.0
+172237,sr_legacy_food,"Vinegar, distilled",vitamin_c,0.0
+172237,sr_legacy_food,"Vinegar, distilled",vitamin_d,0.0
+172237,sr_legacy_food,"Vinegar, distilled",vitamin_e,0.0
+172237,sr_legacy_food,"Vinegar, distilled",vitamin_k1,0.0
+172237,sr_legacy_food,"Vinegar, distilled",zinc,0.01
+172336,sr_legacy_food,"Oil, canola",protein,0.0
+172336,sr_legacy_food,"Oil, canola",ala,9.137
+172336,sr_legacy_food,"Oil, canola",beta_carotene,0.0
+172336,sr_legacy_food,"Oil, canola",calcium,0.0
+172336,sr_legacy_food,"Oil, canola",choline,0.2
+172336,sr_legacy_food,"Oil, canola",copper,0.0
+172336,sr_legacy_food,"Oil, canola",dha,0.0
+172336,sr_legacy_food,"Oil, canola",energy,884.0
+172336,sr_legacy_food,"Oil, canola",epa,0.0
+172336,sr_legacy_food,"Oil, canola",fat_total,100.0
+172336,sr_legacy_food,"Oil, canola",fiber_total,0.0
+172336,sr_legacy_food,"Oil, canola",folate,0.0
+172336,sr_legacy_food,"Oil, canola",iron,0.0
+172336,sr_legacy_food,"Oil, canola",la,18.64
+172336,sr_legacy_food,"Oil, canola",magnesium,0.0
+172336,sr_legacy_food,"Oil, canola",manganese,0.0
+172336,sr_legacy_food,"Oil, canola",monounsaturated_fat,63.276
+172336,sr_legacy_food,"Oil, canola",niacin,0.0
+172336,sr_legacy_food,"Oil, canola",pantothenic_acid,0.0
+172336,sr_legacy_food,"Oil, canola",phosphorus,0.0
+172336,sr_legacy_food,"Oil, canola",polyunsaturated_fat,28.142
+172336,sr_legacy_food,"Oil, canola",potassium,0.0
+172336,sr_legacy_food,"Oil, canola",protein,0.0
+172336,sr_legacy_food,"Oil, canola",retinol,0.0
+172336,sr_legacy_food,"Oil, canola",riboflavin,0.0
+172336,sr_legacy_food,"Oil, canola",saturated_fat,7.365
+172336,sr_legacy_food,"Oil, canola",selenium,0.0
+172336,sr_legacy_food,"Oil, canola",sodium,0.0
+172336,sr_legacy_food,"Oil, canola",thiamin,0.0
+172336,sr_legacy_food,"Oil, canola",vitamin_a,0.0
+172336,sr_legacy_food,"Oil, canola",vitamin_b12,0.0
+172336,sr_legacy_food,"Oil, canola",vitamin_b6,0.0
+172336,sr_legacy_food,"Oil, canola",vitamin_c,0.0
+172336,sr_legacy_food,"Oil, canola",vitamin_d,0.0
+172336,sr_legacy_food,"Oil, canola",vitamin_e,17.46
+172336,sr_legacy_food,"Oil, canola",vitamin_k1,71.3
+172336,sr_legacy_food,"Oil, canola",vitamin_k2,0.0
+172336,sr_legacy_food,"Oil, canola",zinc,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",protein,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",beta_carotene,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",calcium,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",choline,0.4
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",copper,0.01
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",dha,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",energy,1.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",epa,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",fat_total,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",fiber_total,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",folate,5.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",iron,0.02
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",magnesium,3.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",manganese,0.219
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",monounsaturated_fat,0.001
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",niacin,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",pantothenic_acid,0.011
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",phosphorus,1.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",polyunsaturated_fat,0.004
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",potassium,37.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",protein,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",retinol,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",riboflavin,0.014
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",saturated_fat,0.002
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",selenium,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",sodium,3.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",thiamin,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",vitamin_a,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",vitamin_b12,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",vitamin_b6,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",vitamin_c,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",vitamin_d,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",vitamin_e,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",vitamin_k1,0.0
+173227,sr_legacy_food,"Beverages, tea, black, brewed, prepared with tap water",zinc,0.02
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",protein,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",beta_carotene,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",calcium,2.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",choline,0.4
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",copper,0.015
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",dha,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",energy,1.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",epa,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",fat_total,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",fiber_total,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",folate,1.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",iron,0.08
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",magnesium,1.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",manganese,0.044
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",monounsaturated_fat,0.001
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",niacin,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",pantothenic_acid,0.011
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",phosphorus,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",polyunsaturated_fat,0.005
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",potassium,9.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",protein,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",retinol,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",riboflavin,0.004
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",saturated_fat,0.002
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",selenium,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",sodium,1.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",thiamin,0.01
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",vitamin_a,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",vitamin_b12,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",vitamin_b6,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",vitamin_c,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",vitamin_d,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",vitamin_e,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",vitamin_k1,0.0
+173232,sr_legacy_food,"Beverages, tea, herb, other than chamomile, brewed",zinc,0.04
+173468,sr_legacy_food,"Salt, table",protein,0.0
+173468,sr_legacy_food,"Salt, table",beta_carotene,0.0
+173468,sr_legacy_food,"Salt, table",calcium,24.0
+173468,sr_legacy_food,"Salt, table",choline,0.0
+173468,sr_legacy_food,"Salt, table",copper,0.03
+173468,sr_legacy_food,"Salt, table",dha,0.0
+173468,sr_legacy_food,"Salt, table",energy,0.0
+173468,sr_legacy_food,"Salt, table",epa,0.0
+173468,sr_legacy_food,"Salt, table",fat_total,0.0
+173468,sr_legacy_food,"Salt, table",fiber_total,0.0
+173468,sr_legacy_food,"Salt, table",folate,0.0
+173468,sr_legacy_food,"Salt, table",iron,0.33
+173468,sr_legacy_food,"Salt, table",magnesium,1.0
+173468,sr_legacy_food,"Salt, table",manganese,0.1
+173468,sr_legacy_food,"Salt, table",monounsaturated_fat,0.0
+173468,sr_legacy_food,"Salt, table",niacin,0.0
+173468,sr_legacy_food,"Salt, table",pantothenic_acid,0.0
+173468,sr_legacy_food,"Salt, table",phosphorus,0.0
+173468,sr_legacy_food,"Salt, table",polyunsaturated_fat,0.0
+173468,sr_legacy_food,"Salt, table",potassium,8.0
+173468,sr_legacy_food,"Salt, table",protein,0.0
+173468,sr_legacy_food,"Salt, table",retinol,0.0
+173468,sr_legacy_food,"Salt, table",riboflavin,0.0
+173468,sr_legacy_food,"Salt, table",saturated_fat,0.0
+173468,sr_legacy_food,"Salt, table",selenium,0.1
+173468,sr_legacy_food,"Salt, table",sodium,38758.0
+173468,sr_legacy_food,"Salt, table",thiamin,0.0
+173468,sr_legacy_food,"Salt, table",vitamin_a,0.0
+173468,sr_legacy_food,"Salt, table",vitamin_b12,0.0
+173468,sr_legacy_food,"Salt, table",vitamin_b6,0.0
+173468,sr_legacy_food,"Salt, table",vitamin_c,0.0
+173468,sr_legacy_food,"Salt, table",vitamin_d,0.0
+173468,sr_legacy_food,"Salt, table",vitamin_e,0.0
+173468,sr_legacy_food,"Salt, table",vitamin_k1,0.0
+173468,sr_legacy_food,"Salt, table",zinc,0.1
+173469,sr_legacy_food,"Vinegar, cider",protein,0.0
+173469,sr_legacy_food,"Vinegar, cider",beta_carotene,0.0
+173469,sr_legacy_food,"Vinegar, cider",calcium,7.0
+173469,sr_legacy_food,"Vinegar, cider",choline,0.0
+173469,sr_legacy_food,"Vinegar, cider",copper,0.008
+173469,sr_legacy_food,"Vinegar, cider",dha,0.0
+173469,sr_legacy_food,"Vinegar, cider",energy,21.0
+173469,sr_legacy_food,"Vinegar, cider",epa,0.0
+173469,sr_legacy_food,"Vinegar, cider",fat_total,0.0
+173469,sr_legacy_food,"Vinegar, cider",fiber_total,0.0
+173469,sr_legacy_food,"Vinegar, cider",folate,0.0
+173469,sr_legacy_food,"Vinegar, cider",iron,0.2
+173469,sr_legacy_food,"Vinegar, cider",magnesium,5.0
+173469,sr_legacy_food,"Vinegar, cider",manganese,0.249
+173469,sr_legacy_food,"Vinegar, cider",monounsaturated_fat,0.0
+173469,sr_legacy_food,"Vinegar, cider",niacin,0.0
+173469,sr_legacy_food,"Vinegar, cider",pantothenic_acid,0.0
+173469,sr_legacy_food,"Vinegar, cider",phosphorus,8.0
+173469,sr_legacy_food,"Vinegar, cider",polyunsaturated_fat,0.0
+173469,sr_legacy_food,"Vinegar, cider",potassium,73.0
+173469,sr_legacy_food,"Vinegar, cider",protein,0.0
+173469,sr_legacy_food,"Vinegar, cider",retinol,0.0
+173469,sr_legacy_food,"Vinegar, cider",riboflavin,0.0
+173469,sr_legacy_food,"Vinegar, cider",saturated_fat,0.0
+173469,sr_legacy_food,"Vinegar, cider",selenium,0.1
+173469,sr_legacy_food,"Vinegar, cider",sodium,5.0
+173469,sr_legacy_food,"Vinegar, cider",thiamin,0.0
+173469,sr_legacy_food,"Vinegar, cider",vitamin_a,0.0
+173469,sr_legacy_food,"Vinegar, cider",vitamin_b12,0.0
+173469,sr_legacy_food,"Vinegar, cider",vitamin_b6,0.0
+173469,sr_legacy_food,"Vinegar, cider",vitamin_c,0.0
+173469,sr_legacy_food,"Vinegar, cider",vitamin_d,0.0
+173469,sr_legacy_food,"Vinegar, cider",vitamin_e,0.0
+173469,sr_legacy_food,"Vinegar, cider",vitamin_k1,0.0
+173469,sr_legacy_food,"Vinegar, cider",zinc,0.04
+173573,sr_legacy_food,"Oil, avocado",protein,0.0
+173573,sr_legacy_food,"Oil, avocado",calcium,0.0
+173573,sr_legacy_food,"Oil, avocado",copper,0.0
+173573,sr_legacy_food,"Oil, avocado",energy,884.0
+173573,sr_legacy_food,"Oil, avocado",fat_total,100.0
+173573,sr_legacy_food,"Oil, avocado",fiber_total,0.0
+173573,sr_legacy_food,"Oil, avocado",folate,0.0
+173573,sr_legacy_food,"Oil, avocado",iron,0.0
+173573,sr_legacy_food,"Oil, avocado",magnesium,0.0
+173573,sr_legacy_food,"Oil, avocado",manganese,0.0
+173573,sr_legacy_food,"Oil, avocado",monounsaturated_fat,70.554
+173573,sr_legacy_food,"Oil, avocado",niacin,0.0
+173573,sr_legacy_food,"Oil, avocado",pantothenic_acid,0.0
+173573,sr_legacy_food,"Oil, avocado",phosphorus,0.0
+173573,sr_legacy_food,"Oil, avocado",polyunsaturated_fat,13.486
+173573,sr_legacy_food,"Oil, avocado",potassium,0.0
+173573,sr_legacy_food,"Oil, avocado",protein,0.0
+173573,sr_legacy_food,"Oil, avocado",retinol,0.0
+173573,sr_legacy_food,"Oil, avocado",riboflavin,0.0
+173573,sr_legacy_food,"Oil, avocado",saturated_fat,11.56
+173573,sr_legacy_food,"Oil, avocado",selenium,0.0
+173573,sr_legacy_food,"Oil, avocado",sodium,0.0
+173573,sr_legacy_food,"Oil, avocado",thiamin,0.0
+173573,sr_legacy_food,"Oil, avocado",vitamin_a,0.0
+173573,sr_legacy_food,"Oil, avocado",vitamin_b12,0.0
+173573,sr_legacy_food,"Oil, avocado",vitamin_b6,0.0
+173573,sr_legacy_food,"Oil, avocado",vitamin_c,0.0
+173573,sr_legacy_food,"Oil, avocado",zinc,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",protein,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",beta_carotene,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",calcium,3.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",choline,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",copper,0.01
+173647,sr_legacy_food,"Beverages, water, tap, drinking",dha,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",energy,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",epa,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",fat_total,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",fiber_total,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",folate,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",iron,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",magnesium,1.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",manganese,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",monounsaturated_fat,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",niacin,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",pantothenic_acid,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",phosphorus,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",polyunsaturated_fat,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",potassium,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",protein,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",retinol,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",riboflavin,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",saturated_fat,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",selenium,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",sodium,4.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",thiamin,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",vitamin_a,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",vitamin_b12,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",vitamin_b6,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",vitamin_c,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",vitamin_d,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",vitamin_e,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",vitamin_k1,0.0
+173647,sr_legacy_food,"Beverages, water, tap, drinking",zinc,0.01

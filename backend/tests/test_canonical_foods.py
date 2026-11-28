@@ -7,6 +7,8 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -204,13 +206,17 @@ def _data_migrations():
 def test_newest_data_migration_pins_the_current_file():
     """Every reviewed CSV edit needs a new data migration carrying the new
     checksum; otherwise production would never load it."""
-    migrations = _data_migrations()
+    migrations = {r: sha for r, _, sha in _data_migrations()}
     assert migrations
-    revisions = {r for r, *_ in migrations}
-    newest = [m for m in migrations if not any(other[1] == m[0] for other in migrations)]
-    assert len(newest) == 1, "data migrations must form one chain"
-    assert newest[0][0] in revisions
-    assert newest[0][2] == file_sha256(), (
+    # the real revision order: other migrations (e.g. the FDC staples) may
+    # sit between two canonical data migrations
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS.parent))
+    script = ScriptDirectory.from_config(config)
+    assert len(script.get_heads()) == 1, "migrations must form one chain"
+    ordered = [rev.revision for rev in script.walk_revisions()]  # newest first
+    newest = next(r for r in ordered if r in migrations)
+    assert migrations[newest] == file_sha256(), (
         f"add a data migration with CSV_SHA256 = {file_sha256()!r} (or update the unreleased one)"
     )
 

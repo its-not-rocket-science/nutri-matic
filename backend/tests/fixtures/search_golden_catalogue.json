@@ -1,5 +1,5 @@
 {
-"_about": "Mini catalogue for the en-GB search golden tests. Every row is a real public USDA FoodData Central name and fdc_id (Foundation, SR Legacy or Branded), taken from a full FDC import. Branded rows are the adversarial matches observed in docs/plans/canonical-foods-plan.md section 1.2, plus a few right-food branded rows. No other source. Rows 739 onwards are the anchors of the canonical-foods CSV (app/canonical_foods/canonical_foods_en_gb.csv), so the golden tests can run with the canonical layer loaded.",
+"_about": "Mini catalogue for the en-GB search golden tests. Every row is a real public USDA FoodData Central name and fdc_id (Foundation, SR Legacy or Branded), taken from a full FDC import. Branded rows are the adversarial matches observed in docs/plans/canonical-foods-plan.md section 1.2, plus a few right-food branded rows. No other source. Rows 739 onwards are the anchors of the canonical-foods CSV (app/canonical_foods/canonical_foods_en_gb.csv), so the golden tests can run with the canonical layer loaded. Rows 811 onwards are the protein-free SR Legacy staples (app/fdc_staples_sr_legacy_2018_04.csv).",
 "foods": [
 {
 "id": 1,
@@ -4860,6 +4860,144 @@
 "fdc_id": 790577,
 "data_type": "foundation_food",
 "name": "Onions, red, raw"
+},
+{
+"id": 811,
+"fdc_id": 167743,
+"data_type": "sr_legacy_food",
+"name": "Syrup, Cane"
+},
+{
+"id": 812,
+"fdc_id": 168837,
+"data_type": "sr_legacy_food",
+"name": "Syrups, corn, light"
+},
+{
+"id": 813,
+"fdc_id": 169655,
+"data_type": "sr_legacy_food",
+"name": "Sugars, granulated"
+},
+{
+"id": 814,
+"fdc_id": 169656,
+"data_type": "sr_legacy_food",
+"name": "Sugars, powdered"
+},
+{
+"id": 815,
+"fdc_id": 170276,
+"data_type": "sr_legacy_food",
+"name": "Syrup, maple, Canadian"
+},
+{
+"id": 816,
+"fdc_id": 170674,
+"data_type": "sr_legacy_food",
+"name": "Sugar, turbinado"
+},
+{
+"id": 817,
+"fdc_id": 171016,
+"data_type": "sr_legacy_food",
+"name": "Oil, sesame, salad or cooking"
+},
+{
+"id": 818,
+"fdc_id": 171025,
+"data_type": "sr_legacy_food",
+"name": "Oil, sunflower, linoleic, (approx. 65%)"
+},
+{
+"id": 819,
+"fdc_id": 171029,
+"data_type": "sr_legacy_food",
+"name": "Oil, corn, industrial and retail, all purpose salad or cooking"
+},
+{
+"id": 820,
+"fdc_id": 171400,
+"data_type": "sr_legacy_food",
+"name": "Fat, beef tallow"
+},
+{
+"id": 821,
+"fdc_id": 171401,
+"data_type": "sr_legacy_food",
+"name": "Lard"
+},
+{
+"id": 822,
+"fdc_id": 171410,
+"data_type": "sr_legacy_food",
+"name": "Oil, peanut, salad or cooking"
+},
+{
+"id": 823,
+"fdc_id": 171411,
+"data_type": "sr_legacy_food",
+"name": "Oil, soybean, salad or cooking"
+},
+{
+"id": 824,
+"fdc_id": 171412,
+"data_type": "sr_legacy_food",
+"name": "Oil, coconut"
+},
+{
+"id": 825,
+"fdc_id": 171413,
+"data_type": "sr_legacy_food",
+"name": "Oil, olive, salad or cooking"
+},
+{
+"id": 826,
+"fdc_id": 172237,
+"data_type": "sr_legacy_food",
+"name": "Vinegar, distilled"
+},
+{
+"id": 827,
+"fdc_id": 172336,
+"data_type": "sr_legacy_food",
+"name": "Oil, canola"
+},
+{
+"id": 828,
+"fdc_id": 173227,
+"data_type": "sr_legacy_food",
+"name": "Beverages, tea, black, brewed, prepared with tap water"
+},
+{
+"id": 829,
+"fdc_id": 173232,
+"data_type": "sr_legacy_food",
+"name": "Beverages, tea, herb, other than chamomile, brewed"
+},
+{
+"id": 830,
+"fdc_id": 173468,
+"data_type": "sr_legacy_food",
+"name": "Salt, table"
+},
+{
+"id": 831,
+"fdc_id": 173469,
+"data_type": "sr_legacy_food",
+"name": "Vinegar, cider"
+},
+{
+"id": 832,
+"fdc_id": 173573,
+"data_type": "sr_legacy_food",
+"name": "Oil, avocado"
+},
+{
+"id": 833,
+"fdc_id": 173647,
+"data_type": "sr_legacy_food",
+"name": "Beverages, water, tap, drinking"
 }
 ]
 }
