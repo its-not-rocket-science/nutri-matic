@@ -211,3 +211,46 @@ def test_fresh_install_reaches_the_upgraded_state_through_the_load_commands(monk
     assert len(result.created) == len(load_file())
     assert session.scalar(select(func.count()).select_from(CanonicalFood)) == len(load_file())
     session.close()
+
+
+# --- post-ingest hook in ingest_fdc ----------------------------------------
+
+def _tiny_sr_export(tmp_path: Path) -> Path:
+    d = tmp_path / "sr"
+    d.mkdir(parents=True)
+    (d / "food.csv").write_text(
+        'fdc_id,data_type,description\n173800,sr_legacy_food,"Chickpeas (garbanzo beans, bengal gram), '
+        'mature seeds, canned, drained solids"\n', encoding="utf-8")
+    (d / "nutrient.csv").write_text("id,nutrient_nbr\n1003,203\n1008,208\n", encoding="utf-8")
+    (d / "food_nutrient.csv").write_text(
+        "fdc_id,nutrient_id,amount\n173800,1003,7.05\n173800,1008,139\n", encoding="utf-8")
+    return d
+
+
+@pytest.fixture
+def ingest_db(monkeypatch):
+    from sqlalchemy.pool import StaticPool
+
+    from app import ingest_fdc
+
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Session = sessionmaker(bind=engine)
+    monkeypatch.setattr(ingest_fdc, "engine", engine)
+    monkeypatch.setattr(ingest_fdc, "SessionLocal", Session)
+    return Session
+
+
+@pytest.mark.parametrize("flags, expect_staples", [([], True), (["--no-staples"], False), (["--dry-run"], False)])
+def test_ingest_loads_the_staples_after_a_real_run(ingest_db, tmp_path, flags, expect_staples):
+    from app import ingest_fdc
+
+    ingest_fdc.main(["--dir", str(_tiny_sr_export(tmp_path))] + flags)
+    if "--dry-run" in flags:
+        Base.metadata.create_all(bind=ingest_db.kw["bind"])
+    session = ingest_db()
+    staples = session.scalar(select(func.count()).select_from(Food).where(Food.fdc_id.in_(STAPLES)))
+    assert staples == (len(STAPLES) if expect_staples else 0)
+    if expect_staples:
+        ingest_fdc.main(["--dir", str(_tiny_sr_export(tmp_path / "again"))])  # idempotent re-ingest
+        assert session.scalar(select(func.count()).select_from(Food).where(Food.fdc_id.in_(STAPLES))) == len(STAPLES)
+    session.close()

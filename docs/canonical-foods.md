@@ -63,9 +63,9 @@ page covers the day-to-day workflow.
   - A key that is removed from the file becomes `retired`: its aliases are
     removed and the row stays.
 - It is skipped on a database with no FDC catalogue rows (CI, a fresh dev
-  database). After ingesting into a fresh database, run
-  `python -m app.fdc_staples load`, then `python -m app.canonical_foods load`
-  (README step 2b); the canonical file anchors on the staples.
+  database). After ingesting into a fresh database (`app.ingest_fdc` also
+  inserts the protein-free staples the file anchors on), run
+  `python -m app.canonical_foods load` (README step 2b).
 - It never writes `foods`, so the catalogue checksum does not change. It never
   reads or writes phytate data.
 - Diary entries, recipes and plans keep their own `food_id`. Nothing is
