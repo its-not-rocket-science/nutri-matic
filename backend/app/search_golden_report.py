@@ -6,10 +6,20 @@ real `search_foods_by_name_hits` against whatever database DATABASE_URL
 points at, and prints the plan's 1.2 table: top 5 per query, a verdict for
 the top result, and timings.
 
-    python -m app.search_golden_report [--golden PATH] [--limit 15]
+    python -m app.search_golden_report [--golden PATH] [--limit 15] [--github]
 
 Every transaction is read-only (`SET default_transaction_read_only = on`
-on each connection), so it is safe against a production copy. The golden
+on each Postgres connection), so it is safe against a production copy.
+It runs name search only, which reads `foods` and the canonical tables,
+and prints public FDC and canonical food names and timings, never user
+data.
+
+Exit status: 0 when every query is ✓ (or a recorded known gap) with no
+must-not hit; 1 otherwise. --github also emits a GitHub Actions warning
+annotation for each such query and for each query slower than the plan's
+1 s target (plan 3.6). The deploy workflow's rehearse job runs it on the
+restored production dump as a non-blocking step (owner's answer to plan
+Q6), so a regression warns and never stops a deploy. The golden
 SQLite tests (tests/test_search_golden.py) use the same `judge()` so the
 CI fixture and the full-catalogue run grade results the same way.
 
@@ -76,22 +86,31 @@ def must_not_violations(entry: dict, names: list[str]) -> list[str]:
 _SYMBOL = {"ok": "✓", "branded": "~", "wrong": "✗"}
 
 
-def _run(golden_path: Path, limit: int) -> int:
+SLOW_QUERY_SECONDS = 1.0
+
+
+def _annotate(message: str) -> None:
+    # GitHub Actions workflow command; newlines would end the command early
+    print(f"::warning title=Golden search report::{message.replace(chr(10), ' ')}")
+
+
+def _run(golden_path: Path, limit: int, github: bool = False) -> int:
     from sqlalchemy import event
 
     from .database import SessionLocal, engine
     from .search import search_foods_by_name_hits
 
-    @event.listens_for(engine, "connect")
-    def _read_only(dbapi_conn, _record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("SET default_transaction_read_only = on")
-        cursor.close()
-        dbapi_conn.commit()
+    if engine.dialect.name == "postgresql":
+        @event.listens_for(engine, "connect")
+        def _read_only(dbapi_conn, _record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("SET default_transaction_read_only = on")
+            cursor.close()
+            dbapi_conn.commit()
 
     golden = load_golden(golden_path)
     db = SessionLocal()
-    timings, counts, rows = [], {"ok": 0, "branded": 0, "wrong": 0}, []
+    timings, counts, rows, problems, slow = [], {"ok": 0, "branded": 0, "wrong": 0}, [], [], []
     try:
         for entry in golden["queries"]:
             start = time.perf_counter()
@@ -110,6 +129,14 @@ def _run(golden_path: Path, limit: int) -> int:
                 cells.append(f"{code}: {hit.food.name[:60]}{badge}{note}")
             violations = must_not_violations(entry, [h.food.name for h in hits])
             flag = f" — must-not: {'; '.join(violations)}" if violations else ""
+            label = f"#{entry['n']} {entry['query']!r}"
+            if verdict != "ok" and not entry.get("known_gap"):
+                top_name = top[0][1] if top else "no results"
+                problems.append(f"{label}: top result is {_SYMBOL[verdict]} ({top_name})")
+            if violations:
+                problems.append(f"{label}: must-not hit: {'; '.join(violations)}")
+            if elapsed > SLOW_QUERY_SECONDS:
+                slow.append(f"{label}: {elapsed * 1000:.0f} ms (target under {SLOW_QUERY_SECONDS * 1000:.0f} ms)")
             rows.append(
                 f"| {entry['n']} | {entry['query']} | {' · '.join(cells)} | "
                 f"{_SYMBOL[entry['before']]} → {_SYMBOL[verdict]}{flag} | {elapsed * 1000:.0f} ms |"
@@ -126,15 +153,29 @@ def _run(golden_path: Path, limit: int) -> int:
     print(f"Before (plan 1.2): {before['ok']} ✓, {before['branded']} ~, {before['wrong']} ✗")
     print(f"After:             {counts['ok']} ✓, {counts['branded']} ~, {counts['wrong']} ✗")
     print(f"Latency: p50 {statistics.median(timings) * 1000:.0f} ms, max {max(timings) * 1000:.0f} ms")
-    return 0
+    for heading, items in (("Regressions", problems), ("Slow queries", slow)):
+        if items:
+            print()
+            print(f"**{heading}:**")
+            for item in items:
+                print(f"- {item}")
+    if github:
+        for item in problems + slow:
+            _annotate(item)
+    return 1 if problems else 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN)
     parser.add_argument("--limit", type=int, default=15, help="Result limit per query (the frontend uses 15)")
+    parser.add_argument("--github", action="store_true",
+                        help="Also emit GitHub Actions warning annotations for regressions and slow queries")
     args = parser.parse_args(argv)
-    return _run(args.golden, args.limit)
+    # the table uses ✓/~/✗ and →; never depend on the platform's console encoding
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    return _run(args.golden, args.limit, args.github)
 
 
 if __name__ == "__main__":
