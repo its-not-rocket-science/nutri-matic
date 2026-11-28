@@ -23,6 +23,7 @@ from app.models import (
     CanonicalMember,
     CompoundObservation,
     Food,
+    FoodNutrient,
 )
 from app.phytate_selection import select_phytate_observations
 from app.reference_patterns import AMINO_ACIDS
@@ -33,11 +34,20 @@ HEADER = ",".join(COLUMNS)
 TODAY = date(2026, 11, 28)
 
 
+ANCHOR_NAMES = {
+    "173800": "Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained solids",
+    "173756": "Chickpeas (garbanzo beans, bengal gram), mature seeds, raw",
+    "172420": "Lentils, raw",
+    "555": "13 FOODS CHICKPEAS",
+}
+
+
 def _row(concept="chickpeas", state="canned_drained", alias="chickpeas", locale="*", relationship="exact",
          note="", ambiguous="", reviewer="A Reviewer", review_date="2026-11-28", anchor="173800",
-         en_gb="Chickpeas, tinned, drained", key=None):
+         en_gb="Chickpeas, tinned, drained", key=None, anchor_name=None):
     key = key or f"{concept}.{state}"
-    fields = [concept, key, state, en_gb, "", anchor, alias, locale, relationship, note, ambiguous,
+    anchor_name = anchor_name if anchor_name is not None else ANCHOR_NAMES.get(anchor, "Some food")
+    fields = [concept, key, state, en_gb, "", anchor, anchor_name, alias, locale, relationship, note, ambiguous,
               reviewer, review_date, ""]
     return ",".join(f'"{f}"' if "," in f else f for f in fields)
 
@@ -81,6 +91,9 @@ def test_valid_minimal_file_parses():
     (_row(reviewer=""), "not been signed off"),
     (_row(reviewer="PENDING"), "not been signed off"),
     (_row(review_date="28/11/2026"), "ISO date"),
+    (_row(review_date="2026-11-28T00:00"), "ISO date"),
+    (_row(review_date="20261128"), "ISO date"),
+    (_row(anchor_name=""), "anchor_fdc_name"),
     (_row(review_date="2027-01-01"), "future"),
     (_row(en_gb=""), "display_name_en_gb"),
 ])
@@ -94,6 +107,23 @@ def test_every_problem_is_reported_at_once():
     with pytest.raises(CanonicalCsvError) as e:
         parse(_csv(_row(reviewer=""), _row(alias="x", locale="xx")), today=TODAY)
     assert len(e.value.problems) >= 2
+
+
+def test_spreadsheet_damage_is_rejected_with_a_hint():
+    garbled = _row(en_gb="Tomato pur\u00c3\u00a9e (paste)")
+    with pytest.raises(CanonicalCsvError) as e:
+        parse(_csv(garbled), today=TODAY)
+    assert any("garbled characters" in p and "spreadsheet" in p for p in e.value.problems)
+    with pytest.raises(CanonicalCsvError, match="byte-order mark"):
+        parse("\ufeff" + _csv(_row()), today=TODAY)
+    parse(_csv(_row(en_gb="Tomato pur\u00e9e (paste)")), today=TODAY)  # real UTF-8 is fine
+
+
+def test_the_file_is_read_as_utf8_whatever_the_platform_default(tmp_path):
+    path = tmp_path / "c.csv"
+    path.write_bytes(_csv(_row(en_gb="Tomato pur\u00e9e (paste)")).encode("utf-8"))
+    (c,) = load_file(path).values()
+    assert c.display_name_en_gb == "Tomato pur\u00e9e (paste)"
 
 
 def test_header_must_match():
@@ -203,6 +233,7 @@ def db():
     for i, (fdc_id, data_type, name) in enumerate(ANCHORS, start=1):
         session.add(Food(id=i, fdc_id=fdc_id, data_type=data_type, name=name, protein_g_per_100g=7.0,
                          amino_acids=dict.fromkeys(AMINO_ACIDS)))
+        session.add(FoodNutrient(food_id=i, nutrient_key="energy", amount_per_100g=100.0))
     session.commit()
     yield session
     session.close()
@@ -252,6 +283,7 @@ def test_correction_replaces_by_key_and_removal_retires(db):
     (_row(anchor="999999"), "not in the catalogue"),
     (_row(anchor="555"), "not Foundation or SR Legacy"),
     (_row(state="dry"), "classified 'canned_drained', not 'dry'"),
+    (_row(anchor_name="Chickpeas, dry"), "but the file says 'Chickpeas, dry'"),
 ])
 def test_bad_anchor_fails_the_whole_load(db, row, message):
     canonicals = parse(_csv(row, _row(concept="lentils", state="dry", alias="lentils", anchor="172420")), today=TODAY)
@@ -260,6 +292,17 @@ def test_bad_anchor_fails_the_whole_load(db, row, message):
     db.rollback()
     assert any(message in p for p in e.value.problems), e.value.problems
     assert db.scalar(select(func.count()).select_from(CanonicalFood)) == 0
+
+
+def test_anchor_without_energy_fails_the_load(db):
+    db.query(FoodNutrient).filter(FoodNutrient.food_id == 1).delete()
+    db.commit()
+    with pytest.raises(CanonicalCsvError) as e:
+        load(db, _two_canonicals())
+    db.rollback()
+    assert e.value.problems == ["chickpeas.canned_drained: anchor "
+                                "'Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained solids' "
+                                "reports no energy value"]
 
 
 def test_empty_catalogue_is_skipped_not_failed():

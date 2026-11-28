@@ -36,6 +36,9 @@ export interface Food {
 	preparation_label?: string | null;
 	search_relationship?: string | null;
 	search_note?: string | null;
+	canonical_key?: string | null;
+	canonical_name?: string | null;
+	canonical_source?: string | null;
 }
 
 export interface FoodList {

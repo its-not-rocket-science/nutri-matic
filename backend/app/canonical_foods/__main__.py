@@ -1,4 +1,7 @@
-"""python -m app.canonical_foods validate | load [--dry-run]"""
+"""python -m app.canonical_foods validate [--allow-unsigned] | load [--dry-run [--allow-unsigned]]
+
+--allow-unsigned previews a draft whose rows are still reviewer=PENDING. It
+is refused for a real load: only signed-off rows are ever written."""
 
 import argparse
 import sys
@@ -9,13 +12,18 @@ from .csv_schema import CSV_PATH, CanonicalCsvError, file_sha256, load_file
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.canonical_foods", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("validate", help="Check the CSV file only (no database)")
+    v = sub.add_parser("validate", help="Check the CSV file only (no database)")
     p = sub.add_parser("load", help="Load the CSV into the database DATABASE_URL points at")
     p.add_argument("--dry-run", action="store_true", help="Run every check and the load, then roll back")
+    for command in (v, p):
+        command.add_argument("--allow-unsigned", action="store_true",
+                             help="Accept reviewer=PENDING rows (preview only; a real load refuses it)")
     args = parser.parse_args(argv)
+    if args.command == "load" and args.allow_unsigned and not args.dry_run:
+        parser.error("--allow-unsigned needs --dry-run: unsigned rows are never written")
 
     try:
-        canonicals = load_file()
+        canonicals = load_file(require_signoff=not args.allow_unsigned)
     except CanonicalCsvError as e:
         print(e, file=sys.stderr)
         return 1

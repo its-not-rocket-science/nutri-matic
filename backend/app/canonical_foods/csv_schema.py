@@ -16,6 +16,8 @@ the same canonical_key and must agree.
     anchor_fdc_id       FDC id of the SR Legacy/Foundation row logged when
                         this canonical is chosen (keys use fdc_id, not
                         foods.id, so the file survives a re-import)
+    anchor_fdc_name     that row's exact FDC name, so a reviewer sees what
+                        the id is; the loader fails if foods.name differs
     alias               lowercase search term
     alias_locale        en-GB | en-US | *
     relationship        exact | regional_equivalent | close_analogue |
@@ -26,8 +28,19 @@ the same canonical_key and must agree.
     ambiguous           "yes" lets one (locale, alias) point at more than
                         one concept; otherwise blank
     reviewer            who signed the row off; never blank or PENDING
-    review_date         ISO date of that sign-off
+    review_date         ISO date of that sign-off, YYYY-MM-DD only (blank
+                        while PENDING); 28/11/2026 is rejected, not guessed
     notes               free-text review notes, not shown to users
+
+Encoding: UTF-8 without a byte-order mark. A BOM, or text that looks like
+UTF-8 read as Latin-1/Windows-1252 ("purÃ©e"), is rejected with a hint:
+both are what a spreadsheet round trip leaves behind. Edit the file as
+text, not in Excel.
+
+A reviewer previewing a draft can parse it with require_signoff=False
+(`validate --allow-unsigned`, `load --dry-run --allow-unsigned`). Nothing
+that writes for real accepts that: the data migration and a plain `load`
+always require sign-off.
 
 The file holds only FDC identifiers and names plus hand-written terms. It
 must never be seeded from any phytate review file (plan 1.5 #7).
@@ -50,12 +63,17 @@ CSV_PATH = Path(__file__).resolve().parent / "canonical_foods_en_gb.csv"
 
 COLUMNS = (
     "concept", "canonical_key", "preparation_state", "display_name_en_gb", "display_name_en_us",
-    "anchor_fdc_id", "alias", "alias_locale", "relationship", "alias_note", "ambiguous",
+    "anchor_fdc_id", "anchor_fdc_name", "alias", "alias_locale", "relationship", "alias_note", "ambiguous",
     "reviewer", "review_date", "notes",
 )
 PENDING_REVIEWER = "PENDING"
 NOTE_REQUIRED = frozenset({"close_analogue", "category_proxy"})
 _SLUG = re.compile(r"^[a-z][a-z0-9_]*$")
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# what UTF-8 bytes look like after being decoded as Latin-1/cp1252:
+# "Ã©" for "é", "Â " for a no-break space, "â€" for curly quotes and dashes
+_MOJIBAKE = re.compile(r"[\u00c3\u00c2][\u0080-\u00bf]|\u00e2\u20ac")
+SPREADSHEET_HINT = "the file looks like it went through a spreadsheet; restore it from git and edit it as UTF-8 text"
 
 
 class CanonicalCsvError(ValueError):
@@ -74,7 +92,7 @@ class AliasRow:
     note: str | None
     ambiguous: bool
     reviewer: str
-    review_date: date
+    review_date: date | None
     line: int
 
 
@@ -86,6 +104,7 @@ class CanonicalRow:
     display_name_en_gb: str
     display_name_en_us: str | None
     anchor_fdc_id: int
+    anchor_fdc_name: str
     aliases: list[AliasRow] = field(default_factory=list)
 
 
@@ -95,10 +114,16 @@ def file_sha256(path: Path = CSV_PATH) -> str:
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
-def parse(text: str, *, today: date | None = None) -> dict[str, CanonicalRow]:
-    """Canonical rows by key. Raises CanonicalCsvError listing every problem."""
+def parse(text: str, *, today: date | None = None, require_signoff: bool = True) -> dict[str, CanonicalRow]:
+    """Canonical rows by key. Raises CanonicalCsvError listing every problem.
+    require_signoff=False accepts PENDING rows (blank date) for previews only."""
     today = today or date.today()
+    if text.startswith("﻿"):
+        raise CanonicalCsvError([f"the file starts with a byte-order mark: {SPREADSHEET_HINT}"])
     problems: list[str] = []
+    for number, content in enumerate(text.splitlines(), start=1):
+        if _MOJIBAKE.search(content):
+            problems.append(f"line {number}: garbled characters {_MOJIBAKE.search(content).group()!r}: {SPREADSHEET_HINT}")
     reader = csv.DictReader(io.StringIO(text))
     if tuple(reader.fieldnames or ()) != COLUMNS:
         raise CanonicalCsvError([f"header must be exactly: {','.join(COLUMNS)}"])
@@ -131,6 +156,8 @@ def parse(text: str, *, today: date | None = None) -> dict[str, CanonicalRow]:
         except ValueError:
             bad(f"anchor_fdc_id {row['anchor_fdc_id']!r} must be a positive FDC id")
             anchor = 0
+        if not row["anchor_fdc_name"]:
+            bad("anchor_fdc_name is required (the anchor row's exact FDC name)")
 
         alias = row["alias"]
         if not alias or alias != alias.lower() or alias != " ".join(alias.split()):
@@ -143,15 +170,19 @@ def parse(text: str, *, today: date | None = None) -> dict[str, CanonicalRow]:
             bad(f"a {row['relationship']} alias needs an alias_note for users")
         if row["ambiguous"] not in ("", "yes"):
             bad("ambiguous must be blank or 'yes'")
-        if not row["reviewer"] or row["reviewer"].upper() == PENDING_REVIEWER:
+        pending = not row["reviewer"] or row["reviewer"].upper() == PENDING_REVIEWER
+        reviewed = None
+        if pending and require_signoff:
             bad("reviewer is missing: the row has not been signed off")
-        try:
-            reviewed = date.fromisoformat(row["review_date"])
-            if reviewed > today:
-                bad(f"review_date {row['review_date']} is in the future")
-        except ValueError:
-            bad(f"review_date {row['review_date']!r} must be an ISO date (YYYY-MM-DD)")
-            reviewed = date.min
+        if not pending or row["review_date"]:
+            try:
+                if not _ISO_DATE.match(row["review_date"]):
+                    raise ValueError
+                reviewed = date.fromisoformat(row["review_date"])
+                if reviewed > today:
+                    bad(f"review_date {row['review_date']} is in the future")
+            except ValueError:
+                bad(f"review_date {row['review_date']!r} must be an ISO date (YYYY-MM-DD)")
 
         alias_id = (row["alias_locale"], alias, key)
         if alias_id in seen_alias:
@@ -159,12 +190,13 @@ def parse(text: str, *, today: date | None = None) -> dict[str, CanonicalRow]:
         seen_alias.add(alias_id)
 
         canonical = canonicals.get(key)
-        fields = (concept, state, row["display_name_en_gb"], row["display_name_en_us"] or None, anchor)
+        fields = (concept, state, row["display_name_en_gb"], row["display_name_en_us"] or None, anchor,
+                  row["anchor_fdc_name"])
         if canonical is None:
             canonical = CanonicalRow(key, *fields)
             canonicals[key] = canonical
         elif fields != (canonical.concept, canonical.preparation_state, canonical.display_name_en_gb,
-                        canonical.display_name_en_us, canonical.anchor_fdc_id):
+                        canonical.display_name_en_us, canonical.anchor_fdc_id, canonical.anchor_fdc_name):
             bad(f"canonical columns differ from earlier rows of {key}")
         canonical.aliases.append(AliasRow(
             alias, row["alias_locale"], row["relationship"], row["alias_note"] or None,
@@ -192,6 +224,19 @@ def _cross_row_problems(canonicals: dict[str, CanonicalRow]) -> list[str]:
             problems.append(
                 f"alias {alias!r} ({locale}) points at concepts {sorted(concepts)}; mark every such row ambiguous=yes"
             )
+    # Search reads a locale's own aliases and the '*' ones together, so the
+    # same rule applies to their union ("chips": en-GB fries, en-US crisps
+    # is fine; a '*' alias plus an en-GB one for another concept is not,
+    # unless both say ambiguous).
+    for (locale, alias), concepts in sorted(concepts_by_alias.items()):
+        if locale == "*" or ("*", alias) not in concepts_by_alias:
+            continue
+        union = concepts | concepts_by_alias[("*", alias)]
+        if len(union) > 1 and not (flagged[(locale, alias)] and flagged[("*", alias)]):
+            problems.append(
+                f"alias {alias!r} points at concepts {sorted(union)} across {locale} and '*'; "
+                "mark every such row ambiguous=yes"
+            )
 
     names = {c.concept for c in canonicals.values()} | set(canonicals)
     for canonical in canonicals.values():
@@ -208,5 +253,6 @@ def _cross_row_problems(canonicals: dict[str, CanonicalRow]) -> list[str]:
     return problems
 
 
-def load_file(path: Path = CSV_PATH) -> dict[str, CanonicalRow]:
-    return parse(path.read_text(encoding="utf-8"))
+def load_file(path: Path = CSV_PATH, *, require_signoff: bool = True) -> dict[str, CanonicalRow]:
+    # explicit UTF-8, never the platform default (cp1252 on Windows)
+    return parse(path.read_text(encoding="utf-8"), require_signoff=require_signoff)

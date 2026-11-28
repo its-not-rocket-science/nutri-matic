@@ -1,16 +1,339 @@
-concept,canonical_key,preparation_state,display_name_en_gb,display_name_en_us,anchor_fdc_id,alias,alias_locale,relationship,alias_note,ambiguous,reviewer,review_date,notes
-chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,chickpeas,*,exact,,,Paul,2026-11-28,"UK default preparation for chickpeas is tinned/drained (owner decision). SR Legacy row, as for the other variants (plan 1.3: Foundation often lacks energy and folate)."
-chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,tinned chickpeas,en-GB,exact,,,Paul,2026-11-28,
-chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,canned chickpeas,*,exact,,,Paul,2026-11-28,
-chickpeas,chickpeas.dry,dry,"Chickpeas, dried","Chickpeas, dry",173756,chickpeas,*,exact,,,Paul,2026-11-28,"SR ""mature seeds, raw"" is the dry pulse. Not the Foundation ""dry"" row (fdc 2644282), which has no energy or folate (plan 1.3)."
-chickpeas,chickpeas.dry,dry,"Chickpeas, dried","Chickpeas, dry",173756,dried chickpeas,*,exact,,,Paul,2026-11-28,
-chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,chickpeas,*,exact,,,Paul,2026-11-28,Boiled without salt.
-chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,boiled chickpeas,*,exact,,,Paul,2026-11-28,
-chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,cooked chickpeas,*,exact,,,Paul,2026-11-28,
-lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,lentils,*,exact,,,Paul,2026-11-28,"UK default preparation for lentils is dry (owner decision). SR ""Lentils, raw"" is the dry pulse; the Foundation ""Lentils, dry"" row (fdc 2644283) has no energy or folate (plan 1.3)."
-lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,dried lentils,*,exact,,,Paul,2026-11-28,
-rocket,rocket.raw,raw,Rocket,Arugula,169387,rocket,en-GB,exact,,,Paul,2026-11-28,"en-GB only: in en-US ""rocket"" is not a food name."
-rocket,rocket.raw,raw,Rocket,Arugula,169387,arugula,*,exact,,,Paul,2026-11-28,
-milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,semi-skimmed milk,en-GB,close_analogue,approx. UK semi-skimmed,,Paul,2026-11-28,Owner decision: semi-skimmed maps to US 2% milk as a close analogue (UK semi-skimmed is ~1.7% fat). The anchor is fortified with vitamins A and D (per its FDC name); whether that matches UK milk is not checked here.
-milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,semi skimmed milk,en-GB,close_analogue,approx. UK semi-skimmed,,Paul,2026-11-28,
-milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,2% milk,en-US,exact,,,Paul,2026-11-28,
+concept,canonical_key,preparation_state,display_name_en_gb,display_name_en_us,anchor_fdc_id,anchor_fdc_name,alias,alias_locale,relationship,alias_note,ambiguous,reviewer,review_date,notes
+chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,"Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained solids",chickpeas,*,exact,,,Paul,2026-11-28,"UK default preparation for chickpeas is tinned/drained (owner decision). SR Legacy row, as for the other variants (plan 1.3: Foundation often lacks energy and folate)."
+chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,"Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained solids",tinned chickpeas,en-GB,exact,,,Paul,2026-11-28,
+chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,"Chickpeas (garbanzo beans, bengal gram), mature seeds, canned, drained solids",canned chickpeas,*,exact,,,Paul,2026-11-28,
+chickpeas,chickpeas.dry,dry,"Chickpeas, dried","Chickpeas, dry",173756,"Chickpeas (garbanzo beans, bengal gram), mature seeds, raw",chickpeas,*,exact,,,Paul,2026-11-28,"SR ""mature seeds, raw"" is the dry pulse. Not the Foundation ""dry"" row (fdc 2644282), which has no energy or folate (plan 1.3)."
+chickpeas,chickpeas.dry,dry,"Chickpeas, dried","Chickpeas, dry",173756,"Chickpeas (garbanzo beans, bengal gram), mature seeds, raw",dried chickpeas,*,exact,,,Paul,2026-11-28,
+chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,"Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt",chickpeas,*,exact,,,Paul,2026-11-28,Boiled without salt.
+chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,"Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt",boiled chickpeas,*,exact,,,Paul,2026-11-28,
+chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,"Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt",cooked chickpeas,*,exact,,,Paul,2026-11-28,
+lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,"Lentils, raw",lentils,*,exact,,,Paul,2026-11-28,"UK default preparation for lentils is dry (owner decision). SR ""Lentils, raw"" is the dry pulse; the Foundation ""Lentils, dry"" row (fdc 2644283) has no energy or folate (plan 1.3)."
+lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,"Lentils, raw",dried lentils,*,exact,,,Paul,2026-11-28,
+lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,"Lentils, raw",green lentils,*,close_analogue,generic lentils; no row for this variety,,Paul,2026-11-28,Extra aliases on the 4a canonical; close_analogue in ingredient_aliases.py too.
+lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,"Lentils, raw",puy lentils,en-GB,close_analogue,generic lentils; no row for this variety,,Paul,2026-11-28,
+lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,"Lentils, raw",brown lentils,*,close_analogue,generic lentils; no row for this variety,,Paul,2026-11-28,
+rocket,rocket.raw,raw,Rocket,Arugula,169387,"Arugula, raw",rocket,en-GB,exact,,,Paul,2026-11-28,"en-GB only: in en-US ""rocket"" is not a food name."
+rocket,rocket.raw,raw,Rocket,Arugula,169387,"Arugula, raw",arugula,*,exact,,,Paul,2026-11-28,
+milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",semi-skimmed milk,en-GB,close_analogue,approx. UK semi-skimmed,,Paul,2026-11-28,Owner decision: semi-skimmed maps to US 2% milk as a close analogue (UK semi-skimmed is ~1.7% fat). The anchor is fortified with vitamins A and D (per its FDC name); whether that matches UK milk is not checked here.
+milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",semi skimmed milk,en-GB,close_analogue,approx. UK semi-skimmed,,Paul,2026-11-28,
+milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",2% milk,en-US,exact,,,Paul,2026-11-28,
+milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,"Milk, reduced fat, fluid, 2% milkfat, with added vitamin A and vitamin D",milk,*,exact,,yes,Paul,2026-11-28,"Bare 'milk' lists the 2%, skimmed and whole canonicals (ambiguous)."
+lentils,lentils.cooked_boiled,cooked_boiled,"Lentils, boiled","Lentils, boiled",172421,"Lentils, mature seeds, cooked, boiled, without salt",lentils,*,exact,,,Paul,2026-11-28,Boiled without salt. Sibling of lentils.dry; the UK default for bare 'lentils' stays dry.
+lentils,lentils.cooked_boiled,cooked_boiled,"Lentils, boiled","Lentils, boiled",172421,"Lentils, mature seeds, cooked, boiled, without salt",boiled lentils,*,exact,,,Paul,2026-11-28,
+lentils,lentils.cooked_boiled,cooked_boiled,"Lentils, boiled","Lentils, boiled",172421,"Lentils, mature seeds, cooked, boiled, without salt",cooked lentils,*,exact,,,Paul,2026-11-28,
+lentils_red,lentils_red.dry,dry,"Red lentils, dried","Red lentils, dry",174284,"Lentils, pink or red, raw",red lentils,*,exact,,,Paul,2026-11-28,"SR has a red-lentil row, so red lentils need not fall back to generic lentils as in ingredient_aliases.py."
+lentils_red,lentils_red.dry,dry,"Red lentils, dried","Red lentils, dry",174284,"Lentils, pink or red, raw",split red lentils,en-GB,exact,,,Paul,2026-11-28,
+milk_whole,milk_whole.unspecified,unspecified,"Milk, whole","Milk, whole, 3.25%",171265,"Milk, whole, 3.25% milkfat, with added vitamin D",whole milk,*,exact,,,Paul,2026-11-28,"US whole milk is 3.25% fat, UK whole about 3.5%. The anchor has added vitamin D."
+milk_whole,milk_whole.unspecified,unspecified,"Milk, whole","Milk, whole, 3.25%",171265,"Milk, whole, 3.25% milkfat, with added vitamin D",full fat milk,en-GB,exact,,,Paul,2026-11-28,
+milk_whole,milk_whole.unspecified,unspecified,"Milk, whole","Milk, whole, 3.25%",171265,"Milk, whole, 3.25% milkfat, with added vitamin D",full-fat milk,en-GB,exact,,,Paul,2026-11-28,
+milk_whole,milk_whole.unspecified,unspecified,"Milk, whole","Milk, whole, 3.25%",171265,"Milk, whole, 3.25% milkfat, with added vitamin D",milk,*,exact,,yes,Paul,2026-11-28,
+milk_skimmed,milk_skimmed.unspecified,unspecified,"Milk, skimmed","Milk, nonfat (skim)",171269,"Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",skimmed milk,en-GB,regional_equivalent,,,Paul,2026-11-28,The anchor has added vitamins A and D; whether UK skimmed milk matches is not checked.
+milk_skimmed,milk_skimmed.unspecified,unspecified,"Milk, skimmed","Milk, nonfat (skim)",171269,"Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",skim milk,*,exact,,,Paul,2026-11-28,
+milk_skimmed,milk_skimmed.unspecified,unspecified,"Milk, skimmed","Milk, nonfat (skim)",171269,"Milk, nonfat, fluid, with added vitamin A and vitamin D (fat free or skim)",milk,*,exact,,yes,Paul,2026-11-28,
+milk_lowfat_1pct,milk_lowfat_1pct.unspecified,unspecified,"Milk, 1% fat","Milk, lowfat, 1%",170872,"Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D",1% milk,*,exact,,,Paul,2026-11-28,
+milk_lowfat_1pct,milk_lowfat_1pct.unspecified,unspecified,"Milk, 1% fat","Milk, lowfat, 1%",170872,"Milk, lowfat, fluid, 1% milkfat, with added vitamin A and vitamin D",1% fat milk,en-GB,exact,,,Paul,2026-11-28,
+beef_mince_20pct,beef_mince_20pct.raw,raw,Beef mince (20% fat),"Ground beef, 80% lean",174036,"Beef, ground, 80% lean meat / 20% fat, raw",mince,en-GB,close_analogue,"assumed beef, 20% fat; lamb, pork and turkey mince are separate",,Paul,2026-11-28,Standard UK beef mince is roughly 15-20% fat. ingredient_aliases.py resolves beef mince to 93/7 by search.
+beef_mince_20pct,beef_mince_20pct.raw,raw,Beef mince (20% fat),"Ground beef, 80% lean",174036,"Beef, ground, 80% lean meat / 20% fat, raw",beef mince,en-GB,regional_equivalent,UK beef mince is sold at 5-20% fat; this is 20%,,Paul,2026-11-28,
+beef_mince_20pct,beef_mince_20pct.raw,raw,Beef mince (20% fat),"Ground beef, 80% lean",174036,"Beef, ground, 80% lean meat / 20% fat, raw",minced beef,en-GB,regional_equivalent,UK beef mince is sold at 5-20% fat; this is 20%,,Paul,2026-11-28,
+beef_mince_20pct,beef_mince_20pct.raw,raw,Beef mince (20% fat),"Ground beef, 80% lean",174036,"Beef, ground, 80% lean meat / 20% fat, raw",ground beef,en-US,exact,,,Paul,2026-11-28,
+beef_mince_5pct,beef_mince_5pct.raw,raw,"Beef mince, lean (5% fat)","Ground beef, 95% lean",171790,"Beef, ground, 95% lean meat / 5% fat, raw",lean beef mince,en-GB,regional_equivalent,,,Paul,2026-11-28,UK lean mince is commonly sold as 5% fat.
+beef_mince_5pct,beef_mince_5pct.raw,raw,"Beef mince, lean (5% fat)","Ground beef, 95% lean",171790,"Beef, ground, 95% lean meat / 5% fat, raw",lean minced beef,en-GB,regional_equivalent,,,Paul,2026-11-28,
+beef_mince_5pct,beef_mince_5pct.raw,raw,"Beef mince, lean (5% fat)","Ground beef, 95% lean",171790,"Beef, ground, 95% lean meat / 5% fat, raw",5% fat beef mince,en-GB,regional_equivalent,,,Paul,2026-11-28,
+beef_mince_5pct,beef_mince_5pct.raw,raw,"Beef mince, lean (5% fat)","Ground beef, 95% lean",171790,"Beef, ground, 95% lean meat / 5% fat, raw",extra lean beef mince,en-GB,regional_equivalent,,,Paul,2026-11-28,
+lamb_mince,lamb_mince.raw,raw,Lamb mince,Ground lamb,174370,"Lamb, ground, raw",lamb mince,en-GB,regional_equivalent,,,Paul,2026-11-28,
+lamb_mince,lamb_mince.raw,raw,Lamb mince,Ground lamb,174370,"Lamb, ground, raw",minced lamb,en-GB,regional_equivalent,,,Paul,2026-11-28,
+lamb_mince,lamb_mince.raw,raw,Lamb mince,Ground lamb,174370,"Lamb, ground, raw",ground lamb,en-US,exact,,,Paul,2026-11-28,
+pork_mince,pork_mince.raw,raw,Pork mince,Ground pork,167902,"Pork, fresh, ground, raw",pork mince,en-GB,regional_equivalent,,,Paul,2026-11-28,
+pork_mince,pork_mince.raw,raw,Pork mince,Ground pork,167902,"Pork, fresh, ground, raw",minced pork,en-GB,regional_equivalent,,,Paul,2026-11-28,
+pork_mince,pork_mince.raw,raw,Pork mince,Ground pork,167902,"Pork, fresh, ground, raw",ground pork,en-US,exact,,,Paul,2026-11-28,
+turkey_mince,turkey_mince.raw,raw,Turkey mince,Ground turkey,171505,"Turkey, Ground, raw",turkey mince,en-GB,regional_equivalent,,,Paul,2026-11-28,
+turkey_mince,turkey_mince.raw,raw,Turkey mince,Ground turkey,171505,"Turkey, Ground, raw",minced turkey,en-GB,regional_equivalent,,,Paul,2026-11-28,
+turkey_mince,turkey_mince.raw,raw,Turkey mince,Ground turkey,171505,"Turkey, Ground, raw",ground turkey,en-US,exact,,,Paul,2026-11-28,
+aubergine,aubergine.raw,raw,Aubergine,Eggplant,169228,"Eggplant, raw",aubergine,en-GB,regional_equivalent,,,Paul,2026-11-28,SR row; Foundation 2685577 has fewer nutrients.
+aubergine,aubergine.raw,raw,Aubergine,Eggplant,169228,"Eggplant, raw",aubergines,en-GB,regional_equivalent,,,Paul,2026-11-28,
+aubergine,aubergine.raw,raw,Aubergine,Eggplant,169228,"Eggplant, raw",eggplant,*,exact,,,Paul,2026-11-28,
+courgette,courgette.raw,raw,Courgette,Zucchini,169291,"Squash, summer, zucchini, includes skin, raw",courgette,en-GB,regional_equivalent,,,Paul,2026-11-28,
+courgette,courgette.raw,raw,Courgette,Zucchini,169291,"Squash, summer, zucchini, includes skin, raw",courgettes,en-GB,regional_equivalent,,,Paul,2026-11-28,
+courgette,courgette.raw,raw,Courgette,Zucchini,169291,"Squash, summer, zucchini, includes skin, raw",zucchini,*,exact,,,Paul,2026-11-28,
+coriander_leaves,coriander_leaves.raw,raw,Coriander (fresh leaves),Cilantro,169997,"Coriander (cilantro) leaves, raw",coriander,en-GB,regional_equivalent,,,Paul,2026-11-28,Bare 'coriander' is en-GB only: in en-US it usually means the seed.
+coriander_leaves,coriander_leaves.raw,raw,Coriander (fresh leaves),Cilantro,169997,"Coriander (cilantro) leaves, raw",fresh coriander,en-GB,regional_equivalent,,,Paul,2026-11-28,
+coriander_leaves,coriander_leaves.raw,raw,Coriander (fresh leaves),Cilantro,169997,"Coriander (cilantro) leaves, raw",coriander leaves,*,exact,,,Paul,2026-11-28,
+coriander_leaves,coriander_leaves.raw,raw,Coriander (fresh leaves),Cilantro,169997,"Coriander (cilantro) leaves, raw",cilantro,*,exact,,,Paul,2026-11-28,
+spring_onion,spring_onion.raw,raw,Spring onions,Scallions,170005,"Onions, spring or scallions (includes tops and bulb), raw",spring onion,en-GB,regional_equivalent,,,Paul,2026-11-28,
+spring_onion,spring_onion.raw,raw,Spring onions,Scallions,170005,"Onions, spring or scallions (includes tops and bulb), raw",spring onions,en-GB,regional_equivalent,,,Paul,2026-11-28,
+spring_onion,spring_onion.raw,raw,Spring onions,Scallions,170005,"Onions, spring or scallions (includes tops and bulb), raw",scallion,*,exact,,,Paul,2026-11-28,
+spring_onion,spring_onion.raw,raw,Spring onions,Scallions,170005,"Onions, spring or scallions (includes tops and bulb), raw",scallions,*,exact,,,Paul,2026-11-28,
+spring_onion,spring_onion.raw,raw,Spring onions,Scallions,170005,"Onions, spring or scallions (includes tops and bulb), raw",green onion,*,exact,,,Paul,2026-11-28,
+spring_onion,spring_onion.raw,raw,Spring onions,Scallions,170005,"Onions, spring or scallions (includes tops and bulb), raw",green onions,*,exact,,,Paul,2026-11-28,
+swede,swede.raw,raw,Swede,Rutabaga,168454,"Rutabagas, raw",swede,en-GB,regional_equivalent,,,Paul,2026-11-28,
+swede,swede.raw,raw,Swede,Rutabaga,168454,"Rutabagas, raw",swedes,en-GB,regional_equivalent,,,Paul,2026-11-28,
+swede,swede.raw,raw,Swede,Rutabaga,168454,"Rutabagas, raw",rutabaga,*,exact,,,Paul,2026-11-28,
+potato_crisps,potato_crisps.unspecified,unspecified,"Crisps, ready salted","Potato chips, salted",169677,"Snacks, potato chips, plain, salted",crisps,en-GB,regional_equivalent,,,Paul,2026-11-28,"'chips' is locale-specific: en-US gets this, en-GB gets chips_oven."
+potato_crisps,potato_crisps.unspecified,unspecified,"Crisps, ready salted","Potato chips, salted",169677,"Snacks, potato chips, plain, salted",potato crisps,en-GB,regional_equivalent,,,Paul,2026-11-28,
+potato_crisps,potato_crisps.unspecified,unspecified,"Crisps, ready salted","Potato chips, salted",169677,"Snacks, potato chips, plain, salted",ready salted crisps,en-GB,regional_equivalent,,,Paul,2026-11-28,
+potato_crisps,potato_crisps.unspecified,unspecified,"Crisps, ready salted","Potato chips, salted",169677,"Snacks, potato chips, plain, salted",potato chips,*,exact,,,Paul,2026-11-28,
+potato_crisps,potato_crisps.unspecified,unspecified,"Crisps, ready salted","Potato chips, salted",169677,"Snacks, potato chips, plain, salted",chips,en-US,exact,,,Paul,2026-11-28,
+chips_oven,chips_oven.fried,fried,"Oven chips (frozen, oven-baked)","French fries, frozen, oven-heated",169264,"Potatoes, french fried, all types, salt added in processing, frozen, home-prepared, oven heated",chips,en-GB,close_analogue,oven-baked frozen chips; chip-shop chips are higher in fat,,Paul,2026-11-28,"The classifier reads 'french fried' as fried, the state this canonical declares."
+chips_oven,chips_oven.fried,fried,"Oven chips (frozen, oven-baked)","French fries, frozen, oven-heated",169264,"Potatoes, french fried, all types, salt added in processing, frozen, home-prepared, oven heated",oven chips,en-GB,exact,,,Paul,2026-11-28,
+chips_oven,chips_oven.fried,fried,"Oven chips (frozen, oven-baked)","French fries, frozen, oven-heated",169264,"Potatoes, french fried, all types, salt added in processing, frozen, home-prepared, oven heated",french fries,*,close_analogue,"frozen fries, oven-heated",,Paul,2026-11-28,
+chips_oven,chips_oven.fried,fried,"Oven chips (frozen, oven-baked)","French fries, frozen, oven-heated",169264,"Potatoes, french fried, all types, salt added in processing, frozen, home-prepared, oven heated",fries,*,close_analogue,"frozen fries, oven-heated",,Paul,2026-11-28,
+biscuit_plain,biscuit_plain.unspecified,unspecified,"Biscuits, plain (Marie type)",Marie biscuit cookies,171867,"Cookies, Marie biscuit",biscuit,en-GB,close_analogue,plain sweet biscuit (Marie / rich tea type),,Paul,2026-11-28,en-GB only: in en-US 'biscuit' is a scone-like bread.
+biscuit_plain,biscuit_plain.unspecified,unspecified,"Biscuits, plain (Marie type)",Marie biscuit cookies,171867,"Cookies, Marie biscuit",biscuits,en-GB,close_analogue,plain sweet biscuit (Marie / rich tea type),,Paul,2026-11-28,
+biscuit_plain,biscuit_plain.unspecified,unspecified,"Biscuits, plain (Marie type)",Marie biscuit cookies,171867,"Cookies, Marie biscuit",rich tea biscuits,en-GB,close_analogue,"Marie biscuit, the closest row",,Paul,2026-11-28,
+biscuit_plain,biscuit_plain.unspecified,unspecified,"Biscuits, plain (Marie type)",Marie biscuit cookies,171867,"Cookies, Marie biscuit",marie biscuits,*,exact,,,Paul,2026-11-28,
+shortbread,shortbread.unspecified,unspecified,Shortbread,Shortbread cookies,174967,"Cookies, shortbread, commercially prepared, plain",shortbread,*,exact,,,Paul,2026-11-28,
+jam,jam.unspecified,unspecified,Jam,Jams and preserves,169641,Jams and preserves,jam,*,exact,,,Paul,2026-11-28,
+jam,jam.unspecified,unspecified,Jam,Jams and preserves,169641,Jams and preserves,jams,*,exact,,,Paul,2026-11-28,
+jam,jam.unspecified,unspecified,Jam,Jams and preserves,169641,Jams and preserves,preserves,en-US,exact,,,Paul,2026-11-28,
+cream_heavy,cream_heavy.unspecified,unspecified,"Cream, heavy (US)","Cream, heavy whipping",170859,"Cream, fluid, heavy whipping",double cream,en-GB,close_analogue,UK double cream (~48% fat) is richer than US heavy cream (~36%),,Paul,2026-11-28,Note text matches the PR 1 synonym note.
+cream_heavy,cream_heavy.unspecified,unspecified,"Cream, heavy (US)","Cream, heavy whipping",170859,"Cream, fluid, heavy whipping",whipping cream,en-GB,regional_equivalent,,,Paul,2026-11-28,
+cream_heavy,cream_heavy.unspecified,unspecified,"Cream, heavy (US)","Cream, heavy whipping",170859,"Cream, fluid, heavy whipping",heavy cream,*,exact,,,Paul,2026-11-28,
+cream_heavy,cream_heavy.unspecified,unspecified,"Cream, heavy (US)","Cream, heavy whipping",170859,"Cream, fluid, heavy whipping",heavy whipping cream,*,exact,,,Paul,2026-11-28,
+cream_light,cream_light.unspecified,unspecified,"Cream, light (US)","Cream, light (coffee cream)",170857,"Cream, fluid, light (coffee cream or table cream)",single cream,en-GB,close_analogue,approx. UK single cream (~18% fat),,Paul,2026-11-28,SR light/coffee cream is about 19% fat.
+cream_light,cream_light.unspecified,unspecified,"Cream, light (US)","Cream, light (coffee cream)",170857,"Cream, fluid, light (coffee cream or table cream)",light cream,*,exact,,,Paul,2026-11-28,
+flour_plain,flour_plain.unspecified,unspecified,Plain flour,"All-purpose flour, enriched",168936,"Wheat flour, white, all-purpose, enriched, unbleached",plain flour,en-GB,close_analogue,approx.: UK flour is fortified differently from US enriched flour,,Paul,2026-11-28,Unbleached enriched: UK flour is not bleached.
+flour_plain,flour_plain.unspecified,unspecified,Plain flour,"All-purpose flour, enriched",168936,"Wheat flour, white, all-purpose, enriched, unbleached",plain white flour,en-GB,close_analogue,approx.: UK flour is fortified differently from US enriched flour,,Paul,2026-11-28,
+flour_plain,flour_plain.unspecified,unspecified,Plain flour,"All-purpose flour, enriched",168936,"Wheat flour, white, all-purpose, enriched, unbleached",all-purpose flour,*,exact,,,Paul,2026-11-28,
+flour_plain,flour_plain.unspecified,unspecified,Plain flour,"All-purpose flour, enriched",168936,"Wheat flour, white, all-purpose, enriched, unbleached",all purpose flour,*,exact,,,Paul,2026-11-28,
+flour_self_raising,flour_self_raising.unspecified,unspecified,Self-raising flour,"Self-rising flour, enriched",168895,"Wheat flour, white, all-purpose, self-rising, enriched",self-raising flour,en-GB,close_analogue,approx.: UK flour is fortified differently from US enriched flour,,Paul,2026-11-28,
+flour_self_raising,flour_self_raising.unspecified,unspecified,Self-raising flour,"Self-rising flour, enriched",168895,"Wheat flour, white, all-purpose, self-rising, enriched",self raising flour,en-GB,close_analogue,approx.: UK flour is fortified differently from US enriched flour,,Paul,2026-11-28,
+flour_self_raising,flour_self_raising.unspecified,unspecified,Self-raising flour,"Self-rising flour, enriched",168895,"Wheat flour, white, all-purpose, self-rising, enriched",self-rising flour,*,exact,,,Paul,2026-11-28,
+flour_wholemeal,flour_wholemeal.unspecified,unspecified,Wholemeal flour,Whole-wheat flour,168893,"Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)",wholemeal flour,en-GB,regional_equivalent,,,Paul,2026-11-28,Neither UK wholemeal nor US whole-grain flour is fortified.
+flour_wholemeal,flour_wholemeal.unspecified,unspecified,Wholemeal flour,Whole-wheat flour,168893,"Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)",whole wheat flour,*,exact,,,Paul,2026-11-28,
+flour_wholemeal,flour_wholemeal.unspecified,unspecified,Wholemeal flour,Whole-wheat flour,168893,"Wheat flour, whole-grain (Includes foods for USDA's Food Distribution Program)",whole-wheat flour,*,exact,,,Paul,2026-11-28,
+flour_strong,flour_strong.unspecified,unspecified,Strong white flour,"Bread flour, enriched",168896,"Wheat flour, white, bread, enriched",strong white flour,en-GB,close_analogue,approx.: UK flour is fortified differently from US enriched flour,,Paul,2026-11-28,
+flour_strong,flour_strong.unspecified,unspecified,Strong white flour,"Bread flour, enriched",168896,"Wheat flour, white, bread, enriched",strong flour,en-GB,close_analogue,approx.: UK flour is fortified differently from US enriched flour,,Paul,2026-11-28,
+flour_strong,flour_strong.unspecified,unspecified,Strong white flour,"Bread flour, enriched",168896,"Wheat flour, white, bread, enriched",bread flour,*,exact,,,Paul,2026-11-28,
+sugar_brown,sugar_brown.unspecified,unspecified,Brown sugar,Brown sugar,168833,"Sugars, brown",brown sugar,*,exact,,,Paul,2026-11-28,The only sugar row in the catalogue (ingest skips protein-free foods).
+sugar_brown,sugar_brown.unspecified,unspecified,Brown sugar,Brown sugar,168833,"Sugars, brown",soft brown sugar,en-GB,regional_equivalent,,,Paul,2026-11-28,
+sugar_brown,sugar_brown.unspecified,unspecified,Brown sugar,Brown sugar,168833,"Sugars, brown",light brown sugar,*,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.raw,raw,"Tomatoes, fresh","Tomatoes, raw",170457,"Tomatoes, red, ripe, raw, year round average",tomatoes,*,exact,,,Paul,2026-11-28,"The UK default for bare 'tomatoes' is tinned (owner decision), so the canned sibling ranks first."
+tomatoes,tomatoes.raw,raw,"Tomatoes, fresh","Tomatoes, raw",170457,"Tomatoes, red, ripe, raw, year round average",tomato,*,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.raw,raw,"Tomatoes, fresh","Tomatoes, raw",170457,"Tomatoes, red, ripe, raw, year round average",fresh tomatoes,*,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.raw,raw,"Tomatoes, fresh","Tomatoes, raw",170457,"Tomatoes, red, ripe, raw, year round average",cherry tomatoes,*,close_analogue,generic tomatoes; no cherry tomato row,,Paul,2026-11-28,
+tomatoes,tomatoes.canned_with_liquid,canned_with_liquid,"Tomatoes, tinned","Tomatoes, canned",170051,"Tomatoes, red, ripe, canned, packed in tomato juice",tomatoes,*,exact,,,Paul,2026-11-28,"Packed in tomato juice, i.e. with liquid."
+tomatoes,tomatoes.canned_with_liquid,canned_with_liquid,"Tomatoes, tinned","Tomatoes, canned",170051,"Tomatoes, red, ripe, canned, packed in tomato juice",tomato,*,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.canned_with_liquid,canned_with_liquid,"Tomatoes, tinned","Tomatoes, canned",170051,"Tomatoes, red, ripe, canned, packed in tomato juice",tinned tomatoes,en-GB,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.canned_with_liquid,canned_with_liquid,"Tomatoes, tinned","Tomatoes, canned",170051,"Tomatoes, red, ripe, canned, packed in tomato juice",canned tomatoes,*,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.canned_with_liquid,canned_with_liquid,"Tomatoes, tinned","Tomatoes, canned",170051,"Tomatoes, red, ripe, canned, packed in tomato juice",chopped tomatoes,en-GB,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.canned_with_liquid,canned_with_liquid,"Tomatoes, tinned","Tomatoes, canned",170051,"Tomatoes, red, ripe, canned, packed in tomato juice",tinned chopped tomatoes,en-GB,exact,,,Paul,2026-11-28,
+tomatoes,tomatoes.canned_with_liquid,canned_with_liquid,"Tomatoes, tinned","Tomatoes, canned",170051,"Tomatoes, red, ripe, canned, packed in tomato juice",plum tomatoes,en-GB,exact,,,Paul,2026-11-28,
+tomato_paste,tomato_paste.canned_with_liquid,canned_with_liquid,Tomato purée (paste),Tomato paste,170459,"Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)",tomato puree,en-GB,regional_equivalent,UK tomato purée is US tomato paste,,Paul,2026-11-28,"'tomato puree' is locale-specific: en-GB gets paste, en-US gets passata."
+tomato_paste,tomato_paste.canned_with_liquid,canned_with_liquid,Tomato purée (paste),Tomato paste,170459,"Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)",tomato purée,en-GB,regional_equivalent,UK tomato purée is US tomato paste,,Paul,2026-11-28,
+tomato_paste,tomato_paste.canned_with_liquid,canned_with_liquid,Tomato purée (paste),Tomato paste,170459,"Tomato products, canned, paste, without salt added (Includes foods for USDA's Food Distribution Program)",tomato paste,*,exact,,,Paul,2026-11-28,
+passata,passata.canned_with_liquid,canned_with_liquid,Passata,Tomato puree,170460,"Tomato products, canned, puree, without salt added",passata,en-GB,regional_equivalent,,,Paul,2026-11-28,
+passata,passata.canned_with_liquid,canned_with_liquid,Passata,Tomato puree,170460,"Tomato products, canned, puree, without salt added",tomato puree,en-US,exact,,,Paul,2026-11-28,
+baked_beans,baked_beans.canned_with_liquid,canned_with_liquid,Baked beans in tomato sauce,"Baked beans, canned, vegetarian",175182,"Beans, baked, canned, plain or vegetarian",baked beans,en-GB,close_analogue,approx. UK baked beans,,Paul,2026-11-28,Note text matches the PR 1 synonym note.
+baked_beans,baked_beans.canned_with_liquid,canned_with_liquid,Baked beans in tomato sauce,"Baked beans, canned, vegetarian",175182,"Beans, baked, canned, plain or vegetarian",baked beans,en-US,exact,,,Paul,2026-11-28,
+cheddar,cheddar.unspecified,unspecified,Cheddar,Cheddar cheese,173414,"Cheese, cheddar (Includes foods for USDA's Food Distribution Program)",cheddar,*,exact,,,Paul,2026-11-28,"SR row, not Foundation 328637 (fewer nutrients)."
+cheddar,cheddar.unspecified,unspecified,Cheddar,Cheddar cheese,173414,"Cheese, cheddar (Includes foods for USDA's Food Distribution Program)",cheddar cheese,*,exact,,,Paul,2026-11-28,
+cheddar,cheddar.unspecified,unspecified,Cheddar,Cheddar cheese,173414,"Cheese, cheddar (Includes foods for USDA's Food Distribution Program)",mature cheddar,en-GB,exact,,,Paul,2026-11-28,
+cheddar,cheddar.unspecified,unspecified,Cheddar,Cheddar cheese,173414,"Cheese, cheddar (Includes foods for USDA's Food Distribution Program)",grated cheddar,*,exact,,,Paul,2026-11-28,
+hummus,hummus.unspecified,unspecified,Houmous,Hummus,174289,"Hummus, commercial",houmous,en-GB,regional_equivalent,,,Paul,2026-11-28,
+hummus,hummus.unspecified,unspecified,Houmous,Hummus,174289,"Hummus, commercial",humous,en-GB,regional_equivalent,,,Paul,2026-11-28,
+hummus,hummus.unspecified,unspecified,Houmous,Hummus,174289,"Hummus, commercial",hummus,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.canned_drained,canned_drained,"Kidney beans, tinned, drained","Kidney beans, canned, drained",174285,"Beans, kidney, red, mature seeds, canned, drained solids",kidney beans,*,exact,,,Paul,2026-11-28,The UK default for kidney beans is tinned/drained (owner decision).
+kidney_beans,kidney_beans.canned_drained,canned_drained,"Kidney beans, tinned, drained","Kidney beans, canned, drained",174285,"Beans, kidney, red, mature seeds, canned, drained solids",red kidney beans,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.canned_drained,canned_drained,"Kidney beans, tinned, drained","Kidney beans, canned, drained",174285,"Beans, kidney, red, mature seeds, canned, drained solids",tinned kidney beans,en-GB,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.canned_drained,canned_drained,"Kidney beans, tinned, drained","Kidney beans, canned, drained",174285,"Beans, kidney, red, mature seeds, canned, drained solids",canned kidney beans,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.dry,dry,"Kidney beans, dried","Kidney beans, dry",173744,"Beans, kidney, red, mature seeds, raw",kidney beans,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.dry,dry,"Kidney beans, dried","Kidney beans, dry",173744,"Beans, kidney, red, mature seeds, raw",red kidney beans,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.dry,dry,"Kidney beans, dried","Kidney beans, dry",173744,"Beans, kidney, red, mature seeds, raw",dried kidney beans,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.cooked_boiled,cooked_boiled,"Kidney beans, boiled","Kidney beans, boiled",175194,"Beans, kidney, red, mature seeds, cooked, boiled, without salt",kidney beans,*,exact,,,Paul,2026-11-28,Boiled without salt.
+kidney_beans,kidney_beans.cooked_boiled,cooked_boiled,"Kidney beans, boiled","Kidney beans, boiled",175194,"Beans, kidney, red, mature seeds, cooked, boiled, without salt",red kidney beans,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.cooked_boiled,cooked_boiled,"Kidney beans, boiled","Kidney beans, boiled",175194,"Beans, kidney, red, mature seeds, cooked, boiled, without salt",boiled kidney beans,*,exact,,,Paul,2026-11-28,
+kidney_beans,kidney_beans.cooked_boiled,cooked_boiled,"Kidney beans, boiled","Kidney beans, boiled",175194,"Beans, kidney, red, mature seeds, cooked, boiled, without salt",cooked kidney beans,*,exact,,,Paul,2026-11-28,
+bread_wholemeal,bread_wholemeal.unspecified,unspecified,Wholemeal bread,Whole-wheat bread,172688,"Bread, whole-wheat, commercially prepared",wholemeal bread,en-GB,regional_equivalent,,,Paul,2026-11-28,
+bread_wholemeal,bread_wholemeal.unspecified,unspecified,Wholemeal bread,Whole-wheat bread,172688,"Bread, whole-wheat, commercially prepared",whole wheat bread,*,exact,,,Paul,2026-11-28,
+bread_wholemeal,bread_wholemeal.unspecified,unspecified,Wholemeal bread,Whole-wheat bread,172688,"Bread, whole-wheat, commercially prepared",whole-wheat bread,*,exact,,,Paul,2026-11-28,
+bread_white,bread_white.unspecified,unspecified,White bread,White bread,174924,"Bread, white, commercially prepared (includes soft bread crumbs)",white bread,*,exact,,,Paul,2026-11-28,
+oats,oats.dry,dry,Porridge oats,"Oats, rolled or quick, dry",173904,"Cereals, oats, regular and quick, not fortified, dry",porridge oats,en-GB,regional_equivalent,,,Paul,2026-11-28,Not fortified. The UK default for porridge oats is dry (owner decision).
+oats,oats.dry,dry,Porridge oats,"Oats, rolled or quick, dry",173904,"Cereals, oats, regular and quick, not fortified, dry",oats,*,exact,,,Paul,2026-11-28,
+oats,oats.dry,dry,Porridge oats,"Oats, rolled or quick, dry",173904,"Cereals, oats, regular and quick, not fortified, dry",rolled oats,*,exact,,,Paul,2026-11-28,
+oats,oats.cooked_boiled,cooked_boiled,"Porridge, made with water","Oatmeal, cooked with water",173905,"Cereals, oats, regular and quick, unenriched, cooked with water (includes boiling and microwaving), without salt",porridge,en-GB,exact,made with water,,Paul,2026-11-28,
+oats,oats.cooked_boiled,cooked_boiled,"Porridge, made with water","Oatmeal, cooked with water",173905,"Cereals, oats, regular and quick, unenriched, cooked with water (includes boiling and microwaving), without salt",oats,*,exact,,,Paul,2026-11-28,
+pasta,pasta.dry,dry,"Pasta, dried","Pasta, dry",169736,"Pasta, dry, enriched",pasta,*,exact,,,Paul,2026-11-28,"The UK default for pasta is dry (owner decision). Shapes share one row. Shapes are on both pasta canonicals: bare 'spaghetti' lists dried first (UK default), then boiled."
+pasta,pasta.dry,dry,"Pasta, dried","Pasta, dry",169736,"Pasta, dry, enriched",dried pasta,*,exact,,,Paul,2026-11-28,
+pasta,pasta.dry,dry,"Pasta, dried","Pasta, dry",169736,"Pasta, dry, enriched",spaghetti,*,exact,,,Paul,2026-11-28,
+pasta,pasta.dry,dry,"Pasta, dried","Pasta, dry",169736,"Pasta, dry, enriched",penne,*,exact,,,Paul,2026-11-28,
+pasta,pasta.dry,dry,"Pasta, dried","Pasta, dry",169736,"Pasta, dry, enriched",fusilli,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",pasta,*,exact,,,Paul,2026-11-28,Without added salt.
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",cooked pasta,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",boiled pasta,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",cooked spaghetti,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",boiled spaghetti,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",cooked penne,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",boiled penne,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",cooked fusilli,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",boiled fusilli,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",spaghetti,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",penne,*,exact,,,Paul,2026-11-28,
+pasta,pasta.cooked_boiled,cooked_boiled,"Pasta, boiled","Pasta, cooked",169737,"Pasta, cooked, enriched, without added salt",fusilli,*,exact,,,Paul,2026-11-28,
+rice_white,rice_white.dry,dry,"White rice, long-grain, dried","White rice, long-grain, raw",169756,"Rice, white, long-grain, regular, raw, unenriched",rice,*,exact,,,Paul,2026-11-28,Unenriched: UK rice is not enriched. The UK default for rice is dry (owner decision).
+rice_white,rice_white.dry,dry,"White rice, long-grain, dried","White rice, long-grain, raw",169756,"Rice, white, long-grain, regular, raw, unenriched",white rice,*,exact,,,Paul,2026-11-28,
+rice_white,rice_white.dry,dry,"White rice, long-grain, dried","White rice, long-grain, raw",169756,"Rice, white, long-grain, regular, raw, unenriched",long grain rice,*,exact,,,Paul,2026-11-28,
+rice_white,rice_white.dry,dry,"White rice, long-grain, dried","White rice, long-grain, raw",169756,"Rice, white, long-grain, regular, raw, unenriched",basmati rice,*,close_analogue,generic long-grain white rice,,Paul,2026-11-28,
+rice_white,rice_white.cooked_boiled,cooked_boiled,"White rice, long-grain, boiled","White rice, long-grain, cooked",169757,"Rice, white, long-grain, regular, unenriched, cooked without salt",rice,*,exact,,,Paul,2026-11-28,Cooked without salt.
+rice_white,rice_white.cooked_boiled,cooked_boiled,"White rice, long-grain, boiled","White rice, long-grain, cooked",169757,"Rice, white, long-grain, regular, unenriched, cooked without salt",white rice,*,exact,,,Paul,2026-11-28,
+rice_white,rice_white.cooked_boiled,cooked_boiled,"White rice, long-grain, boiled","White rice, long-grain, cooked",169757,"Rice, white, long-grain, regular, unenriched, cooked without salt",boiled rice,*,exact,,,Paul,2026-11-28,
+rice_white,rice_white.cooked_boiled,cooked_boiled,"White rice, long-grain, boiled","White rice, long-grain, cooked",169757,"Rice, white, long-grain, regular, unenriched, cooked without salt",cooked rice,*,exact,,,Paul,2026-11-28,
+rice_white,rice_white.cooked_boiled,cooked_boiled,"White rice, long-grain, boiled","White rice, long-grain, cooked",169757,"Rice, white, long-grain, regular, unenriched, cooked without salt",basmati rice,*,close_analogue,generic long-grain white rice,,Paul,2026-11-28,
+rice_brown,rice_brown.dry,dry,"Brown rice, dried","Brown rice, raw",169703,"Rice, brown, long-grain, raw (Includes foods for USDA's Food Distribution Program)",brown rice,*,exact,,,Paul,2026-11-28,
+rice_brown,rice_brown.cooked_boiled,cooked_boiled,"Brown rice, boiled","Brown rice, cooked",169704,"Rice, brown, long-grain, cooked (Includes foods for USDA's Food Distribution Program)",brown rice,*,exact,,,Paul,2026-11-28,
+rice_brown,rice_brown.cooked_boiled,cooked_boiled,"Brown rice, boiled","Brown rice, cooked",169704,"Rice, brown, long-grain, cooked (Includes foods for USDA's Food Distribution Program)",cooked brown rice,*,exact,,,Paul,2026-11-28,
+sweetcorn,sweetcorn.canned_drained,canned_drained,"Sweetcorn, tinned, drained","Corn, canned, drained",169214,"Corn, sweet, yellow, canned, whole kernel, drained solids",sweetcorn,en-GB,regional_equivalent,,,Paul,2026-11-28,The UK default for sweetcorn is tinned/drained (owner decision).
+sweetcorn,sweetcorn.canned_drained,canned_drained,"Sweetcorn, tinned, drained","Corn, canned, drained",169214,"Corn, sweet, yellow, canned, whole kernel, drained solids",sweet corn,*,exact,,,Paul,2026-11-28,
+sweetcorn,sweetcorn.canned_drained,canned_drained,"Sweetcorn, tinned, drained","Corn, canned, drained",169214,"Corn, sweet, yellow, canned, whole kernel, drained solids",tinned sweetcorn,en-GB,regional_equivalent,,,Paul,2026-11-28,
+sweetcorn,sweetcorn.canned_drained,canned_drained,"Sweetcorn, tinned, drained","Corn, canned, drained",169214,"Corn, sweet, yellow, canned, whole kernel, drained solids",canned corn,en-US,exact,,,Paul,2026-11-28,
+sweetcorn,sweetcorn.raw,raw,"Sweetcorn, raw","Corn, sweet, raw",169998,"Corn, sweet, yellow, raw",sweetcorn,en-GB,regional_equivalent,,,Paul,2026-11-28,
+sweetcorn,sweetcorn.raw,raw,"Sweetcorn, raw","Corn, sweet, raw",169998,"Corn, sweet, yellow, raw",sweet corn,*,exact,,,Paul,2026-11-28,
+sweetcorn,sweetcorn.raw,raw,"Sweetcorn, raw","Corn, sweet, raw",169998,"Corn, sweet, yellow, raw",corn on the cob,*,exact,,,Paul,2026-11-28,
+onion,onion.raw,raw,Onions,Onions,170000,"Onions, raw",onion,*,exact,,,Paul,2026-11-28,
+onion,onion.raw,raw,Onions,Onions,170000,"Onions, raw",onions,*,exact,,,Paul,2026-11-28,
+onion,onion.raw,raw,Onions,Onions,170000,"Onions, raw",brown onion,en-GB,regional_equivalent,,,Paul,2026-11-28,
+onion_red,onion_red.raw,raw,Red onions,Red onions,790577,"Onions, red, raw",red onion,*,exact,,,Paul,2026-11-28,Foundation: there is no SR red-onion row.
+onion_red,onion_red.raw,raw,Red onions,Red onions,790577,"Onions, red, raw",red onions,*,exact,,,Paul,2026-11-28,
+garlic,garlic.raw,raw,Garlic,Garlic,169230,"Garlic, raw",garlic,*,exact,,,Paul,2026-11-28,
+garlic,garlic.raw,raw,Garlic,Garlic,169230,"Garlic, raw",garlic clove,*,exact,,,Paul,2026-11-28,
+garlic,garlic.raw,raw,Garlic,Garlic,169230,"Garlic, raw",garlic cloves,*,exact,,,Paul,2026-11-28,
+chicken_breast,chicken_breast.raw,raw,"Chicken breast, skinless","Chicken breast, skinless, boneless",171077,"Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",chicken breast,*,exact,,,Paul,2026-11-28,ingredient_aliases.py resolves this to a skin-on row by search.
+chicken_breast,chicken_breast.raw,raw,"Chicken breast, skinless","Chicken breast, skinless, boneless",171077,"Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",chicken breasts,*,exact,,,Paul,2026-11-28,
+chicken_breast,chicken_breast.raw,raw,"Chicken breast, skinless","Chicken breast, skinless, boneless",171077,"Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",chicken breast fillet,en-GB,exact,,,Paul,2026-11-28,
+chicken_breast,chicken_breast.raw,raw,"Chicken breast, skinless","Chicken breast, skinless, boneless",171077,"Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",chicken breast fillets,en-GB,exact,,,Paul,2026-11-28,
+chicken_thigh,chicken_thigh.raw,raw,"Chicken thigh, meat only","Chicken thigh, meat only",173627,"Chicken, broilers or fryers, dark meat, thigh, meat only, raw",chicken thigh,*,exact,,,Paul,2026-11-28,"ingredient_aliases.py resolves this to 'Chicken, skin (drumsticks and thighs), raw' by search: skin only."
+chicken_thigh,chicken_thigh.raw,raw,"Chicken thigh, meat only","Chicken thigh, meat only",173627,"Chicken, broilers or fryers, dark meat, thigh, meat only, raw",chicken thighs,*,exact,,,Paul,2026-11-28,
+yoghurt_greek,yoghurt_greek.unspecified,unspecified,"Greek yoghurt, plain, whole milk","Greek yogurt, plain, whole milk",171304,"Yogurt, Greek, plain, whole milk",greek yoghurt,*,exact,,,Paul,2026-11-28,The fat content of UK Greek yoghurt varies by brand.
+yoghurt_greek,yoghurt_greek.unspecified,unspecified,"Greek yoghurt, plain, whole milk","Greek yogurt, plain, whole milk",171304,"Yogurt, Greek, plain, whole milk",greek yogurt,*,exact,,,Paul,2026-11-28,
+yoghurt_natural,yoghurt_natural.unspecified,unspecified,"Natural yoghurt, whole milk","Plain yogurt, whole milk",171284,"Yogurt, plain, whole milk",natural yoghurt,en-GB,regional_equivalent,,,Paul,2026-11-28,
+yoghurt_natural,yoghurt_natural.unspecified,unspecified,"Natural yoghurt, whole milk","Plain yogurt, whole milk",171284,"Yogurt, plain, whole milk",natural yogurt,en-GB,regional_equivalent,,,Paul,2026-11-28,
+yoghurt_natural,yoghurt_natural.unspecified,unspecified,"Natural yoghurt, whole milk","Plain yogurt, whole milk",171284,"Yogurt, plain, whole milk",plain yogurt,*,exact,,,Paul,2026-11-28,
+yoghurt_natural,yoghurt_natural.unspecified,unspecified,"Natural yoghurt, whole milk","Plain yogurt, whole milk",171284,"Yogurt, plain, whole milk",plain yoghurt,*,exact,,,Paul,2026-11-28,
+mozzarella,mozzarella.unspecified,unspecified,Mozzarella,"Mozzarella, whole milk",170845,"Cheese, mozzarella, whole milk",mozzarella,*,exact,,,Paul,2026-11-28,"Whole milk, not low-moisture: closest to a UK mozzarella ball."
+parmesan,parmesan.unspecified,unspecified,Parmesan,Parmesan,170848,"Cheese, parmesan, hard",parmesan,*,exact,,,Paul,2026-11-28,
+egg,egg.raw,raw,"Egg, whole","Egg, whole",171287,"Egg, whole, raw, fresh",egg,*,exact,,,Paul,2026-11-28,
+egg,egg.raw,raw,"Egg, whole","Egg, whole",171287,"Egg, whole, raw, fresh",eggs,*,exact,,,Paul,2026-11-28,
+egg,egg.raw,raw,"Egg, whole","Egg, whole",171287,"Egg, whole, raw, fresh",large egg,*,exact,,,Paul,2026-11-28,
+egg,egg.raw,raw,"Egg, whole","Egg, whole",171287,"Egg, whole, raw, fresh",large eggs,*,exact,,,Paul,2026-11-28,
+egg,egg.raw,raw,"Egg, whole","Egg, whole",171287,"Egg, whole, raw, fresh",whole egg,*,exact,,,Paul,2026-11-28,
+egg_white,egg_white.raw,raw,Egg white,Egg white,172183,"Egg, white, raw, fresh",egg white,*,exact,,,Paul,2026-11-28,
+egg_white,egg_white.raw,raw,Egg white,Egg white,172183,"Egg, white, raw, fresh",egg whites,*,exact,,,Paul,2026-11-28,
+egg_yolk,egg_yolk.raw,raw,Egg yolk,Egg yolk,172184,"Egg, yolk, raw, fresh",egg yolk,*,exact,,,Paul,2026-11-28,
+egg_yolk,egg_yolk.raw,raw,Egg yolk,Egg yolk,172184,"Egg, yolk, raw, fresh",egg yolks,*,exact,,,Paul,2026-11-28,
+celery,celery.raw,raw,Celery,Celery,169988,"Celery, raw",celery,*,exact,,,Paul,2026-11-28,
+celery,celery.raw,raw,Celery,Celery,169988,"Celery, raw",celery sticks,en-GB,exact,,,Paul,2026-11-28,
+celery,celery.raw,raw,Celery,Celery,169988,"Celery, raw",celery stick,en-GB,exact,,,Paul,2026-11-28,
+cauliflower,cauliflower.raw,raw,Cauliflower,Cauliflower,169986,"Cauliflower, raw",cauliflower,*,exact,,,Paul,2026-11-28,
+butternut_squash,butternut_squash.raw,raw,Butternut squash,Butternut squash,169295,"Squash, winter, butternut, raw",butternut squash,*,exact,,,Paul,2026-11-28,
+lemon,lemon.raw,raw,Lemon,Lemon,167746,"Lemons, raw, without peel",lemon,*,exact,,,Paul,2026-11-28,Without peel; ingredient_aliases.py notes bare 'lemon' once matched lemon peel.
+lemon,lemon.raw,raw,Lemon,Lemon,167746,"Lemons, raw, without peel",lemons,*,exact,,,Paul,2026-11-28,
+potatoes,potatoes.raw,raw,Potatoes,Potatoes,170026,"Potatoes, flesh and skin, raw",potato,*,exact,,,Paul,2026-11-28,Flesh and skin.
+potatoes,potatoes.raw,raw,Potatoes,Potatoes,170026,"Potatoes, flesh and skin, raw",potatoes,*,exact,,,Paul,2026-11-28,
+potatoes,potatoes.raw,raw,Potatoes,Potatoes,170026,"Potatoes, flesh and skin, raw",baking potatoes,en-GB,exact,,,Paul,2026-11-28,
+pepper_sweet_red,pepper_sweet_red.raw,raw,Red pepper,Red bell pepper,170108,"Peppers, sweet, red, raw",red pepper,en-GB,regional_equivalent,,,Paul,2026-11-28,Bare 'pepper' lists black pepper and red pepper (ambiguous).
+pepper_sweet_red,pepper_sweet_red.raw,raw,Red pepper,Red bell pepper,170108,"Peppers, sweet, red, raw",red peppers,en-GB,regional_equivalent,,,Paul,2026-11-28,
+pepper_sweet_red,pepper_sweet_red.raw,raw,Red pepper,Red bell pepper,170108,"Peppers, sweet, red, raw",red bell pepper,*,exact,,,Paul,2026-11-28,
+pepper_sweet_red,pepper_sweet_red.raw,raw,Red pepper,Red bell pepper,170108,"Peppers, sweet, red, raw",pepper,*,exact,,yes,Paul,2026-11-28,
+black_pepper,black_pepper.unspecified,unspecified,Black pepper,Black pepper,170931,"Spices, pepper, black",black pepper,*,exact,,,Paul,2026-11-28,
+black_pepper,black_pepper.unspecified,unspecified,Black pepper,Black pepper,170931,"Spices, pepper, black",ground black pepper,*,exact,,,Paul,2026-11-28,
+black_pepper,black_pepper.unspecified,unspecified,Black pepper,Black pepper,170931,"Spices, pepper, black",pepper,*,exact,,yes,Paul,2026-11-28,
+cayenne,cayenne.unspecified,unspecified,Cayenne pepper,Cayenne pepper,170932,"Spices, pepper, red or cayenne",cayenne pepper,*,exact,,,Paul,2026-11-28,
+cayenne,cayenne.unspecified,unspecified,Cayenne pepper,Cayenne pepper,170932,"Spices, pepper, red or cayenne",chilli flakes,en-GB,close_analogue,ground cayenne; chilli flakes are similar,,Paul,2026-11-28,
+cayenne,cayenne.unspecified,unspecified,Cayenne pepper,Cayenne pepper,170932,"Spices, pepper, red or cayenne",chili flakes,en-US,close_analogue,ground cayenne; chili flakes are similar,,Paul,2026-11-28,
+curry_powder,curry_powder.unspecified,unspecified,Curry powder,Curry powder,170924,"Spices, curry powder",curry powder,*,exact,,,Paul,2026-11-28,
+mustard_powder,mustard_powder.unspecified,unspecified,Mustard powder,Ground mustard,170929,"Spices, mustard seed, ground",mustard powder,en-GB,regional_equivalent,,,Paul,2026-11-28,
+mustard_powder,mustard_powder.unspecified,unspecified,Mustard powder,Ground mustard,170929,"Spices, mustard seed, ground",ground mustard,*,exact,,,Paul,2026-11-28,
+mustard_powder,mustard_powder.unspecified,unspecified,Mustard powder,Ground mustard,170929,"Spices, mustard seed, ground",dry mustard,en-US,exact,,,Paul,2026-11-28,
+thyme_dried,thyme_dried.dehydrated,dehydrated,"Thyme, dried","Thyme, dried",170938,"Spices, thyme, dried",dried thyme,*,exact,,,Paul,2026-11-28,
+stock_chicken,stock_chicken.unspecified,unspecified,Chicken stock,Chicken stock,172884,"Soup, stock, chicken, home-prepared",chicken stock,*,exact,,,Paul,2026-11-28,Home-prepared stock.
+stock_beef,stock_beef.unspecified,unspecified,Beef stock,Beef stock,172883,"Soup, stock, beef, home-prepared",beef stock,*,exact,,,Paul,2026-11-28,Home-prepared stock.
+stock_vegetable,stock_vegetable.unspecified,unspecified,Vegetable stock (ready to serve),Vegetable broth,171583,"Soup, vegetable broth, ready to serve",vegetable stock,*,close_analogue,ready-to-serve vegetable broth,,Paul,2026-11-28,ingredient_aliases.py resolves vegetable stock to a beef-broth soup by search.
+stock_vegetable,stock_vegetable.unspecified,unspecified,Vegetable stock (ready to serve),Vegetable broth,171583,"Soup, vegetable broth, ready to serve",vegetable broth,*,exact,,,Paul,2026-11-28,
+stock_cube_chicken,stock_cube_chicken.dry,dry,Chicken stock cube (dry),"Chicken bouillon, dry",171562,"Soup, chicken broth or bouillon, dry",chicken stock cube,en-GB,regional_equivalent,,,Paul,2026-11-28,"Dry weight: log the cube, not the made-up stock."
+stock_cube_chicken,stock_cube_chicken.dry,dry,Chicken stock cube (dry),"Chicken bouillon, dry",171562,"Soup, chicken broth or bouillon, dry",chicken stock cubes,en-GB,regional_equivalent,,,Paul,2026-11-28,
+stock_cube_chicken,stock_cube_chicken.dry,dry,Chicken stock cube (dry),"Chicken bouillon, dry",171562,"Soup, chicken broth or bouillon, dry",chicken bouillon,*,exact,,,Paul,2026-11-28,
+stock_cube_beef,stock_cube_beef.dry,dry,Beef stock cube (dry),"Beef bouillon, dry",171560,"Soup, beef broth or bouillon, powder, dry",beef stock cube,en-GB,regional_equivalent,,,Paul,2026-11-28,Dry weight.
+stock_cube_beef,stock_cube_beef.dry,dry,Beef stock cube (dry),"Beef bouillon, dry",171560,"Soup, beef broth or bouillon, powder, dry",beef stock cubes,en-GB,regional_equivalent,,,Paul,2026-11-28,
+stock_cube_beef,stock_cube_beef.dry,dry,Beef stock cube (dry),"Beef bouillon, dry",171560,"Soup, beef broth or bouillon, powder, dry",beef bouillon,*,exact,,,Paul,2026-11-28,
+cannellini_beans,cannellini_beans.canned_with_liquid,canned_with_liquid,"Cannellini beans, tinned","White beans, canned",175204,"Beans, white, mature seeds, canned",cannellini beans,*,regional_equivalent,US 'white beans',,Paul,2026-11-28,
+cannellini_beans,cannellini_beans.canned_with_liquid,canned_with_liquid,"Cannellini beans, tinned","White beans, canned",175204,"Beans, white, mature seeds, canned",tinned cannellini beans,en-GB,regional_equivalent,US 'white beans',,Paul,2026-11-28,
+cannellini_beans,cannellini_beans.canned_with_liquid,canned_with_liquid,"Cannellini beans, tinned","White beans, canned",175204,"Beans, white, mature seeds, canned",white beans,*,exact,,,Paul,2026-11-28,
+butter_beans,butter_beans.canned_with_liquid,canned_with_liquid,"Butter beans, tinned","Lima beans, canned",174254,"Lima beans, large, mature seeds, canned",butter beans,en-GB,regional_equivalent,,,Paul,2026-11-28,
+butter_beans,butter_beans.canned_with_liquid,canned_with_liquid,"Butter beans, tinned","Lima beans, canned",174254,"Lima beans, large, mature seeds, canned",tinned butter beans,en-GB,regional_equivalent,,,Paul,2026-11-28,
+butter_beans,butter_beans.canned_with_liquid,canned_with_liquid,"Butter beans, tinned","Lima beans, canned",174254,"Lima beans, large, mature seeds, canned",lima beans,*,exact,,,Paul,2026-11-28,
+black_beans,black_beans.canned_with_liquid,canned_with_liquid,"Black beans, tinned","Black beans, canned",175188,"Beans, black turtle, mature seeds, canned",black beans,*,exact,,,Paul,2026-11-28,
+black_beans,black_beans.canned_with_liquid,canned_with_liquid,"Black beans, tinned","Black beans, canned",175188,"Beans, black turtle, mature seeds, canned",tinned black beans,en-GB,exact,,,Paul,2026-11-28,
+black_beans,black_beans.dry,dry,"Black beans, dried","Black beans, dry",175186,"Beans, black turtle, mature seeds, raw",black beans,*,exact,,,Paul,2026-11-28,
+black_beans,black_beans.dry,dry,"Black beans, dried","Black beans, dry",175186,"Beans, black turtle, mature seeds, raw",dried black beans,*,exact,,,Paul,2026-11-28,
+black_eyed_beans,black_eyed_beans.canned_with_liquid,canned_with_liquid,"Black-eyed beans, tinned","Black-eyed peas, canned",173760,"Cowpeas, common (blackeyes, crowder, southern), mature seeds, canned, plain",black-eyed beans,en-GB,regional_equivalent,,,Paul,2026-11-28,
+black_eyed_beans,black_eyed_beans.canned_with_liquid,canned_with_liquid,"Black-eyed beans, tinned","Black-eyed peas, canned",173760,"Cowpeas, common (blackeyes, crowder, southern), mature seeds, canned, plain",black eyed beans,en-GB,regional_equivalent,,,Paul,2026-11-28,
+black_eyed_beans,black_eyed_beans.canned_with_liquid,canned_with_liquid,"Black-eyed beans, tinned","Black-eyed peas, canned",173760,"Cowpeas, common (blackeyes, crowder, southern), mature seeds, canned, plain",black-eyed peas,*,exact,,,Paul,2026-11-28,
+black_eyed_beans,black_eyed_beans.canned_with_liquid,canned_with_liquid,"Black-eyed beans, tinned","Black-eyed peas, canned",173760,"Cowpeas, common (blackeyes, crowder, southern), mature seeds, canned, plain",black eyed peas,*,exact,,,Paul,2026-11-28,
+split_peas,split_peas.cooked_boiled,cooked_boiled,"Split peas, boiled","Split peas, cooked",172429,"Peas, split, mature seeds, cooked, boiled, without salt",split peas,*,exact,,,Paul,2026-11-28,No raw/dry split-pea row in the catalogue.
+soy_sauce,soy_sauce.unspecified,unspecified,Soy sauce,Soy sauce,174277,Soy sauce made from soy and wheat (shoyu),soy sauce,*,exact,,,Paul,2026-11-28,
+soy_sauce,soy_sauce.unspecified,unspecified,Soy sauce,Soy sauce,174277,Soy sauce made from soy and wheat (shoyu),soya sauce,en-GB,exact,,,Paul,2026-11-28,
+fish_sauce,fish_sauce.unspecified,unspecified,Fish sauce,Fish sauce,174531,"Sauce, fish, ready-to-serve",fish sauce,*,exact,,,Paul,2026-11-28,ingredient_aliases.py resolves this to sardines in tomato sauce by search.
+olives_black,olives_black.canned_with_liquid,canned_with_liquid,Black olives,"Ripe olives, canned",169094,"Olives, ripe, canned (small-extra large)",black olives,*,exact,,,Paul,2026-11-28,
+olives_black,olives_black.canned_with_liquid,canned_with_liquid,Black olives,"Ripe olives, canned",169094,"Olives, ripe, canned (small-extra large)",olives,*,close_analogue,ripe (black) olives,,Paul,2026-11-28,
+bagel,bagel.unspecified,unspecified,"Bagel, plain","Bagel, plain",174899,"Bagels, plain, enriched, with calcium propionate (includes onion, poppy, sesame)",bagel,*,exact,,,Paul,2026-11-28,
+bagel,bagel.unspecified,unspecified,"Bagel, plain","Bagel, plain",174899,"Bagels, plain, enriched, with calcium propionate (includes onion, poppy, sesame)",bagels,*,exact,,,Paul,2026-11-28,
+bread_roll,bread_roll.unspecified,unspecified,"Bread roll, white",Dinner roll,172793,"Rolls, dinner, plain, commercially prepared (includes brown-and-serve)",bread roll,en-GB,close_analogue,US dinner roll,,Paul,2026-11-28,
+bread_roll,bread_roll.unspecified,unspecified,"Bread roll, white",Dinner roll,172793,"Rolls, dinner, plain, commercially prepared (includes brown-and-serve)",bread rolls,en-GB,close_analogue,US dinner roll,,Paul,2026-11-28,
+bread_roll,bread_roll.unspecified,unspecified,"Bread roll, white",Dinner roll,172793,"Rolls, dinner, plain, commercially prepared (includes brown-and-serve)",dinner roll,*,exact,,,Paul,2026-11-28,
+bread_roll,bread_roll.unspecified,unspecified,"Bread roll, white",Dinner roll,172793,"Rolls, dinner, plain, commercially prepared (includes brown-and-serve)",dinner rolls,*,exact,,,Paul,2026-11-28,
+pitta,pitta.unspecified,unspecified,"Pitta bread, white","Pita bread, white",174915,"Bread, pita, white, enriched",pitta,en-GB,regional_equivalent,,,Paul,2026-11-28,ingredient_aliases.py resolves pitta to whole-wheat pita by search.
+pitta,pitta.unspecified,unspecified,"Pitta bread, white","Pita bread, white",174915,"Bread, pita, white, enriched",pitta bread,en-GB,regional_equivalent,,,Paul,2026-11-28,
+pitta,pitta.unspecified,unspecified,"Pitta bread, white","Pita bread, white",174915,"Bread, pita, white, enriched",pita,*,exact,,,Paul,2026-11-28,
+pitta,pitta.unspecified,unspecified,"Pitta bread, white","Pita bread, white",174915,"Bread, pita, white, enriched",pita bread,*,exact,,,Paul,2026-11-28,
+english_muffin,english_muffin.unspecified,unspecified,English muffin,English muffin,174994,"Muffins, English, plain, enriched, with ca prop (includes sourdough)",english muffin,*,exact,,,Paul,2026-11-28,
+english_muffin,english_muffin.unspecified,unspecified,English muffin,English muffin,174994,"Muffins, English, plain, enriched, with ca prop (includes sourdough)",english muffins,*,exact,,,Paul,2026-11-28,
+bread_french,bread_french.unspecified,unspecified,French bread,French bread,172675,"Bread, french or vienna (includes sourdough)",french bread,*,exact,,,Paul,2026-11-28,
+bread_french,bread_french.unspecified,unspecified,French bread,French bread,172675,"Bread, french or vienna (includes sourdough)",baguette,*,exact,,,Paul,2026-11-28,
+bread_french,bread_french.unspecified,unspecified,French bread,French bread,172675,"Bread, french or vienna (includes sourdough)",crusty bread,en-GB,close_analogue,French/Vienna-style loaf,,Paul,2026-11-28,
+tofu_firm,tofu_firm.raw,raw,"Tofu, firm","Tofu, firm",172475,"Tofu, raw, firm, prepared with calcium sulfate",firm tofu,*,exact,,,Paul,2026-11-28,Calcium sulphate set.
+tofu_firm,tofu_firm.raw,raw,"Tofu, firm","Tofu, firm",172475,"Tofu, raw, firm, prepared with calcium sulfate",tofu,*,exact,,,Paul,2026-11-28,
+peanut_butter,peanut_butter.unspecified,unspecified,"Peanut butter, smooth","Peanut butter, smooth",174266,"Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)",peanut butter,*,exact,,,Paul,2026-11-28,With salt: most UK peanut butter is salted. ingredient_aliases.py uses the unsalted row.
+peanut_butter,peanut_butter.unspecified,unspecified,"Peanut butter, smooth","Peanut butter, smooth",174266,"Peanut butter, smooth style, with salt (Includes foods for USDA's Food Distribution Program)",smooth peanut butter,*,exact,,,Paul,2026-11-28,
+walnuts,walnuts.unspecified,unspecified,Walnuts,Walnuts,170187,"Nuts, walnuts, english",walnuts,*,exact,,,Paul,2026-11-28,
+walnuts,walnuts.unspecified,unspecified,Walnuts,Walnuts,170187,"Nuts, walnuts, english",walnut,*,exact,,,Paul,2026-11-28,
+tahini,tahini.roasted,roasted,Tahini,Tahini,170189,"Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type)",tahini,*,exact,,,Paul,2026-11-28,"Roasted/toasted kernels, the common type."
+tahini,tahini.roasted,roasted,Tahini,Tahini,170189,"Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type)",tahina,*,exact,,,Paul,2026-11-28,
+pork_chop,pork_chop.raw,raw,Pork chop,Pork chop,167822,"Pork, fresh, loin, blade (chops or roasts), bone-in, separable lean and fat, raw",pork chop,*,exact,,,Paul,2026-11-28,
+pork_chop,pork_chop.raw,raw,Pork chop,Pork chop,167822,"Pork, fresh, loin, blade (chops or roasts), bone-in, separable lean and fat, raw",pork chops,*,exact,,,Paul,2026-11-28,
+lettuce_romaine,lettuce_romaine.raw,raw,Romaine lettuce,Romaine lettuce,169247,"Lettuce, cos or romaine, raw",romaine lettuce,*,exact,,,Paul,2026-11-28,
+lettuce_romaine,lettuce_romaine.raw,raw,Romaine lettuce,Romaine lettuce,169247,"Lettuce, cos or romaine, raw",cos lettuce,en-GB,regional_equivalent,,,Paul,2026-11-28,
+lettuce_romaine,lettuce_romaine.raw,raw,Romaine lettuce,Romaine lettuce,169247,"Lettuce, cos or romaine, raw",romaine,*,exact,,,Paul,2026-11-28,
+beef_sirloin,beef_sirloin.raw,raw,Sirloin steak,Top sirloin steak,174763,"Beef, top sirloin, steak, separable lean only, trimmed to 1/8"" fat, choice, raw",sirloin steak,*,exact,,,Paul,2026-11-28,"Lean only, trimmed."
+beef_sirloin,beef_sirloin.raw,raw,Sirloin steak,Top sirloin steak,174763,"Beef, top sirloin, steak, separable lean only, trimmed to 1/8"" fat, choice, raw",beef sirloin,*,exact,,,Paul,2026-11-28,
+beef_sirloin,beef_sirloin.raw,raw,Sirloin steak,Top sirloin steak,174763,"Beef, top sirloin, steak, separable lean only, trimmed to 1/8"" fat, choice, raw",beef sirloin steaks,*,exact,,,Paul,2026-11-28,
+beef_braising,beef_braising.raw,raw,Braising steak,"Beef chuck, stew meat",171206,"Beef, chuck for stew, separable lean and fat, all grades, raw",braising steak,en-GB,regional_equivalent,US chuck stew meat,,Paul,2026-11-28,All grades.
+beef_braising,beef_braising.raw,raw,Braising steak,"Beef chuck, stew meat",171206,"Beef, chuck for stew, separable lean and fat, all grades, raw",stewing steak,en-GB,regional_equivalent,US chuck stew meat,,Paul,2026-11-28,
+beef_braising,beef_braising.raw,raw,Braising steak,"Beef chuck, stew meat",171206,"Beef, chuck for stew, separable lean and fat, all grades, raw",stew beef,en-US,exact,,,Paul,2026-11-28,
+white_wine,white_wine.unspecified,unspecified,White wine,White wine,174837,"Alcoholic beverage, wine, table, white",white wine,*,exact,,,Paul,2026-11-28,
+granola,granola.unspecified,unspecified,Granola,Granola,171646,"Cereals ready-to-eat, granola, homemade",granola,*,exact,,,Paul,2026-11-28,Homemade-style row.
+bran_flakes,bran_flakes.unspecified,unspecified,Bran flakes,Bran flakes,173002,"Cereals ready-to-eat, RALSTON Enriched Wheat Bran flakes",bran flakes,*,close_analogue,RALSTON bran flakes; other brands differ,,Paul,2026-11-28,
+green_beans,green_beans.raw,raw,Green beans,Green beans,169961,"Beans, snap, green, raw",green beans,*,exact,,,Paul,2026-11-28,
+green_beans,green_beans.raw,raw,Green beans,Green beans,169961,"Beans, snap, green, raw",french beans,en-GB,regional_equivalent,,,Paul,2026-11-28,
+sardines_tomato,sardines_tomato.canned_drained,canned_drained,Sardines in tomato sauce,Sardines in tomato sauce,175140,"Fish, sardine, Pacific, canned in tomato sauce, drained solids with bone",sardines in tomato sauce,*,exact,,,Paul,2026-11-28,
+salmon,salmon.raw,raw,"Salmon, farmed","Atlantic salmon, farmed",175167,"Fish, salmon, Atlantic, farmed, raw",salmon,*,exact,,,Paul,2026-11-28,Farmed: most UK supermarket salmon.
+salmon,salmon.raw,raw,"Salmon, farmed","Atlantic salmon, farmed",175167,"Fish, salmon, Atlantic, farmed, raw",salmon fillet,*,exact,,,Paul,2026-11-28,
+salmon,salmon.raw,raw,"Salmon, farmed","Atlantic salmon, farmed",175167,"Fish, salmon, Atlantic, farmed, raw",salmon fillets,*,exact,,,Paul,2026-11-28,
+tuna_canned_water,tuna_canned_water.canned_drained,canned_drained,"Tuna, tinned in water, drained","Tuna, canned in water, drained",173709,"Fish, tuna, light, canned in water, drained solids (Includes foods for USDA's Food Distribution Program)",tinned tuna,en-GB,exact,,,Paul,2026-11-28,Light tuna.
+tuna_canned_water,tuna_canned_water.canned_drained,canned_drained,"Tuna, tinned in water, drained","Tuna, canned in water, drained",173709,"Fish, tuna, light, canned in water, drained solids (Includes foods for USDA's Food Distribution Program)",canned tuna,*,exact,,,Paul,2026-11-28,
+tuna_canned_water,tuna_canned_water.canned_drained,canned_drained,"Tuna, tinned in water, drained","Tuna, canned in water, drained",173709,"Fish, tuna, light, canned in water, drained solids (Includes foods for USDA's Food Distribution Program)",tuna in water,*,exact,,,Paul,2026-11-28,
+butter_salted,butter_salted.unspecified,unspecified,"Butter, salted","Butter, salted",173410,"Butter, salted",butter,*,exact,,,Paul,2026-11-28,
+butter_salted,butter_salted.unspecified,unspecified,"Butter, salted","Butter, salted",173410,"Butter, salted",salted butter,*,exact,,,Paul,2026-11-28,
+butter_unsalted,butter_unsalted.unspecified,unspecified,"Butter, unsalted","Butter, unsalted",173430,"Butter, without salt",unsalted butter,*,exact,,,Paul,2026-11-28,
+broccoli,broccoli.raw,raw,Broccoli,Broccoli,170379,"Broccoli, raw",broccoli,*,exact,,,Paul,2026-11-28,
+carrots,carrots.raw,raw,Carrots,Carrots,170393,"Carrots, raw",carrot,*,exact,,,Paul,2026-11-28,
+carrots,carrots.raw,raw,Carrots,Carrots,170393,"Carrots, raw",carrots,*,exact,,,Paul,2026-11-28,
+spinach,spinach.raw,raw,Spinach,Spinach,168462,"Spinach, raw",spinach,*,exact,,,Paul,2026-11-28,
+mushrooms,mushrooms.raw,raw,"Mushrooms, white","Mushrooms, white",169251,"Mushrooms, white, raw",mushroom,*,exact,,,Paul,2026-11-28,
+mushrooms,mushrooms.raw,raw,"Mushrooms, white","Mushrooms, white",169251,"Mushrooms, white, raw",mushrooms,*,exact,,,Paul,2026-11-28,
+cucumber,cucumber.raw,raw,Cucumber,Cucumber,168409,"Cucumber, with peel, raw",cucumber,*,exact,,,Paul,2026-11-28,With peel.
+bananas,bananas.raw,raw,Banana,Banana,173944,"Bananas, raw",banana,*,exact,,,Paul,2026-11-28,
+bananas,bananas.raw,raw,Banana,Banana,173944,"Bananas, raw",bananas,*,exact,,,Paul,2026-11-28,
+peas,peas.frozen,frozen,"Peas, frozen","Peas, frozen",170016,"Peas, green, frozen, unprepared (Includes foods for USDA's Food Distribution Program)",peas,*,exact,,,Paul,2026-11-28,
+peas,peas.frozen,frozen,"Peas, frozen","Peas, frozen",170016,"Peas, green, frozen, unprepared (Includes foods for USDA's Food Distribution Program)",frozen peas,*,exact,,,Paul,2026-11-28,
+peas,peas.frozen,frozen,"Peas, frozen","Peas, frozen",170016,"Peas, green, frozen, unprepared (Includes foods for USDA's Food Distribution Program)",garden peas,en-GB,exact,,,Paul,2026-11-28,
+peas,peas.raw,raw,"Peas, fresh","Peas, raw",170419,"Peas, green, raw",peas,*,exact,,,Paul,2026-11-28,
+peas,peas.raw,raw,"Peas, fresh","Peas, raw",170419,"Peas, green, raw",fresh peas,*,exact,,,Paul,2026-11-28,

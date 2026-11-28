@@ -45,7 +45,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Literal
 
-from sqlalchemy import and_, case, func, or_, text
+from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from .aggregation import WeightedFood, aggregate_amino_acids, aggregate_nutrients
@@ -56,11 +56,11 @@ from .food_preparation import (
     preparation_label,
     preparation_rank,
 )
-from .models import Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare
+from .models import CanonicalAlias, CanonicalFood, Food, FoodNutrient, Recipe, RecipeIngredient, RecipeShare
 from .nutrients import NUTRIENTS
 from .reference_patterns import DEFAULT_PATTERN
 from .scoring import IncompleteAminoAcidProfile, UnknownReferencePattern, compute_diaas, compute_pdcaas
-from .search_locale import search_locale
+from .search_locale import EN_US, search_locale
 from .search_synonyms import FOOD_SYNONYMS, phrase_synonyms, token_synonyms
 
 Op = Literal["gte", "lte", "eq"]
@@ -113,6 +113,12 @@ def expand_query_terms(query: str) -> list[str]:
 #   * preparation state is a tie-break (never a filter);
 #   * branded rows are collapsed to one result per product name, keeping
 #     the newest FDC version.
+#
+# Tier 1 (plan 3.3, PR 4b) comes before all of that: a query that is
+# exactly a reviewed canonical alias (canonical_foods tables, loaded from
+# app/canonical_foods/canonical_foods_en_gb.csv) returns that canonical's
+# anchor row first, followed by the concept's other preparation variants.
+# The ranked token search fills the rest of the list, without repeats.
 
 _USDA_BOILERPLATE = "(includes foods for usda's food distribution program)"
 _STOP_WORDS = frozenset({"and", "or", "with", "of", "the", "a", "&", "in"})
@@ -281,6 +287,15 @@ class FoodSearchHit:
     matched_term: str
     relationship: str | None = None
     note: str | None = None
+    # set on tier-1 results only: the reviewed canonical this row anchors,
+    # its display name in the request locale, and where the logged row's
+    # values come from ("USDA SR Legacy", plan 3.2)
+    canonical_key: str | None = None
+    canonical_name: str | None = None
+    canonical_source: str | None = None
+
+
+_CANONICAL_SOURCE = {"sr_legacy_food": "USDA SR Legacy", "foundation_food": "USDA Foundation"}
 
 
 def _is_branded(food: Food) -> bool:
@@ -385,6 +400,92 @@ def _rank_by_relevance(foods: list[Food], query: str, limit: int, locale: str | 
     return [h.food for h in _rank_hits(foods, variants, query, locale)][:limit]
 
 
+def _alias_forms(q: str) -> set[str]:
+    """The query and its last word's plural/singular forms, so "chickpea"
+    finds the alias "chickpeas" and "swedes" finds "swede"."""
+    words = q.split()
+    head, last = words[:-1], words[-1]
+    forms = {q} | {" ".join(head + [f]) for f in _inflections(last)}
+    if not last.endswith("s"):
+        forms |= {q + "s", q + "es"}
+    return forms
+
+
+def _canonical_hits(db: Session, query: str, locale: str) -> list[FoodSearchHit]:
+    """Tier 1 (plan 3.3): canonicals with an alias equal to the query in the
+    request locale or in any locale ('*'), plus the other active
+    preparation variants of the same concepts as siblings.
+
+    Order: concepts matched in the request locale before '*' ones, and
+    those matched as typed before an inflected form; then by concept key
+    (alphabetical, so an ambiguous alias such as "milk" lists its concepts
+    in a fixed order); within a concept the matched canonicals before the
+    siblings, then the preparation tie-break (the query's named state, else
+    the locale's concept default, food_preparation.preferred_preparation)."""
+    q = _normalise_query(query)
+    forms = _alias_forms(q)
+    rows = db.execute(
+        select(CanonicalAlias, CanonicalFood)
+        .join(CanonicalFood, CanonicalFood.id == CanonicalAlias.canonical_food_id)
+        .where(
+            func.lower(CanonicalAlias.alias).in_(forms),
+            CanonicalAlias.locale.in_((locale, "*")),
+            CanonicalFood.status == "active",
+            CanonicalFood.default_food_id.isnot(None),
+        )
+    ).all()
+    if not rows:
+        return []
+
+    matched: dict[int, tuple[tuple, CanonicalAlias, CanonicalFood]] = {}
+    for alias, canonical in rows:
+        rank = (alias.locale != locale, alias.alias.lower() != q, alias.relationship != "exact", alias.id)
+        if canonical.id not in matched or rank < matched[canonical.id][0]:
+            matched[canonical.id] = (rank, alias, canonical)
+    concept_rank: dict[str, tuple] = {}
+    for rank, _, canonical in matched.values():
+        concept_rank[canonical.concept] = min(concept_rank.get(canonical.concept, rank[:2]), rank[:2])
+
+    siblings = db.execute(
+        select(CanonicalFood).where(
+            CanonicalFood.concept.in_(list(concept_rank)),
+            CanonicalFood.status == "active",
+            CanonicalFood.default_food_id.isnot(None),
+            CanonicalFood.id.notin_(list(matched)),
+        )
+    ).scalars().all()
+    canonicals = [c for _, _, c in matched.values()] + list(siblings)
+    foods = {f.id: f for f in db.query(Food).filter(Food.id.in_({c.default_food_id for c in canonicals})).all()}
+
+    preferred_state = preferred_preparation(q, locale)
+
+    def order(canonical: CanonicalFood) -> tuple:
+        return (
+            concept_rank[canonical.concept], canonical.concept, canonical.id not in matched,
+            preparation_rank(canonical.preparation_state, preferred_state), canonical.key,
+        )
+
+    hits = []
+    for canonical in sorted(canonicals, key=order):
+        food = foods.get(canonical.default_food_id)
+        if food is None:
+            continue
+        alias = matched[canonical.id][1] if canonical.id in matched else None
+        name = (canonical.display_name_en_us if locale == EN_US else None) or canonical.display_name_en_gb
+        hits.append(FoodSearchHit(
+            food,
+            canonical.preparation_state,
+            preparation_label(canonical.preparation_state, locale),
+            alias.alias if alias else q,
+            relationship=alias.relationship if alias and alias.relationship != "exact" else None,
+            note=alias.display_note if alias else None,
+            canonical_key=canonical.key,
+            canonical_name=name,
+            canonical_source=_CANONICAL_SOURCE.get(food.data_type),
+        ))
+    return hits
+
+
 def search_foods_by_name_hits(
     db: Session, query: str, limit: int = 20, locale: str | None = None
 ) -> list[FoodSearchHit]:
@@ -418,7 +519,10 @@ def search_foods_by_name_hits(
             for food in rows:
                 by_id.setdefault(food.id, food)
 
-    hits = _collapse_branded_versions(_rank_hits(list(by_id.values()), variants, query, locale))[:limit]
+    hits = _collapse_branded_versions(_rank_hits(list(by_id.values()), variants, query, locale))
+    canonical = _canonical_hits(db, query, locale)
+    shown = {h.food.id for h in canonical}
+    hits = (canonical + [h for h in hits if h.food.id not in shown])[:limit]
 
     # Typo tolerance only: the trigram fallback runs when the token pass
     # found nothing at all. It used to top up any short list, which put
