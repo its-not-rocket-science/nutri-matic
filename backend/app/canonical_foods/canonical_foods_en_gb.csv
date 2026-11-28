@@ -1,0 +1,16 @@
+concept,canonical_key,preparation_state,display_name_en_gb,display_name_en_us,anchor_fdc_id,alias,alias_locale,relationship,alias_note,ambiguous,reviewer,review_date,notes
+chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,chickpeas,*,exact,,,PENDING,,"UK default preparation for chickpeas is tinned/drained (owner decision). SR Legacy row, as for the other variants (plan 1.3: Foundation often lacks energy and folate)."
+chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,tinned chickpeas,en-GB,exact,,,PENDING,,
+chickpeas,chickpeas.canned_drained,canned_drained,"Chickpeas, tinned, drained","Chickpeas, canned, drained",173800,canned chickpeas,*,exact,,,PENDING,,
+chickpeas,chickpeas.dry,dry,"Chickpeas, dried","Chickpeas, dry",173756,chickpeas,*,exact,,,PENDING,,"SR ""mature seeds, raw"" is the dry pulse. Not the Foundation ""dry"" row (fdc 2644282), which has no energy or folate (plan 1.3)."
+chickpeas,chickpeas.dry,dry,"Chickpeas, dried","Chickpeas, dry",173756,dried chickpeas,*,exact,,,PENDING,,
+chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,chickpeas,*,exact,,,PENDING,,Boiled without salt.
+chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,boiled chickpeas,*,exact,,,PENDING,,
+chickpeas,chickpeas.cooked_boiled,cooked_boiled,"Chickpeas, boiled","Chickpeas, boiled",173757,cooked chickpeas,*,exact,,,PENDING,,
+lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,lentils,*,exact,,,PENDING,,"UK default preparation for lentils is dry (owner decision). SR ""Lentils, raw"" is the dry pulse; the Foundation ""Lentils, dry"" row (fdc 2644283) has no energy or folate (plan 1.3)."
+lentils,lentils.dry,dry,"Lentils, dried","Lentils, dry",172420,dried lentils,*,exact,,,PENDING,,
+rocket,rocket.raw,raw,Rocket,Arugula,169387,rocket,en-GB,exact,,,PENDING,,"en-GB only: in en-US ""rocket"" is not a food name."
+rocket,rocket.raw,raw,Rocket,Arugula,169387,arugula,*,exact,,,PENDING,,
+milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,semi-skimmed milk,en-GB,close_analogue,approx. UK semi-skimmed,,PENDING,,"Owner decision: semi-skimmed maps to US 2% milk as a close analogue (UK semi-skimmed is ~1.7% fat). The anchor is fortified with vitamins A and D (per its FDC name); whether that matches UK milk is not checked here."
+milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,semi skimmed milk,en-GB,close_analogue,approx. UK semi-skimmed,,PENDING,,
+milk_reduced_fat_2pct,milk_reduced_fat_2pct.unspecified,unspecified,"Milk, 2% fat (US reduced-fat)","Milk, reduced fat, 2%",171267,2% milk,en-US,exact,,,PENDING,,

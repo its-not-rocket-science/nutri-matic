@@ -10,9 +10,11 @@ salt"). Today it is used for two things only:
   * a label shown next to each search result, so dry and cooked rice, or
     dried and tinned chickpeas, are not confused when logging.
 
-PR 4 will also use it for the canonical-member invariant (plan 3.1): a
-member's state must equal its canonical food's, and a row in
-UNCLASSIFIED_STATES can never be a member. So it is tuned for precision
+The canonical-foods loader (app.canonical_foods.loader) also uses it for
+the plan 3.1 invariant: an anchor or member's state must equal its
+canonical food's. A canonical food is never `unknown`; it is `unspecified`
+only where preparation does not apply (milk, cheddar), so a row whose
+state is not stated cannot join a canonical that has one. So it is tuned for precision
 over recall: where a name does not clearly state one preparation, it says
 `unspecified` (no cue) or `unknown` (ambiguous), never a guess.
 
@@ -77,8 +79,10 @@ PREPARATION_STATES = (
     # preparation tie-break, rather than a guessed state.
     "unknown",
 )
-# States that say nothing about how the food was prepared. A canonical
-# food's members (plan 3.1, PR 4) must have a state outside this set.
+# States that say nothing about how the food was prepared. No badge, no
+# tie-break. A row in one of these can only join a canonical food whose own
+# state is `unspecified` (preparation does not apply); see the module
+# docstring.
 UNCLASSIFIED_STATES = ("unspecified", "unknown")
 
 # Heads (first comma segment, when it is a single word) whose
